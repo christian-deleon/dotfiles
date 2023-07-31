@@ -1,0 +1,4 @@
+alias ll='ls -lah'
+alias grep='grep --color=auto'
+alias mkdir='mkdir -pv'
+alias update='sudo apt-get update && sudo apt-get upgrade'
