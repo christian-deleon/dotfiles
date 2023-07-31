@@ -54,10 +54,22 @@ complete -o default -F __start_kubectl k
 export EDITOR="/usr/bin/vim"
 
 parse_git_branch() {
-     git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/ (\1)/'
+     local branch_name="$(git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/\1/')"
+     local git_status="$(git status 2> /dev/null)"
+     local status_indicator=""
+
+     if [[ ! $git_status =~ "nothing to commit" ]]; then
+        status_indicator="*"
+     fi
+
+     if [[ ! -z $branch_name ]]; then
+         echo " ($branch_name$status_indicator)"
+     fi
 }
+
 export PS1="\u@\h \[\033[32m\]\W\[\033[33m\]\$(parse_git_branch)\[\033[00m\] $ "
 
 [ -f ~/.aliases ] && source ~/.aliases
 [ -f ~/.functions ] && source ~/.functions
+[ -f ~/.exports ] && source ~/.exports
 
