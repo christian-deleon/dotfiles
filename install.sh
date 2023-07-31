@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define the list of dotfiles and dot directories
-dotfiles=(.aliases .functions .gitconfig .tmux.conf)
+dotfiles=(.aliases .functions .gitconfig .tmux.conf .bashrc)
 dotdirs=(.vscode)
 
 # Location of your dotfiles repository
@@ -33,13 +33,5 @@ for dir in "${dotdirs[@]}"; do
     ln -sf ${dotfiles_dir}/${dir} ~/${dir}
 done
 
-# Source the files from shell configuration file
-shell_config_file=~/.bashrc # change this to ~/.zshrc if you're using zsh
-
-echo 'if [ -f ~/.aliases ]; then source ~/.aliases; fi' >> ${shell_config_file}
-echo 'if [ -f ~/.functions ]; then source ~/.functions; fi' >> ${shell_config_file}
-
-# Apply changes
-source ${shell_config_file}
-
 echo "Dotfiles setup completed."
+
