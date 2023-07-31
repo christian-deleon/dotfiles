@@ -1,0 +1,13 @@
+[user]
+    name = Christian De Leon
+    email = christiandeleon12693@gmail.com
+[alias]
+    br = branch
+    ci = commit
+    co = checkout
+    st = status
+[core]
+    editor = vim
+    autocrlf = input
+[color]
+    ui = true
