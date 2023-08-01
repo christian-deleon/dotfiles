@@ -14,6 +14,12 @@ This repository contains my personal dotfiles, which include configurations for 
 
 A script is provided for easy installation of these dotfiles into a new system.
 
+or
+
+```bash
+wget -O - https://raw.githubusercontent.com/christian-deleon/dotfiles/main/install.sh | bash -
+```
+
 ### Script: `install.sh`
 
 This script does the following:
@@ -32,4 +38,3 @@ This command assumes that you're in the same directory as the script.
 ## Disclaimer
 
 Please fork this repository or copy any configurations that you find useful. Also, review any script before running it. I am not responsible for any damage that could be done to your system. Use at your own risk.
-
