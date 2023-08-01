@@ -17,21 +17,20 @@ mkdir -p ${backup_dir}
 for file in "${dotfiles[@]}"; do
     if [ -f ~/${file} ]; then
         echo "Backing up ${file} to ${backup_dir}"
-        cp ~/${file} ${backup_dir}
+        cp -L ~/${file} ${backup_dir}
     fi
     echo "Creating symlink for ${file}"
-    ln -sf ${dotfiles_dir}/${file} ~/${file}
+    ln -snf ${dotfiles_dir}/${file} ~/${file}
 done
 
 # Handle directories separately
 for dir in "${dotdirs[@]}"; do
     if [ -d ~/${dir} ]; then
         echo "Backing up ${dir} to ${backup_dir}"
-        rsync -av ~/${dir} ${backup_dir}
+        rsync -aL ~/${dir} ${backup_dir}
     fi
     echo "Creating symlink for ${dir}"
-    ln -sf ${dotfiles_dir}/${dir} ~/${dir}
+    ln -snf ${dotfiles_dir}/${dir} ~/${dir}
 done
 
 echo "Dotfiles setup completed."
-
