@@ -1,7 +1,18 @@
+# Aliases for 'ls' command variations
+alias la='ls -lAh'
 alias ll='ls -lah'
-alias grep='grep --color=auto'
+
+# Aliases for directory navigation
+alias up='cd ..'
+alias up2='cd ../..'
+alias up3='cd ../../..'
+alias up4='cd ../../../..'
+
+# Aliases for frequent commands
+alias diff='diff --color=auto'
 alias mkdir='mkdir -pv'
 alias update='sudo apt-get update && sudo apt-get upgrade'
-alias diff='diff --color=auto'
-alias la='ls -lAh'
 alias vi='vim'
+
+# Kubernetes shortcut
+alias k=kubectl
