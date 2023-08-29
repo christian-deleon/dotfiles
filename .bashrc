@@ -104,4 +104,6 @@ export EDITOR="/usr/bin/vim"
 # ============================
 # kubectl configurations
 # ============================
-source <(kubectl completion bash)
+if command -v kubectl &>/dev/null; then
+    source <(kubectl completion bash)
+fi
