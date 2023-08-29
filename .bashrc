@@ -87,8 +87,6 @@ if ! shopt -oq posix; then
   fi
 fi
 
-complete -o default -F __start_kubectl k
-
 # ============================
 # Editor configurations
 # ============================
@@ -106,4 +104,5 @@ export EDITOR="/usr/bin/vim"
 # ============================
 if command -v kubectl &>/dev/null; then
     source <(kubectl completion bash)
+    complete -o default -F __start_kubectl k
 fi
