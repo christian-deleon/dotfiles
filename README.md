@@ -17,7 +17,7 @@ A script is provided for easy installation of these dotfiles into a new system.
 or
 
 ```bash
-wget -O - https://raw.githubusercontent.com/christian-deleon/dotfiles/main/install.sh | bash -
+wget -O - https://gitlab.robochris.net/robochris/dotfiles/-/raw/main/install.sh | bash -
 ```
 
 ### Script: `install.sh`
