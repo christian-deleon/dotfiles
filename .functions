@@ -9,3 +9,10 @@ function mkd() {
 function kn() {
     kubectl config set-context --current --namespace="$1"
 }
+
+# Git
+
+# Git Clone and cd into it
+function gcl() {
+    git clone "$1" && cd "$(basename "$1" .git)"
+}
