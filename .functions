@@ -2,3 +2,10 @@
 function mkd() {
     mkdir -p "$@" && cd "$@"
 }
+
+# Kubernetes
+
+# Change the current kubectl namespace
+function kn() {
+    kubectl config set-context --current --namespace="$1"
+}
