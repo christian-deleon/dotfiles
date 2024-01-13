@@ -1,18 +1,51 @@
+#################
+# General
+#################
+
 # Create a new directory and enter it
 function mkd() {
     mkdir -p "$@" && cd "$@"
 }
 
+#################
 # Kubernetes
+#################
 
 # Change the current kubectl namespace
 function kn() {
     kubectl config set-context --current --namespace="$1"
 }
 
+# Change the current kubectl context
+function kc() {
+    kubectl config use-context "$1"
+}
+
+# Print all the pods in the current namespace
+function kp() {
+    kubectl get pods
+}
+
+# Print all the pods in the current namespace with more details
+function kpd() {
+    kubectl get pods -o wide
+}
+
+# Print all the events in the current namespace and sort by timestamp
+function ke() {
+    kubectl get events --sort-by=.metadata.creationTimestamp
+}
+
+#################
 # Git
+#################
 
 # Git Clone and cd into it
 function gcl() {
     git clone "$1" && cd "$(basename "$1" .git)"
+}
+
+# Git Clone and cd into it and open in VS Code
+function gclv() {
+    gcl "$1" && code .
 }
