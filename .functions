@@ -46,6 +46,11 @@ function ke() {
     kubectl get events --sort-by='.lastTimestamp'
 }
 
+# Print all the events in all namespaces and sort by timestamp
+function kea() {
+    kubectl get events --all-namespaces --sort-by='.lastTimestamp'
+}
+
 #################
 # Git
 #################
