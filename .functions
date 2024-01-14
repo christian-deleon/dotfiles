@@ -26,6 +26,11 @@ function kp() {
     kubectl get pods
 }
 
+# Watch all the pods in the current namespace
+function kpw() {
+    kubectl get pods -w
+}
+
 # Print all the pods in the current namespace with more details
 function kpd() {
     kubectl get pods -o wide
