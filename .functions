@@ -33,7 +33,7 @@ function kpd() {
 
 # Print all the events in the current namespace and sort by timestamp
 function ke() {
-    kubectl get events --sort-by=.metadata.creationTimestamp
+    kubectl get events --sort-by='.lastTimestamp'
 }
 
 #################
