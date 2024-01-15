@@ -84,6 +84,16 @@ function gclv() {
 # Flux CD
 #################
 
+# Display all flux events in the current namespace
+function fe() {
+    flux get events
+}
+
+# Display all flux events in all namespaces
+function fea() {
+    flux get events --all-namespaces
+}
+
 # Reconile a kustomization with name
 function fk() {
     flux reconcile kustomization "$1"
