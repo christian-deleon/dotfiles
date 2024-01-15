@@ -79,3 +79,27 @@ function gcl() {
 function gclv() {
     gcl "$1" && code .
 }
+
+#################
+# Flux CD
+#################
+
+# Reconile a kustomization with name
+function fk() {
+    flux reconcile kustomization "$1"
+}
+
+# Reconile a helmrelease with name
+function fh() {
+    flux reconcile helmrelease "$1"
+}
+
+# Suspends a kustomization with name
+function fks() {
+    flux suspend kustomization "$1"
+}
+
+# Resumes a kustomization with name
+function fkr() {
+    flux resume kustomization "$1"
+}
