@@ -28,7 +28,7 @@ function kp() {
 
 # Watch all the pods in the current namespace
 function kpw() {
-    kubectl get pods -w
+    watch -n 1 kubectl get pods
 }
 
 # Print all the pods in the current namespace with more details
@@ -43,7 +43,7 @@ function kpa() {
 
 # Watch all the pods in all namespaces
 function kpaw() {
-    kubectl get pods --all-namespaces -w
+    watch -n 1 kubectl get pods --all-namespaces
 }
 
 # Print all the pods in all namespaces with more details
