@@ -61,6 +61,11 @@ function kea() {
     kubectl get events --all-namespaces --sort-by='.lastTimestamp'
 }
 
+# Get all the services in the current namespace
+function ks() {
+    kubectl get services
+}
+
 #################
 # Git
 #################
