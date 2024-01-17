@@ -59,4 +59,17 @@ for dir in "${dotdirs[@]}"; do
     done
 done
 
+# Prompt user for Git configuration
+echo 
+read -p "Enter your Git name: " git_user_name
+read -p "Enter your Git email: " git_email
+
+# Path to the private Git config
+git_private_config=~/.git-private
+
+# Create or update the private Git config file
+echo "[user]" > ${git_private_config}
+echo "    name = ${git_user_name}" >> ${git_private_config}
+echo "    email = ${git_email}" >> ${git_private_config}
+
 echo "Dotfiles setup completed."
