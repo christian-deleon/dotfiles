@@ -1,0 +1,3 @@
+---
+- name: Update packages based on distribution
+  ansible.builtin.include_tasks: "{{ ansible_distribution }}.yaml"
