@@ -1,0 +1,13 @@
+---
+- name: Git clone kubectl_install role
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Git clone kubectl_install role
+      ansible.builtin.git:
+        repo: https://gitlab.com/devops9483002/ansible/roles/kubectl_install.git
+        dest: ~/.ansible/roles/kubectl_install
+        version: main
