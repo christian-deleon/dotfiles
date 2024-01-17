@@ -7,10 +7,9 @@ if [[ ! -x "$(command -v ansible)" ]]; then
     echo "Installing Ansible..."
     if ! command -v pip &> /dev/null; then
         echo "Pip is not installed. Installing pip..."
-        wget -qO - https://bootstrap.pypa.io/get-pip.py | python3
-    else
-        python3 -m pip install --user ansible
+        wget -qO - https://bootstrap.pypa.io/get-pip.py | python3        
     fi
+    python3 -m pip install --user ansible
 fi
 
 # Function to update system packages
