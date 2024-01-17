@@ -2,7 +2,7 @@
 
 # Define the list of dotfiles and dot directories
 dotfiles=(.aliases .functions .gitconfig .tmux.conf .bashrc)
-dotdirs=(.vscode)
+dotdirs=(.vscode .config)
 
 # Location of your dotfiles repository
 dotfiles_dir=~/dotfiles
