@@ -14,9 +14,9 @@ if [[ ! -x "$(command -v ansible)" ]]; then
 fi
 
 # Function to update system packages
-update_packages() {
-    echo "Updating system packages using Ansible..."
-    ansible-playbook -i ${ansible_dir}/hosts/inventory.ini ${ansible_dir}/update-packages.yaml
+update() {
+    echo "Updating system packages and dotfiles using Ansible..."
+    ansible-playbook -i ${ansible_dir}/hosts/inventory.ini ${ansible_dir}/update.yaml
 }
 
 # Function to install a tool using Ansible
@@ -29,7 +29,7 @@ install_tool() {
 # Main logic to handle arguments
 case "$1" in
     update)
-        update_packages
+        update
         ;;
     install)
         if [ -z "$2" ]; then
