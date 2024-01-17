@@ -11,9 +11,69 @@
         name: expect
         state: present
 
+    - name: Pip install pexpect
+      ansible.builtin.pip:
+        name: pexpect
+        state: present
+
     - name: Install Starship using expect
-      ansible.builtin.expect:
-        command: curl -sS https://starship.rs/install.sh | sh
-        responses:
-          Question:
-            - y
+      ansible.builtin.shell: |
+        expect -c '
+        spawn sh -c "curl -sS https://starship.rs/install.sh | sh"
+        expect "Install Starship latest to"
+        send "y\r"
+        expect eof
+        '
+
+    - name: Download Nerd Font
+      ansible.builtin.get_url:
+        url: https://github.com/ryanoasis/nerd-fonts/releases/download/v3.1.1/JetBrainsMono.zip
+        dest: /tmp/JetBrainsMono.zip
+
+    - name: Ensure directory exists
+      ansible.builtin.file:
+        path: /tmp/JetBrainsMono
+        state: directory
+
+    - name: Install unzip
+      ansible.builtin.package:
+        name: unzip
+        state: present
+
+    - name: Unzip Nerd Font
+      ansible.builtin.unarchive:
+        src: /tmp/JetBrainsMono.zip
+        dest: /tmp/JetBrainsMono
+        remote_src: true
+
+    - name: Find Nerd Font ttf files
+      ansible.builtin.find:
+        paths: "/tmp/JetBrainsMono"
+        patterns: "*.ttf"
+      register: found_files
+
+    - name: Copy all Nerd Font ttf files to fonts directory
+      ansible.builtin.copy:
+        src: "{{ item.path }}"
+        dest: "/usr/share/fonts/"
+        remote_src: true
+      loop: "{{ found_files.files }}"
+
+    - name: Install fontconfig
+      ansible.builtin.package:
+        name: fontconfig
+        state: present
+
+    - name: Install Nerd Font
+      ansible.builtin.shell: |
+        fc-cache -f -v
+
+    - name: Remove Nerd Font zip
+      ansible.builtin.file:
+        path: /tmp/JetBrainsMono.zip
+        state: absent
+
+    - name: Remove Nerd Font directory
+      ansible.builtin.file:
+        path: /tmp/JetBrainsMono
+        state: absent
