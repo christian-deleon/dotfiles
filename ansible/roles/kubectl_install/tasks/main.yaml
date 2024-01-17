@@ -1,0 +1,32 @@
+---
+- name: Set the latest version of kubectl
+  ansible.builtin.set_fact:
+    kubectl_version: "{{ lookup('url', 'https://dl.k8s.io/release/stable.txt') }}"
+
+- name: Download kubectl
+  ansible.builtin.get_url:
+    url: "https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/amd64/kubectl"
+    dest: /usr/local/bin/kubectl
+    mode: "0755"
+
+- name: Set the checksum of kubectl
+  ansible.builtin.set_fact:
+    kubectl_checksum: "{{ lookup('url', 'https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/amd64/kubectl.sha256') }}"
+
+- name: Check the checksum of kubectl
+  ansible.builtin.shell: |
+    echo "{{ kubectl_checksum }}  /usr/local/bin/kubectl" | sha256sum --check
+  register: kubectl_checksum_result
+  changed_when: false
+
+- name: Remove kubectl if checksum is not correct
+  ansible.builtin.file:
+    path: /usr/local/bin/kubectl
+    state: absent
+  when: kubectl_checksum_result.rc != 0
+
+- name: Check the version of kubectl
+  ansible.builtin.shell: |
+    /usr/local/bin/kubectl version --client
+  register: kubectl_version_result
+  changed_when: false
