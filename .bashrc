@@ -2,6 +2,12 @@
 [[ $- != *i* ]] && return
 
 # ============================
+# Environment configurations
+# ============================
+
+export PATH="$HOME/.local/bin:$PATH"
+
+# ============================
 # History configurations
 # ============================
 
