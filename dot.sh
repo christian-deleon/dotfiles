@@ -25,6 +25,9 @@ install_tool() {
     tool=$1
     echo
     echo "Installing ${tool} using Ansible..."
+    if [[ -f "${ansible_dir}/clone-${tool}.yaml" ]]; then
+        ansible-playbook -i localhost, ${ansible_dir}/clone-${tool}.yaml
+    fi
     ansible-playbook -i localhost, ${ansible_dir}/install-${tool}.yaml
 }
 

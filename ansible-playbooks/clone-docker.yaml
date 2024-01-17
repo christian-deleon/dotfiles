@@ -1,0 +1,13 @@
+---
+- name: Git clone docker_install role
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Git clone docker_install role
+      ansible.builtin.git:
+        repo: https://gitlab.com/devops9483002/ansible/roles/docker_install.git
+        dest: ~/.ansible/roles/docker_install
+        version: main
