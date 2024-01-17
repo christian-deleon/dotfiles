@@ -10,6 +10,9 @@
       ansible.builtin.git:
         repo: ~/dotfiles
         dest: ~/dotfiles
+        recursive: true
+        update: true
+        version: main
       ignore_errors: true
 
 - name: Update packages
