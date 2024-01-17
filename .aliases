@@ -11,7 +11,6 @@ alias up4='cd ../../../..'
 # Aliases for frequent commands
 alias diff='diff --color=auto'
 alias mkdir='mkdir -pv'
-alias update='sudo apt-get update && sudo apt-get -y upgrade'
 alias vi='vim'
 
 # Kubernetes shortcut
