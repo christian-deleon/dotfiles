@@ -41,12 +41,22 @@ done
 
 # Handle directories separately
 for dir in "${dotdirs[@]}"; do
-    if [ -d ~/${dir} ]; then
-        echo "Backing up ${dir} to ${backup_dir}"
-        rsync -aL ~/${dir} ${backup_dir}
-    fi
-    echo "Creating symlink for ${dir}"
-    ln -snf ${dotfiles_dir}/${dir} ~/${dir}
+    # Ensure the directory exists in the home directory
+    mkdir -p ~/${dir}
+
+    # Iterate over the files in each directory
+    for file in $(ls -A ${dotfiles_dir}/${dir}); do
+        # Check if the file already exists in the home directory
+        if [ -f ~/${dir}/${file} ]; then
+            echo "Backing up ~/${dir}/${file} to ${backup_dir}/${dir}"
+            mkdir -p ${backup_dir}/${dir}
+            cp -L ~/${dir}/${file} ${backup_dir}/${dir}
+        fi
+
+        # Create a symlink for each file
+        echo "Creating symlink for ${dir}/${file}"
+        ln -snf ${dotfiles_dir}/${dir}/${file} ~/${dir}/${file}
+    done
 done
 
 echo "Dotfiles setup completed."
