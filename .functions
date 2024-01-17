@@ -113,3 +113,12 @@ function fks() {
 function fkr() {
     flux resume kustomization "$1"
 }
+
+#################
+# Starship
+#################
+
+# Toggle Kubernetes module
+function sk() {
+    starship toggle kubernetes
+}
