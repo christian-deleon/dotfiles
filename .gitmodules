@@ -1,0 +1,3 @@
+[submodule ".ansible/roles/kubectl_install"]
+	path = .ansible/roles/kubectl_install
+	url = https://gitlab.com/devops9483002/ansible/roles/kubectl_install.git
