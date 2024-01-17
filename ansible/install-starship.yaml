@@ -77,3 +77,7 @@
       ansible.builtin.file:
         path: /tmp/JetBrainsMono
         state: absent
+
+    - name: Reload shell
+      ansible.builtin.shell: |
+        exec bash
