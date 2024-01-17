@@ -1,0 +1,13 @@
+---
+- name: Install Starship
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Install Starship
+      ansible.builtin.shell: |
+        curl -sS https://starship.rs/install.sh | sh
+      args:
+        creates: /usr/local/bin/starship
