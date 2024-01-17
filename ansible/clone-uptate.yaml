@@ -1,0 +1,13 @@
+---
+- name: Git clone os_update role
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Git clone os_update role
+      ansible.builtin.git:
+        repo: https://gitlab.com/devops9483002/ansible/roles/os_update.git
+        dest: ~/.ansible/roles/os_update
+        version: main
