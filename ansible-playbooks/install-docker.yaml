@@ -3,7 +3,6 @@
   hosts: localhost
   connection: local
   become: true
-  gather_facts: false
 
   roles:
     - ~/.ansible/roles/docker_install
