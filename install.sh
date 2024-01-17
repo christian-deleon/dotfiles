@@ -59,18 +59,18 @@ for dir in "${dotdirs[@]}"; do
     done
 done
 
-# Prompt user for Git configuration
-echo 
-read -p "Enter your Git name: " git_user_name
-read -p "Enter your Git email: " git_email
-
 # Path to the private Git config
 git_private_config=~/.git-private
 
-# Create or update the private Git config file
-echo "[user]" > ${git_private_config}
-echo "    name = ${git_user_name}" >> ${git_private_config}
-echo "    email = ${git_email}" >> ${git_private_config}
+# Check if the private Git config already exists if not create it
+if [ ! -f "${git_private_config}" ]; then
+    echo 
+    read -p "Enter your Git name: " git_user_name
+    read -p "Enter your Git email: " git_email
+    echo "[user]" > ${git_private_config}
+    echo "    name = ${git_user_name}" >> ${git_private_config}
+    echo "    email = ${git_email}" >> ${git_private_config}
+fi
 
 # Path to the dotfiles.sh script in your repository
 dotfiles_script="${dotfiles_dir}/dotfiles.sh"
@@ -79,12 +79,15 @@ dotfiles_script="${dotfiles_dir}/dotfiles.sh"
 if [ -f "$dotfiles_script" ]; then
     echo "Installing the dotfiles CLI tool..."
 
-    # Make the script executable
-    chmod +x "$dotfiles_script"
+    # Create the ~/.local/bin directory if it doesn't exist
+    if [ ! -d ~/.local/bin ]; then
+        mkdir -p ~/.local/bin
+    fi
 
-    # Optionally, move or symlink the script to a directory in your PATH
-    # For example, symlink it to /usr/local/bin
-    ln -s "$dotfiles_script" /usr/local/bin/dotfiles
+    # Create a symlink for the dotfiles.sh script if it doesn't exist
+    if [ ! -f ~/.local/bin/dotfiles ]; then
+        ln -s "$dotfiles_script" ~/.local/bin/dotfiles
+    fi
 
     echo "dotfiles CLI tool installed successfully."
 else
