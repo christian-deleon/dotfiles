@@ -2,7 +2,7 @@
 - name: Git clone os_update role
   hosts: localhost
   connection: local
-  become: true
+  become: false
   gather_facts: false
 
   tasks:
