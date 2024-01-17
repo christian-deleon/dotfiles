@@ -1,5 +1,3 @@
-[user]
-    name = Christian De Leon
 [alias]
     br = branch
     ci = commit
@@ -12,3 +10,5 @@
     defaultBranch = main
 [color]
     ui = true
+[include]
+    path = ~/.git-private
