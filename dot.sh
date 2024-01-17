@@ -17,7 +17,7 @@ fi
 update() {
     echo
     echo "Updating system packages and dotfiles using Ansible..."
-    ansible-playbook -i ${ansible_dir}/hosts/inventory.ini ${ansible_dir}/update.yaml
+    ansible-playbook -i localhost, ${ansible_dir}/update.yaml
 }
 
 # Function to install a tool using Ansible
@@ -25,7 +25,7 @@ install_tool() {
     tool=$1
     echo
     echo "Installing ${tool} using Ansible..."
-    ansible-playbook -i ${ansible_dir}/hosts/inventory.ini ${ansible_dir}/install-${tool}.yaml
+    ansible-playbook -i localhost, ${ansible_dir}/install-${tool}.yaml
 }
 
 # Main logic to handle arguments
