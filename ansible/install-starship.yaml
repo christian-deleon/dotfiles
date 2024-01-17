@@ -6,8 +6,14 @@
   gather_facts: false
 
   tasks:
-    - name: Install Starship
-      ansible.builtin.shell: |
-        curl -sS https://starship.rs/install.sh | sh
-      args:
-        creates: /usr/local/bin/starship
+    - name: Install expect
+      ansible.builtin.package:
+        name: expect
+        state: present
+
+    - name: Install Starship using expect
+      ansible.builtin.expect:
+        command: curl -sS https://starship.rs/install.sh | sh
+        responses:
+          Question:
+            - y
