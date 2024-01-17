@@ -1,0 +1,28 @@
+---
+- name: Update dotfiles
+  hosts: localhost
+  connection: local
+  become: false
+  gather_facts: false
+
+  tasks:
+    - name: Git Pull
+      ansible.builtin.git:
+        repo: ~/dotfiles
+        dest: ~/dotfiles
+      ignore_errors: true
+
+- name: Update packages
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Update Ubuntu packages
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: dist
+        autoremove: true
+        autoclean: true
+      when: ansible_distribution == 'Ubuntu'
