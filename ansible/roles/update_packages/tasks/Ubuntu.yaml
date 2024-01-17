@@ -1,0 +1,8 @@
+---
+- name: Update Ubuntu packages
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: dist
+    autoremove: true
+    autoclean: true
+  when: ansible_distribution == 'Ubuntu'
