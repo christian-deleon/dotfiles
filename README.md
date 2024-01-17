@@ -4,23 +4,15 @@ This repository contains my personal dotfiles, which include configurations for 
 
 ## Structure
 
+- `.config` : Contains configuration files for various tools.
 - `.aliases` : Contains aliases for bash.
 - `.functions` : Contains function definitions for bash.
 - `.gitconfig` : Contains git configuration settings.
 - `.tmux.conf` : Contains configuration settings for tmux.
 - `.vscode` : Contains settings for VS Code.
+- `ansible` : Contains Ansible playbooks for provisioning a new system.
 
 ## Installation
-
-A script is provided for easy installation of these dotfiles into a new system.
-
-or
-
-```bash
-wget -O - https://gitlab.robochris.net/robochris/dotfiles/-/raw/main/install.sh | bash -
-```
-
-### Script: `install.sh`
 
 This script does the following:
 
