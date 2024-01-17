@@ -72,4 +72,19 @@ echo "[user]" > ${git_private_config}
 echo "    name = ${git_user_name}" >> ${git_private_config}
 echo "    email = ${git_email}" >> ${git_private_config}
 
+# Prompt user to install Ansible
+read -p "Do you want to install Ansible? (y/N): " install_ansible
+
+if [[ $install_ansible == [Yy] ]]; then
+    echo "Installing Ansible..."
+    if ! command -v pip &> /dev/null; then
+        echo "Pip is not installed. Installing pip..."
+        wget -qO - https://bootstrap.pypa.io/get-pip.py | python3
+    else
+        python3 -m pip install --user ansible
+    fi
+else
+    echo "Skipping Ansible installation."
+fi
+
 echo "Dotfiles setup completed."
