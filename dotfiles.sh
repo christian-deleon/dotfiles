@@ -4,6 +4,7 @@ ansible_dir=~/dotfiles/ansible
 
 # Check if Ansible is installed
 if [[ ! -x "$(command -v ansible)" ]]; then
+    echo
     echo "Installing Ansible..."
     if ! command -v pip &> /dev/null; then
         echo "Pip is not installed. Installing pip..."
@@ -14,6 +15,7 @@ fi
 
 # Function to update system packages
 update() {
+    echo
     echo "Updating system packages and dotfiles using Ansible..."
     ansible-playbook -i ${ansible_dir}/hosts/inventory.ini ${ansible_dir}/update.yaml
 }
@@ -21,6 +23,7 @@ update() {
 # Function to install a tool using Ansible
 install_tool() {
     tool=$1
+    echo
     echo "Installing ${tool} using Ansible..."
     ansible-playbook -i ${ansible_dir}/hosts/inventory.ini ${ansible_dir}/install-${tool}.yaml
 }
@@ -32,12 +35,14 @@ case "$1" in
         ;;
     install)
         if [ -z "$2" ]; then
+            echo
             echo "Please specify a tool to install."
         else
             install_tool "$2"
         fi
         ;;
     *)
+        echo
         echo "Usage: dotfiles {update|install <tool>}"
         exit 1
         ;;
