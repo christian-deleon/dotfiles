@@ -17,6 +17,9 @@ fi
 update_system() {
     echo
     echo "Updating system packages and dotfiles using Ansible..."
+    if [[ -f "${ansible_dir}/clone-update.yaml" ]]; then
+        ansible-playbook -i localhost, ${ansible_dir}/clone-update.yaml
+    fi
     ansible-playbook -i localhost, ${ansible_dir}/update.yaml
 }
 
