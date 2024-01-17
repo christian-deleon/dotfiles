@@ -19,4 +19,4 @@
   gather_facts: true
 
   roles:
-    - update_packages
+    - ~/.ansible/roles/os_update

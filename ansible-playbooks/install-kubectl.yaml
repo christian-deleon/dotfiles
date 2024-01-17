@@ -6,4 +6,4 @@
   gather_facts: false
 
   roles:
-    - kubectl_install
+    - ~/.ansible/roles/kubectl_install
