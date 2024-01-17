@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # Define the list of dotfiles and dot directories
 dotfiles=(.aliases .functions .gitconfig .tmux.conf .bashrc .hushlogin .vimrc)
 dotdirs=(.vscode .config)

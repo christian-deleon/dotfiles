@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 ansible_dir=~/dotfiles/ansible
 
 # Check if Ansible is installed
