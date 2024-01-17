@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ansible_dir=~/dotfiles/ansible-playbooks
+ansible_dir=~/dotfiles/ansible
 
 # Check if Ansible is installed
 if [[ ! -x "$(command -v ansible)" ]]; then
