@@ -16,14 +16,14 @@ fi
 # Function to update system packages
 update_packages() {
     echo "Updating system packages using Ansible..."
-    ansible-playbook ${ansible_dir}/update-packages.yaml
+    ansible-playbook -i ${ansible_dir}/hosts/inventory.ini ${ansible_dir}/update-packages.yaml
 }
 
 # Function to install a tool using Ansible
 install_tool() {
     tool=$1
     echo "Installing ${tool} using Ansible..."
-    ansible-playbook ${ansible_dir}/install-${tool}.yaml
+    ansible-playbook -i ${ansible_dir}/hosts/inventory.ini ${ansible_dir}/install-${tool}.yaml
 }
 
 # Main logic to handle arguments
