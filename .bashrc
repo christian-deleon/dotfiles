@@ -4,6 +4,7 @@
 # ============================
 # History configurations
 # ============================
+
 HISTCONTROL=ignoreboth
 HISTSIZE=1000
 HISTFILESIZE=2000
@@ -12,12 +13,14 @@ shopt -s histappend
 # ============================
 # Terminal configurations
 # ============================
+
 shopt -s checkwinsize
 [ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
 
 # ============================
 # Git branch configurations
 # ============================
+
 parse_git_branch() {
      if git rev-parse --git-dir >/dev/null 2>&1; then
          local branch_name="$(git symbolic-ref HEAD 2>/dev/null)" 
@@ -53,6 +56,7 @@ parse_git_branch() {
 # ============================
 # Prompt configurations
 # ============================
+
 debian_chroot=$(cat /etc/debian_chroot 2> /dev/null)
 
 color_prompt=no
@@ -71,6 +75,7 @@ PS1="\[\e]0;\u@\h: \w\a\]${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\
 # ============================
 # Aliases and Autocompletion
 # ============================
+
 if [ -x /usr/bin/dircolors ]; then
     test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
     alias ls='ls --color=auto'
@@ -90,11 +95,13 @@ fi
 # ============================
 # Editor configurations
 # ============================
+
 export EDITOR="/usr/bin/vim"
 
 # ============================
 # Source additional files
 # ============================
+
 [ -f ~/.aliases ] && source ~/.aliases
 [ -f ~/.functions ] && source ~/.functions
 [ -f ~/.exports ] && source ~/.exports
@@ -102,7 +109,14 @@ export EDITOR="/usr/bin/vim"
 # ============================
 # kubectl configurations
 # ============================
+
 if command -v kubectl &>/dev/null; then
     source <(kubectl completion bash)
     complete -o default -F __start_kubectl k
 fi
+
+# ============================
+# Starship configurations
+# ============================
+
+eval "$(starship init bash)"
