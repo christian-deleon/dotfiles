@@ -1,5 +1,5 @@
 ---
-- name: Install Starship
+- name: Install and Configure Starship
   hosts: localhost
   connection: local
   become: true

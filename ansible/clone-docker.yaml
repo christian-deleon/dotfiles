@@ -1,6 +1,5 @@
 ---
-- name: Git clone docker_install role
-  hosts: localhost
+- hosts: localhost
   connection: local
   become: true
   gather_facts: false

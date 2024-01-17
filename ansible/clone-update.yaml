@@ -1,6 +1,5 @@
 ---
-- name: Git clone os_update role
-  hosts: localhost
+- hosts: localhost
   connection: local
   become: false
   gather_facts: false
