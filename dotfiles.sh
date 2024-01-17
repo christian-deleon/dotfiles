@@ -1,5 +1,7 @@
 #!/bin/bash
 
+ansible_dir=~/dotfiles/ansible
+
 # Check if Ansible is installed
 if [[ ! -x "$(command -v ansible)" ]]; then
     echo "Installing Ansible..."
@@ -14,14 +16,15 @@ fi
 # Function to update system packages
 update_packages() {
     echo "Updating system packages using Ansible..."
-    ansible-playbook update-packages.yml
+    ansible-playbook ${ansible_dir}/update-packages.yaml
 }
 
 # Function to install a tool using Ansible
 install_tool() {
     tool=$1
     echo "Installing ${tool} using Ansible..."
-    ansible-playbook install-${tool}.yml
+    ansible-playbook ${ansible_dir}/install-${tool}.yaml
+}
 
 # Main logic to handle arguments
 case "$1" in
