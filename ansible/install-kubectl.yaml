@@ -1,6 +1,5 @@
 ---
-- name: Install Kubectl
-  hosts: localhost
+- hosts: localhost
   connection: local
   become: true
   gather_facts: false
