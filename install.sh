@@ -77,6 +77,29 @@ if [ ! -f "${git_private_config}" ]; then
     echo "    email = ${git_email}" >> ${git_private_config}
 fi
 
+# Handle the .ansible/roles directory specifically
+ansible_roles_dir="${dotfiles_dir}/.ansible/roles"
+home_ansible_roles_dir=~/.ansible/roles
+
+# Ensure the .ansible/roles directory exists in the home directory
+mkdir -p ${home_ansible_roles_dir}
+
+# Iterate over the roles in the .ansible/roles directory
+for role in $(ls -A ${ansible_roles_dir}); do
+    # Check if the role already exists in the home directory
+    if [ -d ${home_ansible_roles_dir}/${role} ]; then
+        echo
+        echo "Backing up ${home_ansible_roles_dir}/${role} to ${backup_dir}/.ansible/roles"
+        mkdir -p ${backup_dir}/.ansible/roles
+        cp -rL ${home_ansible_roles_dir}/${role} ${backup_dir}/.ansible/roles
+    fi
+
+    # Create a symlink for each role
+    echo
+    echo "Creating symlink for .ansible/roles/${role}"
+    ln -snf ${ansible_roles_dir}/${role} ${home_ansible_roles_dir}/${role}
+done
+
 # Path to the dot.sh script in your repository
 dotfiles_script="${dotfiles_dir}/dot.sh"
 
