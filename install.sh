@@ -72,19 +72,23 @@ echo "[user]" > ${git_private_config}
 echo "    name = ${git_user_name}" >> ${git_private_config}
 echo "    email = ${git_email}" >> ${git_private_config}
 
-# Prompt user to install Ansible
-read -p "Do you want to install Ansible? (y/N): " install_ansible
+# Path to the dotfiles.sh script in your repository
+dotfiles_script="${dotfiles_dir}/dotfiles.sh"
 
-if [[ $install_ansible == [Yy] ]]; then
-    echo "Installing Ansible..."
-    if ! command -v pip &> /dev/null; then
-        echo "Pip is not installed. Installing pip..."
-        wget -qO - https://bootstrap.pypa.io/get-pip.py | python3
-    else
-        python3 -m pip install --user ansible
-    fi
+# Check if the dotfiles.sh script exists
+if [ -f "$dotfiles_script" ]; then
+    echo "Installing the dotfiles CLI tool..."
+
+    # Make the script executable
+    chmod +x "$dotfiles_script"
+
+    # Optionally, move or symlink the script to a directory in your PATH
+    # For example, symlink it to /usr/local/bin
+    ln -s "$dotfiles_script" /usr/local/bin/dotfiles
+
+    echo "dotfiles CLI tool installed successfully."
 else
-    echo "Skipping Ansible installation."
+    echo "dotfiles.sh script not found in the repository."
 fi
 
 echo "Dotfiles setup completed."
