@@ -1,0 +1,9 @@
+---
+- name: Install Kubectl
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+
+  roles:
+    - kubectl_install
