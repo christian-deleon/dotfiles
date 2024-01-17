@@ -1,7 +1,0 @@
----
-- name: Update RedHat packages
-  ansible.builtin.yum:
-    name: "*"
-    state: latest
-    update_cache: true
-    exclude: kernel*
