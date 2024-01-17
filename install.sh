@@ -77,29 +77,29 @@ if [ ! -f "${git_private_config}" ]; then
     echo "    email = ${git_email}" >> ${git_private_config}
 fi
 
-# Path to the dotfiles.sh script in your repository
-dotfiles_script="${dotfiles_dir}/dotfiles.sh"
+# Path to the dot.sh script in your repository
+dotfiles_script="${dotfiles_dir}/dot.sh"
 
-# Check if the dotfiles.sh script exists
+# Check if the dot.sh script exists
 if [ -f "$dotfiles_script" ]; then
     echo
-    echo "Installing the dotfiles CLI tool..."
+    echo "Installing the dot CLI tool..."
 
     # Create the ~/.local/bin directory if it doesn't exist
     if [ ! -d ~/.local/bin ]; then
         mkdir -p ~/.local/bin
     fi
 
-    # Create a symlink for the dotfiles.sh script if it doesn't exist
-    if [ ! -f ~/.local/bin/dotfiles ]; then
-        ln -s "$dotfiles_script" ~/.local/bin/dotfiles
+    # Create a symlink for the dot.sh script if it doesn't exist
+    if [ ! -f ~/.local/bin/dot ]; then
+        ln -s "$dotfiles_script" ~/.local/bin/dot
     fi
 
     echo
-    echo "dotfiles CLI tool installed successfully."
+    echo "dot CLI tool installed successfully."
 else
     echo
-    echo "dotfiles.sh script not found in the repository."
+    echo "dot.sh script not found in the repository."
 fi
 
 echo
