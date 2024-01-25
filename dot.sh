@@ -23,7 +23,6 @@ if [[ ! -x "$(command -v ansible)" ]]; then
 
         # Install Python 3
         wget -qO - https://gitlab.com/-/snippets/3638671/raw/main/install_python.sh | bash -s -- ${python_minor}
-        do
     fi
 
     # Check if pip is installed
