@@ -3,7 +3,7 @@
 set -e
 
 # Define the list of dotfiles and dot directories
-dotfiles=(.aliases .functions .gitconfig .tmux.conf .bashrc .hushlogin .vimrc)
+dotfiles=(.aliases .functions .tmux.conf .bashrc .hushlogin .vimrc)
 dotdirs=(.vscode .config)
 
 # Location of your dotfiles repository
@@ -26,6 +26,18 @@ for file in "${dotfiles[@]}"; do
     echo "Creating symlink for ${file}"
     ln -snf ${dotfiles_dir}/${file} ~/${file}
 done
+
+# Special handling for .gitconfig-dotfiles
+if [ -f ${dotfiles_dir}/.gitconfig-dotfiles ]; then
+    if [ -f ~/.gitconfig ]; then
+        echo
+        echo "Backing up existing .gitconfig to ${backup_dir}"
+        cp -L ~/.gitconfig ${backup_dir}
+    fi
+    echo
+    echo "Creating symlink for .gitconfig"
+    ln -snf ${dotfiles_dir}/.gitconfig-dotfiles ~/.gitconfig
+fi
 
 # Handle directories separately
 for dir in "${dotdirs[@]}"; do
