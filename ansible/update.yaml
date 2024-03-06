@@ -1,5 +1,6 @@
 ---
-- hosts: localhost
+- name: Update dotfiles
+  hosts: localhost
   connection: local
   become: false
   gather_facts: false
@@ -12,7 +13,6 @@
         recursive: true
         update: true
         version: main
-      ignore_errors: true
 
 - name: Update packages
   hosts: localhost
