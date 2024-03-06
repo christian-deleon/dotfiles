@@ -4,7 +4,7 @@ set -e
 
 # Define the list of dotfiles and dot directories
 dotfiles=(.aliases .functions .tmux.conf .bashrc .hushlogin .vimrc)
-dotdirs=(.vscode .config)
+dotdirs=(.vscode .config .tmux)
 
 # Location of your dotfiles repository
 dotfiles_dir=~/dotfiles
@@ -26,6 +26,12 @@ for file in "${dotfiles[@]}"; do
     echo "Creating symlink for ${file}"
     ln -snf ${dotfiles_dir}/${file} ~/${file}
 done
+
+# Git submodule sync and update
+echo
+echo "Updating Git submodules..."
+git submodule sync --recursive
+git submodule update --init --recursive
 
 # Special handling for .gitconfig-dotfiles
 if [ -f ${dotfiles_dir}/.gitconfig-dotfiles ]; then
