@@ -96,12 +96,12 @@ function gclv() {
 
 # Display all flux events in the current namespace
 function fe() {
-    flux get events
+    flux events
 }
 
 # Display all flux events in all namespaces
 function fea() {
-    flux get events --all-namespaces
+    flux events --all-namespaces
 }
 
 # Reconile a kustomization with name
