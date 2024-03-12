@@ -59,6 +59,50 @@ install_tool() {
 }
 
 
+# Help Menu to display all available functions with descriptions
+function dot_help() {
+    echo "Available functions:"
+    echo "---------------------"
+    echo "General"
+    echo "---------------------"
+    echo "mkd <dir> - Create a new directory and enter it"
+    echo "---------------------"
+    echo "Kubernetes"
+    echo "---------------------"
+    echo "kn <namespace> - Change the current kubectl namespace"
+    echo "kc <context> - Change the current kubectl context"
+    echo "kp - Get all pods in the current namespace"
+    echo "kpw - Watch all pods in the current namespace"
+    echo "kpd - Get all pods in the current namespace with more details"
+    echo "kpa - Get all pods in all namespaces excluding kube-system, flux-system, metallb-system"
+    echo "kpas - Get all pods in all namespaces"
+    echo "kpaw - Watch all pods in all namespaces excluding kube-system, flux-system, metallb-system"
+    echo "kpaws - Watch all pods in all namespaces"
+    echo "kpad - Get all pods in all namespaces with more details"
+    echo "ke - Get all events in the current namespace and sort by timestamp"
+    echo "kea - Get all events in all namespaces and sort by timestamp"
+    echo "ks - Get all services in the current namespace"
+    echo "---------------------"
+    echo "Git"
+    echo "---------------------"
+    echo "gcl <repo> - Git Clone and cd into it"
+    echo "gclv <repo> - Git Clone and cd into it and open in VS Code"
+    echo "---------------------"
+    echo "Flux CD"
+    echo "---------------------"
+    echo "fe - Display all flux events in the current namespace"
+    echo "fea - Display all flux events in all namespaces"
+    echo "fk <name> - Reconile a kustomization with name"
+    echo "fh <name> - Reconile a helmrelease with name"
+    echo "fks <name> - Suspends a kustomization with name"
+    echo "fkr <name> - Resumes a kustomization with name"
+    echo "---------------------"
+    echo "Starship"
+    echo "---------------------"
+    echo "sk - Toggle Kubernetes module"
+}
+
+
 # Main logic to handle arguments
 case "$1" in
     update)
@@ -75,6 +119,8 @@ case "$1" in
     *)
         echo
         echo "Usage: dotfiles {update|install <tool>}"
+        echo
+        dot_help
         exit 1
         ;;
 esac
