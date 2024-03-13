@@ -109,6 +109,11 @@ function fea() {
     flux events --all-namespaces
 }
 
+# Get all flux kustomizations in all namespaces
+function fkls() {
+    flux get kustomizations --all-namespaces
+}
+
 # Reconile a kustomization with name
 function fk() {
     flux reconcile kustomization "$1"
