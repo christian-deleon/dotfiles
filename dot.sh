@@ -90,6 +90,7 @@ function dot_help() {
     echo "---------------------"
     echo "Flux CD"
     echo "---------------------"
+    echo "fs - Display flux status"
     echo "fe - Display all flux events in the current namespace"
     echo "fea - Display all flux events in all namespaces"
     echo "fk <name> - Reconile a kustomization with name"
