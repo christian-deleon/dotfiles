@@ -94,6 +94,11 @@ function gcv() {
 # Flux CD
 #################
 
+# Display flux status
+function fs() {
+    flux stats
+}
+
 # Display all flux events in the current namespace
 function fe() {
     flux events
