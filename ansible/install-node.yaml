@@ -1,0 +1,22 @@
+---
+- name: Install and Configure Node.js with NVM
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Get latest NVM install script version
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/nvm-sh/nvm/releases/latest
+        return_content: true
+      register: nvm_latest_release
+
+    - name: Install NVM
+      ansible.builtin.shell: curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/{{ nvm_latest_release.json.tag_name }}/install.sh | bash
+
+    - name: Install latest Node.js version
+      ansible.builtin.shell: |
+        source ~/.nvm/nvm.sh && nvm install node
+      args:
+        executable: /bin/bash
