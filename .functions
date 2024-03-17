@@ -76,6 +76,11 @@ function ks() {
     kubectl get services
 }
 
+# Get all services in all namespaces
+function ksa() {
+    kubectl get services --all-namespaces
+}
+
 #################
 # Git
 #################
