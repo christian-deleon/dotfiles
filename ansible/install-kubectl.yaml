@@ -1,5 +1,6 @@
 ---
-- hosts: localhost
+- name: Install kubectl
+  hosts: localhost
   connection: local
   become: true
   gather_facts: false

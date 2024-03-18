@@ -1,5 +1,6 @@
 ---
-- hosts: localhost
+- name: Install Python
+  hosts: localhost
   connection: local
   become: true
 
