@@ -119,6 +119,11 @@ function fkls() {
     flux get kustomizations --all-namespaces
 }
 
+# Watch all flux kustomizations in all namespaces
+function fkw() {
+    watch -n 1 flux get kustomizations --all-namespaces
+}
+
 # Reconile a kustomization with name
 function fk() {
     flux reconcile kustomization "$1"
