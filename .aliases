@@ -15,3 +15,7 @@ alias vi='vim'
 
 # Kubernetes shortcut
 alias k=kubectl
+
+# GitHub Copilot CLI
+alias cs=ghcs
+alias ce=ghce

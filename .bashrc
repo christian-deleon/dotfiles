@@ -136,7 +136,7 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
 
 # ============================
-# GitHub CLI configurations
+# GitHub Copilot CLI configurations
 # ============================
 
 eval "$(gh copilot alias -- bash)"
