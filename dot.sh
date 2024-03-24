@@ -98,6 +98,8 @@ function dot_help() {
     echo "fh <name> - Reconile a helmrelease with name"
     echo "fks <name> - Suspends a kustomization with name"
     echo "fkr <name> - Resumes a kustomization with name"
+    echo "fgs - Get all git sources"
+    echo "fg <name> - Reconile a git source with name"
     echo "---------------------"
     echo "Starship"
     echo "---------------------"

@@ -144,6 +144,16 @@ function fkr() {
     flux resume kustomization "$1"
 }
 
+# Get all flux git sources
+function fgs() {
+    flux get sources git
+}
+
+# Reconile a git source with name
+function fg() {
+    flux reconcile source git "$1"
+}
+
 #################
 # Starship
 #################
