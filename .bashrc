@@ -125,7 +125,9 @@ fi
 # Starship configurations
 # ============================
 
-eval "$(starship init bash)"
+if command -v starship &>/dev/null; then
+    eval "$(starship init bash)"
+fi
 
 # ============================
 # NVM configurations
@@ -139,4 +141,6 @@ export NVM_DIR="$HOME/.nvm"
 # GitHub Copilot CLI configurations
 # ============================
 
-eval "$(gh copilot alias -- bash)"
+if command -v gh &>/dev/null; then
+    eval "$(gh copilot alias -- bash)"
+fi
