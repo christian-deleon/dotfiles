@@ -144,3 +144,11 @@ export NVM_DIR="$HOME/.nvm"
 if command -v gh &>/dev/null; then
     eval "$(gh copilot alias -- bash)"
 fi
+
+# ============================
+# Telepresence configurations
+# ============================
+
+if command -v telepresence &>/dev/null; then
+    source <(telepresence completion bash)
+fi

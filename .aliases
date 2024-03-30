@@ -19,3 +19,6 @@ alias k=kubectl
 # GitHub Copilot CLI
 alias cs=ghcs
 alias ce=ghce
+
+# Telepresence
+alias tp=telepresence
