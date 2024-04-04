@@ -7,6 +7,11 @@ function mkd() {
     mkdir -p "$@" && cd "$@"
 }
 
+# Open Dotfiles in VS Code
+function dotfiles() {
+    code ~/dotfiles
+}
+
 #################
 # Kubernetes
 #################
