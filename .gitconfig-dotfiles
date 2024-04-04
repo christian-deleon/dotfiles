@@ -3,6 +3,8 @@
     ci = commit
     co = checkout
     st = status
+	pushalltags = !git push origin --tags && git push backup --tags
+	pushall = !git push origin --all && git push backup --all
 [core]
     editor = vim
     autocrlf = input
@@ -12,3 +14,5 @@
     ui = true
 [include]
     path = ~/.git-private
+[pull]
+	rebase = false
