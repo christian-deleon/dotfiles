@@ -86,6 +86,16 @@ function ksa() {
     kubectl get services --all-namespaces
 }
 
+# Get all deployments in the current namespace
+function kd() {
+    kubectl get deployments
+}
+
+# Get all deployments in all namespaces
+function kda() {
+    kubectl get deployments --all-namespaces
+}
+
 #################
 # Git
 #################
