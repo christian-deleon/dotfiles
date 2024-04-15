@@ -96,6 +96,26 @@ function kda() {
     kubectl get deployments --all-namespaces
 }
 
+# Get all statefulsets in the current namespace
+function kss() {
+    kubectl get statefulsets
+}
+
+# Get all statefulsets in all namespaces
+function kssa() {
+    kubectl get statefulsets --all-namespaces
+}
+
+# Get all replicasets in the current namespace
+function krs() {
+    kubectl get replicasets
+}
+
+# Get all replicasets in all namespaces
+function krsa() {
+    kubectl get replicasets --all-namespaces
+}
+
 #################
 # Git
 #################
