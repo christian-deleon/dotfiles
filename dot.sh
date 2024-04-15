@@ -66,6 +66,7 @@ function dot_help() {
     echo "General"
     echo "---------------------"
     echo "mkd <dir> - Create a new directory and enter it"
+    echo "dotfiles - Open the dotfiles repository in VS Code"
     echo "---------------------"
     echo "Kubernetes"
     echo "---------------------"
@@ -107,6 +108,11 @@ function dot_help() {
     echo "Starship"
     echo "---------------------"
     echo "sk - Toggle Kubernetes module"
+    echo "---------------------"
+    echo "1Password"
+    echo "---------------------"
+    echo "opl - Open 1Password CLI"
+    echo
 }
 
 
