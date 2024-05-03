@@ -2,7 +2,8 @@
 
 set -e
 
-ansible_dir=~/dotfiles/ansible
+DOTFILES_DIR=~/dotfiles
+ANSIBLE_DIR=${DOTFILES_DIR}/ansible
 
 
 usage() {
@@ -43,11 +44,11 @@ if [[ ! -x "$(command -v ansible)" ]]; then
             exit 1
         fi
 
-        read -p "Enter the Python minor version (default: 11): " python_minor
-        python_minor=${python_minor:-11}
+        read -p "Enter the Python minor version (default: 11): " PYTHON_MINOR
+        PYTHON_MINOR=${PYTHON_MINOR:-11}
 
         # Install Python 3
-        wget -qO - https://gitlab.com/-/snippets/3638671/raw/main/install_python.sh | bash -s -- ${python_minor}
+        wget -qO - https://gitlab.com/-/snippets/3638671/raw/main/install_python.sh | bash -s -- ${PYTHON_MINOR}
     fi
 
     # Check if pip is installed
@@ -65,10 +66,10 @@ fi
 update_system() {
     echo
     echo "Updating system packages and dotfiles using Ansible..."
-    if [[ -f "${ansible_dir}/clone-update.yaml" ]]; then
-        ansible-playbook -i localhost, ${ansible_dir}/clone-update.yaml
+    if [[ -f "${ANSIBLE_DIR}/clone-update.yaml" ]]; then
+        ansible-playbook -i localhost, ${ANSIBLE_DIR}/clone-update.yaml
     fi
-    ansible-playbook -i localhost, ${ansible_dir}/update.yaml
+    ansible-playbook -i localhost, ${ANSIBLE_DIR}/update.yaml
 }
 
 
@@ -77,10 +78,10 @@ install_tool() {
     tool=$1
     echo
     echo "Installing ${tool} using Ansible..."
-    if [[ -f "${ansible_dir}/clone-${tool}.yaml" ]]; then
-        ansible-playbook -i localhost, ${ansible_dir}/clone-${tool}.yaml
+    if [[ -f "${ANSIBLE_DIR}/clone-${tool}.yaml" ]]; then
+        ansible-playbook -i localhost, ${ANSIBLE_DIR}/clone-${tool}.yaml
     fi
-    ansible-playbook -i localhost, ${ansible_dir}/install-${tool}.yaml
+    ansible-playbook -i localhost, ${ANSIBLE_DIR}/install-${tool}.yaml
 }
 
 
@@ -93,13 +94,7 @@ install_nix_shell() {
 
 
 function parse_functions() {
-    local file=".functions"
-    if [[ ! -f "$file" ]]; then
-        echo "File not found: $file"
-        return 1
-    fi
-
-    local in_comment_block=0
+    local FUNCTIONS_PATH="${DOTFILES_DIR}/.functions"
     local comments=()
     local func_name=""
 
@@ -107,13 +102,13 @@ function parse_functions() {
         if [[ "$line" =~ ^function\ (.+)\(\) ]]; then
             func_name="${BASH_REMATCH[1]}"
             printf "  %-6s - %s\n" "$func_name" "${comments[*]}"
-            comments=()  # Reset comment array
+            comments=()
         elif [[ "$line" =~ ^#(.*) ]]; then
-            comments+=("${BASH_REMATCH[1]}")  # Capture comment
+            comments+=("${BASH_REMATCH[1]}")
         else
-            comments=()  # Reset comment array on empty lines or other lines
+            comments=()
         fi
-    done < "$file"
+    done < "$FUNCTIONS_PATH"
 }
 
 
