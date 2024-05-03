@@ -7,11 +7,6 @@ function mkd() {
     mkdir -p "$@" && cd "$@"
 }
 
-# Open Dotfiles in VS Code
-function dotfiles() {
-    code ~/dotfiles
-}
-
 #################
 # Kubernetes
 #################
@@ -205,4 +200,26 @@ function sk() {
 # Login to 1Password CLI
 function opl() {
     eval $(op signin)
+}
+
+#################
+# nix-shell
+#################
+
+# Enter a nix-shell with the given packages
+function nix() {
+    nix-shell -p "$@"
+}
+
+#################
+# Skaffold
+#################
+
+# Run skaffold dev with the given profile if provided
+function skd() {
+    if [ -z "$1" ]; then
+        skaffold dev
+    else
+        skaffold dev --profile "$1"
+    fi
 }

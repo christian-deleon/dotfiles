@@ -5,6 +5,21 @@ set -e
 ansible_dir=~/dotfiles/ansible
 
 
+usage() {
+    echo
+    echo "Usage: dot [option]"
+    echo
+    echo "Options:"
+    echo "  edit        - Open the dotfiles directory in Visual Studio Code"
+    echo "  update      - Update system packages and dotfiles"
+    echo "  install     - Install a tool using Ansible"
+    echo "  install-nix - Install nix-shell"
+    echo
+    echo "Standalone Tools:"
+    parse_functions
+}
+
+
 # Check if Python, Pip, and Ansible are installed
 if [[ ! -x "$(command -v ansible)" ]]; then
     echo
@@ -59,69 +74,44 @@ install_tool() {
 }
 
 
-# Help Menu to display all available functions with descriptions
-function dot_help() {
-    echo "Available functions:"
-    echo "---------------------"
-    echo "General"
-    echo "---------------------"
-    echo "mkd <dir> - Create a new directory and enter it"
-    echo "dotfiles - Open the dotfiles repository in VS Code"
-    echo "---------------------"
-    echo "Kubernetes"
-    echo "---------------------"
-    echo "kn <namespace> - Change the current kubectl namespace"
-    echo "kc <context> - Change the current kubectl context"
-    echo "kp - Get all pods in the current namespace"
-    echo "kpw - Watch all pods in the current namespace"
-    echo "kpd - Get all pods in the current namespace with more details"
-    echo "kpa - Get all pods in all namespaces excluding kube-system, flux-system, metallb-system"
-    echo "kpas - Get all pods in all namespaces"
-    echo "kpaw - Watch all pods in all namespaces excluding kube-system, flux-system, metallb-system"
-    echo "kpaws - Watch all pods in all namespaces"
-    echo "kpad - Get all pods in all namespaces with more details"
-    echo "ke - Get all events in the current namespace and sort by timestamp"
-    echo "kea - Get all events in all namespaces and sort by timestamp"
-    echo "ks - Get all services in the current namespace"
-    echo "ksa - Get all services in all namespaces"
-    echo "kd - Get all deployments in the current namespace"
-    echo "kda - Get all deployments in all namespaces"
-    echo "kdp - Get all statefulsets in the current namespace"
-    echo "kdpa - Get all statefulsets in all namespaces"
-    echo "kds - Get all replicasets in the current namespace"
-    echo "kdsa - Get all replicasets in all namespaces"
-    echo "---------------------"
-    echo "Git"
-    echo "---------------------"
-    echo "gc <repo> - Git Clone and cd into it"
-    echo "gcv <repo> - Git Clone and cd into it and open in VS Code"
-    echo "---------------------"
-    echo "Flux CD"
-    echo "---------------------"
-    echo "fs - Display flux status"
-    echo "fe - Display all flux events in the current namespace"
-    echo "fea - Display all flux events in all namespaces"
-    echo "fkls - Get all flux kustomizations in all namespaces"
-    echo "fk <name> - Reconile a kustomization with name"
-    echo "fh <name> - Reconile a helmrelease with name"
-    echo "fks <name> - Suspends a kustomization with name"
-    echo "fkr <name> - Resumes a kustomization with name"
-    echo "fgs - Get all git sources"
-    echo "fg <name> - Reconile a git source with name"
-    echo "---------------------"
-    echo "Starship"
-    echo "---------------------"
-    echo "sk - Toggle Kubernetes module"
-    echo "---------------------"
-    echo "1Password"
-    echo "---------------------"
-    echo "opl - Open 1Password CLI"
+# Install nix-shell
+install_nix_shell() {
     echo
+    echo "Installing nix-shell..."
+    bash <(curl -L https://nixos.org/nix/install) --daemon
+}
+
+
+function parse_functions() {
+    local file=".functions"
+    if [[ ! -f "$file" ]]; then
+        echo "File not found: $file"
+        return 1
+    fi
+
+    local in_comment_block=0
+    local comments=()
+    local func_name=""
+
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^function\ (.+)\(\) ]]; then
+            func_name="${BASH_REMATCH[1]}"
+            printf "  %-6s - %s\n" "$func_name" "${comments[*]}"
+            comments=()  # Reset comment array
+        elif [[ "$line" =~ ^#(.*) ]]; then
+            comments+=("${BASH_REMATCH[1]}")  # Capture comment
+        else
+            comments=()  # Reset comment array on empty lines or other lines
+        fi
+    done < "$file"
 }
 
 
 # Main logic to handle arguments
 case "$1" in
+    edit)
+        code ~/dotfiles
+        ;;
     update)
         update_system
         ;;
@@ -133,11 +123,12 @@ case "$1" in
             install_tool "$2"
         fi
         ;;
+    install-nix)
+        install_nix_shell
+        ;;
     *)
         echo
-        echo "Usage: dotfiles {update|install <tool>}"
-        echo
-        dot_help
+        usage
         exit 1
         ;;
 esac
