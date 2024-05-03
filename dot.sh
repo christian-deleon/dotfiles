@@ -6,6 +6,16 @@ ansible_dir=~/dotfiles/ansible
 
 
 usage() {
+    cat << "EOF"
+      _       _    __ _ _           
+   __| | ___ | |_ / _(_) | ___  ___ 
+  / _` |/ _ \| __| |_| | |/ _ \/ __|
+ | (_| | (_) | |_|  _| | |  __/\__ \
+(_)__,_|\___/ \__|_| |_|_|\___||___/
+                                    
+EOF
+    echo "A tool to manage dotfiles, configure the bash environment, install and update packages, and provide helper functions for commonly used tools."
+    echo "by: @christian-deleon"
     echo
     echo "Usage: dot [option]"
     echo
