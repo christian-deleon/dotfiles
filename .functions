@@ -207,7 +207,7 @@ function opl() {
 #################
 
 # Enter a nix-shell with the given packages
-function nix() {
+function nixp() {
     nix-shell -p "$@"
 }
 
