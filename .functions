@@ -156,22 +156,22 @@ function fkw() {
 
 # Reconile a kustomization with name
 function fk() {
-    flux reconcile kustomization "$1"
+    flux reconcile kustomization "$@"
 }
 
 # Reconile a helmrelease with name
 function fh() {
-    flux reconcile helmrelease "$1"
+    flux reconcile helmrelease "$@"
 }
 
 # Suspends a kustomization with name
 function fks() {
-    flux suspend kustomization "$1"
+    flux suspend kustomization "$@"
 }
 
 # Resumes a kustomization with name
 function fkr() {
-    flux resume kustomization "$1"
+    flux resume kustomization "$@"
 }
 
 # Get all flux git sources
@@ -181,7 +181,7 @@ function fgs() {
 
 # Reconile a git source with name
 function fg() {
-    flux reconcile source git "$1"
+    flux reconcile source git "$@"
 }
 
 #################
