@@ -22,3 +22,6 @@ alias ce=ghce
 
 # Telepresence
 alias tp=telepresence
+
+# Ansible
+alias ap=ansible-playbook
