@@ -5,6 +5,7 @@
     st = status
 	pushalltags = !git push origin --tags && git push backup --tags
 	pushall = !git push origin --all && git push backup --all
+    undo = reset --soft HEAD^
 [core]
     editor = vim
     autocrlf = input
