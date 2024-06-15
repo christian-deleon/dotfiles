@@ -100,6 +100,9 @@ function parse_functions() {
 
     while IFS= read -r line; do
         if [[ "$line" =~ ^function\ (.+)\(\) ]]; then
+            if [[ ${#comments[@]} -eq 0 ]]; then
+                continue
+            fi
             func_name="${BASH_REMATCH[1]}"
             printf "  %-6s - %s\n" "$func_name" "${comments[*]}"
             comments=()

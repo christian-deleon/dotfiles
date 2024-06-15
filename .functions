@@ -129,6 +129,19 @@ function gcv() {
 # Flux CD
 #################
 
+function flux_base() {
+    local command="$1"
+    local kind="$2"
+    local name="$3"
+    local namespace="$4"
+
+    if [ ! -z "$namespace" ]; then
+        flux $command kustomization "$name" --namespace "$namespace"
+    else
+        flux $command kustomization "$name"
+    fi
+}
+
 # Display flux status
 function fs() {
     flux stats
@@ -156,22 +169,22 @@ function fkw() {
 
 # Reconile a kustomization with name
 function fk() {
-    flux reconcile kustomization "$@"
+    flux_base reconcile kustomization "$@"
 }
 
 # Reconile a helmrelease with name
 function fh() {
-    flux reconcile helmrelease "$@"
+    flux_base reconcile helmrelease "$@"
 }
 
 # Suspends a kustomization with name
 function fks() {
-    flux suspend kustomization "$@"
+    flux_base suspend kustomization "$@"
 }
 
 # Resumes a kustomization with name
 function fkr() {
-    flux resume kustomization "$@"
+    flux_base resume kustomization "$@"
 }
 
 # Get all flux git sources
