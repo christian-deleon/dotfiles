@@ -36,22 +36,22 @@ function kpd() {
     kubectl get pods -o wide
 }
 
-# Get all pods in all namespaces
+# Get all pods in all namespaces except kube-system, flux-system and metallb-system
 function kpa() {
     kubectl get pods --all-namespaces --field-selector 'metadata.namespace!=kube-system,metadata.namespace!=flux-system,metadata.namespace!=metallb-system'
 }
 
-# Get all pods in all namespaces excluding kube-system, flux-system, metallb-system
+# Get all pods in all namespaces
 function kpas() {
     kubectl get pods --all-namespaces
 }
 
-# Watch all pods in all namespaces
+# Watch all pods in all namespaces except kube-system, flux-system and metallb-system
 function kpaw() {
     watch -n 1 kubectl get pods --all-namespaces --field-selector 'metadata.namespace!=kube-system,metadata.namespace!=flux-system,metadata.namespace!=metallb-system'
 }
 
-# Watch all pods in all namespaces excluding kube-system, flux-system, metallb-system
+# Watch all pods in all namespaces
 function kpaws() {
     watch -n 1 kubectl get pods --all-namespaces
 }
