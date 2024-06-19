@@ -111,6 +111,27 @@ function krsa() {
     kubectl get replicasets --all-namespaces
 }
 
+# Get cumulative CPU and Memory usage of all pods in a namespace
+function ktns() {
+    local NAMESPACE=$1
+    local AWK_SCRIPT='{cpu+=$2; memory+=$3} END {print "CPU(m):", cpu, " - ", "Memory(Mi):", memory}'
+
+    if [ -z "$NAMESPACE" ]; then
+        kubectl top pod --no-headers | awk "$AWK_SCRIPT"
+    else
+        kubectl top pod --namespace "$NAMESPACE" --no-headers | awk "$AWK_SCRIPT"
+    fi
+}
+
+# Get CPU and Memory usage of each namespace
+function ktnsa() {
+    kubectl get namespaces -o json | jq -r '.items[] | .metadata.name' | while read -r NAMESPACE; do
+        echo "Namespace: $NAMESPACE"
+        ktns "$NAMESPACE"
+        echo
+    done
+}
+
 #################
 # Git
 #################
