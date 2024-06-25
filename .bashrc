@@ -54,3 +54,9 @@ if ! shopt -oq posix; then
         . /etc/bash_completion
     fi
 fi
+
+# kubectl configurations
+if command -v kubectl &>/dev/null; then
+    source <(kubectl completion bash)
+    complete -o default -F __start_kubectl k
+fi
