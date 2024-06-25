@@ -74,12 +74,6 @@ export EDITOR="/usr/bin/vim"
 [ -f $HOME/.functions ] && source $HOME/.functions
 [ -f $HOME/.exports ] && source $HOME/.exports
 
-# kubectl configurations
-if command -v kubectl &>/dev/null; then
-    source <(kubectl completion bash)
-    complete -o default -F __start_kubectl k
-fi
-
 # Starship configurations
 if command -v starship &>/dev/null; then
     eval "$(starship init bash)"
