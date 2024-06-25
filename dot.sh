@@ -2,7 +2,7 @@
 
 set -e
 
-DOTFILES_DIR=~/dotfiles
+DOTFILES_DIR=$HOME/dotfiles
 ANSIBLE_DIR=${DOTFILES_DIR}/ansible
 
 
@@ -118,7 +118,7 @@ function parse_functions() {
 # Main logic to handle arguments
 case "$1" in
     edit)
-        code ~/dotfiles
+        code $HOME/dotfiles
         ;;
     update)
         update_system

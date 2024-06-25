@@ -4,8 +4,8 @@
 
 export PATH="$HOME/.local/bin:$PATH"
 
-if [ -f ~/.env ]; then
-    source ~/.env
+if [ -f $HOME/.env ]; then
+    source $HOME/.env
 fi
 
 # ============================
@@ -59,7 +59,7 @@ parse_git_branch() {
 # ============================
 
 if [ -x /usr/bin/dircolors ]; then
-    test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
+    test -r $HOME/.dircolors && eval "$(dircolors -b $HOME/.dircolors)" || eval "$(dircolors -b)"
     alias ls='ls --color=auto'
     alias grep='grep --color=auto'
     alias fgrep='fgrep --color=auto'
@@ -70,9 +70,9 @@ fi
 export EDITOR="/usr/bin/vim"
 
 # Source additional files
-[ -f ~/.aliases ] && source ~/.aliases
-[ -f ~/.functions ] && source ~/.functions
-[ -f ~/.exports ] && source ~/.exports
+[ -f $HOME/.aliases ] && source $HOME/.aliases
+[ -f $HOME/.functions ] && source $HOME/.functions
+[ -f $HOME/.exports ] && source $HOME/.exports
 
 # kubectl configurations
 if command -v kubectl &>/dev/null; then
