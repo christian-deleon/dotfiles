@@ -4,6 +4,10 @@
 
 export PATH="$HOME/.local/bin:$PATH"
 
+if [ -f ~/.env ]; then
+    source ~/.env
+fi
+
 # ============================
 # History configurations
 # ============================

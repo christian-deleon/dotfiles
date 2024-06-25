@@ -51,8 +51,8 @@ if [[ ! -x "$(command -v ansible)" ]]; then
         wget -qO - https://gitlab.com/-/snippets/3638671/raw/main/install_python.sh | bash -s -- ${PYTHON_MINOR}
     fi
 
-    # Check if pip is installed
-    if ! command -v pip &> /dev/null; then
+    # Check if pip is installed with python -m pip
+    if ! command -v python3 -m pip &> /dev/null; then
         echo "Pip is not installed. Installing pip..."
         wget -qO - https://bootstrap.pypa.io/get-pip.py | python3        
     fi
