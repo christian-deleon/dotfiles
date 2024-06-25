@@ -11,14 +11,19 @@ function mkd() {
 # Kubernetes
 #################
 
-# Change the current kubectl namespace
-function kn() {
-    kubectl config set-context --current --namespace="$1"
+# Get all contexts
+function kcg() {
+    kubectl config get-contexts
 }
 
 # Change the current kubectl context
 function kc() {
     kubectl config use-context "$1"
+}
+
+# Change the current kubectl namespace
+function kn() {
+    kubectl config set-context --current --namespace="$1"
 }
 
 # Get all pods in the current namespace
