@@ -15,6 +15,6 @@
 [color]
     ui = true
 [include]
-    path = ~/.git-private
+    path = $HOME/.git-private
 [pull]
 	rebase = false

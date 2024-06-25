@@ -7,24 +7,24 @@ dotfiles=(.aliases .functions .tmux.conf .bashrc .hushlogin .vimrc .zshrc .commo
 dotdirs=(.vscode .config .tmux .vim)
 
 # Location of your dotfiles repository
-dotfiles_dir=~/dotfiles
+dotfiles_dir=$HOME/dotfiles
 
 # Location of your backup directory
-backup_dir=~/dotfiles_backup
+backup_dir=$HOME/dotfiles_backup
 
 # Create backup directory if it doesn't exist
 mkdir -p ${backup_dir}
 
 # Copy dotfiles to the backup directory and link them from the repository to the home directory
 for file in "${dotfiles[@]}"; do
-    if [ -f ~/${file} ]; then
+    if [ -f $HOME/${file} ]; then
         echo
         echo "Backing up ${file} to ${backup_dir}"
-        cp -L ~/${file} ${backup_dir}
+        cp -L $HOME/${file} ${backup_dir}
     fi
     echo
     echo "Creating symlink for ${file}"
-    ln -snf ${dotfiles_dir}/${file} ~/${file}
+    ln -snf ${dotfiles_dir}/${file} $HOME/${file}
 done
 
 # Git submodule sync and update
@@ -35,40 +35,40 @@ git submodule update --init --recursive
 
 # Special handling for .gitconfig-dotfiles
 if [ -f ${dotfiles_dir}/.gitconfig-dotfiles ]; then
-    if [ -f ~/.gitconfig ]; then
+    if [ -f $HOME/.gitconfig ]; then
         echo
         echo "Backing up existing .gitconfig to ${backup_dir}"
-        cp -L ~/.gitconfig ${backup_dir}
+        cp -L $HOME/.gitconfig ${backup_dir}
     fi
     echo
     echo "Creating symlink for .gitconfig"
-    ln -snf ${dotfiles_dir}/.gitconfig-dotfiles ~/.gitconfig
+    ln -snf ${dotfiles_dir}/.gitconfig-dotfiles $HOME/.gitconfig
 fi
 
 # Handle directories separately
 for dir in "${dotdirs[@]}"; do
     # Ensure the directory exists in the home directory
-    mkdir -p ~/${dir}
+    mkdir -p $HOME/${dir}
 
     # Iterate over the files in each directory
     for file in $(ls -A ${dotfiles_dir}/${dir}); do
         # Check if the file already exists in the home directory
-        if [ -f ~/${dir}/${file} ]; then
+        if [ -f $HOME/${dir}/${file} ]; then
             echo
-            echo "Backing up ~/${dir}/${file} to ${backup_dir}/${dir}"
+            echo "Backing up $HOME/${dir}/${file} to ${backup_dir}/${dir}"
             mkdir -p ${backup_dir}/${dir}
-            cp -L ~/${dir}/${file} ${backup_dir}/${dir}
+            cp -L $HOME/${dir}/${file} ${backup_dir}/${dir}
         fi
 
         # Create a symlink for each file
         echo
         echo "Creating symlink for ${dir}/${file}"
-        ln -snf ${dotfiles_dir}/${dir}/${file} ~/${dir}/${file}
+        ln -snf ${dotfiles_dir}/${dir}/${file} $HOME/${dir}/${file}
     done
 done
 
 # Path to the private Git config
-git_private_config=~/.git-private
+git_private_config=$HOME/.git-private
 
 # Check if the private Git config already exists if not create it
 if [ ! -f "${git_private_config}" ]; then
@@ -88,14 +88,14 @@ if [ -f "$dotfiles_script" ]; then
     echo
     echo "Installing the dot CLI tool..."
 
-    # Create the ~/.local/bin directory if it doesn't exist
-    if [ ! -d ~/.local/bin ]; then
-        mkdir -p ~/.local/bin
+    # Create the $HOME/.local/bin directory if it doesn't exist
+    if [ ! -d $HOME/.local/bin ]; then
+        mkdir -p $HOME/.local/bin
     fi
 
     # Create a symlink for the dot.sh script if it doesn't exist
-    if [ ! -f ~/.local/bin/dot ]; then
-        ln -s "$dotfiles_script" ~/.local/bin/dot
+    if [ ! -f $HOME/.local/bin/dot ]; then
+        ln -s "$dotfiles_script" $HOME/.local/bin/dot
     fi
 
     echo

@@ -16,7 +16,7 @@ This repository contains my personal dotfiles, which include configurations for 
 
 This script does the following:
 
-1. Backs up any existing dotfiles in your home directory to `~/dotfiles_backup` and then creates symbolic links from the home directory to the dotfiles in the `~/dotfiles` directory.
+1. Backs up any existing dotfiles in your home directory to `$HOME/dotfiles_backup` and then creates symbolic links from the home directory to the dotfiles in the `$HOME/dotfiles` directory.
 2. Sources `.aliases` and `.functions` files from your shell configuration file (`.bashrc` by default).
 
 To run the script, use the following command from the terminal:

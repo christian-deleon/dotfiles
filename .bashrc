@@ -8,11 +8,11 @@
 # Source the common configuration file
 # Source the common configuration file
 # ============================
-if [ -f ~/.commonrc ]; then
-    source ~/.commonrc
+if [ -f $HOME/.commonrc ]; then
+    source $HOME/.commonrc
 fi
-if [ -f ~/.commonrc ]; then
-    source ~/.commonrc
+if [ -f $HOME/.commonrc ]; then
+    source $HOME/.commonrc
 fi
 
 # ============================
