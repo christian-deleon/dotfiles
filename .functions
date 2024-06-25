@@ -36,22 +36,22 @@ function kpd() {
     kubectl get pods -o wide
 }
 
-# Get all pods in all namespaces
+# Get all pods in all namespaces except kube-system, flux-system and metallb-system
 function kpa() {
     kubectl get pods --all-namespaces --field-selector 'metadata.namespace!=kube-system,metadata.namespace!=flux-system,metadata.namespace!=metallb-system'
 }
 
-# Get all pods in all namespaces excluding kube-system, flux-system, metallb-system
+# Get all pods in all namespaces
 function kpas() {
     kubectl get pods --all-namespaces
 }
 
-# Watch all pods in all namespaces
+# Watch all pods in all namespaces except kube-system, flux-system and metallb-system
 function kpaw() {
     watch -n 1 kubectl get pods --all-namespaces --field-selector 'metadata.namespace!=kube-system,metadata.namespace!=flux-system,metadata.namespace!=metallb-system'
 }
 
-# Watch all pods in all namespaces excluding kube-system, flux-system, metallb-system
+# Watch all pods in all namespaces
 function kpaws() {
     watch -n 1 kubectl get pods --all-namespaces
 }
@@ -111,6 +111,27 @@ function krsa() {
     kubectl get replicasets --all-namespaces
 }
 
+# Get cumulative CPU and Memory usage of all pods in a namespace
+function ktns() {
+    local NAMESPACE=$1
+    local AWK_SCRIPT='{cpu+=$2; memory+=$3} END {print "CPU(m):", cpu, " - ", "Memory(Mi):", memory}'
+
+    if [ -z "$NAMESPACE" ]; then
+        kubectl top pod --no-headers | awk "$AWK_SCRIPT"
+    else
+        kubectl top pod --namespace "$NAMESPACE" --no-headers | awk "$AWK_SCRIPT"
+    fi
+}
+
+# Get CPU and Memory usage of each namespace
+function ktnsa() {
+    kubectl get namespaces -o json | jq -r '.items[] | .metadata.name' | while read -r NAMESPACE; do
+        echo "Namespace: $NAMESPACE"
+        ktns "$NAMESPACE"
+        echo
+    done
+}
+
 #################
 # Git
 #################
@@ -128,6 +149,19 @@ function gcv() {
 #################
 # Flux CD
 #################
+
+function flux_base() {
+    local command="$1"
+    local kind="$2"
+    local name="$3"
+    local namespace="$4"
+
+    if [ ! -z "$namespace" ]; then
+        flux $command kustomization "$name" --namespace "$namespace"
+    else
+        flux $command kustomization "$name"
+    fi
+}
 
 # Display flux status
 function fs() {
@@ -156,22 +190,22 @@ function fkw() {
 
 # Reconile a kustomization with name
 function fk() {
-    flux reconcile kustomization "$@"
+    flux_base reconcile kustomization "$@"
 }
 
 # Reconile a helmrelease with name
 function fh() {
-    flux reconcile helmrelease "$@"
+    flux_base reconcile helmrelease "$@"
 }
 
 # Suspends a kustomization with name
 function fks() {
-    flux suspend kustomization "$@"
+    flux_base suspend kustomization "$@"
 }
 
 # Resumes a kustomization with name
 function fkr() {
-    flux resume kustomization "$@"
+    flux_base resume kustomization "$@"
 }
 
 # Get all flux git sources

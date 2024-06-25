@@ -1,20 +1,28 @@
 # ============================
+# ============================
 # If not running interactively, don't do anything
+# ============================
 # ============================
 [[ $- != *i* ]] && return
 
 # ============================
 # Source the common configuration file
+# Source the common configuration file
 # ============================
+if [ -f ~/.commonrc ]; then
+    source ~/.commonrc
+fi
 if [ -f ~/.commonrc ]; then
     source ~/.commonrc
 fi
 
 # ============================
 # Bash-specific configurations
+# Bash-specific configurations
 # ============================
 shopt -s histappend
 shopt -s checkwinsize
+
 
 [ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
 
@@ -38,11 +46,12 @@ PS1="\[\e]0;\u@\h: \w\a\]${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\
 
 # ============================
 # Aliases and Autocompletion (bash-specific)
+# Aliases and Autocompletion (bash-specific)
 # ============================
 if ! shopt -oq posix; then
-  if [ -f /usr/share/bash-completion/bash_completion ]; then
-    . /usr/share/bash-completion/bash_completion
-  elif [ -f /etc/bash_completion ]; then
-    . /etc/bash_completion
-  fi
+    if [ -f /usr/share/bash-completion/bash_completion ]; then
+        . /usr/share/bash-completion/bash_completion
+    elif [ -f /etc/bash_completion ]; then
+        . /etc/bash_completion
+    fi
 fi

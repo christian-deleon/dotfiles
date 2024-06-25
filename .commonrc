@@ -17,35 +17,37 @@ HISTFILESIZE=2000
 # ============================
 
 parse_git_branch() {
-     if git rev-parse --git-dir >/dev/null 2>&1; then
-         local branch_name="$(git symbolic-ref HEAD 2>/dev/null)" 
-         branch_name=${branch_name##refs/heads/} 
+    if [ ! git rev-parse --git-dir ]; then
+        return 0
+    fi
 
-         local remote_name="$(git for-each-ref --format='%(upstream:short)' $(git symbolic-ref -q HEAD))" 
-         local ahead_behind="$(git rev-list --left-right --count $branch_name...$remote_name 2>/dev/null)"
-         
-         local git_status="$(git status 2> /dev/null)"
-         local status_indicator=""
+    local branch_name="$(git symbolic-ref HEAD 2>/dev/null)" 
+    branch_name=${branch_name##refs/heads/} 
 
-         if [[ ! $git_status =~ "nothing to commit" ]]; then
-            status_indicator="*"
-         fi
-         
-         if [[ ! -z $branch_name ]]; then
-             branch_info=" ($branch_name$status_indicator)"
-         fi
+    local remote_name="$(git for-each-ref --format='%(upstream:short)' $(git symbolic-ref -q HEAD))" 
+    local ahead_behind="$(git rev-list --left-right --count $branch_name...$remote_name 2>/dev/null)"
+    
+    local git_status="$(git status 2> /dev/null)"
+    local status_indicator=""
 
-         if [[ ! -z $ahead_behind ]]; then
-            IFS=$'\t' read -r ahead behind <<< "$ahead_behind"
-            if [ "$ahead" -gt 0 ]; then
-                ahead_info=" [ahead $ahead]"
-            fi
-            if [ "$behind" -gt 0 ]; then
-                behind_info=" [behind $behind]"
-            fi
-         fi
-         printf "%s%s%s" "$branch_info" "$ahead_info" "$behind_info"
-     fi
+    if [[ ! $git_status =~ "nothing to commit" ]]; then
+    status_indicator="*"
+    fi
+    
+    if [[ ! -z $branch_name ]]; then
+        branch_info=" ($branch_name$status_indicator)"
+    fi
+
+    if [[ ! -z $ahead_behind ]]; then
+    IFS=$'\t' read -r ahead behind <<< "$ahead_behind"
+    if [ "$ahead" -gt 0 ]; then
+        ahead_info=" [ahead $ahead]"
+    fi
+    if [ "$behind" -gt 0 ]; then
+        behind_info=" [behind $behind]"
+    fi
+    fi
+    printf "%s%s%s" "$branch_info" "$ahead_info" "$behind_info"
 }
 
 # ============================
