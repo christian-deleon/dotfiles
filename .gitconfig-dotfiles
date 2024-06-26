@@ -2,6 +2,7 @@
     br = branch
     ci = commit
     co = checkout
+    cob = checkout -b
     st = status
     cam = !git add -A && git commit -m
 	pushalltags = !git push origin --tags && git push backup --tags
@@ -15,6 +16,6 @@
 [color]
     ui = true
 [include]
-    path = $HOME/.git-private
+    path = ~/.git-private
 [pull]
 	rebase = false
