@@ -5,9 +5,10 @@
     cob = checkout -b
     st = status
     cam = !git add -A && git commit -m
-	pushalltags = !git push origin --tags && git push backup --tags
-	pushall = !git push origin --all && git push backup --all
     undo = reset --soft HEAD^
+    po = !git pull origin $(git rev-parse --abbrev-ref HEAD)
+	pushalltags = !git push origin --tags
+	pushall = !git push origin --all
 [core]
     editor = vim
     autocrlf = input
@@ -19,3 +20,5 @@
     path = ~/.git-private
 [pull]
 	rebase = false
+[branch]
+    autoSetupMerge = always
