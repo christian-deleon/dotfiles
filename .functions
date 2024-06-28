@@ -11,6 +11,17 @@ function mkd() {
 # Kubernetes
 #################
 
+function filter_kubectl_output() {
+    local PATTERN=$1
+    local COMMAND=$2
+
+    if [ ! -z "$PATTERN" ]; then
+        eval $COMMAND | grep -i "$PATTERN"
+    else
+        eval $COMMAND
+    fi
+}
+
 # Get all contexts
 function kcg() {
     kubectl config get-contexts
@@ -28,7 +39,9 @@ function kn() {
 
 # Get all pods in the current namespace
 function kp() {
-    kubectl get pods
+    local COMMAND="kubectl get pods"
+
+    filter_kubectl_output "$1" "$COMMAND"
 }
 
 # Watch all pods in the current namespace
@@ -43,12 +56,18 @@ function kpd() {
 
 # Get all pods in all namespaces except kube-system, flux-system and metallb-system
 function kpa() {
-    kubectl get pods --all-namespaces --field-selector 'metadata.namespace!=kube-system,metadata.namespace!=flux-system,metadata.namespace!=metallb-system'
+    local PATTERN=$1
+    local COMMAND="kubectl get pods --all-namespaces --field-selector 'metadata.namespace!=kube-system,metadata.namespace!=flux-system,metadata.namespace!=metallb-system'"
+
+    filter_kubectl_output "$PATTERN" "$COMMAND"
 }
 
 # Get all pods in all namespaces
 function kpas() {
-    kubectl get pods --all-namespaces
+    local PATTERN=$1
+    local COMMAND="kubectl get pods --all-namespaces"
+
+    filter_kubectl_output "$PATTERN" "$COMMAND"
 }
 
 # Watch all pods in all namespaces except kube-system, flux-system and metallb-system
@@ -135,6 +154,11 @@ function ktnsa() {
         ktns "$NAMESPACE"
         echo
     done
+}
+
+# Get all k8s API resources
+function kapi() {
+    kubectl api-resources
 }
 
 #################
