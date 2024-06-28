@@ -7,6 +7,7 @@
     cam = !git add -A && git commit -m
     undo = reset --soft HEAD^
     po = !git pull origin $(git rev-parse --abbrev-ref HEAD)
+    pu = !git push origin $(git rev-parse --abbrev-ref HEAD)
 	pushalltags = !git push origin --tags
 	pushall = !git push origin --all
 [core]
