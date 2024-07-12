@@ -25,3 +25,10 @@ alias tp=telepresence
 
 # Ansible
 alias ap=ansible-playbook
+
+# Terraform
+alias tf=terraform
+
+# Docker
+alias dc="docker compose"
+alias d="docker"
