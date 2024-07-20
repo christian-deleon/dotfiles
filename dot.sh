@@ -73,6 +73,15 @@ update_system() {
 }
 
 
+# Get all installable tools
+get_installable_tools() {
+    for file in ${ANSIBLE_DIR}/install-*.yaml; do
+        tool=$(basename ${file} | cut -d'-' -f2 | cut -d'.' -f1)
+        echo ${tool}
+    done
+}
+
+
 # Function to install a tool using Ansible
 install_tool() {
     tool=$1
@@ -127,6 +136,8 @@ case "$1" in
         if [ -z "$2" ]; then
             echo
             echo "Please specify a tool to install."
+            echo
+            get_installable_tools
         else
             install_tool "$2"
         fi
