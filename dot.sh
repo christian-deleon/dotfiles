@@ -37,7 +37,7 @@ if [[ ! -x "$(command -v ansible)" ]]; then
     echo "Ansible is not installed. Installing Ansible..."
 
     # Check if Python 3 is installed
-    if ! command -v python3 &> /dev/null; then
+    if [[ ! -x "$(command -v python3)" ]]; then
         read -p "Python 3 is not installed. Do you want to install Python 3? (y/n): " install_python
         if [[ "${install_python}" != "y" ]]; then
             echo "Please install Python 3 and run this script again."
@@ -52,7 +52,7 @@ if [[ ! -x "$(command -v ansible)" ]]; then
     fi
 
     # Check if pip is installed with python -m pip
-    if ! command -v python3 -m pip &> /dev/null; then
+    if [[ ! -x "$(command -v pip)" ]]; then
         echo "Pip is not installed. Installing pip..."
         wget -qO - https://bootstrap.pypa.io/get-pip.py | python3        
     fi
@@ -70,6 +70,15 @@ update_system() {
         ansible-playbook -i localhost, ${ANSIBLE_DIR}/clone-update.yaml
     fi
     ansible-playbook -i localhost, ${ANSIBLE_DIR}/update.yaml
+}
+
+
+# Get all installable tools
+get_installable_tools() {
+    for file in ${ANSIBLE_DIR}/install-*.yaml; do
+        tool=$(basename ${file} | cut -d'-' -f2 | cut -d'.' -f1)
+        echo ${tool}
+    done
 }
 
 
@@ -127,6 +136,8 @@ case "$1" in
         if [ -z "$2" ]; then
             echo
             echo "Please specify a tool to install."
+            echo
+            get_installable_tools
         else
             install_tool "$2"
         fi
