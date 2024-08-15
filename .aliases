@@ -32,3 +32,8 @@ alias tf=terraform
 # Docker
 alias dc="docker compose"
 alias d="docker"
+
+# Poetry
+alias pl="poetry lock"
+alias pu="poetry update"
+alias pv="poetry version"
