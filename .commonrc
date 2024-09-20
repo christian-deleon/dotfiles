@@ -96,5 +96,5 @@ fi
 
 # KUBECONFIG environment variable
 if [ -d "$HOME/.kube" ]; then
-  export KUBECONFIG=$(find "$HOME/.kube" -type f -print0 | xargs -0 echo | tr ' ' ':')
+    export KUBECONFIG=$(find "$HOME/.kube" -path "$HOME/.kube/cache" -prune -o -type f -print | sed 's/$/:/' | tr -d '\n' | sed 's/:$//')
 fi
