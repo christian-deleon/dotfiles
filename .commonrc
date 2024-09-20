@@ -93,3 +93,8 @@ fi
 if command -v telepresence &>/dev/null; then
     source <(telepresence completion bash)
 fi
+
+# KUBECONFIG environment variable
+if [ -d "$HOME/.kube" ]; then
+  export KUBECONFIG=$(find "$HOME/.kube" -type f -print0 | xargs -0 echo | tr ' ' ':')
+fi
