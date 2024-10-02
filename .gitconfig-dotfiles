@@ -10,7 +10,7 @@
     po = !git pull origin $(git rev-parse --abbrev-ref HEAD)
     pu = !git push origin $(git rev-parse --abbrev-ref HEAD)
 	pushalltags = !git push origin --tags
-	pushall = !git push origin --all
+    deletebranches = !git branch | grep $1 | xargs git branch -D
 [core]
     editor = vim
     autocrlf = input
