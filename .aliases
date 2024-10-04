@@ -42,4 +42,6 @@ alias plu="poetry lock && poetry update"
 # Skaffold
 alias sk="skaffold"
 alias skd="skaffold dev"
+alias skdp="skaffold dev --profile"
 alias skr="skaffold run"
+alias skrp="skaffold run --profile"
