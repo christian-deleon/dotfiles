@@ -38,3 +38,6 @@ alias pl="poetry lock"
 alias pu="poetry update"
 alias pv="poetry version"
 alias plu="poetry lock && poetry update"
+
+# Skaffold
+alias sk="skaffold"
