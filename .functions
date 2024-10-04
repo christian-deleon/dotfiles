@@ -273,25 +273,3 @@ function opl() {
 function nixp() {
     nix-shell -p "$@"
 }
-
-#################
-# Skaffold
-#################
-
-# Run skaffold dev with the given profile if provided
-function skd() {
-    if [ -z "$1" ]; then
-        skaffold dev
-    else
-        skaffold dev --profile "$1"
-    fi
-}
-
-# Run skaffold run with the given profile if provided
-function skr() {
-    if [ -z "$1" ]; then
-        skaffold run
-    else
-        skaffold run --profile "$1"
-    fi
-}
