@@ -5,11 +5,13 @@ This repository contains my personal dotfiles, which include configurations for 
 ## Structure
 
 - `.config` : Contains configuration files for various tools.
+- `.tmux` : Contains tmux plugins.
+- `.vim` : Contains vim plugins.
+- `.vscode` : Contains settings for VS Code.
 - `.aliases` : Contains aliases for bash.
 - `.functions` : Contains function definitions for bash.
 - `.gitconfig` : Contains git configuration settings.
 - `.tmux.conf` : Contains configuration settings for tmux.
-- `.vscode` : Contains settings for VS Code.
 - `ansible` : Contains Ansible playbooks for provisioning a new system.
 
 ## Installation
