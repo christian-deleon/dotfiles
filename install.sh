@@ -75,9 +75,11 @@ if [ ! -f "${git_private_config}" ]; then
     echo 
     read -p "Enter your Git name: " git_user_name
     read -p "Enter your Git email: " git_email
+    read -p "Enter your Git public signing key: " git_signing_key
     echo "[user]" > ${git_private_config}
     echo "    name = ${git_user_name}" >> ${git_private_config}
     echo "    email = ${git_email}" >> ${git_private_config}
+    echo "    signingkey = ${git_signing_key}" >> ${git_private_config}
 fi
 
 # Path to the dot.sh script in your repository
