@@ -1,16 +1,9 @@
-[alias]
-    br = branch
-    ci = commit
-    cm = commit -m
-    co = checkout
-    cob = checkout -b
-    st = status
-    cam = !git add -A && git commit -m
-    undo = reset --soft HEAD^
-    po = !git pull origin $(git rev-parse --abbrev-ref HEAD)
-    pu = !git push origin $(git rev-parse --abbrev-ref HEAD)
-	pushalltags = !git push origin --tags
-    deletebranches = !git branch | grep $1 | xargs git branch -D
+[gpg]
+    format = ssh
+[gpg "ssh"]
+    program = "/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
+[commit]
+    gpgsign = true
 [core]
     editor = vim
     autocrlf = input
@@ -24,3 +17,16 @@
 	rebase = false
 [branch]
     autoSetupMerge = always
+[alias]
+    br = branch
+    ci = commit
+    cm = commit -m
+    co = checkout
+    cob = checkout -b
+    st = status
+    cam = !git add -A && git commit -m
+    undo = reset --soft HEAD^
+    po = !git pull origin $(git rev-parse --abbrev-ref HEAD)
+    pu = !git push origin $(git rev-parse --abbrev-ref HEAD)
+	pushalltags = !git push origin --tags
+    deletebranches = !git branch | grep $1 | xargs git branch -D
