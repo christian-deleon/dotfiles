@@ -22,6 +22,22 @@ function filter_kubectl_output() {
     fi
 }
 
+# Set the current kubeconfig
+function kcs() {
+    # Ensure the kubeconfig exists
+    if [ ! -f "$HOME/.kube/$1" ]; then
+        echo "Kubeconfig $1 does not exist"
+        return
+    fi
+
+    export KUBECONFIG=$HOME/.kube/$1
+}
+
+# Unset the current kubeconfig
+function kcu() {
+    unset KUBECONFIG
+}
+
 # Get all contexts
 function kcg() {
     kubectl config get-contexts
