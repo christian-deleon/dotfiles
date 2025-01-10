@@ -95,6 +95,6 @@ if command -v telepresence &>/dev/null; then
 fi
 
 # KUBECONFIG environment variable
-if [ -d "$HOME/.kube" ]; then
-    export KUBECONFIG=$(find "$HOME/.kube" -path "$HOME/.kube/cache" -prune -o -type f -print | sed 's/$/:/' | tr -d '\n' | sed 's/:$//')
-fi
+# if [ -d "$HOME/.kube" ]; then
+#     export KUBECONFIG=$(find "$HOME/.kube" -path "$HOME/.kube/cache" -prune -o -type f -print | sed 's/$/:/' | tr -d '\n' | sed 's/:$//')
+# fi
