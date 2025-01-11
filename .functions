@@ -33,6 +33,11 @@ function kcs() {
     export KUBECONFIG=$HOME/.kube/$1
 }
 
+# Set all kubeconfigs
+function kca() {
+    export KUBECONFIG=$(find "$HOME/.kube" -path "$HOME/.kube/cache" -prune -o -type f -print | sed 's/$/:/' | tr -d '\n' | sed 's/:$//')
+}
+
 # Unset the current kubeconfig
 function kcu() {
     unset KUBECONFIG
