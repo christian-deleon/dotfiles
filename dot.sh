@@ -8,12 +8,12 @@ ANSIBLE_DIR=${DOTFILES_DIR}/ansible
 
 usage() {
     cat << "EOF"
-      _       _    __ _ _           
-   __| | ___ | |_ / _(_) | ___  ___ 
+      _       _    __ _ _
+   __| | ___ | |_ / _(_) | ___  ___
   / _` |/ _ \| __| |_| | |/ _ \/ __|
  | (_| | (_) | |_|  _| | |  __/\__ \
 (_)__,_|\___/ \__|_| |_|_|\___||___/
-                                    
+
 EOF
     echo "A tool to manage dotfiles, configure the bash environment, install and update packages, and provide helper functions for commonly used tools."
     echo "by: @christian-deleon"
@@ -21,10 +21,13 @@ EOF
     echo "Usage: dot [option]"
     echo
     echo "Options:"
-    echo "  edit        - Open the dotfiles directory in Visual Studio Code"
-    echo "  update      - Update system packages and dotfiles"
-    echo "  install     - Install a tool using Ansible"
-    echo "  install-nix - Install nix-shell"
+    echo "  edit                  - Open the dotfiles directory in Visual Studio Code"
+    echo "  update                - Update system packages and dotfiles"
+    echo "  install               - Install a tool using Ansible"
+    echo "  install-nix           - Install nix-shell"
+    echo "  brew-install          - Install Homebrew"
+    echo "  brew-bundle [profile] - Install Homebrew packages using a Brewfile profile"
+    echo "  brew-save   [profile] - Save Homebrew packages to a Brewfile profile"
     echo
     echo "Standalone Tools:"
     parse_functions
@@ -55,7 +58,7 @@ if [[ ! -x "$(command -v ansible)" ]]; then
     # Check if pip is installed with python -m pip
     if [[ ! -x "$(command -v pip)" ]]; then
         echo "Pip is not installed. Installing pip..."
-        wget -qO - https://bootstrap.pypa.io/get-pip.py | python3        
+        wget -qO - https://bootstrap.pypa.io/get-pip.py | python3
     fi
 
     echo "Installing Ansible..."
@@ -67,10 +70,16 @@ fi
 update_system() {
     echo
     echo "Updating system packages and dotfiles using Ansible..."
+
     if [[ -f "${ANSIBLE_DIR}/clone-update.yaml" ]]; then
         ansible-playbook -i localhost, ${ANSIBLE_DIR}/clone-update.yaml
     fi
-    ansible-playbook -i localhost, ${ANSIBLE_DIR}/update.yaml
+
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        ansible-playbook -i localhost, ${ANSIBLE_DIR}/update.yaml
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        brew update && brew upgrade && brew cleanup && brew doctor
+    fi
 }
 
 
@@ -85,7 +94,8 @@ get_installable_tools() {
 
 # Function to install a tool using Ansible
 install_tool() {
-    tool=$1
+    local tool=$1
+
     echo
     echo "Installing ${tool} using Ansible..."
     if [[ -f "${ANSIBLE_DIR}/clone-${tool}.yaml" ]]; then
@@ -103,7 +113,25 @@ install_nix_shell() {
 }
 
 
-function parse_functions() {
+brew_bundle() {
+    local PROFILE=$1
+
+    echo
+    echo "Installing Homebrew packages using Brewfile profile..."
+    brew bundle --file=${DOTFILES_DIR}/brew/Brewfile-$PROFILE
+}
+
+
+brew_save() {
+    local PROFILE=$1
+
+    echo
+    echo "Saving Homebrew packages to Brewfile profile..."
+    brew bundle dump --file=${DOTFILES_DIR}/brew/Brewfile-$PROFILE --force
+}
+
+
+parse_functions() {
     local FUNCTIONS_PATH="${DOTFILES_DIR}/.functions"
     local comments=()
     local func_name=""
@@ -145,6 +173,31 @@ case "$1" in
         ;;
     install-nix)
         install_nix_shell
+        ;;
+    brew-install)
+        echo
+        echo "Installing Homebrew..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        ;;
+    brew-bundle)
+        if [ -z "$2" ]; then
+            echo
+            echo "Please specify a Brewfile profile."
+            echo
+            ls ${DOTFILES_DIR}/brew | grep Brewfile
+        else
+            brew_bundle "$2"
+        fi
+        ;;
+    brew-save)
+        if [ -z "$2" ]; then
+            echo
+            echo "Please specify a Brewfile profile."
+            echo
+            ls ${DOTFILES_DIR}/brew | grep Brewfile
+        else
+            brew_save "$2"
+        fi
         ;;
     *)
         echo
