@@ -72,7 +72,7 @@ git_private_config=$HOME/.git-private
 
 # Check if the private Git config already exists if not create it
 if [ ! -f "${git_private_config}" ]; then
-    echo 
+    echo
     read -p "Enter your Git name: " git_user_name
     read -p "Enter your Git email: " git_email
     read -p "Enter your Git public signing key: " git_signing_key
