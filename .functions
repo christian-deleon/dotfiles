@@ -201,6 +201,11 @@ function gcv() {
     gc "$1" && code .
 }
 
+# Git Status with short output
+function gs() {
+    git status -s
+}
+
 #################
 # Flux CD
 #################
