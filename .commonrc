@@ -103,3 +103,6 @@ fi
 fpath=($HOME/.docker/completions $fpath)
 autoload -Uz compinit
 compinit
+
+# LM Studio CLI (lms)
+export PATH="$PATH:$HOME/.lmstudio/bin"
