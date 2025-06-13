@@ -100,9 +100,20 @@ fi
 # fi
 
 # Docker configurations
-fpath=($HOME/.docker/completions $fpath)
-autoload -Uz compinit
-compinit
+if [ -n "$ZSH_VERSION" ]; then
+    fpath=($HOME/.docker/completions $fpath)
+    autoload -Uz compinit
+    compinit
+fi
 
 # LM Studio CLI (lms)
 export PATH="$PATH:$HOME/.lmstudio/bin"
+
+# ============================
+# Shell-specific configurations
+# ============================
+if [ -n "$ZSH_VERSION" ]; then
+    # zsh-specific configurations
+    autoload -U compinit
+    compinit
+fi
