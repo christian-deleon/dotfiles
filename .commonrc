@@ -17,6 +17,13 @@ HISTSIZE=1000
 HISTFILESIZE=2000
 
 # ============================
+# Go configurations
+# ============================
+
+export GOPATH="$HOME/go"
+export PATH="$GOPATH/bin:$PATH"
+
+# ============================
 # Git branch configurations
 # ============================
 
