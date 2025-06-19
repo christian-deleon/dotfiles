@@ -93,6 +93,99 @@ if [ ! -f "${editor_config}" ]; then
     echo "Preferred editor set to $editor_name"
 fi
 
+# Check for profile files and create them if necessary
+echo
+echo "Checking for profile files..."
+
+# Function to detect OS
+get_os() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "macos"
+    elif [[ -f /etc/os-release ]]; then
+        . /etc/os-release
+        echo "$ID"
+    else
+        echo "unknown"
+    fi
+}
+
+OS=$(get_os)
+profile_file=""
+profile_template=""
+
+case $OS in
+    "macos")
+        profile_file="$HOME/.zprofile"
+        profile_template="${dotfiles_dir}/profiles/.zprofile"
+        if [ ! -f "$profile_file" ]; then
+            echo "Creating .zprofile for macOS"
+            if [ -f "$profile_template" ]; then
+                cp "$profile_template" "$profile_file"
+                echo ".zprofile created successfully from template"
+            else
+                echo "Template for .zprofile not found, creating empty file"
+                touch "$profile_file"
+            fi
+        else
+            echo ".zprofile already exists"
+        fi
+        ;;
+    "ubuntu")
+        profile_file="$HOME/.profile"
+        profile_template="${dotfiles_dir}/profiles/.profile"
+        if [ ! -f "$profile_file" ]; then
+            echo "Creating .profile for Ubuntu"
+            if [ -f "$profile_template" ]; then
+                cp "$profile_template" "$profile_file"
+                echo ".profile created successfully from template"
+            else
+                echo "Template for .profile not found, creating empty file"
+                touch "$profile_file"
+            fi
+        else
+            echo ".profile already exists"
+        fi
+        ;;
+    "rhel"|"centos"|"fedora")
+        profile_file="$HOME/.bash_profile"
+        profile_template="${dotfiles_dir}/profiles/.bash_profile"
+        if [ ! -f "$profile_file" ]; then
+            echo "Creating .bash_profile for RHEL-based system"
+            if [ -f "$profile_template" ]; then
+                cp "$profile_template" "$profile_file"
+                echo ".bash_profile created successfully from template"
+            else
+                echo "Template for .bash_profile not found, creating empty file"
+                touch "$profile_file"
+            fi
+        else
+            echo ".bash_profile already exists"
+        fi
+        ;;
+    *)
+        echo "Unknown OS, checking for common profile files"
+        for possible_profile in "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.zprofile"; do
+            if [ -f "$possible_profile" ]; then
+                profile_file="$possible_profile"
+                echo "Found existing profile file: $profile_file"
+                break
+            fi
+        done
+        if [ -z "$profile_file" ]; then
+            echo "No profile file found, creating .profile as default"
+            profile_file="$HOME/.profile"
+            profile_template="${dotfiles_dir}/profiles/.profile"
+            if [ -f "$profile_template" ]; then
+                cp "$profile_template" "$profile_file"
+                echo ".profile created successfully from template"
+            else
+                echo "Template for .profile not found, creating empty file"
+                touch "$profile_file"
+            fi
+        fi
+        ;;
+esac
+
 # Path to the dot.sh script in your repository
 dotfiles_script="${dotfiles_dir}/dot.sh"
 
