@@ -311,5 +311,6 @@ function nixp() {
 
 # kubectl-ai interactive mode
 function kai() {
-    kubectl-ai "$@"
+    # Set provider and model since config.yaml is not working
+    kubectl-ai --llm-provider=grok --model=grok-3
 }
