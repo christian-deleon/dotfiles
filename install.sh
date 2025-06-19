@@ -98,20 +98,18 @@ echo
 echo "Checking for profile files..."
 
 # Function to detect OS
+echo "Detecting operating system..."
 get_os() {
     if [[ "$OSTYPE" == "darwin"* ]]; then
         echo "macos"
     elif [[ -f /etc/os-release ]]; then
-        . /etc/os-release
-        echo "$ID"
+        echo "linux"
     else
         echo "unknown"
     fi
 }
 
 OS=$(get_os)
-profile_file=""
-profile_template=""
 
 case $OS in
     "macos")
@@ -130,33 +128,31 @@ case $OS in
             echo ".zprofile already exists"
         fi
         ;;
-    "ubuntu")
-        profile_file="$HOME/.profile"
-        profile_template="${dotfiles_dir}/profiles/.profile"
-        if [ ! -f "$profile_file" ]; then
-            echo "Creating .profile for Ubuntu"
-            if [ -f "$profile_template" ]; then
-                cp "$profile_template" "$profile_file"
+    "linux")
+        profile_file1="$HOME/.profile"
+        profile_file2="$HOME/.bash_profile"
+        profile_template1="${dotfiles_dir}/profiles/.profile"
+        profile_template2="${dotfiles_dir}/profiles/.bash_profile"
+        if [ ! -f "$profile_file1" ]; then
+            echo "Creating .profile for Linux system"
+            if [ -f "$profile_template1" ]; then
+                cp "$profile_template1" "$profile_file1"
                 echo ".profile created successfully from template"
             else
                 echo "Template for .profile not found, creating empty file"
-                touch "$profile_file"
+                touch "$profile_file1"
             fi
         else
             echo ".profile already exists"
         fi
-        ;;
-    "rhel"|"centos"|"fedora")
-        profile_file="$HOME/.bash_profile"
-        profile_template="${dotfiles_dir}/profiles/.bash_profile"
-        if [ ! -f "$profile_file" ]; then
-            echo "Creating .bash_profile for RHEL-based system"
-            if [ -f "$profile_template" ]; then
-                cp "$profile_template" "$profile_file"
+        if [ ! -f "$profile_file2" ]; then
+            echo "Creating .bash_profile for Linux system"
+            if [ -f "$profile_template2" ]; then
+                cp "$profile_template2" "$profile_file2"
                 echo ".bash_profile created successfully from template"
             else
                 echo "Template for .bash_profile not found, creating empty file"
-                touch "$profile_file"
+                touch "$profile_file2"
             fi
         else
             echo ".bash_profile already exists"
