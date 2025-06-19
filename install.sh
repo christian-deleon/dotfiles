@@ -82,6 +82,17 @@ if [ ! -f "${git_private_config}" ]; then
     echo "    signingkey = ${git_signing_key}" >> ${git_private_config}
 fi
 
+# Path to the editor config
+editor_config=$HOME/.editor-config
+
+# Check if the editor config already exists, if not create it
+if [ ! -f "${editor_config}" ]; then
+    echo
+    read -p "Enter your preferred editor command (e.g., vim, nano, code): " editor_name
+    echo "export EDITOR=$editor_name" > ${editor_config}
+    echo "Preferred editor set to $editor_name"
+fi
+
 # Path to the dot.sh script in your repository
 dotfiles_script="${dotfiles_dir}/dot.sh"
 
