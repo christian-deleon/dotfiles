@@ -304,3 +304,12 @@ function opl() {
 function nixp() {
     nix-shell -p "$@"
 }
+
+#################
+# kubectl-ai
+#################
+
+# kubectl-ai interactive mode
+function kai() {
+    kubectl-ai "$@"
+}
