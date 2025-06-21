@@ -33,6 +33,28 @@ echo "Updating Git submodules..."
 git submodule sync --recursive
 git submodule update --init --recursive
 
+# Special handling for SSH config
+if [ -f ${dotfiles_dir}/.ssh/config ]; then
+    # Ensure ~/.ssh directory exists with proper permissions
+    if [ ! -d $HOME/.ssh ]; then
+        mkdir -p $HOME/.ssh
+        chmod 700 $HOME/.ssh
+    fi
+
+    # Back up existing SSH config if it exists
+    if [ -f $HOME/.ssh/config ]; then
+        echo
+        echo "Backing up existing SSH config to ${backup_dir}"
+        mkdir -p ${backup_dir}/.ssh
+        cp -L $HOME/.ssh/config ${backup_dir}/.ssh/config
+    fi
+
+    echo
+    echo "Creating symlink for SSH config"
+    ln -snf ${dotfiles_dir}/.ssh/config $HOME/.ssh/config
+    chmod 600 $HOME/.ssh/config
+fi
+
 # Special handling for .gitconfig-dotfiles
 if [ -f ${dotfiles_dir}/.gitconfig-dotfiles ]; then
     if [ -f $HOME/.gitconfig ]; then
