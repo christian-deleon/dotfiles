@@ -35,24 +35,30 @@ git submodule update --init --recursive
 
 # Special handling for SSH config
 if [ -f ${dotfiles_dir}/.ssh/config ]; then
-    # Ensure ~/.ssh directory exists with proper permissions
-    if [ ! -d $HOME/.ssh ]; then
-        mkdir -p $HOME/.ssh
-        chmod 700 $HOME/.ssh
-    fi
-
-    # Back up existing SSH config if it exists
-    if [ -f $HOME/.ssh/config ]; then
-        echo
-        echo "Backing up existing SSH config to ${backup_dir}"
-        mkdir -p ${backup_dir}/.ssh
-        cp -L $HOME/.ssh/config ${backup_dir}/.ssh/config
-    fi
-
     echo
-    echo "Creating symlink for SSH config"
-    ln -snf ${dotfiles_dir}/.ssh/config $HOME/.ssh/config
-    chmod 600 $HOME/.ssh/config
+    read -p "Do you want to set up the SSH config? (y/n): " ssh_setup
+    if [[ "$ssh_setup" =~ ^[Yy]$ ]]; then
+        # Ensure ~/.ssh directory exists with proper permissions
+        if [ ! -d $HOME/.ssh ]; then
+            mkdir -p $HOME/.ssh
+            chmod 700 $HOME/.ssh
+        fi
+
+        # Back up existing SSH config if it exists
+        if [ -f $HOME/.ssh/config ]; then
+            echo
+            echo "Backing up existing SSH config to ${backup_dir}"
+            mkdir -p ${backup_dir}/.ssh
+            cp -L $HOME/.ssh/config ${backup_dir}/.ssh/config
+        fi
+
+        echo
+        echo "Creating symlink for SSH config"
+        ln -snf ${dotfiles_dir}/.ssh/config $HOME/.ssh/config
+        chmod 600 $HOME/.ssh/config
+    else
+        echo "Skipping SSH config setup."
+    fi
 fi
 
 # Special handling for .gitconfig-dotfiles
