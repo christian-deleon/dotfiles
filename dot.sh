@@ -156,7 +156,12 @@ parse_functions() {
 # Main logic to handle arguments
 case "$1" in
     edit)
-        code $HOME/dotfiles
+        if [ -f "$HOME/.editor-config" ]; then
+            source "$HOME/.editor-config"
+            $EDITOR $HOME/dotfiles
+        else
+            code $HOME/dotfiles
+        fi
         ;;
     update)
         update_system
