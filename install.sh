@@ -4,7 +4,7 @@ set -e
 
 # Define the list of dotfiles and dot directories
 dotfiles=(.aliases .functions .tmux.conf .bashrc .hushlogin .vimrc .zshrc .commonrc)
-dotdirs=(.vscode .config .tmux .vim)
+dotdirs=(.vscode .config .tmux .vim .warp)
 
 # Location of your dotfiles repository
 dotfiles_dir=$HOME/dotfiles
