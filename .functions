@@ -196,6 +196,11 @@ function gc() {
     git clone "$1" && cd "$(basename "$1" .git)"
 }
 
+# Git Clone and cd into it and open in Cursor
+function gcc() {
+    gc "$1" && cursor .
+}
+
 # Git Clone and cd into it and open in VS Code
 function gcv() {
     gc "$1" && code .
