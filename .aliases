@@ -14,42 +14,42 @@ alias mkdir='mkdir -pv'
 alias vi='vim'
 
 # Aliases for Tailscale
-alias ts=tailscale
-alias tss=tailscale status
+alias ts='tailscale'
+alias tss='tailscale status'
 
 # Kubernetes shortcut
-alias k=kubectl
+alias k='kubectl'
 
 # GitHub Copilot CLI
-alias cs=ghcs
-alias ce=ghce
+alias cs='ghcs'
+alias ce='ghce'
 
 # Telepresence
-alias tp=telepresence
+alias tp='telepresence'
 
 # Ansible
-alias ap=ansible-playbook
+alias ap='ansible-playbook'
 
 # Terraform
-alias tf=terraform
+alias tf='terraform'
 
 # Docker
-alias dc="docker compose"
-alias d="docker"
+alias dc='docker compose'
+alias d='docker'
 
 # Poetry
-alias pl="poetry lock"
-alias pu="poetry update"
-alias pv="poetry version"
-alias plu="poetry lock && poetry update"
+alias pl='poetry lock'
+alias pu='poetry update'
+alias pv='poetry version'
+alias plu='poetry lock && poetry update'
 
 # Skaffold
-alias sk="skaffold"
-alias skdel="skaffold delete"
-alias skd="skaffold dev"
-alias skdp="skaffold dev --profile"
-alias skr="skaffold run"
-alias skrp="skaffold run --profile"
+alias sk='skaffold'
+alias skdel='skaffold delete'
+alias skd='skaffold dev'
+alias skdp='skaffold dev --profile'
+alias skr='skaffold run'
+alias skrp='skaffold run --profile'
 
 # Netcat
-alias ncc="nc -zv"
+alias ncc='nc -zv'
