@@ -16,6 +16,7 @@ alias vi='vim'
 # Aliases for Tailscale
 alias ts='tailscale'
 alias tss='tailscale status'
+alias tsssh='tailscale ssh'
 
 # Kubernetes shortcut
 alias k='kubectl'
