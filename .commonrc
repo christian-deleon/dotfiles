@@ -81,6 +81,9 @@ source $HOME/.editor-config
 [ -f $HOME/.functions ] && source $HOME/.functions
 [ -f $HOME/.exports ] && source $HOME/.exports
 
+# Source machine-specific local configuration
+[ -f $HOME/.localrc ] && source $HOME/.localrc
+
 # Starship configurations
 if command -v starship &>/dev/null; then
     eval "$(starship init bash)"
