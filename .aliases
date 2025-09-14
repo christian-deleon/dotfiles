@@ -43,6 +43,19 @@ alias ksa='kubectl get statefulsets --all-namespaces'
 alias ksvc='kubectl get services'
 alias ksvca='kubectl get services --all-namespaces'
 
+# Flux CD
+alias fe='flux events'
+alias fea='flux events --all-namespaces'
+alias fg='flux reconcile source git'
+alias fgs='flux get sources git'
+alias fh='flux reconcile helmrelease'
+alias fk='flux reconcile kustomization'
+alias fkls='flux get kustomizations --all-namespaces'
+alias fkr='flux resume kustomization'
+alias fks='flux suspend kustomization'
+alias fkw='watch -n 1 flux get kustomizations --all-namespaces'
+alias fs='flux stats'
+
 # GitHub Copilot CLI
 alias cs='ghcs'
 alias ce='ghce'
