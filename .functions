@@ -12,6 +12,7 @@ function cdr() {
     cd "$(git rev-parse --show-toplevel)"
 }
 
+
 #################
 # Kubernetes
 #################
@@ -82,6 +83,7 @@ function ktnsa() {
     done
 }
 
+
 #################
 # Git
 #################
@@ -106,77 +108,6 @@ function gs() {
     git status -s
 }
 
-#################
-# Flux CD
-#################
-
-function flux_base() {
-    local command="$1"
-    local kind="$2"
-    local name="$3"
-    local namespace="$4"
-
-    if [ ! -z "$namespace" ]; then
-        flux $command kustomization "$name" --namespace "$namespace"
-    else
-        flux $command kustomization "$name"
-    fi
-}
-
-# Display flux status
-function fs() {
-    flux stats
-}
-
-# Display all flux events in the current namespace
-function fe() {
-    flux events
-}
-
-# Display all flux events in all namespaces
-function fea() {
-    flux events --all-namespaces
-}
-
-# Get all flux kustomizations in all namespaces
-function fkls() {
-    flux get kustomizations --all-namespaces
-}
-
-# Watch all flux kustomizations in all namespaces
-function fkw() {
-    watch -n 1 flux get kustomizations --all-namespaces
-}
-
-# Reconile a kustomization with name
-function fk() {
-    flux_base reconcile kustomization "$@"
-}
-
-# Reconile a helmrelease with name
-function fh() {
-    flux_base reconcile helmrelease "$@"
-}
-
-# Suspends a kustomization with name
-function fks() {
-    flux_base suspend kustomization "$@"
-}
-
-# Resumes a kustomization with name
-function fkr() {
-    flux_base resume kustomization "$@"
-}
-
-# Get all flux git sources
-function fgs() {
-    flux get sources git
-}
-
-# Reconile a git source with name
-function fg() {
-    flux reconcile source git "$@"
-}
 
 #################
 # Starship
@@ -187,6 +118,7 @@ function sk() {
     starship toggle kubernetes
 }
 
+
 #################
 # 1Password
 #################
@@ -196,6 +128,7 @@ function opl() {
     eval $(op signin)
 }
 
+
 #################
 # nix-shell
 #################
@@ -204,6 +137,7 @@ function opl() {
 function nixp() {
     nix-shell -p "$@"
 }
+
 
 #################
 # kubectl-ai
