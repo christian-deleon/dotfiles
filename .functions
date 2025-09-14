@@ -48,38 +48,6 @@ function kcu() {
     unset KUBECONFIG
 }
 
-# Get all contexts
-function kcg() {
-    kubectl config get-contexts
-}
-
-# Change the current kubectl context
-function kc() {
-    kubectl config use-context "$1"
-}
-
-# Change the current kubectl namespace
-function kn() {
-    kubectl config set-context --current --namespace="$1"
-}
-
-# Get all pods in the current namespace
-function kp() {
-    local COMMAND="kubectl get pods"
-
-    filter_kubectl_output "$1" "$COMMAND"
-}
-
-# Watch all pods in the current namespace
-function kpw() {
-    watch -n 1 kubectl get pods
-}
-
-# Get all pods in the current namespace with more details
-function kpd() {
-    kubectl get pods -o wide
-}
-
 # Get all pods in all namespaces except kube-system, flux-system and metallb-system
 function kpa() {
     local PATTERN=$1
@@ -88,77 +56,9 @@ function kpa() {
     filter_kubectl_output "$PATTERN" "$COMMAND"
 }
 
-# Get all pods in all namespaces
-function kpas() {
-    local PATTERN=$1
-    local COMMAND="kubectl get pods --all-namespaces"
-
-    filter_kubectl_output "$PATTERN" "$COMMAND"
-}
-
 # Watch all pods in all namespaces except kube-system, flux-system and metallb-system
 function kpaw() {
     watch -n 1 kubectl get pods --all-namespaces --field-selector 'metadata.namespace!=kube-system,metadata.namespace!=flux-system,metadata.namespace!=metallb-system'
-}
-
-# Watch all pods in all namespaces
-function kpaws() {
-    watch -n 1 kubectl get pods --all-namespaces
-}
-
-# Get all pods in all namespaces with more details
-function kpad() {
-    kubectl get pods --all-namespaces -o wide
-}
-
-# Get all events in the current namespace and sort by timestamp
-function ke() {
-    kubectl get events --sort-by='.lastTimestamp'
-}
-
-# Get all events in all namespaces and sort by timestamp
-function kea() {
-    kubectl get events --all-namespaces --sort-by='.lastTimestamp'
-}
-
-# Get all services in the current namespace
-function ks() {
-    kubectl get services
-}
-
-# Get all services in all namespaces
-function ksa() {
-    kubectl get services --all-namespaces
-}
-
-# Get all deployments in the current namespace
-function kd() {
-    kubectl get deployments
-}
-
-# Get all deployments in all namespaces
-function kda() {
-    kubectl get deployments --all-namespaces
-}
-
-# Get all statefulsets in the current namespace
-function kss() {
-    kubectl get statefulsets
-}
-
-# Get all statefulsets in all namespaces
-function kssa() {
-    kubectl get statefulsets --all-namespaces
-}
-
-# Get all replicasets in the current namespace
-function krs() {
-    kubectl get replicasets
-}
-
-# Get all replicasets in all namespaces
-function krsa() {
-    kubectl get replicasets --all-namespaces
 }
 
 # Get cumulative CPU and Memory usage of all pods in a namespace
@@ -180,11 +80,6 @@ function ktnsa() {
         ktns "$NAMESPACE"
         echo
     done
-}
-
-# Get all k8s API resources
-function kapi() {
-    kubectl api-resources
 }
 
 #################
