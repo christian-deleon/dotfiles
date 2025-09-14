@@ -28,6 +28,8 @@ alias kda='kubectl get deployments --all-namespaces'
 alias ke="kubectl get events --sort-by='.lastTimestamp'"
 alias kea="kubectl get events --all-namespaces --sort-by='.lastTimestamp'"
 alias kn='kubectl config set-context --current --namespace'
+alias kns='kubectl get namespaces'
+alias knsw='kubectl get namespaces --watch'
 alias kp='kubectl get pods'
 alias kpad='kubectl get pods --all-namespaces -o wide'
 alias kpas='kubectl get pods --all-namespaces'
