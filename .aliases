@@ -20,6 +20,26 @@ alias tsssh='tailscale ssh'
 
 # Kubernetes shortcut
 alias k='kubectl'
+alias kapi='kubectl api-resources'
+alias kc='kubectl config use-context'
+alias kcg='kubectl config get-contexts'
+alias kd='kubectl get deployments'
+alias kda='kubectl get deployments --all-namespaces'
+alias ke="kubectl get events --sort-by='.lastTimestamp'"
+alias kea="kubectl get events --all-namespaces --sort-by='.lastTimestamp'"
+alias kn='kubectl config set-context --current --namespace'
+alias kp='kubectl get pods'
+alias kpad='kubectl get pods --all-namespaces -o wide'
+alias kpas='kubectl get pods --all-namespaces'
+alias kpaw='kubectl get pods --all-namespaces --watch'
+alias kpd='kubectl get pods -o wide'
+alias kpw='kubectl get pods --watch'
+alias kr='kubectl get replicasets'
+alias kra='kubectl get replicasets --all-namespaces'
+alias ks='kubectl get statefulsets'
+alias ksa='kubectl get statefulsets --all-namespaces'
+alias ksvc='kubectl get services'
+alias ksvca='kubectl get services --all-namespaces'
 
 # GitHub Copilot CLI
 alias cs='ghcs'
@@ -54,3 +74,6 @@ alias skrp='skaffold run --profile'
 
 # Netcat
 alias ncc='nc -zv'
+
+# Firefox
+alias ffm='/Applications/Firefox.app/Contents/MacOS/firefox -ProfileManager'
