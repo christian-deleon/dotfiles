@@ -13,6 +13,7 @@ compinit
 
 if [[ -d /opt/homebrew ]]; then
     eval "$(/opt/homebrew/bin/brew shellenv)"
+    fpath=($HOMEBREW_PREFIX/share/zsh/site-functions $fpath)
 fi
 
 
