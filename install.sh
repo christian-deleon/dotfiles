@@ -1,6 +1,4 @@
-#!/bin/bash
-
-set -e
+#!/bin/bash -e
 
 # Define the list of dotfiles and dot directories
 dotfiles=(.aliases .functions .tmux.conf .bashrc .hushlogin .vimrc .zshrc .commonrc)
@@ -61,16 +59,25 @@ if [ -f ${dotfiles_dir}/.ssh/config ]; then
     fi
 fi
 
-# Special handling for .gitconfig-dotfiles
-if [ -f ${dotfiles_dir}/.gitconfig-dotfiles ]; then
+# Special handling for .gitconfig.dotfiles
+if [ -f ${dotfiles_dir}/.gitconfig.dotfiles ]; then
+    # Backup existing .gitconfig if it exists
     if [ -f $HOME/.gitconfig ]; then
         echo
         echo "Backing up existing .gitconfig to ${backup_dir}"
         cp -L $HOME/.gitconfig ${backup_dir}
     fi
+
+    # Backup existing .gitconfig.local if it exists
+    if [ -f $HOME/.gitconfig.local ]; then
+        echo
+        echo "Backing up existing .gitconfig.local to ${backup_dir}"
+        cp -L $HOME/.gitconfig.local ${backup_dir}
+    fi
+
     echo
     echo "Creating symlink for .gitconfig"
-    ln -snf ${dotfiles_dir}/.gitconfig-dotfiles $HOME/.gitconfig
+    ln -snf ${dotfiles_dir}/.gitconfig.dotfiles $HOME/.gitconfig
 fi
 
 # Handle directories separately
@@ -95,19 +102,72 @@ for dir in "${dotdirs[@]}"; do
     done
 done
 
-# Path to the private Git config
-git_private_config=$HOME/.git-private
+# Path to the local Git config
+git_local_config=$HOME/.gitconfig.local
 
-# Check if the private Git config already exists if not create it
-if [ ! -f "${git_private_config}" ]; then
+# Check if the local Git config already exists, ask if user wants to reconfigure
+if [ ! -f "${git_local_config}" ]; then
+    echo
+    echo "No local Git configuration found. Setting up Git configuration..."
+    configure_git=true
+else
+    echo
+    echo "Local Git configuration already exists at ${git_local_config}"
+    read -p "Do you want to reconfigure Git settings? (y/n): " reconfigure_git
+    if [[ "$reconfigure_git" =~ ^[Yy]$ ]]; then
+        echo
+        echo "Backing up existing .gitconfig.local to ${backup_dir}"
+        cp -L ${git_local_config} ${backup_dir}
+        configure_git=true
+    else
+        echo "Keeping existing Git configuration."
+        configure_git=false
+    fi
+fi
+
+if [ "$configure_git" = true ]; then
     echo
     read -p "Enter your Git name: " git_user_name
     read -p "Enter your Git email: " git_email
-    read -p "Enter your Git public signing key: " git_signing_key
-    echo "[user]" > ${git_private_config}
-    echo "    name = ${git_user_name}" >> ${git_private_config}
-    echo "    email = ${git_email}" >> ${git_private_config}
-    echo "    signingkey = ${git_signing_key}" >> ${git_private_config}
+
+    # Ask about git signing
+    echo
+    read -p "Do you want to enable Git commit signing? (y/n): " enable_signing
+    if [[ "$enable_signing" =~ ^[Yy]$ ]]; then
+        # Ask about SSH agent choice
+        echo
+        echo "Which SSH agent would you like to use for signing?"
+        echo "1) ssh-keygen (default)"
+        echo "2) 1Password SSH Agent"
+        read -p "Enter your choice (1 or 2): " ssh_agent_choice
+
+        read -p "Enter your Git public signing key: " git_signing_key
+
+        echo "[user]" > ${git_local_config}
+        echo "    name = ${git_user_name}" >> ${git_local_config}
+        echo "    email = ${git_email}" >> ${git_local_config}
+        echo "    signingkey = ${git_signing_key}" >> ${git_local_config}
+
+        # Add GPG/SSH signing configuration to local file
+        echo "" >> ${git_local_config}
+        echo "[gpg]" >> ${git_local_config}
+        echo "    format = ssh" >> ${git_local_config}
+        echo "[gpg \"ssh\"]" >> ${git_local_config}
+        if [[ "$ssh_agent_choice" == "2" ]]; then
+            echo "    program = \"/Applications/1Password.app/Contents/MacOS/op-ssh-sign\"" >> ${git_local_config}
+        else
+            echo "    program = ssh-keygen" >> ${git_local_config}
+        fi
+        echo "[commit]" >> ${git_local_config}
+        echo "    gpgsign = true" >> ${git_local_config}
+
+        echo "Git signing enabled with your chosen SSH agent."
+    else
+        echo "[user]" > ${git_local_config}
+        echo "    name = ${git_user_name}" >> ${git_local_config}
+        echo "    email = ${git_email}" >> ${git_local_config}
+        echo "Git signing disabled."
+    fi
 fi
 
 # Path to the editor config
