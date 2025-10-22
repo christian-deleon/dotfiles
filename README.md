@@ -106,6 +106,7 @@ dotfiles/
 - **Starship Prompt**: Modern shell prompt with git status and Kubernetes context
 - **NVM Support**: Node.js version management
 - **Go Environment**: GOPATH and Go binary path configuration
+- **Autocomplete Support**: Command completion for kubectl, telepresence, just, and more
 
 ### Development Tools
 
