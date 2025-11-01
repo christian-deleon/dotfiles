@@ -1,7 +1,7 @@
 # Temporary Directories
-tmp/
-temp/
+**/tmp/
+**/temp/
 
 # Temporary Files
-*.tmp
-*.temp
+**/*.tmp
+**/*.temp
