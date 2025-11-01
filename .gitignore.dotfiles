@@ -5,3 +5,6 @@
 # Temporary Files
 **/*.tmp
 **/*.temp
+
+# Environment Files
+**/*.env
