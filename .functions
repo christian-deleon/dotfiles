@@ -121,11 +121,9 @@ function gi() {
     local gitignore_file
     local content
     local response
-    local user_input
-    local templates=()
-    local template_list
     local default_templates=("vim" "macos" "visualstudiocode")
-    local found_defaults=()
+    local user_templates=()
+    local all_templates=()
 
     # Get the git repository root
     git_root="$(git rev-parse --show-toplevel 2>/dev/null)"
@@ -148,72 +146,52 @@ function gi() {
     fi
 
     # Parse user input - handle comma-separated arguments
-    user_input="$*"
-    
-    # Convert comma-separated string to array
-    IFS=',' read -r -a user_templates <<< "$user_input"
-    
-    # Process user templates and check for defaults (case-insensitive)
-    for template in "${user_templates[@]}"; do
-        template=$(echo "$template" | xargs)  # Trim whitespace
-        if [ -n "$template" ]; then
-            template_lower=$(echo "$template" | tr '[:upper:]' '[:lower:]')
-            local is_default=false
+    if [ -n "$*" ]; then
+        # Split by comma and process each template
+        local IFS=','
+        for template in $*; do
+            # Trim whitespace (pure shell method)
+            template="${template#"${template%%[![:space:]]*}"}"
+            template="${template%"${template##*[![:space:]]}"}"
             
-            # Check if this template is in the default_templates array
-            for default_template in "${default_templates[@]}"; do
-                default_lower=$(echo "$default_template" | tr '[:upper:]' '[:lower:]')
-                if [ "$template_lower" = "$default_lower" ]; then
-                    found_defaults+=("$default_template")
-                    is_default=true
-                    break
+            if [ -n "$template" ]; then
+                template_lower=$(echo "$template" | tr '[:upper:]' '[:lower:]')
+                
+                # Check if this matches a default (case-insensitive)
+                local is_default=false
+                for default in "${default_templates[@]}"; do
+                    default_lower=$(echo "$default" | tr '[:upper:]' '[:lower:]')
+                    if [ "$template_lower" = "$default_lower" ]; then
+                        is_default=true
+                        break
+                    fi
+                done
+                
+                # Only add non-defaults to user_templates
+                if [ "$is_default" = false ]; then
+                    user_templates+=("$template")
                 fi
-            done
-            
-            # Only add to templates if it's not a default
-            if [ "$is_default" = false ]; then
-                templates+=("$template")
             fi
-        fi
-    done
+        done
+    fi
+
+    # Build final template list: user templates + defaults
+    all_templates=("${user_templates[@]}" "${default_templates[@]}")
     
-    # Join templates with comma for API call (only request non-default templates)
+    # Join with comma for API call
+    local template_string
     IFS=','
-    template_list="${templates[*]}"
+    template_string="${all_templates[*]}"
     unset IFS
 
-    # Fetch gitignore.io content (only for non-default templates)
-    content=""
-    if [ -n "$template_list" ]; then
-        content="$(curl -sL "https://www.toptal.com/developers/gitignore/api/$template_list")"
-        
-        # Check if the API call was successful (not an error message)
-        if echo "$content" | grep -q "ERROR:"; then
-            echo "Error: Invalid gitignore templates" >&2
-            echo "$content" >&2
-            return 1
-        fi
-    fi
+    # Fetch gitignore.io content
+    content="$(curl -sL "https://www.toptal.com/developers/gitignore/api/$template_string")"
     
-    # Always fetch default templates from gitignore.io
-    IFS=','
-    local default_list="${default_templates[*]}"
-    unset IFS
-    
-    local default_content
-    default_content="$(curl -sL "https://www.toptal.com/developers/gitignore/api/$default_list")"
-    
-    if echo "$default_content" | grep -q "ERROR:"; then
-        echo "Error: Failed to fetch default templates" >&2
-        echo "$default_content" >&2
+    # Check if the API call was successful
+    if echo "$content" | grep -q "ERROR:"; then
+        echo "Error: Invalid gitignore templates" >&2
+        echo "$content" >&2
         return 1
-    fi
-    
-    # Append default templates
-    if [ -n "$content" ]; then
-        content="$content"$'\n\n'"$default_content"
-    else
-        content="$default_content"
     fi
 
     # Append common patterns from GitHub raw URL
