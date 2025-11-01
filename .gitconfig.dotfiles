@@ -24,3 +24,4 @@
     pu = !git push origin $(git rev-parse --abbrev-ref HEAD)
 	pushalltags = !git push origin --tags
     deletebranches = !git branch | grep $1 | xargs git branch -D
+    ignore = "!gi() { curl -sL https://www.toptal.com/developers/gitignore/api/$@; if [ -f $HOME/dotfiles/.gitignore.dotfiles ]; then echo \"\"; cat $HOME/dotfiles/.gitignore.dotfiles; fi; }; gi"

@@ -115,6 +115,53 @@ function gs() {
     git status -s
 }
 
+# gitignore.io command line function
+function gi() {
+    local git_root
+    local gitignore_file
+    local content
+    local response
+
+    # Get the git repository root
+    git_root="$(git rev-parse --show-toplevel 2>/dev/null)"
+    if [ -z "$git_root" ]; then
+        echo "Error: Not in a git repository" >&2
+        return 1
+    fi
+
+    gitignore_file="$git_root/.gitignore"
+
+    # Check if .gitignore already exists
+    if [ -f "$gitignore_file" ]; then
+        echo "A .gitignore file already exists at: $gitignore_file"
+        echo -n "Do you want to overwrite it? (y/n): "
+        read -r response
+        if [[ ! "$response" =~ ^[Yy]$ ]]; then
+            echo "Cancelled."
+            return 0
+        fi
+    fi
+
+    # Fetch gitignore.io content
+    content="$(curl -sL https://www.toptal.com/developers/gitignore/api/$@)"
+    
+    # Check if the API call was successful (not an error message)
+    if echo "$content" | grep -q "ERROR:"; then
+        echo "Error: Invalid gitignore templates" >&2
+        echo "$content" >&2
+        return 1
+    fi
+
+    # Append common patterns if they exist
+    if [ -f "$HOME/dotfiles/.gitignore.dotfiles" ]; then
+        content="$content"$'\n\n'"$(cat $HOME/dotfiles/.gitignore.dotfiles)"
+    fi
+
+    # Write to .gitignore file
+    echo "$content" > "$gitignore_file"
+    echo "Created/updated .gitignore at: $gitignore_file"
+}
+
 
 #################
 # Starship

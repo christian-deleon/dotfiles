@@ -103,6 +103,7 @@ dotfiles/
 
 - **Common Configuration**: Shared settings in `.commonrc` for both bash and zsh
 - **Git Integration**: Enhanced git branch display in prompt
+- **gitignore.io Integration**: Quick access to generate `.gitignore` files via `gi` function and `git ignore` alias
 - **Starship Prompt**: Modern shell prompt with git status and Kubernetes context
 - **NVM Support**: Node.js version management
 - **Go Environment**: GOPATH and Go binary path configuration
@@ -113,6 +114,10 @@ dotfiles/
 - **Kubernetes**: Extensive kubectl aliases and functions for cluster management
 - **Docker**: Docker and Docker Compose shortcuts
 - **Git**: Comprehensive git aliases and helper functions
+  - **gitignore.io**: Generate `.gitignore` files using templates from [gitignore.io](https://gitignore.io)
+    - Shell function: `gi python,node,docker > .gitignore`
+    - Git alias: `git ignore python,node,docker > .gitignore`
+    - Available on both bash (Linux) and zsh (macOS)
 - **Ansible**: Automation playbooks for tool installation
 - **Terraform**: Infrastructure as Code tooling
 - **Flux CD**: GitOps workflow management
