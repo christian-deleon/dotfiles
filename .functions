@@ -117,7 +117,6 @@ function gs() {
 
 # gitignore.io command line function
 function gi() {
-    local git_root
     local gitignore_file
     local content
     local response
@@ -125,18 +124,11 @@ function gi() {
     local user_templates=()
     local all_templates=()
 
-    # Get the git repository root
-    git_root="$(git rev-parse --show-toplevel 2>/dev/null)"
-    if [ -z "$git_root" ]; then
-        echo "Error: Not in a git repository" >&2
-        return 1
-    fi
-
-    gitignore_file="$git_root/.gitignore"
+    gitignore_file=".gitignore"
 
     # Check if .gitignore already exists
     if [ -f "$gitignore_file" ]; then
-        echo "A .gitignore file already exists at: $gitignore_file"
+        echo "A .gitignore file already exists in the current directory"
         echo -n "Do you want to overwrite it? (y/n): "
         read -r response
         if [[ ! "$response" =~ ^[Yy]$ ]]; then
@@ -203,7 +195,7 @@ function gi() {
 
     # Write to .gitignore file
     echo "$content" > "$gitignore_file"
-    echo "Created/updated .gitignore at: $gitignore_file"
+    echo "Created/updated .gitignore in current directory"
 }
 
 
