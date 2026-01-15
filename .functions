@@ -200,10 +200,10 @@ function gi() {
 
 
 # Git Clone Bare for worktrees (optimized for AI agents)
-function gcb() {
+function gcbare() {
     if [[ -z "$1" ]]; then
-        echo "Usage: gcb <repo-url>"
-        echo "   ex: gcb git@github.com:user/repo.git"
+        echo "Usage: gcbare <repo-url>"
+        echo "   ex: gcbare git@github.com:user/repo.git"
         return 1
     fi
 
