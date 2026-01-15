@@ -64,4 +64,9 @@ if command -v kubectl &>/dev/null; then
     complete -o default -F __start_kubectl k
 fi
 
+# fzf configurations
+if command -v fzf &>/dev/null; then
+    eval "$(fzf --bash)"
+fi
+
 export PATH="$PATH:$HOME/.local/bin"
