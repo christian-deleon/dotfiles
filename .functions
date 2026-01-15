@@ -214,15 +214,14 @@ function gcb() {
     # Clone as bare repository
     git clone --bare "$repo_url" "$bare_dir" || return 1
     
-    cd "$bare_dir" || return 1
-
     # Configure remote to fetch all branches (bare repos need this)
-    git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+    git -C "$bare_dir" config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
     
     # Fetch all branches to have latest refs
-    git fetch origin
+    git -C "$bare_dir" fetch origin
 
-    echo "Bare repo ready at: $bare_dir"
+    cd "$bare_dir" || return 1
+    echo "Bare repo ready at: $PWD"
     echo "Create worktrees with: gaw <branch-name> [base-branch]"
 }
 
