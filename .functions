@@ -229,9 +229,9 @@ function grw() {
 
         # Protect against accidentially nuking a non-worktree directory
         if [[ "$root" != "$worktree" ]]; then
-        cd "../$root.git"
-        /usr/bin/git worktree remove "$worktree" --force
-        /usr/bin/git branch -D "$branch"
+            cd "../$root.git"
+            /usr/bin/git worktree remove "$cwd" --force
+            /usr/bin/git branch -D "$branch"
         fi
     fi
 }
