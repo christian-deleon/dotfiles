@@ -1,7 +1,4 @@
 {
-    "editor.tabSize": 2,
-    "editor.wordWrap": "on",
-    "files.autoSave": "onFocusChange",
     "terminal.integrated.fontFamily": "MesloLGS NF",
     "terminal.integrated.fontSize": 13
 }
