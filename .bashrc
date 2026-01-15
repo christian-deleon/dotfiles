@@ -63,3 +63,5 @@ if command -v kubectl &>/dev/null; then
     source <(kubectl completion bash)
     complete -o default -F __start_kubectl k
 fi
+
+export PATH="$PATH:$HOME/.local/bin"
