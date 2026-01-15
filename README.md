@@ -1,6 +1,9 @@
 # Dotfiles Repository
 
-This is my personal dotfiles repository, primarily designed for my own use but feel free to be inspired by any configurations that might be useful for your setup. This repository contains configurations for various tools including bash, zsh, git, tmux, vim, VS Code, and more.
+This is my personal dotfiles repository, primarily designed for my own use but
+feel free to be inspired by any configurations that might be useful for your
+setup. This repository contains configurations for various tools including bash,
+zsh, git, tmux, vim, VS Code, and more.
 
 ## 🚀 Quick Start
 
@@ -13,7 +16,9 @@ Before installing the dotfiles, install Oh My Zsh and Powerlevel10k:
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
 # Install Powerlevel10k theme
-git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
+git clone --depth=1 \
+  https://github.com/romkatv/powerlevel10k.git \
+  ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
 ```
 
 ### Installation
@@ -29,7 +34,8 @@ cd ~/dotfiles
 The installation script will:
 
 - Back up any existing dotfiles to `$HOME/dotfiles_backup`
-- Create symbolic links from your home directory to the dotfiles in this repository
+- Create symbolic links from your home directory to the dotfiles in this
+  repository
 - Set up Git configuration with your personal details
 - Install the `dot` CLI tool for managing your dotfiles
 - Configure system-specific profile files
@@ -122,10 +128,12 @@ dotfiles/
   - Kubernetes context display
   - Custom prompt segments
   - Icon support (requires Nerd Font)
-- **gitignore.io Integration**: Quick access to generate `.gitignore` files via `gi` function and `git ignore` alias
+- **gitignore.io Integration**: Quick access to generate `.gitignore` files via
+  `gi` function and `git ignore` alias
 - **NVM Support**: Node.js version management
 - **Go Environment**: GOPATH and Go binary path configuration
-- **Autocomplete Support**: Command completion for kubectl, telepresence, just, and more
+- **Autocomplete Support**: Command completion for kubectl, telepresence, just,
+  and more
 
 ### Development Tools
 
@@ -192,14 +200,20 @@ Streamlined work environment with:
 ## 🚨 Important Notes
 
 - **Backup**: The installation script automatically backs up existing dotfiles
-- **Oh My Zsh Required**: Must be installed before running `install.sh` for zsh configuration to work
-- **Nerd Fonts**: The Powerlevel10k theme requires a Nerd Font (MesloLGS NF recommended and configured)
-  - Download from: https://github.com/romkatv/powerlevel10k#fonts
+- **Oh My Zsh Required**: Must be installed before running `install.sh` for zsh
+  configuration to work
+- **Nerd Fonts**: The Powerlevel10k theme requires a Nerd Font (MesloLGS NF
+  recommended and configured)
+  - Download from: <https://github.com/romkatv/powerlevel10k#fonts>
   - Already configured for VS Code and Cursor terminals
-- **SSH Configuration**: You'll be prompted to set up SSH configuration during installation
-- **Git Configuration**: Personal Git settings are stored in `.gitconfig.local` (not tracked in git)
-- **System Detection**: The installer automatically detects macOS vs Linux and configures accordingly
-- **Powerlevel10k Customization**: Run `p10k configure` to customize your prompt appearance
+- **SSH Configuration**: You'll be prompted to set up SSH configuration during
+  installation
+- **Git Configuration**: Personal Git settings are stored in `.gitconfig.local`
+  (not tracked in git)
+- **System Detection**: The installer automatically detects macOS vs Linux and
+  configures accordingly
+- **Powerlevel10k Customization**: Run `p10k configure` to customize your
+  prompt appearance
 
 ## 🤝 Contributing
 
@@ -212,7 +226,9 @@ While this repository is primarily for personal use, feel free to:
 
 ## ⚠️ Disclaimer
 
-Please review any script before running it. This repository is provided as-is, and I am not responsible for any damage that could be done to your system. Use at your own risk.
+Please review any script before running it. This repository is provided as-is,
+and I am not responsible for any damage that could be done to your system. Use
+at your own risk.
 
 ## 📝 License
 
