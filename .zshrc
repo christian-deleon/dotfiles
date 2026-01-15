@@ -42,6 +42,11 @@ if [[ -f $HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]]; 
     source $HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 fi
 
+# Source zsh-you-should-use (installed via Homebrew)
+if [[ -f $HOMEBREW_PREFIX/share/zsh-you-should-use/you-should-use.plugin.zsh ]]; then
+    source $HOMEBREW_PREFIX/share/zsh-you-should-use/you-should-use.plugin.zsh
+fi
+
 # Source zsh-syntax-highlighting (installed via Homebrew)
 # Note: This should be sourced at the end of .zshrc
 if [[ -f $HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]]; then
