@@ -9,7 +9,7 @@ zsh, git, tmux, vim, VS Code, and more.
 
 ### Prerequisites
 
-Before installing the dotfiles, install Oh My Zsh and Powerlevel10k:
+Before installing the dotfiles, install Oh My Zsh, Powerlevel10k, and recommended plugins:
 
 ```bash
 # Install Oh My Zsh
@@ -19,6 +19,10 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/too
 git clone --depth=1 \
   https://github.com/romkatv/powerlevel10k.git \
   ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
+
+# Install zsh plugins (macOS with Homebrew)
+brew install zsh-autosuggestions
+brew install zsh-syntax-highlighting
 ```
 
 ### Installation
@@ -122,7 +126,11 @@ dotfiles/
 ### Shell Configuration
 
 - **Common Configuration**: Shared settings in `.commonrc` for both bash and zsh
-- **Oh My Zsh**: Framework for managing zsh configuration with plugins
+- **Oh My Zsh**: Framework for managing zsh configuration with plugins:
+  - `git`: Git aliases and functions
+  - `kube-ps1`: Kubernetes prompt integration
+  - `zsh-autosuggestions`: Fish-like autosuggestions for zsh (suggests commands as you type based on history)
+  - `zsh-syntax-highlighting`: Fish-like syntax highlighting for zsh (highlights commands in real-time)
 - **Powerlevel10k**: Fast, flexible and feature-rich zsh theme with:
   - Git status integration
   - Kubernetes context display

@@ -35,6 +35,20 @@ plugins=(
 source $ZSH/oh-my-zsh.sh
 
 # ============================
+# Homebrew-installed zsh plugins
+# ============================
+# Source zsh-autosuggestions (installed via Homebrew)
+if [[ -f $HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]]; then
+    source $HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+fi
+
+# Source zsh-syntax-highlighting (installed via Homebrew)
+# Note: This should be sourced at the end of .zshrc
+if [[ -f $HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]]; then
+    source $HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+fi
+
+# ============================
 # Source the common configuration file
 # ============================
 if [ -f $HOME/.commonrc ]; then
