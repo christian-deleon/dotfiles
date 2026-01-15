@@ -199,41 +199,113 @@ function gi() {
 }
 
 
-# Create a new worktree and branch from within current git directory.
+# Git Clone Bare for worktrees (optimized for AI agents)
+function gcb() {
+    if [[ -z "$1" ]]; then
+        echo "Usage: gcb <repo-url>"
+        echo "   ex: gcb git@github.com:user/repo.git"
+        return 1
+    fi
+
+    local repo_url="$1"
+    local repo_name="$(basename "$repo_url" .git)"
+    local bare_dir="${repo_name}.git"
+
+    # Clone as bare repository
+    git clone --bare "$repo_url" "$bare_dir" || return 1
+    
+    cd "$bare_dir" || return 1
+
+    # Configure remote to fetch all branches (bare repos need this)
+    git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+    
+    # Fetch all branches to have latest refs
+    git fetch origin
+
+    echo "Bare repo ready at: $bare_dir"
+    echo "Create worktrees with: gaw <branch-name> [base-branch]"
+}
+
+
+# Create worktree from bare or normal repo
 function gaw() {
     if [[ -z "$1" ]]; then
-        echo "Usage: gaw [branch name]"
+        echo "Usage: gaw <branch-name> [base-branch]"
+        echo "   ex: gaw agent-042 main"
         return 1
     fi
 
     local branch="$1"
-    local base="$(basename "$PWD" .git)"
-    local path="../${base}-${branch}"
+    local base_branch="${2:-main}"
 
-    /usr/bin/git worktree add -b "$branch" "$path"
-    cd "$path"
+    # Try to detect if we're inside a bare repo
+    if git rev-parse --is-bare-repository 2>/dev/null | grep -q true; then
+        local repo_name="$(basename "$PWD" .git)"
+        local worktree_path="../${repo_name}-${branch}"
+        
+        echo "Creating worktree: $worktree_path @ $branch (from $base_branch)"
+        git worktree add -b "$branch" "$worktree_path" "$base_branch"
+        cd "$worktree_path" || return 1
+    else
+        # Normal repo fallback
+        local repo_name="$(basename "$(git rev-parse --show-toplevel)")"
+        local worktree_path="../${repo_name}-${branch}"
+        
+        git worktree add -b "$branch" "$worktree_path" "$base_branch" || return 1
+        cd "$worktree_path" || return 1
+    fi
 }
 
 
-# Remove worktree and branch from within active worktree directory.
+# Remove current worktree + branch (only works from inside worktree)
 function grw() {
-    if gum confirm "Remove worktree and branch?"; then
-        local cwd worktree root branch
-
-        cwd="$(pwd)"
-        worktree="$(basename "$cwd")"
-
-        # split on last `-`
-        root="${worktree%-*}"
-        branch="${worktree##*-}"
-
-        # Protect against accidentially nuking a non-worktree directory
-        if [[ "$root" != "$worktree" ]]; then
-            cd "../$root.git"
-            /usr/bin/git worktree remove "$cwd" --force
-            /usr/bin/git branch -D "$branch"
-        fi
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "Not inside a git worktree!"
+        return 1
     fi
+
+    local cwd="$(pwd)"
+    local wt_name="$(basename "$cwd")"
+    local main_repo="${wt_name%-*}"
+    local branch="${wt_name##*-}"
+
+    # Safety checks
+    if [[ "$main_repo" = "$wt_name" ]]; then
+        echo "Directory name doesn't look like a worktree (no '-' found)"
+        return 1
+    fi
+
+    if gum confirm "Really delete worktree + branch '$branch' ?"; then
+        local bare_path="../$main_repo.git"
+        
+        if [[ -d "$bare_path" ]]; then
+            cd "$bare_path" || return 1
+            git worktree remove "$cwd" --force
+            git branch -D "$branch"
+            echo "✓ Worktree and branch removed"
+        else
+            echo "Bare repo not found at expected path: $bare_path"
+            return 1
+        fi
+    else
+        echo "Cancelled."
+    fi
+}
+
+# Quick fetch
+function gfb() {
+    if git rev-parse --is-bare-repository 2>/dev/null | grep -q true; then
+        git fetch --prune origin
+        echo "Bare repo updated ✓"
+    else
+        git fetch --prune
+    fi
+}
+
+# Create and fetch
+function gawf() {
+    gfb
+    gaw "$@"
 }
 
 
