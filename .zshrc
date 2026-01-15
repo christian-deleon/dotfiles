@@ -68,6 +68,13 @@ if [[ $commands[kubectl] ]]; then
 fi
 
 # ============================
+# fzf configurations
+# ============================
+if [[ $commands[fzf] ]]; then
+    source <(fzf --zsh)
+fi
+
+# ============================
 # Powerlevel10k Configuration
 # ============================
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.

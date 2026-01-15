@@ -123,6 +123,9 @@ if command -v opencode &>/dev/null; then
     source <(opencode completion)
 fi
 
+# fzf configurations
+export FZF_COMPLETION_TRIGGER='~~'
+
 # Skaffold configurations
 if command -v skaffold &>/dev/null; then
     if [ -n "$ZSH_VERSION" ]; then
