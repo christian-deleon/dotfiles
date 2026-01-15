@@ -251,7 +251,7 @@ function gaw() {
         local repo_name="$(basename "$(git rev-parse --show-toplevel)")"
         local worktree_path="../${repo_name}-${branch}"
         
-        git worktree add -b "$branch" "$worktree_path" || return 1
+        git worktree add -b "$branch" "$worktree_path" "$base_branch" || return 1
         cd "$worktree_path" || return 1
     fi
 }
@@ -276,7 +276,7 @@ function grw() {
     fi
 
     if gum confirm "Really delete worktree + branch '$branch' ?"; then
-        local bare_path="../../$main_repo.git"
+        local bare_path="../$main_repo.git"
         
         if [[ -d "$bare_path" ]]; then
             cd "$bare_path" || return 1
@@ -294,7 +294,7 @@ function grw() {
 
 # Quick fetch
 function gfb() {
-    if git rev-parse --is-bare-repository >/dev/null 2>&1; then
+    if git rev-parse --is-bare-repository 2>/dev/null | grep -q true; then
         git fetch --prune origin
         echo "Bare repo updated ✓"
     else
