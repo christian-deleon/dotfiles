@@ -118,6 +118,11 @@ if command -v just &>/dev/null && [ -f $HOME/.just_completion_bash ]; then
     source $HOME/.just_completion_bash
 fi
 
+# OpenCode configurations
+if command -v opencode &>/dev/null; then
+    source <(opencode completion)
+fi
+
 # KUBECONFIG environment variable
 # if [ -d "$HOME/.kube" ]; then
 #     export KUBECONFIG=$(find "$HOME/.kube" -path "$HOME/.kube/cache" -prune -o -type f -print | sed 's/$/:/' | tr -d '\n' | sed 's/:$//')

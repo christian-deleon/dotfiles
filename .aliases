@@ -95,3 +95,6 @@ alias ncc='nc -zv'
 
 # Firefox
 alias ffm='/Applications/Firefox.app/Contents/MacOS/firefox -ProfileManager'
+
+# OpenCode
+alias oc='opencode'

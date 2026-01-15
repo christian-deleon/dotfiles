@@ -132,8 +132,8 @@ dotfiles/
   `gi` function and `git ignore` alias
 - **NVM Support**: Node.js version management
 - **Go Environment**: GOPATH and Go binary path configuration
-- **Autocomplete Support**: Command completion for kubectl, telepresence, just,
-  and more
+- **Autocomplete Support**: Command completion for kubectl, opencode, telepresence,
+  just, and more
 
 ### Development Tools
 
