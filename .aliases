@@ -18,20 +18,18 @@ alias ts='tailscale'
 alias tss='tailscale status'
 alias tsssh='tailscale ssh'
 
-# Kubernetes shortcut
+# Kubernetes shortcuts
+# Note: kc, kn, ke, kl, kdp, kdd, kdelp, ks are functions in .functions with fzf support
 alias k='kubectl'
 alias kapi='kubectl api-resources'
-alias kc='kubectl config use-context'
 alias kcg='kubectl config get-contexts'
 alias kd='kubectl get deployments'
 alias kda='kubectl get deployments --all-namespaces'
-alias ke="kubectl get events --sort-by='.lastTimestamp'"
-alias kea="kubectl get events --all-namespaces --sort-by='.lastTimestamp'"
-alias kn='kubectl config set-context --current --namespace'
+alias kev="kubectl get events --sort-by='.lastTimestamp'"
+alias keva="kubectl get events --all-namespaces --sort-by='.lastTimestamp'"
 alias kns='kubectl get namespaces'
 alias knsw='kubectl get namespaces --watch'
 alias kp='kubectl get pods'
-alias kpa='kubectl get pods --all-namespaces'
 alias kpad='kubectl get pods --all-namespaces -o wide'
 alias kpaw='kubectl get pods --all-namespaces --watch'
 alias kpd='kubectl get pods -o wide'
