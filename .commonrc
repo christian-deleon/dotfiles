@@ -126,6 +126,13 @@ fi
 # fzf configurations
 export FZF_COMPLETION_TRIGGER='~~'
 
+# Use fd as default source — fast + clean + excludes .git
+if command -v fd >/dev/null; then
+  export FZF_DEFAULT_COMMAND='fd --type f --strip-cwd-prefix --hidden --follow --exclude .git'
+  # Also apply the same logic to CTRL-T file search
+  export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+fi
+
 # Skaffold configurations
 if command -v skaffold &>/dev/null; then
     if [ -n "$ZSH_VERSION" ]; then
