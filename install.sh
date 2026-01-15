@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 # Define the list of dotfiles and dot directories
-dotfiles=(.aliases .functions .tmux.conf .bashrc .hushlogin .vimrc .zshrc .commonrc)
+dotfiles=(.aliases .functions .tmux.conf .bashrc .hushlogin .vimrc .zshrc .commonrc .p10k.zsh)
 dotdirs=(.vscode .config .tmux .vim .warp)
 
 # Location of your dotfiles repository
