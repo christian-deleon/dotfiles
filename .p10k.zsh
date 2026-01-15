@@ -62,6 +62,7 @@
   # Right prompt segments.
   typeset -g POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(
     # =========================[ Line #1 ]=========================
+    kubecontext               # kubernetes context
     # command_execution_time  # previous command duration
     # virtualenv              # python virtual environment
     # context                 # user@host
@@ -150,6 +151,26 @@
   typeset -g POWERLEVEL9K_VCS_{COMMITS_AHEAD,COMMITS_BEHIND}_MAX_NUM=1
   # Remove space between '⇣' and '⇡' and all trailing spaces.
   typeset -g POWERLEVEL9K_VCS_CONTENT_EXPANSION='${${${P9K_CONTENT/⇣* :⇡/⇣⇡}// }//:/ }'
+
+  # Only show kubecontext when running kubectl-related commands.
+  # Dynamically built from .aliases and .functions at shell startup.
+  local _kube_cmds='kubectl|helm|kubens|kubectx|oc|istioctl|kogito|k9s|helmfile|flux|fluxctl|stern'
+  
+  # Extract kubectl aliases (alias x='kubectl...)
+  if [[ -f "$HOME/.aliases" ]]; then
+    local _kube_aliases=$(command grep -E "^alias [^=]+='kubectl" "$HOME/.aliases" 2>/dev/null | sed "s/alias \([^=]*\)=.*/\1/" | paste -sd '|' -)
+    [[ -n "$_kube_aliases" ]] && _kube_cmds="${_kube_cmds}|${_kube_aliases}"
+  fi
+  
+  # Extract functions from Kubernetes and kubectl-ai sections
+  if [[ -f "$HOME/.functions" ]]; then
+    local _kube_funcs=$(awk '/^#+ Kubernetes/,/^#+ Git/{if(/^function /){split($2,a,"("); print a[1]}}' "$HOME/.functions" 2>/dev/null | paste -sd '|' -)
+    local _kai_funcs=$(awk '/^#+ kubectl-ai/,0{if(/^function /){split($2,a,"("); print a[1]}}' "$HOME/.functions" 2>/dev/null | paste -sd '|' -)
+    [[ -n "$_kube_funcs" ]] && _kube_cmds="${_kube_cmds}|${_kube_funcs}"
+    [[ -n "$_kai_funcs" ]] && _kube_cmds="${_kube_cmds}|${_kai_funcs}"
+  fi
+  
+  typeset -g POWERLEVEL9K_KUBECONTEXT_SHOW_ON_COMMAND="$_kube_cmds"
 
   # Grey current time.
   typeset -g POWERLEVEL9K_TIME_FOREGROUND=$grey
