@@ -123,6 +123,15 @@ if command -v opencode &>/dev/null; then
     source <(opencode completion)
 fi
 
+# Skaffold configurations
+if command -v skaffold &>/dev/null; then
+    if [ -n "$ZSH_VERSION" ]; then
+        source <(skaffold completion zsh)
+    elif [ -n "$BASH_VERSION" ]; then
+        source <(skaffold completion bash)
+    fi
+fi
+
 # KUBECONFIG environment variable
 # if [ -d "$HOME/.kube" ]; then
 #     export KUBECONFIG=$(find "$HOME/.kube" -path "$HOME/.kube/cache" -prune -o -type f -print | sed 's/$/:/' | tr -d '\n' | sed 's/:$//')
