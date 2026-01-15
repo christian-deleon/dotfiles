@@ -23,6 +23,7 @@ git clone --depth=1 \
 # Install zsh plugins (macOS with Homebrew)
 brew install zsh-autosuggestions
 brew install zsh-syntax-highlighting
+brew install zsh-you-should-use
 ```
 
 ### Installation
@@ -131,6 +132,7 @@ dotfiles/
   - `kube-ps1`: Kubernetes prompt integration
   - `zsh-autosuggestions`: Fish-like autosuggestions for zsh (suggests commands as you type based on history)
   - `zsh-syntax-highlighting`: Fish-like syntax highlighting for zsh (highlights commands in real-time)
+  - `zsh-you-should-use`: Reminds you to use existing aliases when you type the full command
 - **Powerlevel10k**: Fast, flexible and feature-rich zsh theme with:
   - Git status integration
   - Kubernetes context display
