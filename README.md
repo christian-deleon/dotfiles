@@ -4,6 +4,18 @@ This is my personal dotfiles repository, primarily designed for my own use but f
 
 ## 🚀 Quick Start
 
+### Prerequisites
+
+Before installing the dotfiles, install Oh My Zsh and Powerlevel10k:
+
+```bash
+# Install Oh My Zsh
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+
+# Install Powerlevel10k theme
+git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
+```
+
 ### Installation
 
 To set up these dotfiles on your system, run the installation script:
@@ -55,9 +67,10 @@ dotfiles/
 ├── .commonrc             # Common shell configuration (shared by bash/zsh)
 ├── .functions            # Custom shell functions
 ├── .gitconfig.dotfiles   # Git configuration
+├── .p10k.zsh             # Powerlevel10k prompt configuration
 ├── .tmux.conf            # Tmux configuration
 ├── .vimrc                 # Vim configuration
-├── .zshrc                 # Zsh-specific configuration
+├── .zshrc                 # Zsh-specific configuration (with Oh My Zsh + Powerlevel10k)
 ├── .hushlogin            # Suppress login messages
 ├── ansible/              # Ansible playbooks for tool installation
 │   ├── install-*.yaml    # Installation playbooks for various tools
@@ -71,6 +84,7 @@ dotfiles/
 │   ├── .profile          # Linux profile template
 │   └── .bash_profile     # Linux bash profile template
 ├── .config/              # Application configuration directories
+├── .cursor/              # Cursor IDE settings
 ├── .tmux/                # Tmux plugins and configuration
 ├── .vim/                 # Vim plugins and configuration
 ├── .vscode/              # VS Code settings and extensions
@@ -102,9 +116,13 @@ dotfiles/
 ### Shell Configuration
 
 - **Common Configuration**: Shared settings in `.commonrc` for both bash and zsh
-- **Git Integration**: Enhanced git branch display in prompt
+- **Oh My Zsh**: Framework for managing zsh configuration with plugins
+- **Powerlevel10k**: Fast, flexible and feature-rich zsh theme with:
+  - Git status integration
+  - Kubernetes context display
+  - Custom prompt segments
+  - Icon support (requires Nerd Font)
 - **gitignore.io Integration**: Quick access to generate `.gitignore` files via `gi` function and `git ignore` alias
-- **Starship Prompt**: Modern shell prompt with git status and Kubernetes context
 - **NVM Support**: Node.js version management
 - **Go Environment**: GOPATH and Go binary path configuration
 - **Autocomplete Support**: Command completion for kubectl, telepresence, just, and more
@@ -131,7 +149,10 @@ dotfiles/
 
 ### IDE Integration
 
-- **VS Code**: Extensions and settings for development
+- **VS Code / Cursor**: Extensions and settings for development
+  - Terminal font configured for Powerlevel10k (MesloLGS NF)
+  - Auto-save on focus change
+  - Word wrap enabled
 - **GitHub Copilot**: AI-powered code completion
 - **Remote Development**: SSH and container development support
 
@@ -171,9 +192,14 @@ Streamlined work environment with:
 ## 🚨 Important Notes
 
 - **Backup**: The installation script automatically backs up existing dotfiles
+- **Oh My Zsh Required**: Must be installed before running `install.sh` for zsh configuration to work
+- **Nerd Fonts**: The Powerlevel10k theme requires a Nerd Font (MesloLGS NF recommended and configured)
+  - Download from: https://github.com/romkatv/powerlevel10k#fonts
+  - Already configured for VS Code and Cursor terminals
 - **SSH Configuration**: You'll be prompted to set up SSH configuration during installation
 - **Git Configuration**: Personal Git settings are stored in `.gitconfig.local` (not tracked in git)
 - **System Detection**: The installer automatically detects macOS vs Linux and configures accordingly
+- **Powerlevel10k Customization**: Run `p10k configure` to customize your prompt appearance
 
 ## 🤝 Contributing
 
