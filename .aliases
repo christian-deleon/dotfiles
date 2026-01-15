@@ -86,6 +86,7 @@ alias skdel='skaffold delete'
 alias skd='skaffold dev'
 alias skdp='skaffold dev --profile'
 alias skr='skaffold run'
+alias skrm='skaffold run --module'
 alias skrp='skaffold run --profile'
 
 # Netcat
