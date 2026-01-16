@@ -506,6 +506,9 @@ function gaw() {
 
     # Try to detect if we're inside a bare repo
     if git rev-parse --is-bare-repository 2>/dev/null | grep -q true; then
+        # Sync first to ensure we have latest remote state
+        gsync || return 1
+
         local repo_name="$(basename "$PWD" .git)"
         local worktree_path="../${repo_name}-${branch}"
 
@@ -516,7 +519,7 @@ function gaw() {
         # Normal repo fallback
         local repo_name="$(basename "$(git rev-parse --show-toplevel)")"
         local worktree_path="../${repo_name}-${branch}"
-        
+
         git worktree add -b "$branch" "$worktree_path" "$base_branch" || return 1
         cd "$worktree_path" || return 1
     fi
@@ -602,39 +605,60 @@ function grw() {
     echo "Worktree and branch '$current_branch' removed"
 }
 
-# Fetch all bare repos in current directory
-function gfba() {
+# Sync all bare repos in current directory
+function gsyncall() {
     local count=0
 
     for dir in *.git; do
         if [[ -d "$dir" ]] && git -C "$dir" rev-parse --is-bare-repository 2>/dev/null | grep -q true; then
-            echo "Fetching: $dir"
-            git -C "$dir" fetch --prune origin
+            echo "=== Syncing: $dir ==="
+            (cd "$dir" && gsync)
             ((count++))
+            echo ""
         fi
     done
 
     if [[ $count -eq 0 ]]; then
         echo "No bare repos found in current directory"
     else
-        echo "Fetched $count bare repo(s)"
+        echo "Synced $count bare repo(s)"
     fi
 }
 
-# Quick fetch
-function gfb() {
-    if git rev-parse --is-bare-repository 2>/dev/null | grep -q true; then
-        git fetch --prune origin
-        echo "Bare repo updated ✓"
-    else
-        git fetch --prune
+# Sync bare repo: fetch, prune, delete orphaned local branches
+function gsync() {
+    if ! git rev-parse --is-bare-repository 2>/dev/null | grep -q true; then
+        echo "Not in a bare repository"
+        return 1
     fi
-}
 
-# Create and fetch
-function gawf() {
-    gfb
-    gaw "$@"
+    # Fetch latest and prune dead remote tracking branches
+    git fetch --prune origin
+
+    # Clean up worktree metadata for manually deleted worktrees
+    git worktree prune
+
+    # Get branches with active worktrees
+    local worktree_branches=$(git worktree list --porcelain | grep '^branch' | sed 's|branch refs/heads/||')
+
+    # Delete local branches that don't exist on remote and have no worktree
+    local deleted=0
+    local b
+    for b in $(git for-each-ref --format='%(refname:short)' refs/heads/); do
+        # Skip if branch exists on remote
+        if git show-ref --verify --quiet "refs/remotes/origin/$b"; then
+            continue
+        fi
+        # Skip if branch has active worktree
+        if echo "$worktree_branches" | grep -qx "$b"; then
+            continue
+        fi
+        echo "Deleting orphaned branch: $b"
+        git branch -D "$b"
+        ((deleted++))
+    done
+
+    echo "Synced ✓ (deleted $deleted orphaned branch(es))"
 }
 
 
