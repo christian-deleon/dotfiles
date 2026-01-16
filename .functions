@@ -556,22 +556,15 @@ function grw() {
         echo ""
     fi
 
-    # Check for unpushed commits on current branch
-    if git show-ref --verify --quiet "refs/remotes/origin/$current_branch" 2>/dev/null; then
-        local unpushed_count
-        unpushed_count=$(git rev-list --count "origin/$current_branch..HEAD" 2>/dev/null || echo "0")
-        if [[ "$unpushed_count" -gt 0 ]]; then
-            has_risks=true
-            echo "Warning: Branch '$current_branch' has $unpushed_count unpushed commit(s):"
-            git log --oneline "origin/$current_branch..HEAD"
-            echo ""
-        fi
-    else
-        # Branch doesn't exist on remote - all local commits would be lost
-        local commit_count
-        commit_count=$(git rev-list --count HEAD 2>/dev/null || echo "0")
+    # Check for commits not reachable from any remote branch
+    # This catches both unpushed commits on tracked branches AND
+    # unique commits on branches that don't exist on remote
+    local unique_commits
+    unique_commits=$(git rev-list --count HEAD --not --remotes 2>/dev/null || echo "0")
+    if [[ "$unique_commits" -gt 0 ]]; then
         has_risks=true
-        echo "Warning: Branch '$current_branch' does not exist on remote (all $commit_count local commits would be lost)"
+        echo "Warning: Branch '$current_branch' has $unique_commits commit(s) not on any remote:"
+        git log --oneline HEAD --not --remotes
         echo ""
     fi
 
@@ -581,7 +574,7 @@ function grw() {
         confirm_msg="POTENTIAL DATA LOSS: $confirm_msg"
     fi
 
-    if ! gum confirm "$confirm_msg"; then
+    if ! gum confirm --default=false "$confirm_msg"; then
         echo "Cancelled."
         return 0
     fi
@@ -607,6 +600,25 @@ function grw() {
     fi
 
     echo "Worktree and branch '$current_branch' removed"
+}
+
+# Fetch all bare repos in current directory
+function gfba() {
+    local count=0
+
+    for dir in *.git; do
+        if [[ -d "$dir" ]] && git -C "$dir" rev-parse --is-bare-repository 2>/dev/null | grep -q true; then
+            echo "Fetching: $dir"
+            git -C "$dir" fetch --prune origin
+            ((count++))
+        fi
+    done
+
+    if [[ $count -eq 0 ]]; then
+        echo "No bare repos found in current directory"
+    else
+        echo "Fetched $count bare repo(s)"
+    fi
 }
 
 # Quick fetch
