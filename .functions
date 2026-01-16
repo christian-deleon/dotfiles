@@ -531,61 +531,82 @@ function grw() {
     fi
 
     local cwd="$(pwd)"
-    local wt_name="$(basename "$cwd")"
-    local main_repo="${wt_name%-*}"
-    local branch="${wt_name##*-}"
+    local current_branch="$(git rev-parse --abbrev-ref HEAD)"
 
-    # Safety checks
-    if [[ "$main_repo" = "$wt_name" ]]; then
-        echo "Directory name doesn't look like a worktree (no '-' found)"
+    # git-common-dir points to the main repo's git directory
+    # For bare repos: /path/to/repo.git
+    # For normal repos: /path/to/repo/.git
+    local main_repo_git="$(git rev-parse --git-common-dir)"
+
+    # Verify this is actually a worktree (not the main working tree)
+    local worktree_git_dir="$(git rev-parse --git-dir)"
+    if [[ "$worktree_git_dir" == "$main_repo_git" ]]; then
+        echo "Error: This appears to be the main repository, not a worktree"
         return 1
     fi
 
     # Check for work that remote doesn't have
-    local has_uncommitted=false
-    local has_unpushed=false
-    local current_branch="$(git rev-parse --abbrev-ref HEAD)"
+    local has_risks=false
 
-    # Check for uncommitted changes
+    # Check for uncommitted changes (staged, unstaged, and untracked)
     if [[ -n "$(git status --porcelain)" ]]; then
-        has_uncommitted=true
-        echo "Warning: Worktree has uncommitted changes on branch '$current_branch'"
+        has_risks=true
+        echo "Warning: Worktree has uncommitted changes:"
+        git status --short
+        echo ""
     fi
 
     # Check for unpushed commits on current branch
     if git show-ref --verify --quiet "refs/remotes/origin/$current_branch" 2>/dev/null; then
-        if [[ -n "$(git log --oneline origin/$current_branch..HEAD 2>/dev/null)" ]]; then
-            has_unpushed=true
-            echo "Warning: Branch '$current_branch' has commits not pushed to remote"
+        local unpushed_count
+        unpushed_count=$(git rev-list --count "origin/$current_branch..HEAD" 2>/dev/null || echo "0")
+        if [[ "$unpushed_count" -gt 0 ]]; then
+            has_risks=true
+            echo "Warning: Branch '$current_branch' has $unpushed_count unpushed commit(s):"
+            git log --oneline "origin/$current_branch..HEAD"
+            echo ""
         fi
     else
-        echo "Warning: Branch '$current_branch' does not exist on remote"
+        # Branch doesn't exist on remote - all local commits would be lost
+        local commit_count
+        commit_count=$(git rev-list --count HEAD 2>/dev/null || echo "0")
+        has_risks=true
+        echo "Warning: Branch '$current_branch' does not exist on remote (all $commit_count local commits would be lost)"
+        echo ""
     fi
 
-    if $has_uncommitted || $has_unpushed; then
-        echo "Worktree contains changes that remote doesn't have!"
-        echo -n "Continue anyway? (y/n): "
-        read -r response
-        if [[ ! "$response" =~ ^[Yy]$ ]]; then
-            echo "Cancelled."
-            return 1
-        fi
-    else
-        if gum confirm "Really delete worktree + branch '$branch' ?"; then
-        local bare_path="../$main_repo.git"
-        
-        if [[ -d "$bare_path" ]]; then
-            cd "$bare_path" || return 1
-            git worktree remove "$cwd" --force
-            git branch -D "$branch"
-            echo "✓ Worktree and branch removed"
-        else
-            echo "Bare repo not found at expected path: $bare_path"
-            return 1
-        fi
-    else
-        echo "Cancelled."
+    # Confirmation prompt with appropriate warning level
+    local confirm_msg="Delete worktree and branch '$current_branch'?"
+    if $has_risks; then
+        confirm_msg="POTENTIAL DATA LOSS: $confirm_msg"
     fi
+
+    if ! gum confirm "$confirm_msg"; then
+        echo "Cancelled."
+        return 0
+    fi
+
+    # Verify the main repo directory exists
+    if [[ ! -d "$main_repo_git" ]]; then
+        echo "Error: Cannot find main repository at: $main_repo_git"
+        return 1
+    fi
+
+    # Change to parent directory (not into the worktree we're removing)
+    cd "$(dirname "$cwd")" || return 1
+
+    # Remove the worktree using -C to run git commands in the main repo
+    if ! git -C "$main_repo_git" worktree remove "$cwd" --force; then
+        echo "Error: Failed to remove worktree"
+        return 1
+    fi
+
+    # Delete the branch
+    if ! git -C "$main_repo_git" branch -D "$current_branch" 2>/dev/null; then
+        echo "Note: Branch '$current_branch' may have already been deleted or is checked out elsewhere"
+    fi
+
+    echo "Worktree and branch '$current_branch' removed"
 }
 
 # Quick fetch
