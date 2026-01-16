@@ -193,10 +193,10 @@ function kl() {
             return 1
         fi
         
-        kubectl logs "$pod_name" $ns_flag -c "$container_name" -f
+        kubectl logs "$pod_name" $ns_flag -c "$container_name"
     else
         # Single container
-        kubectl logs "$pod_name" $ns_flag -f
+        kubectl logs "$pod_name" $ns_flag
     fi
 }
 
@@ -488,9 +488,8 @@ function gcbare() {
     # Fetch all branches to have latest refs
     git -C "$bare_dir" fetch origin
 
-    cd "$bare_dir" || return 1
-    echo "Bare repo ready at: $PWD"
-    echo "Create worktrees with: gaw <branch-name> [base-branch]"
+    echo "Bare repo ready at: $bare_dir"
+    echo "Create worktrees with: cd $bare_dir && gaw <branch-name> [base-branch]"
 }
 
 
