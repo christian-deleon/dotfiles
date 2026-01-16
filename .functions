@@ -541,7 +541,37 @@ function grw() {
         return 1
     fi
 
-    if gum confirm "Really delete worktree + branch '$branch' ?"; then
+    # Check for work that remote doesn't have
+    local has_uncommitted=false
+    local has_unpushed=false
+    local current_branch="$(git rev-parse --abbrev-ref HEAD)"
+
+    # Check for uncommitted changes
+    if [[ -n "$(git status --porcelain)" ]]; then
+        has_uncommitted=true
+        echo "Warning: Worktree has uncommitted changes on branch '$current_branch'"
+    fi
+
+    # Check for unpushed commits on current branch
+    if git show-ref --verify --quiet "refs/remotes/origin/$current_branch" 2>/dev/null; then
+        if [[ -n "$(git log --oneline origin/$current_branch..HEAD 2>/dev/null)" ]]; then
+            has_unpushed=true
+            echo "Warning: Branch '$current_branch' has commits not pushed to remote"
+        fi
+    else
+        echo "Warning: Branch '$current_branch' does not exist on remote"
+    fi
+
+    if $has_uncommitted || $has_unpushed; then
+        echo "Worktree contains changes that remote doesn't have!"
+        echo -n "Continue anyway? (y/n): "
+        read -r response
+        if [[ ! "$response" =~ ^[Yy]$ ]]; then
+            echo "Cancelled."
+            return 1
+        fi
+    else
+        if gum confirm "Really delete worktree + branch '$branch' ?"; then
         local bare_path="../$main_repo.git"
         
         if [[ -d "$bare_path" ]]; then
