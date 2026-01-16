@@ -508,9 +508,9 @@ function gaw() {
     if git rev-parse --is-bare-repository 2>/dev/null | grep -q true; then
         local repo_name="$(basename "$PWD" .git)"
         local worktree_path="../${repo_name}-${branch}"
-        
-        echo "Creating worktree: $worktree_path @ $branch (from $base_branch)"
-        git worktree add -b "$branch" "$worktree_path" "$base_branch"
+
+        echo "Creating worktree: $worktree_path @ $branch (from origin/$base_branch)"
+        git worktree add -b "$branch" "$worktree_path" "origin/$base_branch"
         cd "$worktree_path" || return 1
     else
         # Normal repo fallback
