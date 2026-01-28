@@ -57,7 +57,7 @@ fi
 # Source the common configuration file
 # ============================
 if [ -f $HOME/.commonrc ]; then
-    source $HOME/.commonrc
+    source $HOME/.commonrc &>/dev/null
 fi
 
 # ============================
