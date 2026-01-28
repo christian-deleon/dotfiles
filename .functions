@@ -493,36 +493,62 @@ function gcbare() {
 }
 
 
-# Create worktree from bare or normal repo
+# Create worktree from bare repo
 function gaw() {
-    if [[ -z "$1" ]]; then
-        echo "Usage: gaw <branch-name> [base-branch]"
-        echo "   ex: gaw agent-042 main"
+    local branch=""
+    local base_branch="main"
+    local group=""
+
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -g|--group)
+                group="$2"
+                shift 2
+                ;;
+            *)
+                if [[ -z "$branch" ]]; then
+                    branch="$1"
+                else
+                    base_branch="$1"
+                fi
+                shift
+                ;;
+        esac
+    done
+
+    if [[ -z "$branch" ]]; then
+        echo "Usage: gaw <branch-name> [base-branch] [-g|--group <group>]"
+        echo "   ex: gaw agent-042"
+        echo "   ex: gaw agent-042 develop"
+        echo "   ex: gaw agent-042 -g myagent"
+        echo "   ex: gaw agent-042 -g myagent develop"
         return 1
     fi
 
-    local branch="$1"
-    local base_branch="${2:-main}"
-
-    # Try to detect if we're inside a bare repo
-    if git rev-parse --is-bare-repository 2>/dev/null | grep -q true; then
-        # Sync first to ensure we have latest remote state
-        gsync || return 1
-
-        local repo_name="$(basename "$PWD" .git)"
-        local worktree_path="../${repo_name}-${branch}"
-
-        echo "Creating worktree: $worktree_path @ $branch (from origin/$base_branch)"
-        git worktree add -b "$branch" "$worktree_path" "origin/$base_branch"
-        cd "$worktree_path" || return 1
-    else
-        # Normal repo fallback
-        local repo_name="$(basename "$(git rev-parse --show-toplevel)")"
-        local worktree_path="../${repo_name}-${branch}"
-
-        git worktree add -b "$branch" "$worktree_path" "$base_branch" || return 1
-        cd "$worktree_path" || return 1
+    if ! git rev-parse --is-bare-repository 2>/dev/null | grep -q true; then
+        echo "Not in a bare repository"
+        return 1
     fi
+
+    # Sync first to ensure we have latest remote state
+    gsync || return 1
+
+    local repo_name="$(basename "$PWD" .git)"
+    local worktree_dir="../worktrees"
+    local worktree_path
+
+    if [[ -n "$group" ]]; then
+        worktree_path="${worktree_dir}/${group}/${repo_name}-${branch}"
+    else
+        worktree_path="${worktree_dir}/${repo_name}-${branch}"
+    fi
+
+    mkdir -p "$(dirname "$worktree_path")"
+
+    echo "Creating worktree: $worktree_path @ $branch (from origin/$base_branch)"
+    git worktree add -b "$branch" "$worktree_path" "origin/$base_branch" || return 1
+    cd "$worktree_path" || return 1
 }
 
 
