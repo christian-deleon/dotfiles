@@ -98,3 +98,7 @@ alias ffm='/Applications/Firefox.app/Contents/MacOS/firefox -ProfileManager'
 
 # OpenCode
 alias oc='opencode'
+
+# Claude
+alias cl='claude'
+alias cld='claude --dangerously-skip-permissions'
