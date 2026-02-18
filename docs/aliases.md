@@ -22,15 +22,6 @@ This document provides a reference for all custom shell aliases available in thi
 
 - `diff` - Enable colored diff output (`diff --color=auto`)
 - `mkdir` - Create directories with verbose parent creation (`mkdir -pv`)
-- `vi` - Use vim instead of vi
-
----
-
-## Tailscale
-
-- `ts` - Tailscale command shortcut
-- `tss` - Show Tailscale status (`tailscale status`)
-- `tsssh` - SSH via Tailscale (`tailscale ssh`)
 
 ---
 
@@ -119,25 +110,6 @@ GitOps toolkit shortcuts for managing Flux resources.
 
 ---
 
-## GitHub Copilot CLI
-
-- `cs` - GitHub Copilot shell suggestions (`ghcs`)
-- `ce` - GitHub Copilot explain command (`ghce`)
-
----
-
-## Telepresence
-
-- `tp` - Telepresence command shortcut
-
----
-
-## Ansible
-
-- `ap` - Ansible playbook shortcut (`ansible-playbook`)
-
----
-
 ## Terraform
 
 - `tf` - Terraform command shortcut
@@ -166,31 +138,26 @@ Python dependency management shortcuts.
 
 Kubernetes development workflow tool shortcuts.
 
-- `sk` - Skaffold command shortcut
 - `skd` - Skaffold dev mode (`skaffold dev`)
 - `skdel` - Skaffold delete (`skaffold delete`)
+- `skdelm` - Skaffold delete module (`skaffold delete --module`)
 - `skdp` - Skaffold dev with profile (`skaffold dev --profile`)
 - `skr` - Skaffold run (`skaffold run`)
+- `skrm` - Skaffold run module (`skaffold run --module`)
 - `skrp` - Skaffold run with profile (`skaffold run --profile`)
 
 ---
 
-## Network Tools
+## Claude
 
-- `ncc` - Netcat connection test (`nc -zv`)
-
----
-
-## Applications
-
-- `ffm` - Open Firefox Profile Manager (`/Applications/Firefox.app/Contents/MacOS/firefox -ProfileManager`)
-- `oc` - OpenCode shortcut
+- `cl` - Claude CLI (`claude`)
+- `cld` - Claude CLI with skip permissions (`claude --dangerously-skip-permissions`)
 
 ---
 
 ## Notes
 
-- Many Kubernetes operations have interactive fzf-enabled functions available - see [functions.md](functions.md)
+- Many Kubernetes operations have interactive fzf-enabled functions available — see [functions.md](functions.md)
 - Aliases prefixed with `k` are Kubernetes-related
 - Aliases prefixed with `f` are Flux CD-related
 - Most aliases support standard command arguments after the alias

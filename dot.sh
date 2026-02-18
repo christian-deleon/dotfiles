@@ -21,10 +21,9 @@ EOF
     echo "Usage: dot [option]"
     echo
     echo "Options:"
-    echo "  edit                  - Open the dotfiles directory in Visual Studio Code"
+    echo "  edit                  - Open the dotfiles directory in your editor"
     echo "  update                - Update system packages and dotfiles"
     echo "  install               - Install a tool using Ansible"
-    echo "  install-nix           - Install nix-shell"
     echo "  brew-install          - Install Homebrew"
     echo "  brew-bundle [profile] - Install Homebrew packages using a Brewfile profile"
     echo "  brew-save   [profile] - Save Homebrew packages to a Brewfile profile"
@@ -105,14 +104,6 @@ install_tool() {
 }
 
 
-# Install nix-shell
-install_nix_shell() {
-    echo
-    echo "Installing nix-shell..."
-    curl -L https://nixos.org/nix/install | sh -s -- --daemon
-}
-
-
 brew_bundle() {
     local PROFILE=$1
 
@@ -156,12 +147,7 @@ parse_functions() {
 # Main logic to handle arguments
 case "$1" in
     edit)
-        if [ -f "$HOME/.editor-config" ]; then
-            source "$HOME/.editor-config"
-            $EDITOR $HOME/dotfiles
-        else
-            code $HOME/dotfiles
-        fi
+        ${EDITOR:-vim} "$HOME/dotfiles"
         ;;
     update)
         update_system
@@ -175,9 +161,6 @@ case "$1" in
         else
             install_tool "$2"
         fi
-        ;;
-    install-nix)
-        install_nix_shell
         ;;
     brew-install)
         echo

@@ -11,12 +11,6 @@ alias up4='cd ../../../..'
 # Aliases for frequent commands
 alias diff='diff --color=auto'
 alias mkdir='mkdir -pv'
-alias vi='vim'
-
-# Aliases for Tailscale
-alias ts='tailscale'
-alias tss='tailscale status'
-alias tsssh='tailscale ssh'
 
 # Kubernetes shortcuts
 # Note: kc, kn, ke, kl, kdp, kdd, kdelp, ks are functions in .functions with fzf support
@@ -57,16 +51,6 @@ alias frk='flux reconcile kustomization --with-source'
 alias fro='flux reconcile source oci flux-system'
 alias fs='flux stats'
 
-# GitHub Copilot CLI
-alias cs='ghcs'
-alias ce='ghce'
-
-# Telepresence
-alias tp='telepresence'
-
-# Ansible
-alias ap='ansible-playbook'
-
 # Terraform
 alias tf='terraform'
 
@@ -81,7 +65,6 @@ alias pv='poetry version'
 alias plu='poetry lock && poetry update'
 
 # Skaffold
-alias sk='skaffold'
 alias skdel='skaffold delete'
 alias skdelm='skaffold delete --module'
 alias skd='skaffold dev'
@@ -89,15 +72,6 @@ alias skdp='skaffold dev --profile'
 alias skr='skaffold run'
 alias skrm='skaffold run --module'
 alias skrp='skaffold run --profile'
-
-# Netcat
-alias ncc='nc -zv'
-
-# Firefox
-alias ffm='/Applications/Firefox.app/Contents/MacOS/firefox -ProfileManager'
-
-# OpenCode
-alias oc='opencode'
 
 # Claude
 alias cl='claude'

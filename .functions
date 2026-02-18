@@ -80,11 +80,6 @@ function kpa() {
     filter_kubectl_output "$PATTERN" "$COMMAND"
 }
 
-# Watch all pods in all namespaces except kube-system, flux-system and metallb-system
-function kpaw() {
-    watch -n 1 kubectl get pods --all-namespaces --field-selector 'metadata.namespace!=kube-system,metadata.namespace!=flux-system,metadata.namespace!=metallb-system'
-}
-
 # Get cumulative CPU and Memory usage of all pods in a namespace (uses fzf if no argument provided)
 function ktns() {
     local namespace="$1"
@@ -563,8 +558,6 @@ function grw() {
     local current_branch="$(git rev-parse --abbrev-ref HEAD)"
 
     # git-common-dir points to the main repo's git directory
-    # For bare repos: /path/to/repo.git
-    # For normal repos: /path/to/repo/.git
     local main_repo_git="$(git rev-parse --git-common-dir)"
 
     # Verify this is actually a worktree (not the main working tree)
@@ -586,8 +579,6 @@ function grw() {
     fi
 
     # Check for commits not reachable from any remote branch
-    # This catches both unpushed commits on tracked branches AND
-    # unique commits on branches that don't exist on remote
     local unique_commits
     unique_commits=$(git rev-list --count HEAD --not --remotes 2>/dev/null || echo "0")
     if [[ "$unique_commits" -gt 0 ]]; then
@@ -684,7 +675,7 @@ function gsync() {
         ((deleted++))
     done
 
-    echo "Synced ✓ (deleted $deleted orphaned branch(es))"
+    echo "Synced (deleted $deleted orphaned branch(es))"
 }
 
 
@@ -705,30 +696,4 @@ function sk() {
 # Login to 1Password CLI
 function opl() {
     eval $(op signin)
-}
-
-
-#################
-# nix-shell
-#################
-
-# Enter a nix-shell with the given packages
-function nixp() {
-    nix-shell -p "$@"
-}
-
-
-#################
-# kubectl-ai
-#################
-
-# kubectl-ai interactive mode
-function kai() {
-    # Set provider and model since config.yaml is not working
-    kubectl-ai --llm-provider=grok --model=grok-3 "$@"
-}
-
-# kubectl-ai in quiet mode
-function kaiq() {
-    kubectl-ai --llm-provider=grok --model=grok-3 --quiet "$@"
 }

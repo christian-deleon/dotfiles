@@ -1,167 +1,52 @@
-# ============================
-# Environment configurations
-# ============================
+# ~/.commonrc — Cross-platform shell configuration
+# Sourced by both bash and zsh on any system.
+# Machine-specific config (EDITOR, secrets, etc.) goes in ~/.localrc
+
+# ─── PATH ─────────────────────────────────────────────────────────────────────
 
 export PATH="$HOME/.local/bin:$PATH"
-
-if [ -f $HOME/.env ]; then
-    source $HOME/.env
-fi
-
-# ============================
-# History configurations
-# ============================
-
-HISTCONTROL=ignoreboth
-HISTSIZE=1000
-HISTFILESIZE=2000
-
-# ============================
-# Go configurations
-# ============================
-
-export GOPATH="$HOME/go"
-export PATH="$GOPATH/bin:$PATH"
-
-# ============================
-# Java configurations
-# ============================
-
-if command -v brew &>/dev/null; then
-    export JAVA_HOME="$(brew --prefix)/opt/openjdk@17"
-    export PATH="$JAVA_HOME/bin:$PATH"
-fi
-
-# ============================
-# Git branch configurations
-# ============================
-
-parse_git_branch() {
-    if ! git rev-parse --is-inside-work-tree &>/dev/null; then
-        return
-    fi
-
-    local branch_name="$(git symbolic-ref HEAD 2>/dev/null)"
-    branch_name=${branch_name##refs/heads/}
-
-    local remote_name="$(git for-each-ref --format='%(upstream:short)' $(git symbolic-ref -q HEAD))"
-    local ahead_behind="$(git rev-list --left-right --count $branch_name...$remote_name 2>/dev/null)"
-
-    local git_status="$(git status 2> /dev/null)"
-    local status_indicator=""
-
-    if [[ ! $git_status =~ "nothing to commit" ]]; then
-        status_indicator="*"
-    fi
-
-    if [[ ! -z $branch_name ]]; then
-        branch_info=" ($branch_name$status_indicator)"
-    fi
-
-    if [[ ! -z $ahead_behind ]]; then
-        IFS=$'\t' read -r ahead behind <<< "$ahead_behind"
-        if [ "$ahead" -gt 0 ]; then
-            ahead_info=" [ahead $ahead]"
-        fi
-        if [ "$behind" -gt 0 ]; then
-            behind_info=" [behind $behind]"
-        fi
-    fi
-    printf "%s%s%s" "$branch_info" "$ahead_info" "$behind_info"
-}
-
-# ============================
-# Aliases and Autocompletion
-# ============================
-
-if [ -x /usr/bin/dircolors ]; then
-    test -r $HOME/.dircolors && eval "$(dircolors -b $HOME/.dircolors)" || eval "$(dircolors -b)"
-    alias ls='ls --color=auto'
-    alias grep='grep --color=auto'
-    alias fgrep='fgrep --color=auto'
-    alias egrep='egrep --color=auto'
-fi
-
-# Editor configurations
-source $HOME/.editor-config
-
-# Source additional files
-[ -f $HOME/.aliases ] && source $HOME/.aliases
-[ -f $HOME/.functions ] && source $HOME/.functions
-[ -f $HOME/.exports ] && source $HOME/.exports
-
-# Source machine-specific local configuration
-[ -f $HOME/.localrc ] && source $HOME/.localrc
-
-# Starship configurations
-if command -v starship &>/dev/null; then
-    eval "$(starship init bash)"
-fi
-
-# NVM configurations
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
-
-# GitHub Copilot CLI configurations
-if command -v gh &>/dev/null; then
-    eval "$(gh copilot alias -- bash)"
-fi
-
-# Telepresence configurations
-if command -v telepresence &>/dev/null; then
-    source <(telepresence completion bash)
-fi
-
-# Just configurations
-if command -v just &>/dev/null && [ -f $HOME/.just_completion_bash ]; then
-    source $HOME/.just_completion_bash
-fi
-
-# OpenCode configurations
-if command -v opencode &>/dev/null; then
-    source <(opencode completion)
-fi
-
-# fzf configurations
-export FZF_COMPLETION_TRIGGER='~~'
-
-# Use fd as default source — fast + clean + excludes .git
-if command -v fd >/dev/null; then
-  export FZF_DEFAULT_COMMAND='fd --type f --strip-cwd-prefix --hidden --follow --exclude .git'
-  # Also apply the same logic to CTRL-T file search
-  export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
-fi
-
-# Skaffold configurations
-if command -v skaffold &>/dev/null; then
-    if [ -n "$ZSH_VERSION" ]; then
-        source <(skaffold completion zsh)
-    elif [ -n "$BASH_VERSION" ]; then
-        source <(skaffold completion bash)
-    fi
-fi
-
-# KUBECONFIG environment variable
-# if [ -d "$HOME/.kube" ]; then
-#     export KUBECONFIG=$(find "$HOME/.kube" -path "$HOME/.kube/cache" -prune -o -type f -print | sed 's/$/:/' | tr -d '\n' | sed 's/:$//')
-# fi
-
-# Docker configurations
-if [ -n "$ZSH_VERSION" ]; then
-    fpath=($HOME/.docker/completions $fpath)
-    autoload -Uz compinit
-    compinit
-fi
-
-# LM Studio CLI (lms)
 export PATH="$PATH:$HOME/.lmstudio/bin"
 
-# ============================
-# Shell-specific configurations
-# ============================
-if [ -n "$ZSH_VERSION" ]; then
-    # zsh-specific configurations
-    autoload -U compinit
-    compinit
+# ─── Environment ──────────────────────────────────────────────────────────────
+
+[[ -f "$HOME/.env" ]]     && source "$HOME/.env"
+[[ -f "$HOME/.localrc" ]] && source "$HOME/.localrc"
+
+# ─── Aliases & Functions ──────────────────────────────────────────────────────
+
+[[ -f "$HOME/.aliases" ]]   && source "$HOME/.aliases"
+[[ -f "$HOME/.functions" ]] && source "$HOME/.functions"
+
+# ─── fzf ──────────────────────────────────────────────────────────────────────
+
+export FZF_COMPLETION_TRIGGER='~~'
+
+if command -v fd &>/dev/null; then
+    export FZF_DEFAULT_COMMAND='fd --type f --strip-cwd-prefix --hidden --follow --exclude .git'
+    export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+fi
+
+# ─── Tool completions (shell-aware) ──────────────────────────────────────────
+
+if [[ -n "$BASH_VERSION" ]]; then
+    if command -v kubectl &>/dev/null; then
+        source <(kubectl completion bash)
+        complete -o default -F __start_kubectl k
+    fi
+    if command -v skaffold &>/dev/null; then
+        source <(skaffold completion bash)
+    fi
+    if command -v just &>/dev/null && [[ -f "$HOME/.just_completion_bash" ]]; then
+        source "$HOME/.just_completion_bash"
+    fi
+elif [[ -n "$ZSH_VERSION" ]]; then
+    if command -v kubectl &>/dev/null; then
+        source <(kubectl completion zsh)
+    fi
+    if command -v skaffold &>/dev/null; then
+        source <(skaffold completion zsh)
+    fi
+    if [[ -d "$HOME/.docker/completions" ]]; then
+        fpath=("$HOME/.docker/completions" $fpath)
+    fi
 fi
