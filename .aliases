@@ -76,3 +76,6 @@ alias skrp='skaffold run --profile'
 # Claude
 alias cl='claude'
 alias cld='claude --dangerously-skip-permissions'
+
+# OpenCode
+alias oc='opencode'
