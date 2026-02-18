@@ -1,9 +1,6 @@
 [submodule ".tmux/plugins/tpm"]
 	path = .tmux/plugins/tpm
 	url = https://github.com/tmux-plugins/tpm.git
-[submodule ".vim/pack/github/start/copilot.vim"]
-	path = .vim/pack/github/start/copilot.vim
-	url = https://github.com/github/copilot.vim
 [submodule ".ssh"]
 	path = .ssh
 	url = git@github.com:christian-deleon/ssh-config.git

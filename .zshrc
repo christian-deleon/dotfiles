@@ -1,3 +1,5 @@
+# ~/.zshrc — Zsh-specific configuration (macOS with Oh My Zsh + Powerlevel10k)
+
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
 # confirmations, etc.) must go above this block; everything else may go below.
@@ -16,56 +18,35 @@ fi
 # ============================
 # Oh My Zsh Configuration
 # ============================
-# Path to your Oh My Zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
-
-# Set name of the theme to load
 ZSH_THEME="powerlevel10k/powerlevel10k"
 
-# Which plugins would you like to load?
-# Standard plugins can be found in $ZSH/plugins/
-# Custom plugins may be added to $ZSH_CUSTOM/plugins/
-# Add wisely, as too many plugins slow down shell startup.
 plugins=(
   git
   kube-ps1
 )
 
-# Load Oh My Zsh
-source $ZSH/oh-my-zsh.sh
+source "$ZSH/oh-my-zsh.sh"
 
 # ============================
 # Homebrew-installed zsh plugins
 # ============================
-# Source zsh-autosuggestions (installed via Homebrew)
-if [[ -f $HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]]; then
-    source $HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+if [[ -f "$HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ]]; then
+    source "$HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
 fi
 
-# Source zsh-you-should-use (installed via Homebrew)
-if [[ -f $HOMEBREW_PREFIX/share/zsh-you-should-use/you-should-use.plugin.zsh ]]; then
-    source $HOMEBREW_PREFIX/share/zsh-you-should-use/you-should-use.plugin.zsh
+if [[ -f "$HOMEBREW_PREFIX/share/zsh-you-should-use/you-should-use.plugin.zsh" ]]; then
+    source "$HOMEBREW_PREFIX/share/zsh-you-should-use/you-should-use.plugin.zsh"
 fi
 
-# Source zsh-syntax-highlighting (installed via Homebrew)
-# Note: This should be sourced at the end of .zshrc
-if [[ -f $HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]]; then
-    source $HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+if [[ -f "$HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]]; then
+    source "$HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
 fi
 
 # ============================
-# Source the common configuration file
+# Cross-platform customizations
 # ============================
-if [ -f $HOME/.commonrc ]; then
-    source $HOME/.commonrc &>/dev/null
-fi
-
-# ============================
-# kubectl configurations
-# ============================
-if [[ $commands[kubectl] ]]; then
-    source <(kubectl completion zsh)
-fi
+[[ -f "$HOME/.commonrc" ]] && source "$HOME/.commonrc"
 
 # ============================
 # fzf configurations
@@ -77,5 +58,4 @@ fi
 # ============================
 # Powerlevel10k Configuration
 # ============================
-# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+[[ ! -f "$HOME/dotfiles/.p10k.zsh" ]] || source "$HOME/dotfiles/.p10k.zsh"

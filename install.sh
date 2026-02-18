@@ -1,194 +1,128 @@
-#!/bin/bash -e
+#!/bin/bash
+#
+# Dotfiles installer - modular setup with interactive selection
+#
+# Usage:
+#   ./install.sh          Interactive menu to choose components
+#   ./install.sh --all    Install everything without prompts
+#   ./install.sh --help   Show usage information
+#
 
-# Define the list of dotfiles and dot directories
-dotfiles=(.aliases .functions .tmux.conf .bashrc .hushlogin .vimrc .zshrc .commonrc .p10k.zsh)
-dotdirs=(.vscode .config .tmux .vim .warp .cursor)
+set -e
 
-# Location of your dotfiles repository
-dotfiles_dir=$HOME/dotfiles
+# ─── Constants ────────────────────────────────────────────────────────────────
 
-# Location of your backup directory
-backup_dir=$HOME/dotfiles_backup
+DOTFILES_DIR="$HOME/dotfiles"
+BACKUP_DIR="$HOME/dotfiles_backup"
 
-# Create backup directory if it doesn't exist
-mkdir -p ${backup_dir}
+SHELL_FILES=(.commonrc .aliases .functions)
+ZSH_FILES=(.zshrc .p10k.zsh)
+TMUX_FILES=(.tmux.conf)
+TMUX_DIRS=(.tmux)
 
-# Copy dotfiles to the backup directory and link them from the repository to the home directory
-for file in "${dotfiles[@]}"; do
-    if [ -f $HOME/${file} ]; then
-        echo
-        echo "Backing up ${file} to ${backup_dir}"
-        cp -L $HOME/${file} ${backup_dir}
-    fi
-    echo
-    echo "Creating symlink for ${file}"
-    ln -snf ${dotfiles_dir}/${file} $HOME/${file}
-done
+# Module names and descriptions (parallel arrays)
+MODULES=(
+    "shell_config"
+    "zsh_config"
+    "git_submodules"
+    "ssh_config"
+    "git_config"
+    "tmux_config"
+    "dot_cli"
+)
 
-# Git submodule sync and update
-echo
-echo "Updating Git submodules..."
-git submodule sync --recursive
-git submodule update --init --recursive
+MODULE_LABELS=(
+    "Shell config       (.commonrc, .aliases, .functions + inject into .bashrc)"
+    "Zsh config         (.zshrc, .p10k.zsh — for macOS with Oh My Zsh)"
+    "Git submodules     (tpm, ssh-config)"
+    "SSH config         (~/.ssh/config symlink)"
+    "Git config         (.gitconfig + .gitconfig.local)"
+    "Tmux config        (.tmux.conf, .tmux/ plugins)"
+    "Dot CLI            (install dot command to ~/.local/bin)"
+)
 
-# Special handling for SSH config
-if [ -f ${dotfiles_dir}/.ssh/config ]; then
-    echo
-    read -p "Do you want to set up the SSH config? (y/n): " ssh_setup
-    if [[ "$ssh_setup" =~ ^[Yy]$ ]]; then
-        # Ensure ~/.ssh directory exists with proper permissions
-        if [ ! -d $HOME/.ssh ]; then
-            mkdir -p $HOME/.ssh
-            chmod 700 $HOME/.ssh
-        fi
+# ─── Color helpers ────────────────────────────────────────────────────────────
 
-        # Back up existing SSH config if it exists
-        if [ -f $HOME/.ssh/config ]; then
-            echo
-            echo "Backing up existing SSH config to ${backup_dir}"
-            mkdir -p ${backup_dir}/.ssh
-            cp -L $HOME/.ssh/config ${backup_dir}/.ssh/config
-        fi
-
-        echo
-        echo "Creating symlink for SSH config"
-        ln -snf ${dotfiles_dir}/.ssh/config $HOME/.ssh/config
-        chmod 600 $HOME/.ssh/config
-    else
-        echo "Skipping SSH config setup."
-    fi
-fi
-
-# Special handling for .gitconfig.dotfiles
-if [ -f ${dotfiles_dir}/.gitconfig.dotfiles ]; then
-    # Backup existing .gitconfig if it exists
-    if [ -f $HOME/.gitconfig ]; then
-        echo
-        echo "Backing up existing .gitconfig to ${backup_dir}"
-        cp -L $HOME/.gitconfig ${backup_dir}
-    fi
-
-    # Backup existing .gitconfig.local if it exists
-    if [ -f $HOME/.gitconfig.local ]; then
-        echo
-        echo "Backing up existing .gitconfig.local to ${backup_dir}"
-        cp -L $HOME/.gitconfig.local ${backup_dir}
-    fi
-
-    echo
-    echo "Creating symlink for .gitconfig"
-    ln -snf ${dotfiles_dir}/.gitconfig.dotfiles $HOME/.gitconfig
-fi
-
-# Handle directories separately
-for dir in "${dotdirs[@]}"; do
-    # Ensure the directory exists in the home directory
-    mkdir -p $HOME/${dir}
-
-    # Iterate over the files in each directory
-    for file in $(ls -A ${dotfiles_dir}/${dir}); do
-        # Check if the file already exists in the home directory
-        if [ -f $HOME/${dir}/${file} ]; then
-            echo
-            echo "Backing up $HOME/${dir}/${file} to ${backup_dir}/${dir}"
-            mkdir -p ${backup_dir}/${dir}
-            cp -L $HOME/${dir}/${file} ${backup_dir}/${dir}
-        fi
-
-        # Create a symlink for each file
-        echo
-        echo "Creating symlink for ${dir}/${file}"
-        ln -snf ${dotfiles_dir}/${dir}/${file} $HOME/${dir}/${file}
-    done
-done
-
-# Path to the local Git config
-git_local_config=$HOME/.gitconfig.local
-
-# Check if the local Git config already exists, ask if user wants to reconfigure
-if [ ! -f "${git_local_config}" ]; then
-    echo
-    echo "No local Git configuration found. Setting up Git configuration..."
-    configure_git=true
+if [[ -t 1 ]]; then
+    BOLD='\033[1m'
+    DIM='\033[2m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[0;33m'
+    CYAN='\033[0;36m'
+    RED='\033[0;31m'
+    RESET='\033[0m'
 else
-    echo
-    echo "Local Git configuration already exists at ${git_local_config}"
-    read -p "Do you want to reconfigure Git settings? (y/n): " reconfigure_git
-    if [[ "$reconfigure_git" =~ ^[Yy]$ ]]; then
-        echo
-        echo "Backing up existing .gitconfig.local to ${backup_dir}"
-        cp -L ${git_local_config} ${backup_dir}
-        configure_git=true
-    else
-        echo "Keeping existing Git configuration."
-        configure_git=false
+    BOLD="" DIM="" GREEN="" YELLOW="" CYAN="" RED="" RESET=""
+fi
+
+# ─── Utility functions ────────────────────────────────────────────────────────
+
+# Print an informational message
+info() {
+    printf '%b\n' "${CYAN}::${RESET} $1"
+}
+
+# Print a success message
+success() {
+    printf '%b\n' "${GREEN}✓${RESET} $1"
+}
+
+# Print a warning message
+warn() {
+    printf '%b\n' "${YELLOW}!${RESET} $1"
+}
+
+# Print an error message to stderr
+error() {
+    printf '%b\n' "${RED}✗${RESET} $1" >&2
+}
+
+# Back up a file before overwriting
+backup_item() {
+    local src="$1"
+    local relative="${src#"$HOME"/}"
+    local dest="$BACKUP_DIR/$relative"
+
+    if [[ -e "$src" ]]; then
+        mkdir -p "$(dirname "$dest")"
+        cp -L "$src" "$dest"
+        info "Backed up ${DIM}$relative${RESET}"
     fi
-fi
+}
 
-if [ "$configure_git" = true ]; then
-    echo
-    read -p "Enter your Git name: " git_user_name
-    read -p "Enter your Git email: " git_email
+# Create a symlink, backing up the target first
+link_file() {
+    local src="$1"
+    local dest="$2"
 
-    # Ask about git signing
-    echo
-    read -p "Do you want to enable Git commit signing? (y/n): " enable_signing
-    if [[ "$enable_signing" =~ ^[Yy]$ ]]; then
-        # Ask about SSH agent choice
-        echo
-        echo "Which SSH agent would you like to use for signing?"
-        echo "1) ssh-keygen (default)"
-        echo "2) 1Password SSH Agent"
-        read -p "Enter your choice (1 or 2): " ssh_agent_choice
+    backup_item "$dest"
+    ln -snf "$src" "$dest"
+    success "Linked ${DIM}${dest#"$HOME"/}${RESET}"
+}
 
-        read -p "Enter your Git public signing key: " git_signing_key
+# Symlink all files inside a directory (non-recursive, one level deep)
+link_directory_contents() {
+    local src_dir="$1"
+    local dest_dir="$2"
 
-        echo "[user]" > ${git_local_config}
-        echo "    name = ${git_user_name}" >> ${git_local_config}
-        echo "    email = ${git_email}" >> ${git_local_config}
-        echo "    signingkey = ${git_signing_key}" >> ${git_local_config}
-
-        # Add GPG/SSH signing configuration to local file
-        echo "" >> ${git_local_config}
-        echo "[gpg]" >> ${git_local_config}
-        echo "    format = ssh" >> ${git_local_config}
-        echo "[gpg \"ssh\"]" >> ${git_local_config}
-        if [[ "$ssh_agent_choice" == "2" ]]; then
-            echo "    program = \"/Applications/1Password.app/Contents/MacOS/op-ssh-sign\"" >> ${git_local_config}
-        else
-            echo "    program = ssh-keygen" >> ${git_local_config}
-        fi
-        echo "[commit]" >> ${git_local_config}
-        echo "    gpgsign = true" >> ${git_local_config}
-
-        echo "Git signing enabled with your chosen SSH agent."
-    else
-        echo "[user]" > ${git_local_config}
-        echo "    name = ${git_user_name}" >> ${git_local_config}
-        echo "    email = ${git_email}" >> ${git_local_config}
-        echo "Git signing disabled."
+    if [[ ! -d "$src_dir" ]]; then
+        warn "Source directory not found: $src_dir"
+        return
     fi
-fi
 
-# Path to the editor config
-editor_config=$HOME/.editor-config
+    mkdir -p "$dest_dir"
 
-# Check if the editor config already exists, if not create it
-if [ ! -f "${editor_config}" ]; then
-    echo
-    read -p "Enter your preferred editor command (e.g., vim, nano, code): " editor_name
-    echo "export EDITOR=$editor_name" > ${editor_config}
-    echo "Preferred editor set to $editor_name"
-fi
+    for item in "$src_dir"/*; do
+        [[ -e "$item" ]] || continue
+        local name
+        name="$(basename "$item")"
+        link_file "$item" "$dest_dir/$name"
+    done
+}
 
-# Check for profile files and create them if necessary
-echo
-echo "Checking for profile files..."
-
-# Function to detect OS
-echo "Detecting operating system..."
-get_os() {
-    if [[ "$OSTYPE" == "darwin"* ]]; then
+# Detect operating system
+detect_os() {
+    if [[ "$OSTYPE" == darwin* ]]; then
         echo "macos"
     elif [[ -f /etc/os-release ]]; then
         echo "linux"
@@ -197,103 +131,345 @@ get_os() {
     fi
 }
 
-OS=$(get_os)
+# Check if running on Omarchy
+is_omarchy() {
+    [[ -d "$HOME/.local/share/omarchy" ]]
+}
 
-case $OS in
-    "macos")
-        profile_file="$HOME/.zprofile"
-        profile_template="${dotfiles_dir}/profiles/.zprofile"
-        if [ ! -f "$profile_file" ]; then
-            echo "Creating .zprofile for macOS"
-            if [ -f "$profile_template" ]; then
-                cp "$profile_template" "$profile_file"
-                echo ".zprofile created successfully from template"
-            else
-                echo "Template for .zprofile not found, creating empty file"
-                touch "$profile_file"
-            fi
+# ─── Module functions ─────────────────────────────────────────────────────────
+
+install_shell_config() {
+    echo
+    info "Installing shell config..."
+    mkdir -p "$BACKUP_DIR"
+
+    # Symlink .commonrc, .aliases, .functions
+    for file in "${SHELL_FILES[@]}"; do
+        if [[ -f "$DOTFILES_DIR/$file" ]]; then
+            link_file "$DOTFILES_DIR/$file" "$HOME/$file"
         else
-            echo ".zprofile already exists"
+            warn "File not found: $file"
         fi
-        ;;
-    "linux")
-        profile_file1="$HOME/.profile"
-        profile_file2="$HOME/.bash_profile"
-        profile_template1="${dotfiles_dir}/profiles/.profile"
-        profile_template2="${dotfiles_dir}/profiles/.bash_profile"
-        if [ ! -f "$profile_file1" ]; then
-            echo "Creating .profile for Linux system"
-            if [ -f "$profile_template1" ]; then
-                cp "$profile_template1" "$profile_file1"
-                echo ".profile created successfully from template"
-            else
-                echo "Template for .profile not found, creating empty file"
-                touch "$profile_file1"
-            fi
+    done
+
+    # Inject source line into ~/.bashrc (never replace it)
+    local source_line='[[ -f "$HOME/.commonrc" ]] && source "$HOME/.commonrc"'
+
+    if [[ ! -f "$HOME/.bashrc" ]]; then
+        warn "No ~/.bashrc found — copy the reference from $DOTFILES_DIR/.bashrc"
+    elif grep -qF '.commonrc' "$HOME/.bashrc" 2>/dev/null; then
+        info "~/.bashrc already sources .commonrc"
+    else
+        printf '\n# Dotfiles customizations\n%s\n' "$source_line" >> "$HOME/.bashrc"
+        success "Added commonrc source line to ${DIM}~/.bashrc${RESET}"
+    fi
+}
+
+install_zsh_config() {
+    echo
+    info "Installing zsh config..."
+
+    for file in "${ZSH_FILES[@]}"; do
+        if [[ -f "$DOTFILES_DIR/$file" ]]; then
+            link_file "$DOTFILES_DIR/$file" "$HOME/$file"
         else
-            echo ".profile already exists"
+            warn "File not found: $file"
         fi
-        if [ ! -f "$profile_file2" ]; then
-            echo "Creating .bash_profile for Linux system"
-            if [ -f "$profile_template2" ]; then
-                cp "$profile_template2" "$profile_file2"
-                echo ".bash_profile created successfully from template"
+    done
+}
+
+install_git_submodules() {
+    echo
+    info "Updating git submodules..."
+    git -C "$DOTFILES_DIR" submodule sync --recursive
+    git -C "$DOTFILES_DIR" submodule update --init --recursive
+    success "Git submodules updated"
+}
+
+install_ssh_config() {
+    echo
+    info "Setting up SSH config..."
+
+    if [[ ! -f "$DOTFILES_DIR/.ssh/config" ]]; then
+        warn "No SSH config found in dotfiles (submodule may not be initialized)"
+        warn "Run 'Git submodules' module first, then re-run this module"
+        return
+    fi
+
+    if [[ ! -d "$HOME/.ssh" ]]; then
+        mkdir -p "$HOME/.ssh"
+        chmod 700 "$HOME/.ssh"
+    fi
+
+    backup_item "$HOME/.ssh/config"
+
+    ln -snf "$DOTFILES_DIR/.ssh/config" "$HOME/.ssh/config"
+    chmod 600 "$HOME/.ssh/config"
+    success "Linked ${DIM}.ssh/config${RESET}"
+}
+
+install_git_config() {
+    echo
+    info "Setting up Git config..."
+
+    # Symlink the shared gitconfig
+    if [[ -f "$DOTFILES_DIR/.gitconfig.dotfiles" ]]; then
+        link_file "$DOTFILES_DIR/.gitconfig.dotfiles" "$HOME/.gitconfig"
+    else
+        warn ".gitconfig.dotfiles not found"
+    fi
+
+    # Set up local git identity
+    local git_local="$HOME/.gitconfig.local"
+
+    if [[ -f "$git_local" ]]; then
+        info "Local Git config already exists at ${DIM}$git_local${RESET}"
+        read -rp "Reconfigure Git settings? (y/N): " reconfigure
+        if [[ ! "$reconfigure" =~ ^[Yy]$ ]]; then
+            info "Keeping existing Git configuration"
+            return
+        fi
+        backup_item "$git_local"
+    fi
+
+    read -rp "Enter your Git name: " git_name
+    read -rp "Enter your Git email: " git_email
+
+    echo
+    read -rp "Enable Git commit signing? (y/N): " enable_signing
+
+    if [[ "$enable_signing" =~ ^[Yy]$ ]]; then
+        echo
+        echo "Which SSH agent for signing?"
+        echo "  1) ssh-keygen (default)"
+        echo "  2) 1Password SSH Agent"
+        read -rp "Choice (1 or 2): " agent_choice
+        read -rp "Enter your Git public signing key: " signing_key
+
+        local ssh_program="ssh-keygen"
+        if [[ "$agent_choice" == "2" ]]; then
+            if [[ "$OSTYPE" == darwin* ]]; then
+                ssh_program="/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
             else
-                echo "Template for .bash_profile not found, creating empty file"
-                touch "$profile_file2"
+                ssh_program="/opt/1Password/op-ssh-sign"
             fi
-        else
-            echo ".bash_profile already exists"
         fi
-        ;;
-    *)
-        echo "Unknown OS, checking for common profile files"
-        for possible_profile in "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.zprofile"; do
-            if [ -f "$possible_profile" ]; then
-                profile_file="$possible_profile"
-                echo "Found existing profile file: $profile_file"
-                break
+
+        cat > "$git_local" <<EOF
+[user]
+    name = $git_name
+    email = $git_email
+    signingkey = $signing_key
+
+[gpg]
+    format = ssh
+[gpg "ssh"]
+    program = $ssh_program
+[commit]
+    gpgsign = true
+EOF
+        success "Git signing enabled"
+    else
+        cat > "$git_local" <<EOF
+[user]
+    name = $git_name
+    email = $git_email
+EOF
+        success "Git config created (signing disabled)"
+    fi
+}
+
+install_tmux_config() {
+    echo
+    info "Installing tmux config..."
+
+    for file in "${TMUX_FILES[@]}"; do
+        if [[ -f "$DOTFILES_DIR/$file" ]]; then
+            link_file "$DOTFILES_DIR/$file" "$HOME/$file"
+        else
+            warn "File not found: $file"
+        fi
+    done
+
+    for dir in "${TMUX_DIRS[@]}"; do
+        link_directory_contents "$DOTFILES_DIR/$dir" "$HOME/$dir"
+    done
+}
+
+install_dot_cli() {
+    echo
+    info "Installing dot CLI tool..."
+
+    local dot_script="$DOTFILES_DIR/dot.sh"
+
+    if [[ ! -f "$dot_script" ]]; then
+        warn "dot.sh not found in repository"
+        return
+    fi
+
+    mkdir -p "$HOME/.local/bin"
+
+    if [[ -L "$HOME/.local/bin/dot" ]]; then
+        info "dot CLI already installed"
+    else
+        ln -s "$dot_script" "$HOME/.local/bin/dot"
+        success "Installed dot CLI to ${DIM}~/.local/bin/dot${RESET}"
+    fi
+}
+
+# ─── Interactive menu ─────────────────────────────────────────────────────────
+
+show_menu() {
+    local -n _selected=$1
+    local total=${#MODULES[@]}
+
+    echo
+    printf '%b\n' "${BOLD}Dotfiles Installer${RESET}"
+    printf '%b\n' "${DIM}Toggle items with their number, then press Enter to install.${RESET}"
+
+    if is_omarchy; then
+        printf '%b\n' "${DIM}Omarchy detected — shell config will inject into existing ~/.bashrc${RESET}"
+    fi
+
+    echo
+
+    while true; do
+        # Print menu items
+        for i in $(seq 0 $((total - 1))); do
+            local marker
+            if [[ "${_selected[$i]}" -eq 1 ]]; then
+                marker="${GREEN}●${RESET}"
+            else
+                marker="${DIM}○${RESET}"
             fi
+            printf '  %b %s) %s\n' "$marker" "$((i + 1))" "${MODULE_LABELS[$i]}"
         done
-        if [ -z "$profile_file" ]; then
-            echo "No profile file found, creating .profile as default"
-            profile_file="$HOME/.profile"
-            profile_template="${dotfiles_dir}/profiles/.profile"
-            if [ -f "$profile_template" ]; then
-                cp "$profile_template" "$profile_file"
-                echo ".profile created successfully from template"
-            else
-                echo "Template for .profile not found, creating empty file"
-                touch "$profile_file"
-            fi
+
+        echo
+        printf '  %b\n' "${DIM}a) toggle all    q) quit${RESET}"
+        echo
+
+        read -rp "Selection: " choice
+
+        case "$choice" in
+            [qQ])
+                echo "Aborted."
+                exit 0
+                ;;
+            [aA])
+                # Toggle all: if all selected, deselect all; otherwise select all
+                local all_on=1
+                for i in $(seq 0 $((total - 1))); do
+                    if [[ "${_selected[$i]}" -eq 0 ]]; then
+                        all_on=0
+                        break
+                    fi
+                done
+                for i in $(seq 0 $((total - 1))); do
+                    if [[ "$all_on" -eq 1 ]]; then
+                        _selected[$i]=0
+                    else
+                        _selected[$i]=1
+                    fi
+                done
+                ;;
+            "")
+                # Enter pressed — confirm selection
+                break
+                ;;
+            *)
+                # Toggle individual items (supports space-separated numbers)
+                for num in $choice; do
+                    if [[ "$num" =~ ^[0-9]+$ ]] && (( num >= 1 && num <= total )); then
+                        local idx=$((num - 1))
+                        if [[ "${_selected[$idx]}" -eq 1 ]]; then
+                            _selected[$idx]=0
+                        else
+                            _selected[$idx]=1
+                        fi
+                    else
+                        warn "Invalid option: $num"
+                    fi
+                done
+                ;;
+        esac
+
+        # Clear menu for redraw (move cursor up)
+        for _ in $(seq 0 $((total + 4))); do
+            printf '\033[1A\033[2K'
+        done
+    done
+}
+
+# ─── Run selected modules ────────────────────────────────────────────────────
+
+run_modules() {
+    local -n _sel=$1
+    local ran=0
+
+    for i in "${!MODULES[@]}"; do
+        if [[ "${_sel[$i]}" -eq 1 ]]; then
+            "install_${MODULES[$i]}"
+            ran=1
         fi
-        ;;
-esac
+    done
 
-# Path to the dot.sh script in your repository
-dotfiles_script="${dotfiles_dir}/dot.sh"
-
-# Check if the dot.sh script exists
-if [ -f "$dotfiles_script" ]; then
-    echo
-    echo "Installing the dot CLI tool..."
-
-    # Create the $HOME/.local/bin directory if it doesn't exist
-    if [ ! -d $HOME/.local/bin ]; then
-        mkdir -p $HOME/.local/bin
-    fi
-
-    # Create a symlink for the dot.sh script if it doesn't exist
-    if [ ! -f $HOME/.local/bin/dot ]; then
-        ln -s "$dotfiles_script" $HOME/.local/bin/dot
+    if [[ "$ran" -eq 0 ]]; then
+        warn "No modules selected — nothing to do"
+        exit 0
     fi
 
     echo
-    echo "dot CLI tool installed successfully."
-else
-    echo
-    echo "dot.sh script not found in the repository."
-fi
+    printf '%b\n' "${GREEN}${BOLD}Dotfiles setup completed.${RESET}"
+}
 
-echo
-echo "Dotfiles setup completed."
+# ─── Usage ────────────────────────────────────────────────────────────────────
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [OPTIONS]
+
+Dotfiles installer with modular component selection.
+
+Options:
+  --all     Install all components without prompting
+  --help    Show this help message
+
+Components:
+EOF
+    for i in "${!MODULE_LABELS[@]}"; do
+        echo "  $((i + 1)). ${MODULE_LABELS[$i]}"
+    done
+}
+
+# ─── Main ─────────────────────────────────────────────────────────────────────
+
+main() {
+    # Initialize all modules as selected by default
+    local selected=()
+    for i in "${!MODULES[@]}"; do
+        selected[$i]=1
+    done
+
+    case "${1:-}" in
+        --help|-h)
+            usage
+            exit 0
+            ;;
+        --all)
+            printf '%b\n' "${BOLD}Dotfiles Installer${RESET} ${DIM}(--all)${RESET}"
+            run_modules selected
+            ;;
+        "")
+            show_menu selected
+            run_modules selected
+            ;;
+        *)
+            error "Unknown option: $1"
+            usage
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

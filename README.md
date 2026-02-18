@@ -1,15 +1,26 @@
-# Dotfiles Repository
+# Dotfiles
 
-This is my personal dotfiles repository, primarily designed for my own use but
-feel free to be inspired by any configurations that might be useful for your
-setup. This repository contains configurations for various tools including bash,
-zsh, git, tmux, vim, VS Code, and more.
+Personal dotfiles for macOS (zsh) and Linux (bash), including Omarchy (Arch Linux + Hyprland) support.
 
-## 🚀 Quick Start
+## Architecture
 
-### Prerequisites
+These dotfiles follow a **"source into, never replace"** approach. The system (Omarchy, Ubuntu, macOS) owns `~/.bashrc`. Your customizations live in `~/.commonrc` and flow from there:
 
-Before installing the dotfiles, install Oh My Zsh, Powerlevel10k, and recommended plugins:
+```
+SYSTEM-OWNED (never symlinked)          YOUR DOTFILES (symlinked)
+─────────────────────────────           ─────────────────────────
+~/.bashrc (Omarchy / Ubuntu / etc.)     ~/.commonrc ─┬─ ~/.aliases
+  └── source ~/.commonrc                             ├── ~/.functions
+                                                     └── ~/.localrc (not tracked)
+~/.zshrc (macOS, symlinked)
+  └── source ~/.commonrc
+```
+
+Machine-specific configuration (`EDITOR`, secrets, env vars) goes in `~/.localrc`, which is not tracked in git.
+
+## Quick Start
+
+### macOS Prerequisites
 
 ```bash
 # Install Oh My Zsh
@@ -21,14 +32,10 @@ git clone --depth=1 \
   ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
 
 # Install zsh plugins (macOS with Homebrew)
-brew install zsh-autosuggestions
-brew install zsh-syntax-highlighting
-brew install zsh-you-should-use
+brew install zsh-autosuggestions zsh-syntax-highlighting zsh-you-should-use
 ```
 
 ### Installation
-
-To set up these dotfiles on your system, run the installation script:
 
 ```bash
 git clone https://github.com/yourusername/dotfiles.git ~/dotfiles
@@ -36,210 +43,108 @@ cd ~/dotfiles
 ./install.sh
 ```
 
-The installation script will:
+The installer provides an interactive menu to choose what to install:
 
-- Back up any existing dotfiles to `$HOME/dotfiles_backup`
-- Create symbolic links from your home directory to the dotfiles in this
-  repository
-- Set up Git configuration with your personal details
-- Install the `dot` CLI tool for managing your dotfiles
-- Configure system-specific profile files
+1. **Shell config** — symlinks `.commonrc`, `.aliases`, `.functions`; injects `source ~/.commonrc` into your existing `~/.bashrc`
+2. **Zsh config** — symlinks `.zshrc`, `.p10k.zsh` (for macOS with Oh My Zsh)
+3. **Git submodules** — syncs tpm, ssh-config
+4. **SSH config** — symlinks `~/.ssh/config`
+5. **Git config** — symlinks `.gitconfig`; interactively sets up `.gitconfig.local`
+6. **Tmux config** — symlinks `.tmux.conf` and `.tmux/` plugins
+7. **Dot CLI** — installs the `dot` command to `~/.local/bin`
 
-### Using the `dot` CLI Tool
+Use `./install.sh --all` to install everything without prompts.
 
-After installation, you'll have access to the `dot` command for managing your dotfiles:
+### Post-Install: Machine-Specific Config
+
+Create `~/.localrc` for settings that vary per machine (not tracked in git):
 
 ```bash
-# Open dotfiles in your editor
-dot edit
+# Editor preference
+export EDITOR=vim
 
-# Update system packages and dotfiles
-dot update
-
-# Install tools using Ansible
-dot install <tool-name>
-
-# Install Homebrew (macOS)
-dot brew-install
-
-# Install packages from a Brewfile profile
-dot brew-bundle <profile>
-
-# Save current Homebrew packages to a profile
-dot brew-save <profile>
+# Machine-specific paths, secrets, etc.
+export SOME_API_KEY="..."
 ```
 
-## 📁 Project Structure
+## Using the `dot` CLI Tool
 
-```text
+```bash
+dot edit                  # Open dotfiles in your editor ($EDITOR)
+dot update                # Update system packages and dotfiles
+dot install <tool-name>   # Install tools using Ansible
+dot brew-install          # Install Homebrew (macOS)
+dot brew-bundle <profile> # Install packages from a Brewfile profile
+dot brew-save <profile>   # Save current Homebrew packages to a profile
+```
+
+## Project Structure
+
+```
 dotfiles/
-├── .aliases              # Shell aliases for common commands
-├── .bashrc               # Bash-specific configuration
-├── .commonrc             # Common shell configuration (shared by bash/zsh)
-├── .functions            # Custom shell functions
-├── .gitconfig.dotfiles   # Git configuration
-├── .p10k.zsh             # Powerlevel10k prompt configuration
+├── .aliases              # Shell aliases
+├── .bashrc               # Bash reference config (not symlinked — see Architecture)
+├── .commonrc             # Cross-platform shell config (sourced by bash and zsh)
+├── .functions            # Custom shell functions (fzf-powered kubectl, git worktrees)
+├── .gitconfig.dotfiles   # Shared git config (symlinked as ~/.gitconfig)
+├── .gitignore.dotfiles   # Common gitignore patterns
+├── .p10k.zsh             # Powerlevel10k prompt config (sourced by .zshrc)
 ├── .tmux.conf            # Tmux configuration
-├── .vimrc                 # Vim configuration
-├── .zshrc                 # Zsh-specific configuration (with Oh My Zsh + Powerlevel10k)
-├── .hushlogin            # Suppress login messages
+├── .zshrc                # Zsh config (macOS with Oh My Zsh + Powerlevel10k)
 ├── ansible/              # Ansible playbooks for tool installation
-│   ├── install-*.yaml    # Installation playbooks for various tools
-│   ├── clone-*.yaml      # Repository cloning playbooks
-│   └── update.yaml       # System update playbook
-├── brew/                 # Homebrew package management
-│   ├── Brewfile-home     # Home environment packages
-│   └── Brewfile-work     # Work environment packages
-├── profiles/             # System-specific profile templates
-│   ├── .zprofile         # macOS profile template
-│   ├── .profile          # Linux profile template
-│   └── .bash_profile     # Linux bash profile template
-├── .config/              # Application configuration directories
-├── .cursor/              # Cursor IDE settings
-├── .tmux/                # Tmux plugins and configuration
-├── .vim/                 # Vim plugins and configuration
-├── .vscode/              # VS Code settings and extensions
-├── .warp/                # Warp terminal configuration
-├── .ssh/                 # SSH configuration
+├── brew/                 # Homebrew Brewfile profiles (home, work)
+├── docs/                 # Documentation
+│   ├── aliases.md        # Alias reference
+│   └── functions.md      # Function reference
 ├── dot.sh                # CLI tool for dotfiles management
-├── install.sh            # Main installation script
-└── README.md             # This file
+├── install.sh            # Modular installer with interactive menu
+├── profiles/             # OS-specific profile templates (reference)
+├── .ssh/                 # SSH config (git submodule)
+└── .tmux/                # Tmux plugins (tpm submodule)
 ```
 
-## 🖥️ System-Specific Configurations
-
-### macOS
-
-- Uses `.zprofile` for system-wide configuration
-- Homebrew package management with two profiles:
-  - `Brewfile-home`: Personal development environment
-  - `Brewfile-work`: Work-specific tools and applications
-- Includes macOS-specific applications and cask packages
-
-### Linux
-
-- Uses `.profile` and `.bash_profile` for system configuration
-- Ansible-based package management
-- Linux-specific tool installations and configurations
-
-## 🛠️ Key Features
+## Key Features
 
 ### Shell Configuration
 
-- **Common Configuration**: Shared settings in `.commonrc` for both bash and zsh
-- **Oh My Zsh**: Framework for managing zsh configuration with plugins:
-  - `git`: Git aliases and functions
-  - `kube-ps1`: Kubernetes prompt integration
-  - `zsh-autosuggestions`: Fish-like autosuggestions for zsh (suggests commands as you type based on history)
-  - `zsh-syntax-highlighting`: Fish-like syntax highlighting for zsh (highlights commands in real-time)
-  - `zsh-you-should-use`: Reminds you to use existing aliases when you type the full command
-- **Powerlevel10k**: Fast, flexible and feature-rich zsh theme with:
-  - Git status integration
-  - Kubernetes context display
-  - Custom prompt segments
-  - Icon support (requires Nerd Font)
-- **gitignore.io Integration**: Quick access to generate `.gitignore` files via
-  `gi` function and `git ignore` alias
-- **NVM Support**: Node.js version management
-- **Go Environment**: GOPATH and Go binary path configuration
-- **Autocomplete Support**: Command completion for kubectl, opencode, telepresence,
-  just, and more
+- **Cross-platform** — single `.commonrc` sourced by both bash and zsh
+- **Omarchy compatible** — injects into existing `~/.bashrc` instead of replacing it
+- **macOS** — Oh My Zsh + Powerlevel10k + Homebrew zsh plugins
+- **Completions** — shell-aware completions for kubectl, skaffold, just
 
 ### Development Tools
 
-- **Kubernetes**: Extensive kubectl aliases and functions for cluster management
-- **Docker**: Docker and Docker Compose shortcuts
-- **Git**: Comprehensive git aliases and helper functions
-  - **gitignore.io**: Generate `.gitignore` files using templates from [gitignore.io](https://gitignore.io)
-    - Shell function: `gi python,node,docker > .gitignore`
-    - Git alias: `git ignore python,node,docker > .gitignore`
-    - Available on both bash (Linux) and zsh (macOS)
-- **Ansible**: Automation playbooks for tool installation
-- **Terraform**: Infrastructure as Code tooling
-- **Flux CD**: GitOps workflow management
+- **Kubernetes** — extensive kubectl aliases and fzf-powered functions for pod selection, log viewing, context switching, namespace management, and deployment scaling
+- **Flux CD** — GitOps workflow aliases
+- **Docker** — Docker and Docker Compose shortcuts
+- **Git** — aliases, clone helpers, worktree workflow functions (`gcbare`, `gaw`, `grw`, `gsync`)
+- **Skaffold** — Kubernetes development workflow aliases
+- **Terraform** — `tf` alias
+- **Poetry** — Python dependency management aliases
 
-### Terminal Enhancements
+### Terminal
 
-- **Tmux**: Terminal multiplexer with plugin support
-- **Vim**: Enhanced vim configuration with plugins
-- **Aliases**: Shortcuts for common commands and workflows
-- **Functions**: Custom shell functions for complex operations
+- **Tmux** — mouse mode, sensible defaults, plugin manager (tpm)
+- **fzf** — configured with `fd` for fast file search, custom trigger (`~~`)
+- **Starship** — `sk` function to toggle kubernetes module
 
-### IDE Integration
+## Omarchy Notes
 
-- **VS Code / Cursor**: Extensions and settings for development
-  - Terminal font configured for Powerlevel10k (MesloLGS NF)
-  - Auto-save on focus change
-  - Word wrap enabled
-- **GitHub Copilot**: AI-powered code completion
-- **Remote Development**: SSH and container development support
+On [Omarchy](https://omarchy.org/) (Arch Linux + Hyprland), the installer:
 
-## 🔧 Available Tools via Ansible
+- **Does not replace** `~/.bashrc` — Omarchy owns it and sources its own defaults (starship, mise, zoxide, eza, etc.)
+- **Appends** `source ~/.commonrc` to the existing `~/.bashrc`
+- **Does not touch** `~/.config/starship.toml` — Omarchy's theme is preserved
+- Your aliases, functions, and fzf config layer on top of Omarchy's defaults
 
-The following tools can be installed using `dot install <tool-name>`:
+## Important Notes
 
-- `docker` - Container platform
-- `kubectl` - Kubernetes command-line tool
-- `node` - Node.js runtime
-- `podman` - Container engine
-- `python` - Python interpreter
-- `starship` - Cross-shell prompt
-- `vim` - Text editor
+- **Backup** — the installer automatically backs up existing files to `~/dotfiles_backup`
+- **`.localrc`** — machine-specific config (EDITOR, secrets) goes here, not tracked in git
+- **`.gitconfig.local`** — personal git identity (name, email, signing key), not tracked
+- **Nerd Fonts** — Powerlevel10k requires MesloLGS NF ([download](https://github.com/romkatv/powerlevel10k#fonts))
+- **Oh My Zsh** — only needed on macOS for zsh configuration
 
-## 📦 Homebrew Profiles
-
-### Home Profile (`Brewfile-home`)
-
-Comprehensive development environment including:
-
-- Development tools (Go, Node.js, Python, Docker)
-- Kubernetes ecosystem (kubectl, helm, kind, skaffold)
-- Database tools (PostgreSQL, flyway)
-- Cloud tools (AWS CLI, Terraform, Vault)
-- Productivity apps (1Password, Obsidian, Postman)
-
-### Work Profile (`Brewfile-work`)
-
-Streamlined work environment with:
-
-- Essential development tools
-- Kubernetes and container tools
-- Database management (pgAdmin4)
-- Work-specific applications
-
-## 🚨 Important Notes
-
-- **Backup**: The installation script automatically backs up existing dotfiles
-- **Oh My Zsh Required**: Must be installed before running `install.sh` for zsh
-  configuration to work
-- **Nerd Fonts**: The Powerlevel10k theme requires a Nerd Font (MesloLGS NF
-  recommended and configured)
-  - Download from: <https://github.com/romkatv/powerlevel10k#fonts>
-  - Already configured for VS Code and Cursor terminals
-- **SSH Configuration**: You'll be prompted to set up SSH configuration during
-  installation
-- **Git Configuration**: Personal Git settings are stored in `.gitconfig.local`
-  (not tracked in git)
-- **System Detection**: The installer automatically detects macOS vs Linux and
-  configures accordingly
-- **Powerlevel10k Customization**: Run `p10k configure` to customize your
-  prompt appearance
-
-## 🤝 Contributing
-
-While this repository is primarily for personal use, feel free to:
-
-- Fork the repository
-- Submit issues for bugs or improvements
-- Create pull requests for enhancements
-- Use any configurations that suit your needs
-
-## ⚠️ Disclaimer
-
-Please review any script before running it. This repository is provided as-is,
-and I am not responsible for any damage that could be done to your system. Use
-at your own risk.
-
-## 📝 License
+## License
 
 This project is open source and available under the [MIT License](LICENSE).
