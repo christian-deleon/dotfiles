@@ -12,6 +12,10 @@ alias up4='cd ../../../..'
 alias diff='diff --color=auto'
 alias mkdir='mkdir -pv'
 
+# Neovim
+alias v='vim'
+alias nv='nvim'
+
 # Kubernetes shortcuts
 # Note: kc, kn, ke, kl, kdp, kdd, kdelp, ks are functions in .functions with fzf support
 alias k='kubectl'
