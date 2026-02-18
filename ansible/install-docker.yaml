@@ -1,8 +1,0 @@
----
-- name: Install Docker
-  hosts: localhost
-  connection: local
-  become: true
-
-  roles:
-    - ~/.ansible/roles/docker_install
