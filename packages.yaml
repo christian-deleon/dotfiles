@@ -1,0 +1,130 @@
+# Tool definitions for dotfiles installer
+# Each tool has a description and per-OS package names.
+# Use "script: <path>" for tools that need custom install logic.
+# Use null or omit the key if a tool isn't available for that OS.
+
+docker:
+  description: Container platform
+  arch: docker
+  apt: docker.io
+  brew: --cask docker
+
+kubectl:
+  description: Kubernetes CLI
+  arch: kubectl
+  apt: null
+  brew: kubectl
+  script: tools/install-kubectl.sh
+
+skaffold:
+  description: Kubernetes dev workflow
+  arch: skaffold
+  apt: null
+  brew: skaffold
+  script: tools/install-skaffold.sh
+
+flux:
+  description: GitOps toolkit
+  arch: fluxcd
+  apt: null
+  brew: fluxcd/tap/flux
+  script: tools/install-flux.sh
+
+helm:
+  description: Kubernetes package manager
+  arch: helm
+  apt: null
+  brew: helm
+  script: tools/install-helm.sh
+
+terraform:
+  description: Infrastructure as code
+  arch: terraform
+  apt: null
+  brew: terraform
+  script: tools/install-terraform.sh
+
+fzf:
+  description: Fuzzy finder
+  arch: fzf
+  apt: fzf
+  brew: fzf
+
+fd:
+  description: Fast find alternative
+  arch: fd
+  apt: fd-find
+  brew: fd
+
+bat:
+  description: Cat with syntax highlighting
+  arch: bat
+  apt: bat
+  brew: bat
+
+jq:
+  description: JSON processor
+  arch: jq
+  apt: jq
+  brew: jq
+
+yq:
+  description: YAML processor
+  arch: yq
+  apt: null
+  brew: yq
+  script: tools/install-yq.sh
+
+ripgrep:
+  description: Fast grep alternative
+  arch: ripgrep
+  apt: ripgrep
+  brew: ripgrep
+
+just:
+  description: Task runner
+  arch: just
+  apt: null
+  brew: just
+  script: tools/install-just.sh
+
+tmux:
+  description: Terminal multiplexer
+  arch: tmux
+  apt: tmux
+  brew: tmux
+
+gh:
+  description: GitHub CLI
+  arch: github-cli
+  apt: null
+  brew: gh
+  script: tools/install-gh.sh
+
+1password-cli:
+  description: 1Password CLI (op)
+  arch: 1password-cli
+  apt: null
+  brew: --cask 1password-cli
+  script: tools/install-1password-cli.sh
+
+gum:
+  description: TUI components for scripts
+  arch: gum
+  apt: null
+  brew: gum
+  script: tools/install-gum.sh
+
+mise:
+  description: Dev tool version manager
+  arch: mise
+  apt: null
+  brew: mise
+  script: tools/install-mise.sh
+
+poetry:
+  description: Python dependency management
+  arch: python-poetry
+  apt: null
+  brew: poetry
+  script: tools/install-poetry.sh

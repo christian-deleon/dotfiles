@@ -1,8 +1,0 @@
----
-- name: Install Podman
-  hosts: localhost
-  connection: local
-  become: true
-
-  roles:
-    - ~/.ansible/roles/podman_install

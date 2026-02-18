@@ -1,8 +1,0 @@
----
-- name: Install Python
-  hosts: localhost
-  connection: local
-  become: true
-
-  roles:
-    - ~/.ansible/roles/python_install

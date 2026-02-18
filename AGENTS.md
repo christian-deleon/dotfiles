@@ -1,18 +1,75 @@
 # Agent Guidelines for Dotfiles Repository
 
-Guidelines for AI coding agents working in this personal dotfiles repository. This repository manages shell configurations, development tool setups, and system bootstrapping scripts for macOS and Linux.
+Guidelines for AI coding agents working in this personal dotfiles repository. This repository manages shell configurations, development tool setups, and system bootstrapping scripts for macOS and Linux (including Omarchy/Arch Linux).
 
 ## Repository Overview
 
-**Primary Languages:** Shell (Bash), YAML (Ansible), Configuration files
+**Primary Languages:** Shell (Bash), YAML (packages.yaml), Configuration files
 
 **Key Components:**
 
-- Shell configs: bash, zsh with Oh My Zsh + Powerlevel10k + fzf
-- Dev tool configs: git, vim, tmux, VS Code, Cursor
-- Package management: Homebrew (macOS), Ansible (Linux)
+- Shell configs: `.commonrc` (cross-platform), `.zshrc` (macOS with Oh My Zsh + Powerlevel10k), `.bashrc` (reference only)
+- Dev tool configs: git, tmux
+- Package management: `packages.yaml` + `tools/lib.sh` (cross-platform), Homebrew Brewfile profiles (macOS)
 - Custom aliases, functions (many with fzf integration), shell utilities
 - Documentation: `docs/functions.md`, `docs/aliases.md`
+
+## Architecture
+
+**"Source into, never replace."** The system (Omarchy, Ubuntu, macOS) owns `~/.bashrc`. Dotfiles provide customizations via `~/.commonrc` which is sourced into the system's shell config.
+
+```
+SYSTEM-OWNED (never symlinked)          DOTFILES (symlinked)
+─────────────────────────────           ─────────────────────────
+~/.bashrc (Omarchy / Ubuntu / etc.)     ~/.commonrc ─┬─ ~/.aliases
+  └── source ~/.commonrc                             ├── ~/.functions
+                                                     └── ~/.localrc (not tracked)
+~/.zshrc (macOS, symlinked)
+  └── source ~/.commonrc
+```
+
+**Key principle:** `.bashrc` is never symlinked. `install.sh` injects `source ~/.commonrc` into the system's existing `~/.bashrc`. Machine-specific config (`EDITOR`, secrets, env vars) goes in `~/.localrc` (not tracked).
+
+### Omarchy Compatibility
+
+On [Omarchy](https://omarchy.org/) (Arch Linux + Hyprland):
+
+- Omarchy owns `~/.bashrc` and sources its defaults (starship, mise, zoxide, eza, etc.)
+- Dotfiles layer on top via `.commonrc` — never replace Omarchy's shell setup
+- Omarchy owns `~/.config/starship.toml` — dotfiles do not manage starship config
+- 1Password SSH agent path: `/opt/1Password/op-ssh-sign` (Linux) vs `/Applications/1Password.app/Contents/MacOS/op-ssh-sign` (macOS)
+- 1Password SSH socket: `~/.1password/agent.sock` (Linux) vs `~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock` (macOS)
+
+### SSH Config
+
+- `.ssh/` is a git submodule containing shared host entries (no OS-specific settings)
+- `~/.ssh/config` is NOT a symlink — it's a generated file created by `install.sh` that:
+  1. Sets the correct `IdentityAgent` for the current OS (1Password socket path)
+  2. `Include`s the shared submodule config
+- Never put OS-specific paths (like `IdentityAgent`) in the submodule config
+
+### Package Management (`packages.yaml` + `tools/`)
+
+Tools are defined in `packages.yaml` with per-OS package names and optional script fallbacks:
+
+```yaml
+kubectl:
+  description: Kubernetes CLI
+  arch: kubectl          # pacman/yay package name
+  apt: null              # null = no native package, use script
+  brew: kubectl          # Homebrew formula
+  script: tools/install-kubectl.sh  # fallback installer
+```
+
+The shared library `tools/lib.sh` provides:
+- `detect_pkg_manager()` — returns `arch`, `apt`, or `brew`
+- `list_tools()` — lists all tool names from `packages.yaml`
+- `get_tool_field <tool> <field>` — minimal YAML parser (no yq dependency at bootstrap)
+- `install_tool <tool>` — checks if installed → tries OS package manager → falls back to script
+- `install_tools <tool ...>` — installs multiple tools with gum spinner support
+- `ensure_gum()` — bootstraps gum if not installed
+
+Install scripts in `tools/install-*.sh` are fallbacks for systems where the tool isn't available as a native package. They use official install methods (curl binaries, APT repos, etc.).
 
 ## Build/Test/Run Commands
 
@@ -28,11 +85,8 @@ bash -x install.sh
 # Test single function
 source .functions && kcs
 
-# Validate single Ansible playbook
-ansible-playbook --syntax-check ansible/install-docker.yaml
-
-# Dry-run single playbook
-ansible-playbook -i localhost, --check ansible/install-docker.yaml
+# Syntax-check all tool install scripts
+for f in tools/*.sh; do bash -n "$f"; done
 
 # Test all shell files
 for f in .[a-z]*; do [[ -f "$f" ]] && bash -n "$f" 2>&1 | grep -v "cannot execute" || true; done
@@ -41,11 +95,13 @@ for f in .[a-z]*; do [[ -f "$f" ]] && bash -n "$f" 2>&1 | grep -v "cannot execut
 ### Installation & Management
 
 ```bash
-./install.sh              # Initial setup (symlinks, git config, dot CLI)
-dot edit                  # Open dotfiles in preferred editor
+./install.sh              # Interactive: Phase 1 (config) + Phase 2 (dev tools)
+./install.sh --all        # Install everything without prompts
+./install.sh --help       # Show available modules and tools
+dot edit                  # Open dotfiles in editor ($EDITOR)
 dot update                # Update system packages and dotfiles
-dot install               # List available tools
-dot install <tool-name>   # Install via Ansible (docker, kubectl, node, etc.)
+dot install               # Interactive tool picker (gum choose)
+dot install docker kubectl# Install specific tools by name
 ```
 
 ### Homebrew (macOS only)
@@ -59,6 +115,8 @@ dot brew-save <profile>   # Save current packages to profile
 ## Code Style Guidelines
 
 ### Shell Script Standards
+
+**Output:** Use `printf '%b\n'` instead of `echo -e` for escape sequence interpretation (portability).
 
 **File Structure:**
 
@@ -87,7 +145,23 @@ function my_function() {
 
 - Use `[[ ]]` not `[ ]`: `if [[ -f "$file" ]]; then`
 - Pattern matching: `if [[ "$var" =~ ^pattern ]]; then`
-- Command checks: `if [[ ! -x "$(command -v cmd)" ]]; then`
+- Command checks: `if command -v cmd &>/dev/null; then`
+
+**OS Detection:**
+
+```bash
+# Prefer $OSTYPE for OS detection
+if [[ "$OSTYPE" == darwin* ]]; then
+    # macOS
+else
+    # Linux
+fi
+
+# Check for Omarchy
+if [[ -d "$HOME/.local/share/omarchy" ]]; then
+    # Omarchy-specific
+fi
+```
 
 **Error Handling:**
 
@@ -106,9 +180,9 @@ fi
 
 **Files:**
 
-- Dotfiles: `.filename` (`.bashrc`, `.aliases`, `.functions`)
+- Dotfiles: `.filename` (`.commonrc`, `.aliases`, `.functions`)
 - Scripts: `lowercase-with-hyphens.sh` (`install.sh`)
-- Ansible: `action-tool.yaml` (`install-docker.yaml`)
+- Install scripts: `tools/install-<tool>.sh` (`tools/install-kubectl.sh`)
 - Brewfiles: `Brewfile-profile` (`Brewfile-home`)
 
 **Functions:**
@@ -123,19 +197,15 @@ fi
 - Short: `k` (kubectl), `tf` (terraform), `dc` (docker compose)
 - Consistent prefixes: `kp*` (pods), `kd*` (deployments), `f*` (flux)
 
-### YAML (Ansible)
+### YAML (packages.yaml)
 
 ```yaml
----
-- name: Descriptive task name
-  hosts: localhost
-  connection: local
-  tasks:
-    - name: Action description
-      become: yes
-      package:
-        name: package-name
-        state: present
+tool-name:
+  description: Short description
+  arch: pacman-package-name
+  apt: apt-package-name     # null if not available
+  brew: homebrew-formula
+  script: tools/install-tool.sh  # optional fallback
 ```
 
 **Indentation:** 2 spaces (YAML), 4 spaces (Shell)
@@ -147,8 +217,9 @@ fi
 1. **README.md** - configurations, tools, structure, features
 2. **docs/functions.md** - new/modified functions with examples
 3. **docs/aliases.md** - new/modified aliases
+4. **AGENTS.md** - if architecture, file structure, or conventions change
 
-**Standards (per `.cursor/rules/documentation.mdc`):**
+**Standards:**
 
 - Clear headings and structure
 - Practical examples for complex functions
@@ -166,39 +237,69 @@ function my_function() {
 }
 ```
 
-```yaml
-- name: Clear description of what this task does
-  # Special notes or warnings
-  module_name:
-    option: value
-```
-
 ## Project-Specific Notes
 
 ### System Detection & Packages
 
 - Auto-detect OS: `$OSTYPE` (macOS vs Linux)
+- Detect Omarchy: `[[ -d "$HOME/.local/share/omarchy" ]]`
+- Detect package manager: `detect_pkg_manager()` in `tools/lib.sh`
 - macOS: Homebrew for packages
-- Linux: Ansible for packages
+- Arch Linux: pacman/yay for packages
+- Debian/Ubuntu: apt + script fallbacks for missing tools
 
-### Symlinks & Critical Files
+### Files Symlinked to $HOME
 
-- `install.sh` backs up to `~/dotfiles_backup`, symlinks to `$HOME`
-- `.gitconfig.local` - personal config (not tracked, created by install.sh)
-- `.editor-config` - editor preference (created by install.sh)
-- Profile files: `.zprofile` (macOS), `.profile`/`.bash_profile` (Linux)
+| File | Notes |
+|------|-------|
+| `.commonrc` | Core config — sourced by both bash and zsh |
+| `.aliases` | Personal aliases |
+| `.functions` | Personal functions (fzf-powered kubectl, git worktrees) |
+| `.zshrc` | macOS zsh config (Oh My Zsh + Powerlevel10k) |
+| `.tmux.conf` | Tmux configuration |
+| `.gitconfig.dotfiles` → `~/.gitconfig` | Shared git config |
+
+### Files NOT Symlinked (reference or generated)
+
+| File | Notes |
+|------|-------|
+| `.bashrc` | Reference for non-managed systems — never symlinked |
+| `.p10k.zsh` | Sourced by `.zshrc` directly from `~/dotfiles/` |
+| `~/.ssh/config` | Generated by `install.sh` — not a symlink |
+
+### Directories (contents symlinked one level deep)
+
+| Dir | Notes |
+|-----|-------|
+| `.tmux/` | tpm plugin manager (git submodule) |
+
+### Not Tracked (machine-specific)
+
+| File | Purpose |
+|------|---------|
+| `~/.localrc` | Machine-specific config (EDITOR, secrets, env vars) |
+| `~/.gitconfig.local` | Personal git identity (name, email, signing key) |
 
 ### Shell Loading Order
 
-1. Profile files (`.zprofile`, `.profile`, `.bash_profile`)
-2. RC files (`.zshrc`, `.bashrc`)
-3. `.commonrc` (sourced by both)
-4. `.aliases` and `.functions` (sourced by `.commonrc`)
+**On Omarchy/Linux (bash):**
+
+1. Omarchy's `~/.bashrc` → sources Omarchy defaults (starship, mise, zoxide, etc.)
+2. `~/.bashrc` → sources `~/.commonrc` (injected by install.sh)
+3. `.commonrc` → sources `.aliases`, `.functions`, `.localrc`
+
+**On macOS (zsh):**
+
+1. `.zshrc` → Homebrew, Oh My Zsh, Powerlevel10k, zsh plugins
+2. `.zshrc` → sources `.commonrc`
+3. `.commonrc` → sources `.aliases`, `.functions`, `.localrc`
+4. `.zshrc` → fzf, `.p10k.zsh`
 
 ### Tool-Specific
 
 - Kubernetes: configs in `~/.kube/`, use `kcs` (select config), `kca` (load all)
 - fzf: Many functions (`kcs`, `kn`, `kc`, `kl`, `ke`, etc.) use fzf when no args provided
+- 1Password: `opl` function for CLI login, SSH agent for git signing
 
 ## Common Operations
 
@@ -206,8 +307,9 @@ function my_function() {
 
 1. Add to `.aliases` file, group with related (Kubernetes, Git, Docker)
 2. Use consistent prefixing (e.g., `k*` for kubectl, `f*` for flux)
-3. Update `docs/aliases.md`
-4. Update README.md if significant
+3. Check for conflicts with functions in `.functions` (e.g., don't alias `sk` if `sk()` function exists)
+4. Update `docs/aliases.md`
+5. Update README.md if significant
 
 ### Adding New Functions
 
@@ -218,40 +320,62 @@ function my_function() {
 5. `dot` CLI auto-parses documented functions
 6. Update README.md for major utilities
 
-### Adding Tool Installation
+### Adding a New Tool to packages.yaml
 
-1. Create `ansible/install-<tool>.yaml` playbook
-2. Optional: `ansible/clone-<tool>.yaml` for repos
-3. Test: `dot install <tool>`
-4. Update README.md tool list
+1. Add entry to `packages.yaml` with description and per-OS package names
+2. Use `null` for OS package managers that don't have the tool
+3. If needed, create `tools/install-<tool>.sh` as a fallback script
+4. Test: `dot install <tool>`
+5. Update README.md tool list
 
 ### Modifying install.sh
 
-1. Test on clean system if possible
-2. Maintain backward compatibility
-3. Always backup before overwrite
-4. Update README.md
+1. **Phase 1** (config): Modules defined by parallel arrays `MODULES` and `MODULE_LABELS`, each with an `install_<module_name>` function
+2. **Phase 2** (tools): Uses `tools/lib.sh` and `packages.yaml` — gum choose for interactive selection
+3. OS-specific paths must use `$OSTYPE` detection
+4. Never replace `~/.bashrc` — only inject source line
+5. SSH config is generated (not symlinked) with OS-appropriate `IdentityAgent`
+6. Test with `bash -n install.sh` and `./install.sh --help`
+
+### Modifying dot.sh
+
+1. Sources `tools/lib.sh` for package management
+2. `dot install` with no args shows gum interactive picker
+3. `dot install <tool> [tool ...]` installs specific tools directly
+4. `dot update` handles OS-appropriate package updates (pacman/yay, apt, brew)
+5. Keep brew commands as-is (macOS only)
+
+### Modifying .commonrc
+
+1. Keep it thin — only cross-platform config belongs here
+2. Guard all sources: `[[ -f "$file" ]] && source "$file"`
+3. Use shell detection for completions: `[[ -n "$BASH_VERSION" ]]` / `[[ -n "$ZSH_VERSION" ]]`
+4. Don't duplicate what Omarchy already provides (starship, mise, zoxide, history, bash-completion)
+5. Don't duplicate what `.zshrc` already provides (Homebrew, Oh My Zsh, p10k)
 
 ## Testing Checklist
 
 Before committing:
 
 - [ ] `bash -n <script>` - shell syntax check
-- [ ] `ansible-playbook --syntax-check <playbook>` - Ansible validation
+- [ ] `for f in tools/*.sh; do bash -n "$f"; done` - check all install scripts
 - [ ] `source .functions && <function-name>` - test functions work
 - [ ] Aliases work in new shell session
 - [ ] Documentation updated (`README.md`, `docs/functions.md`, `docs/aliases.md`)
-- [ ] No hardcoded personal info (use `.gitconfig.local`, `.editor-config`)
-- [ ] Works on target system (macOS/Linux)
-- [ ] Symlinks resolve after `install.sh`
+- [ ] No hardcoded personal info (use `.gitconfig.local`, `.localrc`)
+- [ ] No hardcoded OS-specific paths (use `$OSTYPE` detection)
+- [ ] Works on target system (macOS/Linux/Omarchy)
+- [ ] `install.sh` modules work correctly
 
 ## Important Reminders
 
 - **Personal repo** - changes reflect personal preferences
+- **Source into, never replace** - never symlink `.bashrc`; inject `source ~/.commonrc`
 - **Backup first** - `install.sh` auto-backs up to `~/dotfiles_backup`
 - **Test before push** - validate in safe environment
 - **Document everything** - keep docs comprehensive and current
-- **System-specific** - be aware of macOS vs Linux differences
+- **OS-aware** - use `$OSTYPE` for macOS vs Linux paths (1Password, Homebrew, etc.)
+- **Omarchy-aware** - don't duplicate or conflict with Omarchy's shell defaults
 - **Privacy** - never commit secrets, tokens, credentials
 - **fzf integration** - many kubectl/git functions support interactive mode
 

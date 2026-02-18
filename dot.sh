@@ -2,8 +2,10 @@
 
 set -e
 
-DOTFILES_DIR=$HOME/dotfiles
-ANSIBLE_DIR=${DOTFILES_DIR}/ansible
+DOTFILES_DIR="$HOME/dotfiles"
+
+# Source package management library
+source "$DOTFILES_DIR/tools/lib.sh"
 
 
 usage() {
@@ -15,7 +17,7 @@ usage() {
 (_)__,_|\___/ \__|_| |_|_|\___||___/
 
 EOF
-    echo "A tool to manage dotfiles, configure the bash environment, install and update packages, and provide helper functions for commonly used tools."
+    printf '%b\n' "A tool to manage dotfiles, configure the shell environment, install and update packages."
     echo "by: @christian-deleon"
     echo
     echo "Usage: dot [option]"
@@ -23,102 +25,123 @@ EOF
     echo "Options:"
     echo "  edit                  - Open the dotfiles directory in your editor"
     echo "  update                - Update system packages and dotfiles"
-    echo "  install               - Install a tool using Ansible"
+    echo "  install [tool ...]    - Install dev tools (interactive picker if no args)"
     echo "  brew-install          - Install Homebrew"
     echo "  brew-bundle [profile] - Install Homebrew packages using a Brewfile profile"
     echo "  brew-save   [profile] - Save Homebrew packages to a Brewfile profile"
     echo
-    echo "Standalone Tools:"
+    echo "Available tools:"
+    while IFS= read -r tool; do
+        printf '  %-18s %s\n' "$tool" "$(get_tool_field "$tool" "description" 2>/dev/null)"
+    done < <(list_tools)
+    echo
+    echo "Standalone Functions:"
     parse_functions
     echo
 }
 
 
-# Check if Python, Pip, and Ansible are installed
-if [[ ! -x "$(command -v ansible)" ]]; then
-    echo
-    echo "Ansible is not installed. Installing Ansible..."
-
-    # Check if Python 3 is installed
-    if [[ ! -x "$(command -v python3)" ]]; then
-        read -p "Python 3 is not installed. Do you want to install Python 3? (y/n): " install_python
-        if [[ "${install_python}" != "y" ]]; then
-            echo "Please install Python 3 and run this script again."
-            exit 1
-        fi
-
-        read -p "Enter the Python minor version (default: 11): " PYTHON_MINOR
-        PYTHON_MINOR=${PYTHON_MINOR:-11}
-
-        # Install Python 3
-        wget -qO - https://gitlab.com/-/snippets/3638671/raw/main/install_python.sh | bash -s -- ${PYTHON_MINOR}
-    fi
-
-    # Check if pip is installed with python -m pip
-    if [[ ! -x "$(command -v pip)" ]]; then
-        echo "Pip is not installed. Installing pip..."
-        wget -qO - https://bootstrap.pypa.io/get-pip.py | python3
-    fi
-
-    echo "Installing Ansible..."
-    python3 -m pip install --user ansible
-fi
-
-
-# Function to update system packages
+# Update system packages and dotfiles
 update_system() {
     echo
-    echo "Updating system packages and dotfiles using Ansible..."
+    _info "Updating system packages and dotfiles..."
 
-    if [[ -f "${ANSIBLE_DIR}/clone-update.yaml" ]]; then
-        ansible-playbook -i localhost, ${ANSIBLE_DIR}/clone-update.yaml
+    # Pull latest dotfiles
+    if [[ -d "$DOTFILES_DIR/.git" ]]; then
+        _info "Pulling latest dotfiles..."
+        git -C "$DOTFILES_DIR" pull --rebase --autostash 2>/dev/null || _warn "Could not pull dotfiles"
     fi
 
-    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        ansible-playbook -i localhost, ${ANSIBLE_DIR}/update.yaml
-    elif [[ "$OSTYPE" == "darwin"* ]]; then
+    # Update packages based on OS
+    if [[ "$OSTYPE" == darwin* ]]; then
+        _info "Updating Homebrew..."
         brew update && brew upgrade && brew cleanup && brew doctor
+    elif command -v pacman &>/dev/null; then
+        _info "Updating pacman packages..."
+        if command -v yay &>/dev/null; then
+            yay -Syu --noconfirm
+        else
+            sudo pacman -Syu --noconfirm
+        fi
+    elif command -v apt-get &>/dev/null; then
+        _info "Updating apt packages..."
+        sudo apt-get update && sudo apt-get upgrade -y && sudo apt-get autoremove -y
     fi
+
+    _success "System updated"
 }
 
 
-# Get all installable tools
-get_installable_tools() {
-    for file in ${ANSIBLE_DIR}/install-*.yaml; do
-        tool=$(basename ${file} | cut -d'-' -f2 | cut -d'.' -f1)
-        echo ${tool}
-    done
-}
+# Install dev tools — interactive or by name
+install_dev_tools() {
+    shift  # remove "install" from args
 
+    if [[ $# -eq 0 ]]; then
+        # No args: show interactive picker
+        ensure_gum || {
+            _error "gum is required for the interactive picker"
+            echo
+            _info "Install tools by name: ${_BOLD}dot install <tool> [tool ...]${_RESET}"
+            echo
+            _info "Available tools:"
+            while IFS= read -r tool; do
+                printf '  %-18s %s\n' "$tool" "$(get_tool_field "$tool" "description" 2>/dev/null)"
+            done < <(list_tools)
+            return 1
+        }
 
-# Function to install a tool using Ansible
-install_tool() {
-    local tool=$1
+        local tools=()
+        local labels=()
+        while IFS= read -r tool; do
+            tools+=("$tool")
+            labels+=("$(get_tool_label "$tool")")
+        done < <(list_tools)
 
-    echo
-    echo "Installing ${tool} using Ansible..."
-    if [[ -f "${ANSIBLE_DIR}/clone-${tool}.yaml" ]]; then
-        ansible-playbook -i localhost, ${ANSIBLE_DIR}/clone-${tool}.yaml
+        echo
+        _info "Select tools to install (space to toggle, enter to confirm):"
+        echo
+
+        local chosen
+        chosen="$(printf '%s\n' "${labels[@]}" | gum choose --no-limit --height=22)" || {
+            _info "No tools selected"
+            return
+        }
+
+        if [[ -z "$chosen" ]]; then
+            _info "No tools selected"
+            return
+        fi
+
+        local selected_tools=()
+        while IFS= read -r label; do
+            local tool_name="${label%% —*}"
+            selected_tools+=("$tool_name")
+        done <<< "$chosen"
+
+        echo
+        install_tools "${selected_tools[@]}"
+    else
+        # Named tools: install directly
+        install_tools "$@"
     fi
-    ansible-playbook -i localhost, ${ANSIBLE_DIR}/install-${tool}.yaml
 }
 
 
 brew_bundle() {
-    local PROFILE=$1
+    local PROFILE="$1"
 
     echo
-    echo "Installing Homebrew packages using Brewfile profile..."
-    brew bundle --file=${DOTFILES_DIR}/brew/Brewfile-$PROFILE
+    _info "Installing Homebrew packages using Brewfile profile..."
+    brew bundle --file="${DOTFILES_DIR}/brew/Brewfile-${PROFILE}"
 }
 
 
 brew_save() {
-    local PROFILE=$1
+    local PROFILE="$1"
 
     echo
-    echo "Saving Homebrew packages to Brewfile profile..."
-    brew bundle dump --file=${DOTFILES_DIR}/brew/Brewfile-$PROFILE --force
+    _info "Saving Homebrew packages to Brewfile profile..."
+    brew bundle dump --file="${DOTFILES_DIR}/brew/Brewfile-${PROFILE}" --force
 }
 
 
@@ -153,36 +176,29 @@ case "$1" in
         update_system
         ;;
     install)
-        if [ -z "$2" ]; then
-            echo
-            echo "Please specify a tool to install."
-            echo
-            get_installable_tools
-        else
-            install_tool "$2"
-        fi
+        install_dev_tools "$@"
         ;;
     brew-install)
         echo
-        echo "Installing Homebrew..."
+        _info "Installing Homebrew..."
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
         ;;
     brew-bundle)
-        if [ -z "$2" ]; then
+        if [[ -z "$2" ]]; then
             echo
-            echo "Please specify a Brewfile profile."
+            _info "Please specify a Brewfile profile."
             echo
-            ls ${DOTFILES_DIR}/brew | grep Brewfile
+            ls "${DOTFILES_DIR}/brew" | grep Brewfile
         else
             brew_bundle "$2"
         fi
         ;;
     brew-save)
-        if [ -z "$2" ]; then
+        if [[ -z "$2" ]]; then
             echo
-            echo "Please specify a Brewfile profile."
+            _info "Please specify a Brewfile profile."
             echo
-            ls ${DOTFILES_DIR}/brew | grep Brewfile
+            ls "${DOTFILES_DIR}/brew" | grep Brewfile
         else
             brew_save "$2"
         fi

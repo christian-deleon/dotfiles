@@ -43,15 +43,21 @@ cd ~/dotfiles
 ./install.sh
 ```
 
-The installer provides an interactive menu to choose what to install:
+The installer runs in two phases:
+
+**Phase 1 — Config Modules** (interactive toggle menu):
 
 1. **Shell config** — symlinks `.commonrc`, `.aliases`, `.functions`; injects `source ~/.commonrc` into your existing `~/.bashrc`
 2. **Zsh config** — symlinks `.zshrc`, `.p10k.zsh` (for macOS with Oh My Zsh)
 3. **Git submodules** — syncs tpm, ssh-config
-4. **SSH config** — symlinks `~/.ssh/config`
+4. **SSH config** — generates `~/.ssh/config` with OS-appropriate 1Password agent
 5. **Git config** — symlinks `.gitconfig`; interactively sets up `.gitconfig.local`
 6. **Tmux config** — symlinks `.tmux.conf` and `.tmux/` plugins
 7. **Dot CLI** — installs the `dot` command to `~/.local/bin`
+
+**Phase 2 — Dev Tools** (gum multi-select picker):
+
+Select from 19 tools defined in `packages.yaml`. Each tool is installed via OS package manager (pacman/yay, apt, brew) with script fallbacks for systems without native packages.
 
 Use `./install.sh --all` to install everything without prompts.
 
@@ -72,11 +78,51 @@ export SOME_API_KEY="..."
 ```bash
 dot edit                  # Open dotfiles in your editor ($EDITOR)
 dot update                # Update system packages and dotfiles
-dot install <tool-name>   # Install tools using Ansible
+dot install               # Interactive tool picker (gum)
+dot install docker kubectl# Install specific tools by name
 dot brew-install          # Install Homebrew (macOS)
 dot brew-bundle <profile> # Install packages from a Brewfile profile
 dot brew-save <profile>   # Save current Homebrew packages to a profile
 ```
+
+## Package Management
+
+Tools are defined in `packages.yaml` with per-OS package names:
+
+```yaml
+kubectl:
+  description: Kubernetes CLI
+  arch: kubectl
+  apt: null
+  brew: kubectl
+  script: tools/install-kubectl.sh
+```
+
+The system auto-detects your package manager (`pacman`/`yay` on Arch, `apt` on Debian/Ubuntu, `brew` on macOS) and installs accordingly. When a native package isn't available, it falls back to the install script in `tools/`.
+
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| docker | Container platform |
+| kubectl | Kubernetes CLI |
+| skaffold | Kubernetes dev workflow |
+| flux | GitOps toolkit |
+| helm | Kubernetes package manager |
+| terraform | Infrastructure as code |
+| fzf | Fuzzy finder |
+| fd | Fast find alternative |
+| bat | Cat with syntax highlighting |
+| jq | JSON processor |
+| yq | YAML processor |
+| ripgrep | Fast grep alternative |
+| just | Task runner |
+| tmux | Terminal multiplexer |
+| gh | GitHub CLI |
+| 1password-cli | 1Password CLI (op) |
+| gum | TUI components for scripts |
+| mise | Dev tool version manager |
+| poetry | Python dependency management |
 
 ## Project Structure
 
@@ -91,13 +137,16 @@ dotfiles/
 ├── .p10k.zsh             # Powerlevel10k prompt config (sourced by .zshrc)
 ├── .tmux.conf            # Tmux configuration
 ├── .zshrc                # Zsh config (macOS with Oh My Zsh + Powerlevel10k)
-├── ansible/              # Ansible playbooks for tool installation
+├── packages.yaml         # Tool definitions with per-OS package names
+├── tools/                # Package management library and install scripts
+│   ├── lib.sh            # Shared library (OS detection, YAML parser, install logic)
+│   └── install-*.sh      # Per-tool fallback install scripts
 ├── brew/                 # Homebrew Brewfile profiles (home, work)
 ├── docs/                 # Documentation
 │   ├── aliases.md        # Alias reference
 │   └── functions.md      # Function reference
 ├── dot.sh                # CLI tool for dotfiles management
-├── install.sh            # Modular installer with interactive menu
+├── install.sh            # Two-phase installer (config + dev tools)
 ├── profiles/             # OS-specific profile templates (reference)
 ├── .ssh/                 # SSH config (git submodule)
 └── .tmux/                # Tmux plugins (tpm submodule)
