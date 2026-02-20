@@ -16,6 +16,9 @@ alias mkdir='mkdir -pv'
 alias v='vim'
 alias nv='nvim'
 
+# Dropbox
+alias db='dropbox-cli'
+
 # Kubernetes shortcuts
 # Note: kc, kn, ke, kl, kdp, kdd, kdelp, ks are functions in .functions with fzf support
 alias k='kubectl'
