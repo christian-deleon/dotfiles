@@ -1,18 +1,24 @@
 #!/bin/bash
 #
-# Dotfiles installer - modular setup with interactive selection
+# Dotfiles installer - modular setup with machine profiles
 #
 # Usage:
-#   ./install.sh          Interactive menu to choose components
-#   ./install.sh --all    Install everything without prompts
-#   ./install.sh --help   Show usage information
+#   ./install.sh                        Interactive menu (auto-detects profile)
+#   ./install.sh --all                  Install everything without prompts
+#   ./install.sh --profile=mac-home     Force a specific profile
+#   ./install.sh --help                 Show usage information
+#
+# Profiles:
+#   omarchy    — Omarchy (Arch Linux + Hyprland), stows configs via omadot
+#   mac-home   — macOS with Homebrew (home Brewfile)
+#   mac-work   — macOS with Homebrew (work Brewfile)
 #
 
 set -e
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 
-DOTFILES_DIR="$HOME/dotfiles"
+DOTFILES_DIR="$HOME/.dotfiles"
 BACKUP_DIR="$HOME/dotfiles_backup"
 
 # Source package management library
@@ -23,8 +29,13 @@ ZSH_FILES=(.zshrc .p10k.zsh)
 TMUX_FILES=(.tmux.conf)
 TMUX_DIRS=(.tmux)
 
-# Module names and descriptions (parallel arrays)
-MODULES=(
+# Omarchy stow packages managed by omadot
+OMARCHY_STOW_PACKAGES=(hypr waybar alacritty walker kitty ghostty mako btop fastfetch lazygit omarchy)
+
+# ─── Module registry ─────────────────────────────────────────────────────────
+# Profile key: o = omarchy, m = mac (home + work)
+
+ALL_MODULES=(
     "shell_config"
     "zsh_config"
     "git_submodules"
@@ -32,20 +43,39 @@ MODULES=(
     "git_config"
     "tmux_config"
     "dot_cli"
+    "omarchy_config"
 )
 
-MODULE_LABELS=(
+ALL_MODULE_LABELS=(
     "Shell config       (.commonrc, .aliases, .functions + inject into .bashrc)"
     "Zsh config         (.zshrc, .p10k.zsh — for macOS with Oh My Zsh)"
     "Git submodules     (tpm, ssh-config)"
-    "SSH config         (~/.ssh/config symlink)"
+    "SSH config         (~/.ssh/config generation)"
     "Git config         (.gitconfig + .gitconfig.local)"
     "Tmux config        (.tmux.conf, .tmux/ plugins)"
     "Dot CLI            (install dot command to ~/.local/bin)"
+    "Omarchy config     (stow hypr, waybar, etc. via omadot)"
 )
 
+ALL_MODULE_PROFILES=(
+    "om"    # shell_config
+    "m"     # zsh_config
+    "om"    # git_submodules
+    "om"    # ssh_config
+    "om"    # git_config
+    "om"    # tmux_config
+    "om"    # dot_cli
+    "o"     # omarchy_config
+)
+
+# Active modules (populated by build_module_list)
+MODULES=()
+MODULE_LABELS=()
+
+# Current machine profile
+PROFILE=""
+
 # ─── Color helpers ────────────────────────────────────────────────────────────
-# These use non-prefixed names for install.sh (lib.sh uses _prefixed names)
 
 if [[ -t 1 ]]; then
     BOLD='\033[1m'
@@ -84,7 +114,7 @@ backup_item() {
 
     if [[ -e "$src" ]]; then
         mkdir -p "$(dirname "$dest")"
-        cp -L "$src" "$dest"
+        cp -rL "$src" "$dest"
         info "Backed up ${DIM}$relative${RESET}"
     fi
 }
@@ -117,6 +147,8 @@ link_directory_contents() {
     done
 }
 
+# ─── Profile detection ───────────────────────────────────────────────────────
+
 detect_os() {
     if [[ "$OSTYPE" == darwin* ]]; then
         echo "macos"
@@ -129,6 +161,108 @@ detect_os() {
 
 is_omarchy() {
     [[ -d "$HOME/.local/share/omarchy" ]]
+}
+
+detect_profile() {
+    if is_omarchy; then
+        PROFILE="omarchy"
+    elif [[ "$OSTYPE" == darwin* ]]; then
+        PROFILE="mac"
+    else
+        PROFILE="linux"
+    fi
+}
+
+select_mac_profile() {
+    [[ "$PROFILE" == "mac" ]] || return 0
+
+    echo
+    printf '%b\n' "${BOLD}Select Mac profile:${RESET}"
+    echo "  1) Home"
+    echo "  2) Work"
+    echo
+    read -rp "Choice (1 or 2): " mac_choice
+
+    case "$mac_choice" in
+        2) PROFILE="mac-work" ;;
+        *) PROFILE="mac-home" ;;
+    esac
+}
+
+build_module_list() {
+    local profile_char
+    case "$PROFILE" in
+        omarchy) profile_char="o" ;;
+        mac-*|mac) profile_char="m" ;;
+        *) profile_char="o" ;;  # default to omarchy-like for unknown linux
+    esac
+
+    MODULES=()
+    MODULE_LABELS=()
+    for i in "${!ALL_MODULES[@]}"; do
+        if [[ "${ALL_MODULE_PROFILES[$i]}" == *"$profile_char"* ]]; then
+            MODULES+=("${ALL_MODULES[$i]}")
+            MODULE_LABELS+=("${ALL_MODULE_LABELS[$i]}")
+        fi
+    done
+}
+
+# ─── Prerequisite installers ─────────────────────────────────────────────────
+
+ensure_homebrew() {
+    if command -v brew &>/dev/null; then
+        return 0
+    fi
+
+    info "Installing Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+    # Source brew shellenv for the current session
+    if [[ -f /opt/homebrew/bin/brew ]]; then
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+    elif [[ -f /usr/local/bin/brew ]]; then
+        eval "$(/usr/local/bin/brew shellenv)"
+    fi
+
+    if command -v brew &>/dev/null; then
+        success "Homebrew installed"
+    else
+        error "Homebrew installation failed"
+        return 1
+    fi
+}
+
+ensure_stow() {
+    if command -v stow &>/dev/null; then
+        return 0
+    fi
+
+    info "Installing GNU Stow..."
+    if [[ "$OSTYPE" == darwin* ]]; then
+        ensure_homebrew
+        brew install stow
+    elif command -v pacman &>/dev/null; then
+        sudo pacman -S --noconfirm stow
+    elif command -v apt-get &>/dev/null; then
+        sudo apt-get install -y stow
+    else
+        error "Cannot auto-install stow — install it manually"
+        return 1
+    fi
+    success "GNU Stow installed"
+}
+
+ensure_omadot() {
+    if command -v omadot &>/dev/null; then
+        return 0
+    fi
+
+    info "Installing omadot..."
+    local install_dir="$HOME/.local/bin"
+    mkdir -p "$install_dir"
+    curl -fsSL "https://raw.githubusercontent.com/tomhayes/omadot/main/omadot" -o "$install_dir/omadot"
+    chmod +x "$install_dir/omadot"
+    success "Installed omadot to ${DIM}$install_dir/omadot${RESET}"
 }
 
 # ─── Module functions ─────────────────────────────────────────────────────────
@@ -315,12 +449,47 @@ install_dot_cli() {
 
     mkdir -p "$HOME/.local/bin"
 
-    if [[ -L "$HOME/.local/bin/dot" ]]; then
-        info "dot CLI already installed"
-    else
-        ln -s "$dot_script" "$HOME/.local/bin/dot"
-        success "Installed dot CLI to ${DIM}~/.local/bin/dot${RESET}"
-    fi
+    # Always update the symlink (handles path changes and broken symlinks)
+    ln -snf "$dot_script" "$HOME/.local/bin/dot"
+    success "Linked dot CLI to ${DIM}~/.local/bin/dot${RESET}"
+}
+
+install_omarchy_config() {
+    echo
+    info "Installing Omarchy config (stow via omadot)..."
+
+    ensure_stow
+    ensure_omadot
+
+    for pkg in "${OMARCHY_STOW_PACKAGES[@]}"; do
+        if [[ ! -d "$DOTFILES_DIR/$pkg" ]]; then
+            warn "Stow package not found: $pkg (run 'omadot get $pkg' to capture it)"
+            continue
+        fi
+
+        local target="$HOME/.config/$pkg"
+        local expected
+        expected="$(readlink -f "$DOTFILES_DIR/$pkg/.config/$pkg")"
+
+        # Already correctly stowed — skip
+        if [[ -L "$target" ]] && [[ "$(readlink -f "$target")" == "$expected" ]]; then
+            info "$pkg already stowed"
+            continue
+        fi
+
+        # Backup and remove existing real directory
+        if [[ -d "$target" && ! -L "$target" ]]; then
+            backup_item "$target"
+            rm -rf "$target"
+        fi
+
+        # Remove broken symlink
+        if [[ -L "$target" && ! -e "$target" ]]; then
+            rm "$target"
+        fi
+
+        omadot put "$pkg" 2>&1 && success "Stowed $pkg" || warn "Failed to stow $pkg"
+    done
 }
 
 # ─── Phase 1: Interactive config menu ─────────────────────────────────────────
@@ -331,6 +500,7 @@ show_menu() {
 
     echo
     printf '%b\n' "${BOLD}Dotfiles Installer — Phase 1: Config${RESET}"
+    printf '%b\n' "${DIM}Profile: $PROFILE${RESET}"
     printf '%b\n' "${DIM}Toggle items with their number, then press Enter to install.${RESET}"
 
     if is_omarchy; then
@@ -397,7 +567,7 @@ show_menu() {
         esac
 
         # Clear menu for redraw
-        for _ in $(seq 0 $((total + 4))); do
+        for _ in $(seq 0 $((total + 5))); do
             printf '\033[1A\033[2K'
         done
     done
@@ -486,14 +656,23 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Dotfiles installer with modular component selection.
+Dotfiles installer with modular component selection and machine profiles.
 
 Options:
-  --all     Install all components and dev tools without prompting
-  --help    Show this help message
+  --all                  Install all components and dev tools without prompting
+  --profile=PROFILE      Set machine profile (auto-detected if not specified)
+  --help                 Show this help message
 
-Phase 1 — Config Modules:
+Profiles:
+  omarchy      Omarchy (Arch Linux + Hyprland) — stows configs via omadot
+  mac-home     macOS with Homebrew (home Brewfile)
+  mac-work     macOS with Homebrew (work Brewfile)
+
+Phase 1 — Config Modules (varies by profile):
 EOF
+    # Show modules for the active profile
+    detect_profile
+    build_module_list
     for i in "${!MODULE_LABELS[@]}"; do
         echo "  $((i + 1)). ${MODULE_LABELS[$i]}"
     done
@@ -507,18 +686,52 @@ EOF
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 main() {
+    detect_profile
+
+    local mode=""
+
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --help|-h)
+                usage
+                exit 0
+                ;;
+            --profile=*)
+                PROFILE="${1#--profile=}"
+                ;;
+            --all)
+                mode="all"
+                ;;
+            *)
+                error "Unknown option: $1"
+                usage
+                exit 1
+                ;;
+        esac
+        shift
+    done
+
+    # If Mac detected but no sub-profile chosen, prompt
+    if [[ "$PROFILE" == "mac" ]]; then
+        select_mac_profile
+    fi
+
+    # Auto-install Homebrew on Mac before anything else
+    if [[ "$PROFILE" == mac-* ]]; then
+        ensure_homebrew
+    fi
+
+    build_module_list
+
     local selected=()
     for i in "${!MODULES[@]}"; do
         selected[$i]=1
     done
 
-    case "${1:-}" in
-        --help|-h)
-            usage
-            exit 0
-            ;;
-        --all)
-            printf '%b\n' "${BOLD}Dotfiles Installer${RESET} ${DIM}(--all)${RESET}"
+    case "$mode" in
+        all)
+            printf '%b\n' "${BOLD}Dotfiles Installer${RESET} ${DIM}(--all, profile: $PROFILE)${RESET}"
             run_modules selected
             install_dev_tools_all
             ;;
@@ -530,11 +743,6 @@ main() {
             if [[ ! "$install_tools_choice" =~ ^[Nn]$ ]]; then
                 install_dev_tools_interactive
             fi
-            ;;
-        *)
-            error "Unknown option: $1"
-            usage
-            exit 1
             ;;
     esac
 

@@ -2,7 +2,7 @@
 
 set -e
 
-DOTFILES_DIR="$HOME/dotfiles"
+DOTFILES_DIR="$HOME/.dotfiles"
 
 # Source package management library
 source "$DOTFILES_DIR/tools/lib.sh"
@@ -170,7 +170,7 @@ parse_functions() {
 # Main logic to handle arguments
 case "$1" in
     edit)
-        ${EDITOR:-vim} "$HOME/dotfiles"
+        ${EDITOR:-vim} "$DOTFILES_DIR"
         ;;
     update)
         update_system
