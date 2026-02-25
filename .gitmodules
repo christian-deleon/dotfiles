@@ -4,3 +4,15 @@
 [submodule ".ssh"]
 	path = .ssh
 	url = git@github.com:christian-deleon/ssh-config.git
+[submodule "omarchy/.config/omarchy/themes/city-783"]
+	path = omarchy/.config/omarchy/themes/city-783
+	url = https://github.com/OldJobobo/omarchy-city-783-theme
+[submodule "omarchy/.config/omarchy/themes/harbordark"]
+	path = omarchy/.config/omarchy/themes/harbordark
+	url = https://github.com/HANCORE-linux/omarchy-harbordark-theme.git
+[submodule "omarchy/.config/omarchy/themes/miasma"]
+	path = omarchy/.config/omarchy/themes/miasma
+	url = https://github.com/OldJobobo/omarchy-miasma-theme
+[submodule "omarchy/.config/omarchy/themes/temerald"]
+	path = omarchy/.config/omarchy/themes/temerald
+	url = https://github.com/Ahmad-Mtr/omarchy-temerald-theme
