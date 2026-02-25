@@ -1,1 +1,1 @@
-/home/cdeleon/dotfiles/AGENTS.md
+AGENTS.md

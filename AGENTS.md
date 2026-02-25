@@ -1,8 +1,10 @@
 # Agent Guidelines for Dotfiles Repository
 
-Guidelines for AI coding agents working in this personal dotfiles repository. This repository manages shell configurations, development tool setups, and system bootstrapping scripts for macOS and Linux (including Omarchy/Arch Linux).
+Guidelines for AI coding agents working in this personal dotfiles repository. This repository manages shell configurations, development tool setups, Omarchy desktop configs, and system bootstrapping scripts for macOS and Linux (including Omarchy/Arch Linux).
 
 ## Repository Overview
+
+**Location:** `~/.dotfiles/`
 
 **Primary Languages:** Shell (Bash), YAML (packages.yaml), Configuration files
 
@@ -10,6 +12,7 @@ Guidelines for AI coding agents working in this personal dotfiles repository. Th
 
 - Shell configs: `.commonrc` (cross-platform), `.zshrc` (macOS with Oh My Zsh + Powerlevel10k), `.bashrc` (reference only)
 - Dev tool configs: git, tmux
+- Omarchy desktop configs: hypr, waybar, alacritty, kitty, ghostty, mako, walker, btop, fastfetch, lazygit, omarchy (managed via GNU Stow + omadot)
 - Package management: `packages.yaml` + `tools/lib.sh` (cross-platform), Homebrew Brewfile profiles (macOS)
 - Custom aliases, functions (many with fzf integration), shell utilities
 - Documentation: `docs/functions.md`, `docs/aliases.md`
@@ -19,8 +22,8 @@ Guidelines for AI coding agents working in this personal dotfiles repository. Th
 **"Source into, never replace."** The system (Omarchy, Ubuntu, macOS) owns `~/.bashrc`. Dotfiles provide customizations via `~/.commonrc` which is sourced into the system's shell config.
 
 ```
-SYSTEM-OWNED (never symlinked)          DOTFILES (symlinked)
-─────────────────────────────           ─────────────────────────
+SYSTEM-OWNED (never symlinked)          DOTFILES (symlinked from ~/.dotfiles/)
+─────────────────────────────           ──────────────────────────────────────
 ~/.bashrc (Omarchy / Ubuntu / etc.)     ~/.commonrc ─┬─ ~/.aliases
   └── source ~/.commonrc                             ├── ~/.functions
                                                      └── ~/.localrc (not tracked)
@@ -29,6 +32,36 @@ SYSTEM-OWNED (never symlinked)          DOTFILES (symlinked)
 ```
 
 **Key principle:** `.bashrc` is never symlinked. `install.sh` injects `source ~/.commonrc` into the system's existing `~/.bashrc`. Machine-specific config (`EDITOR`, secrets, env vars) goes in `~/.localrc` (not tracked).
+
+### Machine Profiles
+
+The installer supports three profiles, auto-detected at startup:
+
+| Profile | Detection | Modules |
+|---------|-----------|---------|
+| `omarchy` | `~/.local/share/omarchy` exists | Shell, Git, SSH, Tmux, Dot CLI, Omarchy config (stow) |
+| `mac-home` | macOS + user choice | Shell, Zsh, Git, SSH, Tmux, Dot CLI |
+| `mac-work` | macOS + user choice | Shell, Zsh, Git, SSH, Tmux, Dot CLI |
+
+Profile can be forced with `--profile=omarchy|mac-home|mac-work`.
+
+### Omarchy Config Management (Stow + omadot)
+
+On Omarchy machines, desktop configs in `~/.config/` are managed via [GNU Stow](https://www.gnu.org/software/stow/) + [omadot](https://github.com/tomhayes/omadot):
+
+- Configs are stored as stow packages in `~/.dotfiles/<pkg>/.config/<pkg>/`
+- `omadot put <pkg>` creates directory-level symlinks: `~/.config/<pkg>` -> `~/.dotfiles/<pkg>/.config/<pkg>`
+- New files in `~/.config/<pkg>/` automatically appear in the repo (no re-run needed)
+- `install.sh` auto-installs stow + omadot and runs `omadot put` for each package
+
+**Stow packages** (defined in `OMARCHY_STOW_PACKAGES` in `install.sh`):
+```
+hypr  waybar  alacritty  walker  kitty  ghostty  mako  btop  fastfetch  lazygit  omarchy
+```
+
+**Not managed by omadot** (Omarchy-owned): `starship.toml`, `~/.config/git/`
+
+**IMPORTANT:** Never use `omadot put --all` in this repo. It would try to stow non-package directories (brew/, tools/, docs/, etc.). Always use the explicit package list or `install_omarchy_config()`.
 
 ### Omarchy Compatibility
 
@@ -65,7 +98,7 @@ The shared library `tools/lib.sh` provides:
 - `detect_pkg_manager()` — returns `arch`, `apt`, or `brew`
 - `list_tools()` — lists all tool names from `packages.yaml`
 - `get_tool_field <tool> <field>` — minimal YAML parser (no yq dependency at bootstrap)
-- `install_tool <tool>` — checks if installed → tries OS package manager → falls back to script
+- `install_tool <tool>` — checks if installed -> tries OS package manager -> falls back to script
 - `install_tools <tool ...>` — installs multiple tools with gum spinner support
 - `ensure_gum()` — bootstraps gum if not installed
 
@@ -95,13 +128,14 @@ for f in .[a-z]*; do [[ -f "$f" ]] && bash -n "$f" 2>&1 | grep -v "cannot execut
 ### Installation & Management
 
 ```bash
-./install.sh              # Interactive: Phase 1 (config) + Phase 2 (dev tools)
-./install.sh --all        # Install everything without prompts
-./install.sh --help       # Show available modules and tools
-dot edit                  # Open dotfiles in editor ($EDITOR)
-dot update                # Update system packages and dotfiles
-dot install               # Interactive tool picker (gum choose)
-dot install docker kubectl# Install specific tools by name
+./install.sh                          # Interactive with auto-detected profile
+./install.sh --all                    # Install everything (auto-detect profile)
+./install.sh --profile=omarchy --all  # Force profile
+./install.sh --help                   # Show available modules and tools
+dot edit                              # Open dotfiles in editor ($EDITOR)
+dot update                            # Update system packages and dotfiles
+dot install                           # Interactive tool picker (gum choose)
+dot install docker kubectl            # Install specific tools by name
 ```
 
 ### Homebrew (macOS only)
@@ -110,6 +144,14 @@ dot install docker kubectl# Install specific tools by name
 dot brew-install          # Install Homebrew
 dot brew-bundle <profile> # Install from profile (home, work)
 dot brew-save <profile>   # Save current packages to profile
+```
+
+### Omadot (Omarchy only)
+
+```bash
+omadot get <pkg>          # Capture config from ~/.config/ into ~/.dotfiles/
+omadot put <pkg>          # Stow config back (create symlink)
+omadot list               # List managed packages
 ```
 
 ## Code Style Guidelines
@@ -244,7 +286,7 @@ function my_function() {
 - Auto-detect OS: `$OSTYPE` (macOS vs Linux)
 - Detect Omarchy: `[[ -d "$HOME/.local/share/omarchy" ]]`
 - Detect package manager: `detect_pkg_manager()` in `tools/lib.sh`
-- macOS: Homebrew for packages
+- macOS: Homebrew for packages (auto-installed by `install.sh` if missing)
 - Arch Linux: pacman/yay for packages
 - Debian/Ubuntu: apt + script fallbacks for missing tools
 
@@ -256,15 +298,31 @@ function my_function() {
 | `.aliases` | Personal aliases |
 | `.functions` | Personal functions (fzf-powered kubectl, git worktrees) |
 | `.zshrc` | macOS zsh config (Oh My Zsh + Powerlevel10k) |
+| `.p10k.zsh` | Powerlevel10k prompt config (macOS) |
 | `.tmux.conf` | Tmux configuration |
-| `.gitconfig.dotfiles` → `~/.gitconfig` | Shared git config |
+| `.gitconfig.dotfiles` -> `~/.gitconfig` | Shared git config |
+
+### Omadot Stow Packages (Omarchy only)
+
+| Package | Config location | Notes |
+|---------|----------------|-------|
+| `hypr` | `~/.config/hypr/` | Hyprland WM (bindings, monitors, look-n-feel) |
+| `waybar` | `~/.config/waybar/` | Status bar layout and styling |
+| `alacritty` | `~/.config/alacritty/` | Alacritty terminal |
+| `kitty` | `~/.config/kitty/` | Kitty terminal |
+| `ghostty` | `~/.config/ghostty/` | Ghostty terminal |
+| `walker` | `~/.config/walker/` | App launcher |
+| `mako` | `~/.config/mako/` | Notifications |
+| `btop` | `~/.config/btop/` | System monitor |
+| `fastfetch` | `~/.config/fastfetch/` | System info display |
+| `lazygit` | `~/.config/lazygit/` | Lazygit TUI |
+| `omarchy` | `~/.config/omarchy/` | Themes, hooks, extensions |
 
 ### Files NOT Symlinked (reference or generated)
 
 | File | Notes |
 |------|-------|
 | `.bashrc` | Reference for non-managed systems — never symlinked |
-| `.p10k.zsh` | Sourced by `.zshrc` directly from `~/dotfiles/` |
 | `~/.ssh/config` | Generated by `install.sh` — not a symlink |
 
 ### Directories (contents symlinked one level deep)
@@ -284,16 +342,16 @@ function my_function() {
 
 **On Omarchy/Linux (bash):**
 
-1. Omarchy's `~/.bashrc` → sources Omarchy defaults (starship, mise, zoxide, etc.)
-2. `~/.bashrc` → sources `~/.commonrc` (injected by install.sh)
-3. `.commonrc` → sources `.aliases`, `.functions`, `.localrc`
+1. Omarchy's `~/.bashrc` -> sources Omarchy defaults (starship, mise, zoxide, etc.)
+2. `~/.bashrc` -> sources `~/.commonrc` (injected by install.sh)
+3. `.commonrc` -> sources `.aliases`, `.functions`, `.localrc`
 
 **On macOS (zsh):**
 
-1. `.zshrc` → Homebrew, Oh My Zsh, Powerlevel10k, zsh plugins
-2. `.zshrc` → sources `.commonrc`
-3. `.commonrc` → sources `.aliases`, `.functions`, `.localrc`
-4. `.zshrc` → fzf, `.p10k.zsh`
+1. `.zshrc` -> Homebrew, Oh My Zsh, Powerlevel10k, zsh plugins
+2. `.zshrc` -> sources `.commonrc`
+3. `.commonrc` -> sources `.aliases`, `.functions`, `.localrc`
+4. `.zshrc` -> fzf, `.p10k.zsh`
 
 ### Tool-Specific
 
@@ -328,14 +386,25 @@ function my_function() {
 4. Test: `dot install <tool>`
 5. Update README.md tool list
 
+### Adding a New Omarchy Config to omadot
+
+1. Run `omadot get <package>` to capture from `~/.config/`
+2. Verify the stow package exists: `ls ~/.dotfiles/<package>/.config/<package>/`
+3. Add the package name to `OMARCHY_STOW_PACKAGES` in `install.sh`
+4. Update AGENTS.md stow packages table
+5. `git add ~/.dotfiles/<package> && git commit`
+
 ### Modifying install.sh
 
-1. **Phase 1** (config): Modules defined by parallel arrays `MODULES` and `MODULE_LABELS`, each with an `install_<module_name>` function
-2. **Phase 2** (tools): Uses `tools/lib.sh` and `packages.yaml` — gum choose for interactive selection
-3. OS-specific paths must use `$OSTYPE` detection
-4. Never replace `~/.bashrc` — only inject source line
-5. SSH config is generated (not symlinked) with OS-appropriate `IdentityAgent`
-6. Test with `bash -n install.sh` and `./install.sh --help`
+1. **Profiles**: Detected by `detect_profile()`, modules filtered by `build_module_list()` using `ALL_MODULE_PROFILES` flags (`o`=omarchy, `m`=mac)
+2. **Phase 1** (config): Modules in `ALL_MODULES` / `ALL_MODULE_LABELS` / `ALL_MODULE_PROFILES` parallel arrays, each with an `install_<module_name>` function
+3. **Phase 2** (tools): Uses `tools/lib.sh` and `packages.yaml` — gum choose for interactive selection
+4. **Prerequisites**: `ensure_homebrew()`, `ensure_stow()`, `ensure_omadot()` auto-install if missing
+5. **Idempotency**: All modules must be safe to re-run. Use `ln -snf` for symlinks, check before stowing, skip if already done
+6. OS-specific paths must use `$OSTYPE` detection
+7. Never replace `~/.bashrc` — only inject source line
+8. SSH config is generated (not symlinked) with OS-appropriate `IdentityAgent`
+9. Test with `bash -n install.sh` and `./install.sh --help`
 
 ### Modifying dot.sh
 
@@ -366,6 +435,7 @@ Before committing:
 - [ ] No hardcoded OS-specific paths (use `$OSTYPE` detection)
 - [ ] Works on target system (macOS/Linux/Omarchy)
 - [ ] `install.sh` modules work correctly
+- [ ] Omadot stow packages are correctly listed in `OMARCHY_STOW_PACKAGES`
 
 ## Important Reminders
 
@@ -376,6 +446,8 @@ Before committing:
 - **Document everything** - keep docs comprehensive and current
 - **OS-aware** - use `$OSTYPE` for macOS vs Linux paths (1Password, Homebrew, etc.)
 - **Omarchy-aware** - don't duplicate or conflict with Omarchy's shell defaults
+- **Stow-aware** - never use `omadot put --all`; always use the explicit package list
+- **Idempotent** - all install modules must be safe to re-run
 - **Privacy** - never commit secrets, tokens, credentials
 - **fzf integration** - many kubectl/git functions support interactive mode
 
