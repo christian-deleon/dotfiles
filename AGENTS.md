@@ -12,7 +12,7 @@ Guidelines for AI coding agents working in this personal dotfiles repository. Th
 
 - Shell configs: `.commonrc` (cross-platform), `.zshrc` (macOS with Oh My Zsh + Powerlevel10k), `.bashrc` (reference only)
 - Dev tool configs: git, tmux
-- Omarchy desktop configs: hypr, waybar, alacritty, kitty, ghostty, mako, walker, btop, fastfetch, lazygit, omarchy (managed via GNU Stow + omadot)
+- Omarchy desktop configs: hypr, waybar, alacritty, kitty, ghostty, mako, walker, btop, fastfetch, lazygit, omarchy, opencode (managed via GNU Stow + omadot)
 - Package management: `packages.yaml` + `tools/lib.sh` (cross-platform), Homebrew Brewfile profiles (macOS)
 - Custom aliases, functions (many with fzf integration), shell utilities
 - Documentation: `docs/functions.md`, `docs/aliases.md`
@@ -56,7 +56,7 @@ On Omarchy machines, desktop configs in `~/.config/` are managed via [GNU Stow](
 
 **Stow packages** (defined in `OMARCHY_STOW_PACKAGES` in `install.sh`):
 ```
-hypr  waybar  alacritty  walker  kitty  ghostty  mako  btop  fastfetch  lazygit  omarchy
+hypr  waybar  alacritty  walker  kitty  ghostty  mako  btop  fastfetch  lazygit  omarchy  opencode
 ```
 
 **Not managed by omadot** (Omarchy-owned): `starship.toml`, `~/.config/git/`
@@ -317,6 +317,7 @@ function my_function() {
 | `fastfetch` | `~/.config/fastfetch/` | System info display |
 | `lazygit` | `~/.config/lazygit/` | Lazygit TUI |
 | `omarchy` | `~/.config/omarchy/` | Themes, hooks, extensions |
+| `opencode` | `~/.config/opencode/` | OpenCode AI agent config and plugins |
 
 ### Files NOT Symlinked (reference or generated)
 
