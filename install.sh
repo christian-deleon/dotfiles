@@ -30,7 +30,7 @@ TMUX_FILES=(.tmux.conf)
 TMUX_DIRS=(.tmux)
 
 # Omarchy stow packages managed by omadot
-OMARCHY_STOW_PACKAGES=(hypr waybar alacritty walker kitty ghostty mako btop fastfetch lazygit omarchy)
+OMARCHY_STOW_PACKAGES=(hypr waybar alacritty walker kitty ghostty mako btop fastfetch lazygit omarchy opencode)
 
 # ─── Module registry ─────────────────────────────────────────────────────────
 # Profile key: o = omarchy, m = mac (home + work)

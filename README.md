@@ -95,7 +95,7 @@ On Omarchy machines, desktop configs are managed with [omadot](https://github.co
 
 ```bash
 # Configs managed by omadot (stow packages in ~/.dotfiles/)
-hypr  waybar  alacritty  walker  kitty  ghostty  mako  btop  fastfetch  lazygit  omarchy
+hypr  waybar  alacritty  walker  kitty  ghostty  mako  btop  fastfetch  lazygit  omarchy  opencode
 ```
 
 **How it works:**
