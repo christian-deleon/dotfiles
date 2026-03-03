@@ -1,17 +1,12 @@
 #!/bin/bash
 #
-# Dotfiles installer - modular setup with machine profiles
+# Dotfiles installer
+#
+# Core config runs automatically, then you pick app configs and dev tools.
 #
 # Usage:
-#   ./install.sh                        Interactive menu (auto-detects profile)
-#   ./install.sh --all                  Install everything without prompts
-#   ./install.sh --profile=mac-home     Force a specific profile
-#   ./install.sh --help                 Show usage information
-#
-# Profiles:
-#   omarchy    — Omarchy (Arch Linux + Hyprland), stows configs via omadot
-#   mac-home   — macOS with Homebrew (home Brewfile)
-#   mac-work   — macOS with Homebrew (work Brewfile)
+#   ./install.sh        Interactive install
+#   ./install.sh --help Show usage
 #
 
 set -e
@@ -21,59 +16,12 @@ set -e
 DOTFILES_DIR="$HOME/.dotfiles"
 BACKUP_DIR="$HOME/dotfiles_backup"
 
-# Source package management library
 source "$DOTFILES_DIR/tools/lib.sh"
 
 SHELL_FILES=(.commonrc .aliases .functions)
 ZSH_FILES=(.zshrc .p10k.zsh)
 TMUX_FILES=(.tmux.conf)
 TMUX_DIRS=(.tmux)
-
-# Omarchy stow packages managed by omadot
-OMARCHY_STOW_PACKAGES=(hypr waybar alacritty walker kitty ghostty mako btop fastfetch lazygit omarchy opencode)
-
-# ─── Module registry ─────────────────────────────────────────────────────────
-# Profile key: o = omarchy, m = mac (home + work)
-
-ALL_MODULES=(
-    "shell_config"
-    "zsh_config"
-    "git_submodules"
-    "ssh_config"
-    "git_config"
-    "tmux_config"
-    "dot_cli"
-    "omarchy_config"
-)
-
-ALL_MODULE_LABELS=(
-    "Shell config       (.commonrc, .aliases, .functions + inject into .bashrc)"
-    "Zsh config         (.zshrc, .p10k.zsh — for macOS with Oh My Zsh)"
-    "Git submodules     (tpm, ssh-config)"
-    "SSH config         (~/.ssh/config generation)"
-    "Git config         (.gitconfig + .gitconfig.local)"
-    "Tmux config        (.tmux.conf, .tmux/ plugins)"
-    "Dot CLI            (install dot command to ~/.local/bin)"
-    "Omarchy config     (stow hypr, waybar, etc. via omadot)"
-)
-
-ALL_MODULE_PROFILES=(
-    "om"    # shell_config
-    "m"     # zsh_config
-    "om"    # git_submodules
-    "om"    # ssh_config
-    "om"    # git_config
-    "om"    # tmux_config
-    "om"    # dot_cli
-    "o"     # omarchy_config
-)
-
-# Active modules (populated by build_module_list)
-MODULES=()
-MODULE_LABELS=()
-
-# Current machine profile
-PROFILE=""
 
 # ─── Color helpers ────────────────────────────────────────────────────────────
 
@@ -91,21 +39,10 @@ fi
 
 # ─── Utility functions ────────────────────────────────────────────────────────
 
-info() {
-    printf '%b\n' "${CYAN}::${RESET} $1"
-}
-
-success() {
-    printf '%b\n' "${GREEN}✓${RESET} $1"
-}
-
-warn() {
-    printf '%b\n' "${YELLOW}!${RESET} $1"
-}
-
-error() {
-    printf '%b\n' "${RED}✗${RESET} $1" >&2
-}
+info()    { printf '%b\n' "${CYAN}::${RESET} $1"; }
+success() { printf '%b\n' "${GREEN}✓${RESET} $1"; }
+warn()    { printf '%b\n' "${YELLOW}!${RESET} $1"; }
+error()   { printf '%b\n' "${RED}✗${RESET} $1" >&2; }
 
 backup_item() {
     local src="$1"
@@ -147,66 +84,6 @@ link_directory_contents() {
     done
 }
 
-# ─── Profile detection ───────────────────────────────────────────────────────
-
-detect_os() {
-    if [[ "$OSTYPE" == darwin* ]]; then
-        echo "macos"
-    elif [[ -f /etc/os-release ]]; then
-        echo "linux"
-    else
-        echo "unknown"
-    fi
-}
-
-is_omarchy() {
-    [[ -d "$HOME/.local/share/omarchy" ]]
-}
-
-detect_profile() {
-    if is_omarchy; then
-        PROFILE="omarchy"
-    elif [[ "$OSTYPE" == darwin* ]]; then
-        PROFILE="mac"
-    else
-        PROFILE="linux"
-    fi
-}
-
-select_mac_profile() {
-    [[ "$PROFILE" == "mac" ]] || return 0
-
-    echo
-    printf '%b\n' "${BOLD}Select Mac profile:${RESET}"
-    echo "  1) Home"
-    echo "  2) Work"
-    echo
-    read -rp "Choice (1 or 2): " mac_choice
-
-    case "$mac_choice" in
-        2) PROFILE="mac-work" ;;
-        *) PROFILE="mac-home" ;;
-    esac
-}
-
-build_module_list() {
-    local profile_char
-    case "$PROFILE" in
-        omarchy) profile_char="o" ;;
-        mac-*|mac) profile_char="m" ;;
-        *) profile_char="o" ;;  # default to omarchy-like for unknown linux
-    esac
-
-    MODULES=()
-    MODULE_LABELS=()
-    for i in "${!ALL_MODULES[@]}"; do
-        if [[ "${ALL_MODULE_PROFILES[$i]}" == *"$profile_char"* ]]; then
-            MODULES+=("${ALL_MODULES[$i]}")
-            MODULE_LABELS+=("${ALL_MODULE_LABELS[$i]}")
-        fi
-    done
-}
-
 # ─── Prerequisite installers ─────────────────────────────────────────────────
 
 ensure_homebrew() {
@@ -217,7 +94,6 @@ ensure_homebrew() {
     info "Installing Homebrew..."
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-    # Source brew shellenv for the current session
     if [[ -f /opt/homebrew/bin/brew ]]; then
         eval "$(/opt/homebrew/bin/brew shellenv)"
     elif [[ -f /usr/local/bin/brew ]]; then
@@ -230,6 +106,27 @@ ensure_homebrew() {
         error "Homebrew installation failed"
         return 1
     fi
+}
+
+ensure_ohmyzsh() {
+    if [[ -d "$HOME/.oh-my-zsh" ]]; then
+        return 0
+    fi
+
+    info "Installing Oh My Zsh..."
+    RUNZSH=no CHSH=no sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+    success "Oh My Zsh installed"
+}
+
+ensure_p10k() {
+    local p10k_dir="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
+    if [[ -d "$p10k_dir" ]]; then
+        return 0
+    fi
+
+    info "Installing Powerlevel10k..."
+    git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$p10k_dir"
+    success "Powerlevel10k installed"
 }
 
 ensure_stow() {
@@ -265,11 +162,9 @@ ensure_omadot() {
     success "Installed omadot to ${DIM}$install_dir/omadot${RESET}"
 }
 
-# ─── Module functions ─────────────────────────────────────────────────────────
+# ─── Core config (always runs) ───────────────────────────────────────────────
 
 install_shell_config() {
-    echo
-    info "Installing shell config..."
     mkdir -p "$BACKUP_DIR"
 
     for file in "${SHELL_FILES[@]}"; do
@@ -293,8 +188,17 @@ install_shell_config() {
 }
 
 install_zsh_config() {
-    echo
-    info "Installing zsh config..."
+    ensure_ohmyzsh
+    ensure_p10k
+
+    local zsh_plugins=(zsh-autosuggestions zsh-you-should-use zsh-syntax-highlighting)
+    for plugin in "${zsh_plugins[@]}"; do
+        if ! brew list "$plugin" &>/dev/null; then
+            info "Installing $plugin..."
+            brew install "$plugin"
+            success "$plugin installed"
+        fi
+    done
 
     for file in "${ZSH_FILES[@]}"; do
         if [[ -f "$DOTFILES_DIR/$file" ]]; then
@@ -306,20 +210,14 @@ install_zsh_config() {
 }
 
 install_git_submodules() {
-    echo
-    info "Updating git submodules..."
     git -C "$DOTFILES_DIR" submodule sync --recursive
     git -C "$DOTFILES_DIR" submodule update --init --recursive
     success "Git submodules updated"
 }
 
 install_ssh_config() {
-    echo
-    info "Setting up SSH config..."
-
     if [[ ! -f "$DOTFILES_DIR/.ssh/config" ]]; then
         warn "No SSH config found in dotfiles (submodule may not be initialized)"
-        warn "Run 'Git submodules' module first, then re-run this module"
         return
     fi
 
@@ -347,13 +245,10 @@ Host *
 Include $DOTFILES_DIR/.ssh/config
 SSHEOF
     chmod 600 "$HOME/.ssh/config"
-    success "Generated ${DIM}.ssh/config${RESET} (includes shared config + local IdentityAgent)"
+    success "Generated ${DIM}.ssh/config${RESET}"
 }
 
 install_git_config() {
-    echo
-    info "Setting up Git config..."
-
     if [[ -f "$DOTFILES_DIR/.gitconfig.dotfiles" ]]; then
         link_file "$DOTFILES_DIR/.gitconfig.dotfiles" "$HOME/.gitconfig"
     else
@@ -366,7 +261,6 @@ install_git_config() {
         info "Local Git config already exists at ${DIM}$git_local${RESET}"
         read -rp "Reconfigure Git settings? (y/N): " reconfigure
         if [[ ! "$reconfigure" =~ ^[Yy]$ ]]; then
-            info "Keeping existing Git configuration"
             return
         fi
         backup_item "$git_local"
@@ -419,27 +313,7 @@ EOF
     fi
 }
 
-install_tmux_config() {
-    echo
-    info "Installing tmux config..."
-
-    for file in "${TMUX_FILES[@]}"; do
-        if [[ -f "$DOTFILES_DIR/$file" ]]; then
-            link_file "$DOTFILES_DIR/$file" "$HOME/$file"
-        else
-            warn "File not found: $file"
-        fi
-    done
-
-    for dir in "${TMUX_DIRS[@]}"; do
-        link_directory_contents "$DOTFILES_DIR/$dir" "$HOME/$dir"
-    done
-}
-
 install_dot_cli() {
-    echo
-    info "Installing dot CLI tool..."
-
     local dot_script="$DOTFILES_DIR/dot.sh"
 
     if [[ ! -f "$dot_script" ]]; then
@@ -448,179 +322,184 @@ install_dot_cli() {
     fi
 
     mkdir -p "$HOME/.local/bin"
-
-    # Always update the symlink (handles path changes and broken symlinks)
     ln -snf "$dot_script" "$HOME/.local/bin/dot"
     success "Linked dot CLI to ${DIM}~/.local/bin/dot${RESET}"
 }
 
-install_omarchy_config() {
+run_core_config() {
     echo
-    info "Installing Omarchy config (stow via omadot)..."
+    printf '%b\n' "${BOLD}Core Config${RESET}"
 
-    ensure_stow
-    ensure_omadot
+    info "Shell config..."
+    install_shell_config
 
-    for pkg in "${OMARCHY_STOW_PACKAGES[@]}"; do
-        if [[ ! -d "$DOTFILES_DIR/$pkg" ]]; then
-            warn "Stow package not found: $pkg (run 'omadot get $pkg' to capture it)"
-            continue
+    if [[ "$OSTYPE" == darwin* ]]; then
+        echo
+        info "Zsh config..."
+        install_zsh_config
+    fi
+
+    echo
+    info "Git submodules..."
+    install_git_submodules
+
+    echo
+    info "SSH config..."
+    install_ssh_config
+
+    echo
+    info "Git config..."
+    install_git_config
+
+    echo
+    info "Dot CLI..."
+    install_dot_cli
+}
+
+# ─── App config helpers ───────────────────────────────────────────────────────
+
+# Discover available app configs (stow packages + tmux)
+list_app_configs() {
+    for dir in "$DOTFILES_DIR"/*/; do
+        local name
+        name="$(basename "$dir")"
+        if [[ -d "$dir/.config/$name" ]]; then
+            echo "$name"
         fi
-
-        local target="$HOME/.config/$pkg"
-        local expected
-        expected="$(readlink -f "$DOTFILES_DIR/$pkg/.config/$pkg")"
-
-        # Already correctly stowed — skip
-        if [[ -L "$target" ]] && [[ "$(readlink -f "$target")" == "$expected" ]]; then
-            info "$pkg already stowed"
-            continue
-        fi
-
-        # Backup and remove existing real directory
-        if [[ -d "$target" && ! -L "$target" ]]; then
-            backup_item "$target"
-            rm -rf "$target"
-        fi
-
-        # Remove broken symlink
-        if [[ -L "$target" && ! -e "$target" ]]; then
-            rm "$target"
-        fi
-
-        omadot put "$pkg" 2>&1 && success "Stowed $pkg" || warn "Failed to stow $pkg"
     done
 
-    # Generate opencode.json from template using 1Password secret injection
-    local opencode_tpl="$HOME/.config/opencode/opencode.json.tpl"
-    local opencode_cfg="$HOME/.config/opencode/opencode.json"
-    if [[ -f "$opencode_tpl" ]]; then
-        if command -v op &>/dev/null; then
-            info "Injecting secrets into opencode.json via 1Password..."
-            if op inject -i "$opencode_tpl" -o "$opencode_cfg" 2>/dev/null; then
-                success "Generated opencode.json with secrets"
-            else
-                warn "op inject failed — run 'op inject -i $opencode_tpl -o $opencode_cfg' manually after signing in"
-            fi
-        else
-            warn "1Password CLI (op) not found — opencode.json not generated"
-            warn "Install op CLI and run: op inject -i $opencode_tpl -o $opencode_cfg"
-        fi
+    if [[ -f "$DOTFILES_DIR/.tmux.conf" ]]; then
+        echo "tmux"
     fi
 }
 
-# ─── Phase 1: Interactive config menu ─────────────────────────────────────────
+# Install a single app config
+install_app_config() {
+    local pkg="$1"
 
-show_menu() {
-    local -n _selected=$1
-    local total=${#MODULES[@]}
-
-    echo
-    printf '%b\n' "${BOLD}Dotfiles Installer — Phase 1: Config${RESET}"
-    printf '%b\n' "${DIM}Profile: $PROFILE${RESET}"
-    printf '%b\n' "${DIM}Toggle items with their number, then press Enter to install.${RESET}"
-
-    if is_omarchy; then
-        printf '%b\n' "${DIM}Omarchy detected — shell config will inject into existing ~/.bashrc${RESET}"
-    fi
-
-    echo
-
-    while true; do
-        for i in $(seq 0 $((total - 1))); do
-            local marker
-            if [[ "${_selected[$i]}" -eq 1 ]]; then
-                marker="${GREEN}●${RESET}"
-            else
-                marker="${DIM}○${RESET}"
+    case "$pkg" in
+        tmux)
+            for file in "${TMUX_FILES[@]}"; do
+                if [[ -f "$DOTFILES_DIR/$file" ]]; then
+                    link_file "$DOTFILES_DIR/$file" "$HOME/$file"
+                else
+                    warn "File not found: $file"
+                fi
+            done
+            for dir in "${TMUX_DIRS[@]}"; do
+                link_directory_contents "$DOTFILES_DIR/$dir" "$HOME/$dir"
+            done
+            success "Installed tmux config"
+            ;;
+        *)
+            if [[ ! -d "$DOTFILES_DIR/$pkg" ]]; then
+                warn "Package not found: $pkg"
+                return 1
             fi
-            printf '  %b %s) %s\n' "$marker" "$((i + 1))" "${MODULE_LABELS[$i]}"
-        done
 
-        echo
-        printf '  %b\n' "${DIM}a) toggle all    q) quit${RESET}"
-        echo
+            local target="$HOME/.config/$pkg"
+            local expected
+            expected="$(readlink -f "$DOTFILES_DIR/$pkg/.config/$pkg")"
 
-        read -rp "Selection: " choice
+            if [[ -L "$target" ]] && [[ "$(readlink -f "$target")" == "$expected" ]]; then
+                info "$pkg already stowed"
+                return 0
+            fi
 
-        case "$choice" in
-            [qQ])
-                echo "Aborted."
-                exit 0
-                ;;
-            [aA])
-                local all_on=1
-                for i in $(seq 0 $((total - 1))); do
-                    if [[ "${_selected[$i]}" -eq 0 ]]; then
-                        all_on=0
-                        break
-                    fi
-                done
-                for i in $(seq 0 $((total - 1))); do
-                    if [[ "$all_on" -eq 1 ]]; then
-                        _selected[$i]=0
-                    else
-                        _selected[$i]=1
-                    fi
-                done
-                ;;
-            "")
-                break
-                ;;
-            *)
-                for num in $choice; do
-                    if [[ "$num" =~ ^[0-9]+$ ]] && (( num >= 1 && num <= total )); then
-                        local idx=$((num - 1))
-                        if [[ "${_selected[$idx]}" -eq 1 ]]; then
-                            _selected[$idx]=0
+            if [[ -d "$target" && ! -L "$target" ]]; then
+                backup_item "$target"
+                rm -rf "$target"
+            fi
+
+            if [[ -L "$target" && ! -e "$target" ]]; then
+                rm "$target"
+            fi
+
+            omadot put "$pkg" 2>&1 && success "Stowed $pkg" || warn "Failed to stow $pkg"
+            ;;
+    esac
+}
+
+# Post-install hooks for packages that need extra setup
+run_post_install_hooks() {
+    local pkgs=("$@")
+
+    for pkg in "${pkgs[@]}"; do
+        case "$pkg" in
+            opencode)
+                local opencode_tpl="$HOME/.config/opencode/opencode.json.tpl"
+                local opencode_cfg="$HOME/.config/opencode/opencode.json"
+                if [[ -f "$opencode_tpl" ]]; then
+                    if command -v op &>/dev/null; then
+                        info "Injecting secrets into opencode.json via 1Password..."
+                        if op inject -i "$opencode_tpl" -o "$opencode_cfg" 2>/dev/null; then
+                            success "Generated opencode.json with secrets"
                         else
-                            _selected[$idx]=1
+                            warn "op inject failed — run 'op inject -i $opencode_tpl -o $opencode_cfg' manually after signing in"
                         fi
                     else
-                        warn "Invalid option: $num"
+                        warn "1Password CLI (op) not found — opencode.json not generated"
+                        warn "Install op CLI and run: op inject -i $opencode_tpl -o $opencode_cfg"
                     fi
-                done
+                fi
                 ;;
         esac
-
-        # Clear menu for redraw
-        for _ in $(seq 0 $((total + 5))); do
-            printf '\033[1A\033[2K'
-        done
     done
 }
 
-run_modules() {
-    local -n _sel=$1
-    local ran=0
+# ─── Interactive pickers ─────────────────────────────────────────────────────
 
-    for i in "${!MODULES[@]}"; do
-        if [[ "${_sel[$i]}" -eq 1 ]]; then
-            "install_${MODULES[$i]}"
-            ran=1
-        fi
-    done
-
-    if [[ "$ran" -eq 0 ]]; then
-        warn "No modules selected — nothing to do"
-    fi
-}
-
-# ─── Phase 2: Dev tool installation ──────────────────────────────────────────
-
-install_dev_tools_interactive() {
-    echo
-    printf '%b\n' "${BOLD}Phase 2: Dev Tools${RESET}"
-
-    # Ensure gum is available for the interactive picker
+run_pickers() {
     ensure_gum || {
-        error "Cannot show interactive tool picker without gum"
+        error "gum is required for the interactive picker"
         echo
         info "Install tools manually with: ${BOLD}dot install <tool>${RESET}"
         return
     }
 
-    # Build labels for gum choose: "tool — description"
+    # App configs
+    local app_configs=()
+    while IFS= read -r pkg; do
+        app_configs+=("$pkg")
+    done < <(list_app_configs)
+
+    if [[ ${#app_configs[@]} -gt 0 ]]; then
+        echo
+        info "Select app configs to install (space to toggle, enter to confirm):"
+        echo
+
+        local chosen_apps
+        chosen_apps="$(printf '%s\n' "${app_configs[@]}" | gum choose --no-limit --height=20)" || true
+
+        if [[ -n "$chosen_apps" ]]; then
+            local selected_apps=()
+            while IFS= read -r pkg; do
+                selected_apps+=("$pkg")
+            done <<< "$chosen_apps"
+
+            local needs_stow=0
+            for pkg in "${selected_apps[@]}"; do
+                if [[ "$pkg" != "tmux" ]]; then
+                    needs_stow=1
+                    break
+                fi
+            done
+
+            if [[ "$needs_stow" -eq 1 ]]; then
+                ensure_stow
+                ensure_omadot
+            fi
+
+            echo
+            for pkg in "${selected_apps[@]}"; do
+                install_app_config "$pkg"
+            done
+
+            run_post_install_hooks "${selected_apps[@]}"
+        fi
+    fi
+
+    # Dev tools
     local tools=()
     local labels=()
     while IFS= read -r tool; do
@@ -628,140 +507,73 @@ install_dev_tools_interactive() {
         labels+=("$(get_tool_label "$tool")")
     done < <(list_tools)
 
-    echo
-    printf '%b\n' "${DIM}Select dev tools to install (space to toggle, enter to confirm):${RESET}"
-    echo
+    if [[ ${#tools[@]} -gt 0 ]]; then
+        echo
+        info "Select dev tools to install (space to toggle, enter to confirm):"
+        echo
 
-    # Use gum choose for multi-select
-    local chosen
-    chosen="$(printf '%s\n' "${labels[@]}" | gum choose --no-limit --height=22)" || {
-        info "No tools selected — skipping"
-        return
-    }
+        local chosen_tools
+        chosen_tools="$(printf '%s\n' "${labels[@]}" | gum choose --no-limit --height=22)" || true
 
-    if [[ -z "$chosen" ]]; then
-        info "No tools selected — skipping"
-        return
+        if [[ -n "$chosen_tools" ]]; then
+            local selected_tools=()
+            while IFS= read -r label; do
+                local tool_name="${label%% —*}"
+                selected_tools+=("$tool_name")
+            done <<< "$chosen_tools"
+
+            echo
+            install_tools "${selected_tools[@]}"
+        fi
     fi
-
-    # Extract tool names from chosen labels (strip " — description")
-    local selected_tools=()
-    while IFS= read -r label; do
-        local tool_name="${label%% —*}"
-        selected_tools+=("$tool_name")
-    done <<< "$chosen"
-
-    echo
-    install_tools "${selected_tools[@]}"
-}
-
-install_dev_tools_all() {
-    echo
-    printf '%b\n' "${BOLD}Installing all dev tools...${RESET}"
-
-    local tools=()
-    while IFS= read -r tool; do
-        tools+=("$tool")
-    done < <(list_tools)
-
-    install_tools "${tools[@]}"
 }
 
 # ─── Usage ────────────────────────────────────────────────────────────────────
 
 usage() {
     cat <<EOF
-Usage: $(basename "$0") [OPTIONS]
+Usage: $(basename "$0")
 
-Dotfiles installer with modular component selection and machine profiles.
+Dotfiles installer. Core config runs automatically, then you pick
+app configs and dev tools from interactive pickers.
 
-Options:
-  --all                  Install all components and dev tools without prompting
-  --profile=PROFILE      Set machine profile (auto-detected if not specified)
-  --help                 Show this help message
+Core Config (always runs):
+  Shell config       .commonrc, .aliases, .functions + inject into .bashrc
+  Zsh config         Oh My Zsh, Powerlevel10k, zsh plugins, .zshrc (macOS only)
+  Git submodules     tpm, ssh-config, omarchy themes
+  SSH config         ~/.ssh/config generation
+  Git config         .gitconfig + .gitconfig.local
+  Dot CLI            install dot command to ~/.local/bin
 
-Profiles:
-  omarchy      Omarchy (Arch Linux + Hyprland) — stows configs via omadot
-  mac-home     macOS with Homebrew (home Brewfile)
-  mac-work     macOS with Homebrew (work Brewfile)
-
-Phase 1 — Config Modules (varies by profile):
+App Configs (picker):
 EOF
-    # Show modules for the active profile
-    detect_profile
-    build_module_list
-    for i in "${!MODULE_LABELS[@]}"; do
-        echo "  $((i + 1)). ${MODULE_LABELS[$i]}"
-    done
+    while IFS= read -r pkg; do
+        printf '  %s\n' "$pkg"
+    done < <(list_app_configs)
     echo
-    echo "Phase 2 — Dev Tools (from packages.yaml):"
+    echo "Dev Tools (picker):"
     while IFS= read -r tool; do
-        printf '  - %s\n' "$(get_tool_label "$tool")"
+        printf '  %s\n' "$(get_tool_label "$tool")"
     done < <(list_tools)
 }
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 main() {
-    detect_profile
-
-    local mode=""
-
-    # Parse arguments
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --help|-h)
-                usage
-                exit 0
-                ;;
-            --profile=*)
-                PROFILE="${1#--profile=}"
-                ;;
-            --all)
-                mode="all"
-                ;;
-            *)
-                error "Unknown option: $1"
-                usage
-                exit 1
-                ;;
-        esac
-        shift
-    done
-
-    # If Mac detected but no sub-profile chosen, prompt
-    if [[ "$PROFILE" == "mac" ]]; then
-        select_mac_profile
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+        usage
+        exit 0
     fi
 
-    # Auto-install Homebrew on Mac before anything else
-    if [[ "$PROFILE" == mac-* ]]; then
+    if [[ "$OSTYPE" == darwin* ]]; then
         ensure_homebrew
     fi
 
-    build_module_list
+    echo
+    printf '%b\n' "${BOLD}Dotfiles Installer${RESET}"
 
-    local selected=()
-    for i in "${!MODULES[@]}"; do
-        selected[$i]=1
-    done
-
-    case "$mode" in
-        all)
-            printf '%b\n' "${BOLD}Dotfiles Installer${RESET} ${DIM}(--all, profile: $PROFILE)${RESET}"
-            run_modules selected
-            install_dev_tools_all
-            ;;
-        "")
-            show_menu selected
-            run_modules selected
-            echo
-            read -rp "Install dev tools? (Y/n): " install_tools_choice
-            if [[ ! "$install_tools_choice" =~ ^[Nn]$ ]]; then
-                install_dev_tools_interactive
-            fi
-            ;;
-    esac
+    run_core_config
+    run_pickers
 
     echo
     printf '%b\n' "${GREEN}${BOLD}Dotfiles setup completed.${RESET}"
