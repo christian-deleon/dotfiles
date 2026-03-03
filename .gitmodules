@@ -16,3 +16,15 @@
 [submodule "omarchy/.config/omarchy/themes/temerald"]
 	path = omarchy/.config/omarchy/themes/temerald
 	url = https://github.com/Ahmad-Mtr/omarchy-temerald-theme
+[submodule "omarchy/.config/omarchy/themes/dracula"]
+	path = omarchy/.config/omarchy/themes/dracula
+	url = https://github.com/catlee/omarchy-dracula-theme
+[submodule "omarchy/.config/omarchy/themes/iron-man"]
+	path = omarchy/.config/omarchy/themes/iron-man
+	url = git@github.com:christian-deleon/omarchy-ironman-theme.git
+[submodule "omarchy/.config/omarchy/themes/robots"]
+	path = omarchy/.config/omarchy/themes/robots
+	url = git@github.com:christian-deleon/omarchy-robots-theme.git
+[submodule "omarchy/.config/omarchy/themes/spacex"]
+	path = omarchy/.config/omarchy/themes/spacex
+	url = git@github.com:christian-deleon/omarchy-spacex-theme.git
