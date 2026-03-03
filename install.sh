@@ -432,14 +432,13 @@ run_post_install_hooks() {
                 if [[ -f "$opencode_tpl" ]]; then
                     if command -v op &>/dev/null; then
                         info "Injecting secrets into opencode.json via 1Password..."
-                        if op inject -i "$opencode_tpl" -o "$opencode_cfg" 2>/dev/null; then
+                        if op inject -i "$opencode_tpl" -o "$opencode_cfg"; then
                             success "Generated opencode.json with secrets"
                         else
-                            warn "op inject failed — run 'op inject -i $opencode_tpl -o $opencode_cfg' manually after signing in"
+                            warn "op inject failed — you may need to sign in first: op signin"
                         fi
                     else
                         warn "1Password CLI (op) not found — opencode.json not generated"
-                        warn "Install op CLI and run: op inject -i $opencode_tpl -o $opencode_cfg"
                     fi
                 fi
                 ;;
