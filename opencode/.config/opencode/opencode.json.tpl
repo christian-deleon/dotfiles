@@ -2,6 +2,11 @@
   "$schema": "https://opencode.ai/config.json",
   "theme": "system",
   "autoupdate": false,
+  "agent": {
+    "build": {
+      "prompt": "When you need documentation for a programming library, framework, or package, ALWAYS use the context7 MCP tools (resolve-library-id then query-docs) instead of brave-search. Context7 provides accurate, up-to-date library documentation with code examples. Only fall back to brave-search for non-programming queries like general knowledge, news, or finding resources that aren't library documentation."
+    }
+  },
   "mcp": {
     "context7": {
       "type": "local",
