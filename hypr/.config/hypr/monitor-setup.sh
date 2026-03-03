@@ -22,6 +22,11 @@ fi
 
 sleep 1 # let monitors settle after hotplug
 
+# Disable laptop display if lid is closed
+if grep -q "closed" /proc/acpi/button/lid/LID0/state 2>/dev/null; then
+    hyprctl keyword monitor "eDP-1, disable"
+fi
+
 MSI_MONITORS=$(hyprctl monitors -j | jq -r --arg desc "$MSI_DESC" '.[] | select(.description == $desc) | .name')
 MSI_COUNT=$(echo "$MSI_MONITORS" | grep -c .)
 
