@@ -121,6 +121,8 @@ dot edit                  # Open dotfiles in your editor ($EDITOR)
 dot update                # Update system packages and dotfiles
 dot install               # Interactive tool picker (gum)
 dot install docker kubectl# Install specific tools by name
+dot theme-add <url>       # Add an Omarchy theme as a git submodule
+dot theme-list            # List installed Omarchy themes
 dot brew-install          # Install Homebrew (macOS)
 dot brew-bundle <profile> # Install packages from a Brewfile profile
 dot brew-save <profile>   # Save current Homebrew packages to a profile

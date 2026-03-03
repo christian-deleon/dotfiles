@@ -26,6 +26,8 @@ EOF
     echo "  edit                  - Open the dotfiles directory in your editor"
     echo "  update                - Update system packages and dotfiles"
     echo "  install [tool ...]    - Install dev tools (interactive picker if no args)"
+    echo "  theme-add <url>       - Add an Omarchy theme as a git submodule"
+    echo "  theme-list            - List installed Omarchy themes"
     echo "  brew-install          - Install Homebrew"
     echo "  brew-bundle [profile] - Install Homebrew packages using a Brewfile profile"
     echo "  brew-save   [profile] - Save Homebrew packages to a Brewfile profile"
@@ -145,6 +147,71 @@ brew_save() {
 }
 
 
+THEMES_DIR="omarchy/.config/omarchy/themes"
+
+
+# Add an Omarchy theme as a git submodule
+theme_add() {
+    local url="$1"
+
+    if [[ -z "$url" ]]; then
+        _error "Usage: dot theme-add <git-url>"
+        echo
+        _info "Example: dot theme-add https://github.com/user/omarchy-theme-name"
+        return 1
+    fi
+
+    # Derive theme name from URL (strip .git suffix and extract repo name)
+    local repo_name="${url%.git}"
+    repo_name="${repo_name##*/}"
+
+    # Strip common prefixes to get a clean theme name
+    local theme_name="$repo_name"
+    theme_name="${theme_name#omarchy-}"
+    theme_name="${theme_name%-theme}"
+
+    local theme_path="$THEMES_DIR/$theme_name"
+
+    if [[ -d "$DOTFILES_DIR/$theme_path" ]]; then
+        _warn "Theme '$theme_name' already exists at $theme_path"
+        return 1
+    fi
+
+    echo
+    _info "Adding theme ${_BOLD}$theme_name${_RESET} from $url"
+
+    git -C "$DOTFILES_DIR" submodule add "$url" "$theme_path"
+
+    _success "Theme ${_BOLD}$theme_name${_RESET} added to $theme_path"
+    echo
+    _info "Commit with: git add .gitmodules $theme_path && git commit -m 'Add $theme_name omarchy theme'"
+}
+
+
+# List installed Omarchy themes
+theme_list() {
+    echo
+    _info "Installed Omarchy themes:"
+    echo
+
+    local themes_path="$DOTFILES_DIR/$THEMES_DIR"
+    if [[ ! -d "$themes_path" ]]; then
+        _warn "No themes directory found"
+        return 1
+    fi
+
+    for theme_dir in "$themes_path"/*/; do
+        [[ -d "$theme_dir" ]] || continue
+        local name
+        name="$(basename "$theme_dir")"
+        local url
+        url="$(git -C "$DOTFILES_DIR" config --file .gitmodules "submodule.$THEMES_DIR/$name.url" 2>/dev/null)" || url="(unknown)"
+        printf "  ${_BOLD}%-16s${_RESET} %s\n" "$name" "$url"
+    done
+    echo
+}
+
+
 parse_functions() {
     local FUNCTIONS_PATH="${DOTFILES_DIR}/.functions"
     local comments=()
@@ -182,6 +249,12 @@ case "$1" in
         echo
         _info "Installing Homebrew..."
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        ;;
+    theme-add)
+        theme_add "$2"
+        ;;
+    theme-list)
+        theme_list
         ;;
     brew-bundle)
         if [[ -z "$2" ]]; then
