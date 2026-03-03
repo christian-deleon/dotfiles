@@ -58,4 +58,4 @@ fi
 # ============================
 # Powerlevel10k Configuration
 # ============================
-[[ ! -f "$HOME/dotfiles/.p10k.zsh" ]] || source "$HOME/dotfiles/.p10k.zsh"
+[[ ! -f "$HOME/.p10k.zsh" ]] || source "$HOME/.p10k.zsh"
