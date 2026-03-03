@@ -17,27 +17,24 @@ if [ "$1" = "--swap" ]; then
         else empty end')"
     [ -n "$MON1" ] && hyprctl keyword monitor "$MON1, 3840x2160@120, ${X1}x0, 1"
     [ -n "$MON2" ] && hyprctl keyword monitor "$MON2, 3840x2160@120, ${X2}x0, 1"
+    hyprctl keyword monitor "eDP-1, disable"
     exit 0
 fi
 
 sleep 1 # let monitors settle after hotplug
 
-# Disable laptop display if lid is closed
-if grep -q "closed" /proc/acpi/button/lid/LID0/state 2>/dev/null; then
-    hyprctl keyword monitor "eDP-1, disable"
-fi
-
 MSI_MONITORS=$(hyprctl monitors -j | jq -r --arg desc "$MSI_DESC" '.[] | select(.description == $desc) | .name')
 MSI_COUNT=$(echo "$MSI_MONITORS" | grep -c .)
 
+# Position MSI monitors first, then disable laptop
 if [ "$MSI_COUNT" -ge 2 ]; then
-    # Reverse the default order - the second connector reported
-    # by hyprctl is typically the left physical monitor.
     POS=0
     while IFS= read -r mon; do
         hyprctl keyword monitor "$mon, 3840x2160@120, ${POS}x0, 1"
         POS=$((POS + 3840))
     done <<< "$(echo "$MSI_MONITORS" | tac)"
+    hyprctl keyword monitor "eDP-1, disable"
 elif [ "$MSI_COUNT" -eq 1 ]; then
     hyprctl keyword monitor "$(echo "$MSI_MONITORS" | head -1), 3840x2160@120, 0x0, 1"
+    hyprctl keyword monitor "eDP-1, disable"
 fi
