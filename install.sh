@@ -490,6 +490,23 @@ install_omarchy_config() {
 
         omadot put "$pkg" 2>&1 && success "Stowed $pkg" || warn "Failed to stow $pkg"
     done
+
+    # Generate opencode.json from template using 1Password secret injection
+    local opencode_tpl="$HOME/.config/opencode/opencode.json.tpl"
+    local opencode_cfg="$HOME/.config/opencode/opencode.json"
+    if [[ -f "$opencode_tpl" ]]; then
+        if command -v op &>/dev/null; then
+            info "Injecting secrets into opencode.json via 1Password..."
+            if op inject -i "$opencode_tpl" -o "$opencode_cfg" 2>/dev/null; then
+                success "Generated opencode.json with secrets"
+            else
+                warn "op inject failed — run 'op inject -i $opencode_tpl -o $opencode_cfg' manually after signing in"
+            fi
+        else
+            warn "1Password CLI (op) not found — opencode.json not generated"
+            warn "Install op CLI and run: op inject -i $opencode_tpl -o $opencode_cfg"
+        fi
+    fi
 }
 
 # ─── Phase 1: Interactive config menu ─────────────────────────────────────────
