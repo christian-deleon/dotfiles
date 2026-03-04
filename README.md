@@ -33,8 +33,11 @@ To add a new config:
 
 ```bash
 omadot get <package>     # capture ~/.config/<package> into the repo
+omadot put <package>     # replace original with symlink to dotfiles
 git add <package> && git commit
 ```
+
+`get` copies files into the repo. `put` swaps the original directory for a symlink so changes are tracked. Both steps are needed.
 
 ## Dev Tools
 
