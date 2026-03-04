@@ -12,6 +12,12 @@ compatibility: opencode
 
 Create well-structured git commits following the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification.
 
+> **CRITICAL: Always split unrelated changes into separate commits.**
+> The default assumption is that a working tree with multiple changed files contains multiple logical changes.
+> You must actively justify bundling files together, not the other way around.
+> A single commit is only appropriate when **every** changed file contributes to **one** purpose.
+> When in doubt, split.
+
 ## Commit Message Format
 
 ```
@@ -92,30 +98,37 @@ git log --oneline -10 # recent commits for style/scope reference
 
 If the user explicitly asks to commit these, **warn them** and ask for confirmation.
 
-### 3. Identify Logical Groups
+### 3. Identify Logical Groups — ALWAYS DO THIS
 
-Analyze all changes and group them into **atomic, logical commits**. Each commit should represent one coherent unit of work:
+**Default assumption: changes need multiple commits.** Start by treating every changed file as its own potential commit, then merge files together ONLY when they clearly serve the same purpose. Never start from the assumption that everything is one commit.
 
-**Grouping strategy:**
+Follow this process:
 
-- **By feature/purpose** — all files contributing to a single feature = one commit
-- **By type** — separate docs from code changes, tests from implementation
-- **By scope** — changes to different modules/components may warrant separate commits
-- **Config vs code** — configuration changes often deserve their own commit
+1. **List every changed file** and write a one-line summary of what changed in each
+2. **Group files by purpose** — ask: "does this file change for the same reason as that one?"
+3. **Assign a conventional commit type to each group** — if a group needs two types, split it further
+4. **Verify each group** — every file in a group must belong; remove files that don't fit
 
-**Signs you need multiple commits:**
+**Grouping strategy (merge files only when):**
 
-- Changes span unrelated features or bug fixes
-- There are both new features and unrelated refactors
-- Test additions are for different functionality than code changes
-- Documentation updates are unrelated to code changes
-- Dependency updates are mixed with feature work
+- **Same feature/purpose** — all files contributing to a single feature = one commit
+- **Tightly coupled** — a code change and its directly corresponding test = one commit
+- **Same type AND scope** — e.g., two related doc updates = one commit
 
-**Signs a single commit is appropriate:**
+**You MUST split into multiple commits when ANY of these are true:**
 
-- All changes serve one purpose (a single feature, fix, or refactor)
-- Test changes directly correspond to the code changes
-- Documentation updates describe the code changes in the same commit
+- Changes touch unrelated features, bug fixes, or modules
+- There are new features mixed with unrelated refactors or cleanups
+- Test additions cover different functionality than other code changes
+- Documentation updates are not about the code changes present
+- Dependency/config updates are mixed with feature or fix work
+- Different conventional commit types apply (`feat` + `fix`, `refactor` + `docs`, etc.)
+
+**A single commit is ONLY appropriate when ALL of these are true:**
+
+- Every changed file contributes to exactly one purpose
+- A single conventional commit type covers all changes
+- You can write one commit message that accurately describes everything without using "and" to join unrelated clauses
 
 ### 4. Draft Commit Messages
 
@@ -156,14 +169,13 @@ feat(auth): added new feature.   # past tense, period, redundant
 WIP                              # not a meaningful commit
 ```
 
-### 5. Confirm with the User
+### 5. Execute the Plan
 
-Present the commit plan:
+**Do not ask for confirmation — just create the commits.** The user trusts you to make good grouping decisions. Proceed directly to creating commits based on your analysis from step 3.
 
-- List each proposed commit with its message and the files it includes
-- If there is only one logical commit, proceed without asking
-- If there are multiple commits, present the grouping and ask for confirmation
-- Let the user adjust groupings or messages before proceeding
+- If you identified multiple logical groups, commit them in dependency order
+- If you identified only one logical group, commit it
+- Never stall asking "does this grouping look right?" — act on your analysis
 
 ### 6. Create the Commits
 
@@ -187,6 +199,8 @@ If a commit fails due to a pre-commit hook (linting, formatting, etc.):
 
 ## Rules
 
+- **Split by default** — multiple logical changes = multiple commits. Always. No exceptions.
+- **Never bundle unrelated changes** — a commit touching auth AND docs AND deps is a red flag; split it
 - **Never push** unless the user explicitly asks
 - **Never amend** commits you did not create in the current session
 - **Never force push** — warn the user if they request it
@@ -194,3 +208,10 @@ If a commit fails due to a pre-commit hook (linting, formatting, etc.):
 - **Respect existing conventions** — check `git log` for the repo's existing scope and type patterns
 - **Atomic commits** — each commit should be independently meaningful and not break the build
 - **Logical order** — when creating multiple commits, order them so each is independently valid (e.g., add dependency before the code that uses it)
+
+### Anti-patterns — DO NOT do these
+
+- Committing all changes as `chore: update files` or `feat: implement changes` — this is always wrong
+- Using a single commit with "and" joining unrelated work (e.g., "add auth **and** fix typos **and** update deps")
+- Staging everything with `git add .` or `git add -A` without first grouping by purpose
+- Treating the entire working tree as one logical unit without analyzing individual file changes
