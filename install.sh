@@ -565,20 +565,116 @@ install_ecc() {
 
     success "Installed ECC for Claude Code"
 
-    # --- OpenCode: link commands and skills into ~/.config/opencode/ ---
-    info "Installing ECC commands and skills for OpenCode..."
+    # --- OpenCode: full ECC integration ---
+    info "Installing ECC for OpenCode..."
 
     local oc_dir="$HOME/.config/opencode"
+
+    # Commands and skills — per-item symlinks (coexist with personal files)
     clean_ecc_symlinks "$oc_dir/commands"
     clean_ecc_symlinks "$oc_dir/skills"
     mkdir -p "$oc_dir/commands" "$oc_dir/skills"
     link_directory_contents "$ecc_dir/commands" "$oc_dir/commands"
     link_directory_contents "$ecc_dir/skills" "$oc_dir/skills"
 
-    success "Installed ECC commands and skills for OpenCode"
+    # Plugins, instructions, prompts, tools — directory symlinks
+    link_file "$ecc_dir/.opencode/plugins" "$oc_dir/plugins/ecc"
+    link_file "$ecc_dir/.opencode/instructions" "$oc_dir/instructions"
+    link_file "$ecc_dir/.opencode/prompts" "$oc_dir/prompts"
+    link_file "$ecc_dir/.opencode/tools" "$oc_dir/tools"
+
+    # Merge ECC agents, commands (with routing), instructions, and plugin config
+    # into opencode.json with paths rewritten to absolute ecc submodule paths
+    merge_ecc_opencode_config "$ecc_dir"
+
+    success "Installed ECC for OpenCode"
 
     # Generate shared MCP configs for Claude Code and OpenCode
     generate_mcp_configs
+}
+
+# Merge ECC's OpenCode config (agents, commands with routing, instructions, plugins)
+# into the user's opencode.json. Rewrites relative .opencode/ paths to absolute
+# paths pointing into the ecc submodule so they work from any project directory.
+merge_ecc_opencode_config() {
+    local ecc_dir="$1"
+    local ecc_oc="$ecc_dir/.opencode/opencode.json"
+    local oc_cfg="$HOME/.config/opencode/opencode.json"
+
+    if [[ ! -f "$ecc_oc" ]]; then
+        warn "ECC OpenCode config not found: $ecc_oc"
+        return
+    fi
+
+    ensure_jq || return
+
+    # Seed from template if opencode.json doesn't exist yet
+    local oc_tpl="${oc_cfg%.json}.json.tpl"
+    if [[ ! -f "$oc_cfg" ]]; then
+        if [[ -f "$oc_tpl" ]]; then
+            cp "$oc_tpl" "$oc_cfg"
+        else
+            printf '{}' > "$oc_cfg"
+        fi
+    fi
+
+    # Extract agent, command, instructions, and plugin from ECC config,
+    # rewriting relative .opencode/ paths to absolute submodule paths.
+    # Instructions paths are rewritten to point into linked dirs under ~/.config/opencode/.
+    local ecc_overlay
+    ecc_overlay="$(jq --arg ecc "$ecc_dir" --arg oc_dir "$HOME/.config/opencode" '
+        # Rewrite .opencode/ relative paths to absolute ecc submodule paths
+        def rewrite_paths:
+            if type == "string" then
+                gsub("{file:\\.opencode/"; "{file:" + $ecc + "/.opencode/")
+                | gsub("^\\./?\\./?\\.opencode/"; $ecc + "/.opencode/")
+                | gsub("^\\.opencode/"; $ecc + "/.opencode/")
+            elif type == "object" then
+                to_entries | map(.value = (.value | rewrite_paths)) | from_entries
+            elif type == "array" then
+                map(rewrite_paths)
+            else .
+            end;
+
+        # Rewrite instructions: skills/ -> ~/.config/opencode/skills/, .opencode/ -> ecc path
+        # Drops project-specific files (AGENTS.md, CONTRIBUTING.md)
+        def rewrite_instructions:
+            if type == "string" then
+                if startswith("skills/") then $oc_dir + "/" + .
+                elif startswith(".opencode/") then $ecc + "/" + .
+                elif . == "AGENTS.md" or . == "CONTRIBUTING.md" then empty
+                else .
+                end
+            else .
+            end;
+
+        {
+            agent: (.agent | rewrite_paths),
+            command: (.command | rewrite_paths),
+            instructions: [.instructions[] | rewrite_instructions],
+            plugin: [($oc_dir + "/plugins/ecc")]
+        }
+    ' "$ecc_oc")"
+
+    # Merge: personal config wins on conflicts (it comes second in jq -s merge)
+    local personal_backup
+    personal_backup="$(jq '.' "$oc_cfg")"
+    jq -s '.[0] * .[1]' <(echo "$ecc_overlay") <(echo "$personal_backup") > "$oc_cfg.tmp"
+    mv "$oc_cfg.tmp" "$oc_cfg"
+
+    # Drop instructions that point to non-existent files (trimmed skills)
+    local valid_instructions
+    valid_instructions="$(jq '[.instructions[] | select(. as $p | $p | test("^/") | if . then ($p | ltrimstr("")) else true end)]' "$oc_cfg")"
+    # Filter using a shell loop for actual file existence checks
+    local filtered="[]"
+    while IFS= read -r path; do
+        [[ -z "$path" ]] && continue
+        if [[ -f "$path" ]]; then
+            filtered="$(jq --arg p "$path" '. + [$p]' <(echo "$filtered"))"
+        fi
+    done < <(jq -r '.instructions[]' "$oc_cfg")
+    jq --argjson inst "$filtered" '.instructions = $inst' "$oc_cfg" > "$oc_cfg.tmp"
+    mv "$oc_cfg.tmp" "$oc_cfg"
 }
 
 # ─── Shared MCP config generation ────────────────────────────────────────────
