@@ -494,6 +494,9 @@ install_ecc() {
     mkdir -p "$oc_dir/commands"
     link_directory_contents "$ecc_dir/.opencode/commands" "$oc_dir/commands"
 
+    # Remove stale .opencode symlink from previous install method
+    [[ -L "$oc_dir/.opencode" ]] && rm "$oc_dir/.opencode"
+
     # Merge ECC opencode.json with personal config (personal wins on conflicts)
     merge_opencode_config
 
@@ -529,13 +532,23 @@ merge_opencode_config() {
         local personal_src="$personal_tpl"
     else
         info "No personal OpenCode config found — using ECC config as-is"
-        cp "$ecc_cfg" "$personal_cfg"
+        local content
+        content="$(cat "$ecc_cfg")"
+        content="${content//\{file:.opencode\//\{file:$DOTFILES_DIR/ecc/.opencode/}"
+        content="${content//.\/\.opencode\//$DOTFILES_DIR/ecc/.opencode/}"
+        printf '%s\n' "$content" > "$personal_cfg"
         return
     fi
 
     # Deep merge: ECC base * personal overrides
     local merged
     merged="$(jq -s '.[0] * .[1]' "$ecc_cfg" "$personal_src")"
+
+    # Rewrite relative .opencode/ refs to absolute paths so they resolve
+    # from ~/.config/opencode/ without needing a .opencode symlink
+    merged="${merged//\{file:.opencode\//\{file:$DOTFILES_DIR/ecc/.opencode/}"
+    merged="${merged//.\/\.opencode\//$DOTFILES_DIR/ecc/.opencode/}"
+
     printf '%s\n' "$merged" > "$personal_cfg"
     success "Merged ECC + personal OpenCode config"
 }
