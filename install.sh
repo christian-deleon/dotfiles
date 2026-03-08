@@ -583,6 +583,12 @@ install_ecc() {
     link_file "$ecc_dir/.opencode/prompts" "$oc_dir/prompts"
     link_file "$ecc_dir/.opencode/tools" "$oc_dir/tools"
 
+    # Install OpenCode plugin dependencies (tools import @opencode-ai/plugin)
+    if [[ -f "$ecc_dir/.opencode/package.json" ]]; then
+        info "Installing ECC OpenCode plugin dependencies..."
+        (cd "$ecc_dir/.opencode" && npm install --no-fund --no-audit --silent) || warn "Failed to install ECC OpenCode dependencies"
+    fi
+
     # Merge ECC agents, commands (with routing), instructions, and plugin config
     # into opencode.json with paths rewritten to absolute ecc submodule paths
     merge_ecc_opencode_config "$ecc_dir"
