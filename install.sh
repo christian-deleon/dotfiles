@@ -535,7 +535,7 @@ clean_ecc_symlinks() {
 install_ecc() {
     local ecc_dir="$DOTFILES_DIR/ecc"
 
-    if [[ ! -f "$ecc_dir/install.sh" ]]; then
+    if [[ ! -f "$ecc_dir/CLAUDE.md" ]]; then
         info "Initializing ECC submodule..."
         git -C "$DOTFILES_DIR" submodule update --init ecc
     fi
@@ -562,116 +562,94 @@ install_ecc() {
 
     success "Installed ECC for Claude Code"
 
-    # --- OpenCode ---
-    info "Installing ECC for OpenCode..."
-
-    local oc_dir="$HOME/.config/opencode"
-
-    # Clean stale ECC symlinks before re-linking
-    clean_ecc_symlinks "$oc_dir/commands"
-
-    mkdir -p "$oc_dir/commands"
-    link_directory_contents "$ecc_dir/.opencode/commands" "$oc_dir/commands"
-
-    # Remove stale .opencode symlink from previous install method
-    [[ -L "$oc_dir/.opencode" ]] && rm "$oc_dir/.opencode"
-
-    # Merge ECC opencode.json + MCP configs with personal config (personal wins on conflicts)
-    merge_opencode_config
-
-    success "Installed ECC for OpenCode"
+    # Generate shared MCP configs for Claude Code and OpenCode
+    generate_mcp_configs
 }
 
-# Convert ECC MCP configs from Claude Desktop format to OpenCode format.
-# Claude Desktop uses {mcpServers: {name: {command, args, env}}}
-# OpenCode uses {mcp: {name: {type, command, environment}}}
-# Note: Only converts local (stdio) servers; skips HTTP servers (incompatible format)
-convert_ecc_mcp_configs() {
-    local ecc_mcp="$DOTFILES_DIR/ecc/mcp-configs/mcp-servers.json"
-    
-    if [[ ! -f "$ecc_mcp" ]]; then
-        echo "{}"
-        return
-    fi
-    
-    jq '
-        .mcpServers | to_entries 
-        # Filter: only keep entries with command field (local servers)
-        | map(select(.value.command != null))
-        | map(
-            {
-                key: .key,
-                value: {
-                    type: "local",
-                    command: (
-                        if .value.args then
-                            [.value.command] + .value.args
-                        else
-                            [.value.command]
-                        end
-                    ),
-                    environment: .value.env
-                } | with_entries(select(.value != null))
-            }
-        ) | from_entries | {mcp: .}
-    ' "$ecc_mcp"
-}
+# ─── Shared MCP config generation ────────────────────────────────────────────
 
-# Merge ECC's opencode.json (agents, commands, instructions) with personal config.
-# ECC provides the base, personal config overrides on conflict.
-merge_opencode_config() {
-    local ecc_cfg="$DOTFILES_DIR/ecc/.opencode/opencode.json"
-    local personal_tpl="$HOME/.config/opencode/opencode.json.tpl"
-    local personal_cfg="$HOME/.config/opencode/opencode.json"
+# Generate MCP configs for Claude Code and OpenCode from the shared source.
+# Source: ~/.dotfiles/mcp-servers.json.tpl (Claude Desktop format with op:// refs)
+# Targets:
+#   Claude Code: ~/.claude.json mcpServers (merges into existing config)
+#   OpenCode:    ~/.config/opencode/opencode.json mcp (converted format)
+generate_mcp_configs() {
+    local mcp_src="$DOTFILES_DIR/mcp-servers.json.tpl"
 
-    if [[ ! -f "$ecc_cfg" ]]; then
-        warn "ECC opencode.json not found — skipping merge"
+    if [[ ! -f "$mcp_src" ]]; then
+        warn "Shared MCP config not found: $mcp_src"
         return
     fi
 
     ensure_jq || return
 
-    # If 1Password CLI is available and template exists, inject secrets first
-    if [[ -f "$personal_tpl" ]] && command -v op &>/dev/null; then
-        info "Injecting secrets into opencode.json via 1Password..."
-        if ! op_inject_multi "$personal_tpl" "$personal_cfg"; then
-            error "Secret injection failed — cannot proceed without 1Password connection"
+    # Resolve op:// secrets into a temp file
+    local resolved
+    resolved="$(mktemp)"
+    trap "rm -f '$resolved'" RETURN
+
+    if command -v op &>/dev/null; then
+        info "Injecting MCP secrets via 1Password..."
+        if ! op_inject_multi "$mcp_src" "$resolved"; then
+            error "MCP secret injection failed — cannot proceed without 1Password connection"
             error "Fix: Enable CLI integration in 1Password Settings > Developer"
             return 1
-        else
-            local personal_src="$personal_cfg"
         fi
-    elif [[ -f "$personal_cfg" ]]; then
-        local personal_src="$personal_cfg"
-    elif [[ -f "$personal_tpl" ]]; then
-        local personal_src="$personal_tpl"
     else
-        info "No personal OpenCode config found — using ECC config as-is"
-        local content
-        content="$(cat "$ecc_cfg")"
-        content="${content//\{file:.opencode\//\{file:$DOTFILES_DIR/ecc/.opencode/}"
-        content="${content//.\/\.opencode\//$DOTFILES_DIR/ecc/.opencode/}"
-        printf '%s\n' "$content" > "$personal_cfg"
-        return
+        cp "$mcp_src" "$resolved"
     fi
 
-    # Convert ECC MCP configs to OpenCode format
-    local ecc_mcp_converted
-    ecc_mcp_converted="$(convert_ecc_mcp_configs)"
+    # --- Claude Code: merge mcpServers into ~/.claude.json ---
+    local claude_cfg="$HOME/.claude.json"
 
-    # Three-way merge: ECC base * ECC MCPs * personal overrides
-    # Personal config wins on conflicts, preserving user customizations
-    local merged
-    merged="$(jq -s '.[0] * .[1] * .[2]' "$ecc_cfg" <(echo "$ecc_mcp_converted") "$personal_src")"
+    if [[ -f "$claude_cfg" ]]; then
+        local claude_mcp
+        claude_mcp="$(jq '{mcpServers: .}' "$resolved")"
+        jq -s '(.[0] | del(.mcpServers)) * .[1]' "$claude_cfg" <(echo "$claude_mcp") > "$claude_cfg.tmp"
+        mv "$claude_cfg.tmp" "$claude_cfg"
+    else
+        jq '{mcpServers: .}' "$resolved" > "$claude_cfg"
+    fi
+    success "Updated Claude Code MCP servers in ~/.claude.json"
 
-    # Rewrite relative .opencode/ refs to absolute paths so they resolve
-    # from ~/.config/opencode/ without needing a .opencode symlink
-    merged="${merged//\{file:.opencode\//\{file:$DOTFILES_DIR/ecc/.opencode/}"
-    merged="${merged//.\/\.opencode\//$DOTFILES_DIR/ecc/.opencode/}"
+    # --- OpenCode: convert to OpenCode format and write to opencode.json ---
+    local oc_cfg="$HOME/.config/opencode/opencode.json"
 
-    printf '%s\n' "$merged" > "$personal_cfg"
-    success "Merged ECC + personal OpenCode config (including MCP servers)"
+    # Seed from template if opencode.json doesn't exist yet
+    local oc_tpl="${oc_cfg%.json}.json.tpl"
+    if [[ ! -f "$oc_cfg" && -f "$oc_tpl" ]]; then
+        cp "$oc_tpl" "$oc_cfg"
+    fi
+
+    if [[ -f "$oc_cfg" ]]; then
+        local oc_mcp
+        oc_mcp="$(jq '
+            to_entries
+            | map(
+                if .value.type == "http" then
+                    {key: .key, value: {type: "remote", url: .value.url}}
+                else
+                    {key: .key, value: ({
+                        type: "local",
+                        command: (
+                            if .value.args then
+                                [.value.command] + .value.args
+                            else
+                                [.value.command]
+                            end
+                        )
+                    } + if .value.env then {environment: .value.env} else {} end)}
+                end
+            )
+            | from_entries | {mcp: .}
+        ' "$resolved")"
+        jq -s '(.[0] | del(.mcp)) * .[1]' "$oc_cfg" <(echo "$oc_mcp") > "$oc_cfg.tmp"
+        mv "$oc_cfg.tmp" "$oc_cfg"
+        chmod 600 "$oc_cfg"
+        success "Updated OpenCode MCP servers in opencode.json"
+    fi
 }
+
 
 # ─── App config helpers ───────────────────────────────────────────────────────
 
@@ -774,28 +752,8 @@ run_post_install_hooks() {
     for pkg in "${pkgs[@]}"; do
         case "$pkg" in
             opencode)
-                # Merge with ECC if installed, otherwise just inject secrets
-                if [[ -d "$DOTFILES_DIR/ecc" ]]; then
-                    merge_opencode_config
-                else
-                    local opencode_tpl="$HOME/.config/opencode/opencode.json.tpl"
-                    local opencode_cfg="$HOME/.config/opencode/opencode.json"
-                    if [[ -f "$opencode_tpl" ]]; then
-                        if command -v op &>/dev/null; then
-                            info "Injecting secrets into opencode.json via 1Password..."
-                            if op_inject_multi "$opencode_tpl" "$opencode_cfg"; then
-                                success "Generated opencode.json with secrets"
-                            else
-                                error "Secret injection failed — cannot proceed without 1Password connection"
-                                error "Fix: Enable CLI integration in 1Password Settings > Developer"
-                                return 1
-                            fi
-                        else
-                            error "1Password CLI (op) not found — cannot generate opencode.json"
-                            return 1
-                        fi
-                    fi
-                fi
+                # Generate shared MCP configs (Claude Code + OpenCode)
+                generate_mcp_configs
                 ;;
         esac
     done

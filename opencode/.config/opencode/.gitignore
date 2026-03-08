@@ -3,7 +3,7 @@ package.json
 bun.lock
 .gitignore
 
-# Resolved config contains secrets — use opencode.json.tpl + op inject
+# Generated from opencode.json.tpl + MCP secrets
 opencode.json
 opencode.json.bak.*
 
