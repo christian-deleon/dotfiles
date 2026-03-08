@@ -396,6 +396,16 @@ op_inject_multi() {
         return 0
     fi
 
+    # Check if 1Password CLI can connect to the desktop app
+    local op_check
+    if ! op_check="$(op account list 2>&1)"; then
+        error "1Password CLI cannot connect to desktop app"
+        if echo "$op_check" | grep -q "cannot connect to 1Password app"; then
+            error "Make sure 1Password desktop app is running and CLI integration is enabled"
+        fi
+        return 1
+    fi
+
     # Build vault→account map by checking each account
     local -A vault_account_map
     while IFS= read -r acct; do
@@ -406,7 +416,7 @@ op_inject_multi() {
             vid="$(echo "$vault_line" | awk '{print $1}')"
             vault_account_map["$vid"]="$acct_url"
         done < <(op vault list --account "$acct_url" 2>/dev/null | tail -n +2)
-    done < <(op account list 2>/dev/null | tail -n +2)
+    done < <(echo "$op_check" | tail -n +2)
 
     # Resolve each op:// reference using the correct account
     local failed=0
@@ -521,8 +531,9 @@ merge_opencode_config() {
     if [[ -f "$personal_tpl" ]] && command -v op &>/dev/null; then
         info "Injecting secrets into opencode.json via 1Password..."
         if ! op_inject_multi "$personal_tpl" "$personal_cfg"; then
-            warn "Secret injection failed — merging with template (secrets unresolved)"
-            local personal_src="$personal_tpl"
+            error "Secret injection failed — cannot proceed without 1Password connection"
+            error "Fix: Enable CLI integration in 1Password Settings > Developer"
+            return 1
         else
             local personal_src="$personal_cfg"
         fi
@@ -666,10 +677,13 @@ run_post_install_hooks() {
                             if op_inject_multi "$opencode_tpl" "$opencode_cfg"; then
                                 success "Generated opencode.json with secrets"
                             else
-                                warn "Secret injection failed — you may need to sign in first: op signin"
+                                error "Secret injection failed — cannot proceed without 1Password connection"
+                                error "Fix: Enable CLI integration in 1Password Settings > Developer"
+                                return 1
                             fi
                         else
-                            warn "1Password CLI (op) not found — opencode.json not generated"
+                            error "1Password CLI (op) not found — cannot generate opencode.json"
+                            return 1
                         fi
                     fi
                 fi
