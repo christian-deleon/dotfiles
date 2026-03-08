@@ -16,9 +16,8 @@ Core config (shell, git, ssh, dot CLI) runs automatically. On macOS, Homebrew, O
 
 ```bash
 dot edit                  # Open dotfiles in $EDITOR
-dot update                # Update system packages + pull latest dotfiles
-dot install               # Interactive dev tool picker
-dot install docker kubectl# Install specific tools
+dot update                # Update system packages, dotfiles, and submodules
+dot install               # Interactive picker for app configs and dev tools
 dot theme-add <url>       # Add an Omarchy theme submodule
 dot theme-list            # List installed Omarchy themes
 dot brew-bundle <profile> # Install Homebrew packages (home/work)
@@ -38,6 +37,27 @@ git add <package> && git commit
 ```
 
 `get` copies files into the repo. `put` swaps the original directory for a symlink so changes are tracked. Both steps are needed.
+
+## ECC (Everything Claude Code)
+
+[Everything Claude Code](https://github.com/affaan-m/everything-claude-code) is included as a git submodule (fork on the `dotfiles` branch). It provides agents, skills, hooks, commands, and rules for Claude Code and OpenCode.
+
+Select `ecc` from `dot install` to set up:
+
+- **Claude Code** — rules, commands, skills, and agents symlinked into `~/.claude/`; hooks loaded as a plugin via `~/.claude/plugins/`
+- **OpenCode** — commands symlinked into `~/.config/opencode/commands/`; agent and command definitions merged into `opencode.json` at install time
+
+The install is idempotent — re-running cleans stale symlinks and refreshes everything. `dot update` pulls submodule changes and re-runs the ECC install automatically.
+
+To sync with upstream:
+
+```bash
+cd ~/.dotfiles/ecc
+git fetch upstream
+git merge upstream/main
+```
+
+To remove ECC entirely, delete the submodule and remove the symlinks.
 
 ## Dev Tools
 
