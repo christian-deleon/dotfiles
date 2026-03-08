@@ -9,3 +9,7 @@ opencode.json.bak.*
 
 # ECC symlinks (managed by install_ecc, not tracked)
 commands/
+skills/*
+!skills/commit
+!skills/contribute
+!skills/obsidian
