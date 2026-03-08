@@ -129,6 +129,26 @@ ensure_p10k() {
     success "Powerlevel10k installed"
 }
 
+ensure_jq() {
+    if command -v jq &>/dev/null; then
+        return 0
+    fi
+
+    info "Installing jq..."
+    if [[ "$OSTYPE" == darwin* ]]; then
+        ensure_homebrew
+        brew install jq
+    elif command -v pacman &>/dev/null; then
+        sudo pacman -S --noconfirm jq
+    elif command -v apt-get &>/dev/null; then
+        sudo apt-get install -y jq
+    else
+        error "Cannot auto-install jq — install it manually"
+        return 1
+    fi
+    success "jq installed"
+}
+
 ensure_stow() {
     if command -v stow &>/dev/null; then
         return 0
@@ -356,21 +376,212 @@ run_core_config() {
     install_dot_cli
 }
 
-# ─── App config helpers ───────────────────────────────────────────────────────
+# ─── 1Password multi-account injection ───────────────────────────────────────
 
-# Discover available app configs (stow packages + tmux)
-list_app_configs() {
-    for dir in "$DOTFILES_DIR"/*/; do
-        local name
-        name="$(basename "$dir")"
-        if [[ -d "$dir/.config/$name" ]]; then
-            echo "$name"
+# Resolve op:// references across multiple 1Password accounts.
+# Usage: op_inject_multi <template> <output>
+op_inject_multi() {
+    local tpl="$1"
+    local out="$2"
+    local content
+    content="$(cat "$tpl")"
+
+    # Extract unique vault IDs from op:// references
+    local vault_ids
+    vault_ids="$(grep -oE 'op://[^/]+' "$tpl" | sed 's|op://||' | sort -u)"
+
+    if [[ -z "$vault_ids" ]]; then
+        # No secrets to inject
+        printf '%s\n' "$content" > "$out"
+        return 0
+    fi
+
+    # Build vault→account map by checking each account
+    local -A vault_account_map
+    while IFS= read -r acct; do
+        local acct_url
+        acct_url="$(echo "$acct" | awk '{print $1}')"
+        while IFS= read -r vault_line; do
+            local vid
+            vid="$(echo "$vault_line" | awk '{print $1}')"
+            vault_account_map["$vid"]="$acct_url"
+        done < <(op vault list --account "$acct_url" 2>/dev/null | tail -n +2)
+    done < <(op account list 2>/dev/null | tail -n +2)
+
+    # Resolve each op:// reference using the correct account
+    local failed=0
+    while IFS= read -r ref; do
+        local vault_id
+        vault_id="$(echo "$ref" | cut -d'/' -f3)"
+        local account="${vault_account_map[$vault_id]:-}"
+
+        if [[ -z "$account" ]]; then
+            warn "Vault $vault_id not found in any account"
+            failed=1
+            continue
+        fi
+
+        local secret
+        secret="$(op read "$ref" --account "$account" 2>/dev/null)" || {
+            warn "Failed to read $ref"
+            failed=1
+            continue
+        }
+
+        content="${content//$ref/$secret}"
+    done < <(grep -oE 'op://[^"]+' "$tpl" | sort -u)
+
+    printf '%s\n' "$content" > "$out"
+    chmod 600 "$out"
+    [[ "$failed" -eq 0 ]]
+}
+
+# ─── ECC (Everything Claude Code) ────────────────────────────────────────────
+
+# Remove symlinks in a directory that point into the ecc submodule
+clean_ecc_symlinks() {
+    local target_dir="$1"
+    [[ -d "$target_dir" ]] || return 0
+
+    for item in "$target_dir"/*; do
+        [[ -L "$item" ]] || continue
+        local link_target
+        link_target="$(readlink -f "$item" 2>/dev/null)" || continue
+        if [[ "$link_target" == "$DOTFILES_DIR/ecc/"* ]]; then
+            rm "$item"
         fi
     done
+}
 
-    if [[ -f "$DOTFILES_DIR/.tmux.conf" ]]; then
-        echo "tmux"
+install_ecc() {
+    local ecc_dir="$DOTFILES_DIR/ecc"
+
+    if [[ ! -f "$ecc_dir/install.sh" ]]; then
+        info "Initializing ECC submodule..."
+        git -C "$DOTFILES_DIR" submodule update --init ecc
     fi
+
+    # --- Claude Code ---
+    info "Installing ECC for Claude Code..."
+
+    # Clean stale ECC symlinks before re-linking
+    clean_ecc_symlinks "$HOME/.claude/rules"
+    clean_ecc_symlinks "$HOME/.claude/commands"
+    clean_ecc_symlinks "$HOME/.claude/skills"
+    clean_ecc_symlinks "$HOME/.claude/agents"
+
+    # Rules, commands, skills, agents merge with existing dotfiles content
+    mkdir -p "$HOME/.claude/rules" "$HOME/.claude/commands" "$HOME/.claude/skills" "$HOME/.claude/agents"
+    link_directory_contents "$ecc_dir/rules" "$HOME/.claude/rules"
+    link_directory_contents "$ecc_dir/commands" "$HOME/.claude/commands"
+    link_directory_contents "$ecc_dir/skills" "$HOME/.claude/skills"
+    link_directory_contents "$ecc_dir/agents" "$HOME/.claude/agents"
+
+    # Hooks — symlink as a Claude Code plugin (alongside other plugins)
+    mkdir -p "$HOME/.claude/plugins"
+    link_file "$ecc_dir" "$HOME/.claude/plugins/everything-claude-code"
+
+    success "Installed ECC for Claude Code"
+
+    # --- OpenCode ---
+    info "Installing ECC for OpenCode..."
+
+    local oc_dir="$HOME/.config/opencode"
+
+    # Clean stale ECC symlinks before re-linking
+    clean_ecc_symlinks "$oc_dir/commands"
+
+    mkdir -p "$oc_dir/commands"
+    link_directory_contents "$ecc_dir/.opencode/commands" "$oc_dir/commands"
+
+    # Merge ECC opencode.json with personal config (personal wins on conflicts)
+    merge_opencode_config
+
+    success "Installed ECC for OpenCode"
+}
+
+# Merge ECC's opencode.json (agents, commands, instructions) with personal config.
+# ECC provides the base, personal config overrides on conflict.
+merge_opencode_config() {
+    local ecc_cfg="$DOTFILES_DIR/ecc/.opencode/opencode.json"
+    local personal_tpl="$HOME/.config/opencode/opencode.json.tpl"
+    local personal_cfg="$HOME/.config/opencode/opencode.json"
+
+    if [[ ! -f "$ecc_cfg" ]]; then
+        warn "ECC opencode.json not found — skipping merge"
+        return
+    fi
+
+    ensure_jq || return
+
+    # If 1Password CLI is available and template exists, inject secrets first
+    if [[ -f "$personal_tpl" ]] && command -v op &>/dev/null; then
+        info "Injecting secrets into opencode.json via 1Password..."
+        if ! op_inject_multi "$personal_tpl" "$personal_cfg"; then
+            warn "Secret injection failed — merging with template (secrets unresolved)"
+            local personal_src="$personal_tpl"
+        else
+            local personal_src="$personal_cfg"
+        fi
+    elif [[ -f "$personal_cfg" ]]; then
+        local personal_src="$personal_cfg"
+    elif [[ -f "$personal_tpl" ]]; then
+        local personal_src="$personal_tpl"
+    else
+        info "No personal OpenCode config found — using ECC config as-is"
+        cp "$ecc_cfg" "$personal_cfg"
+        return
+    fi
+
+    # Deep merge: ECC base * personal overrides
+    local merged
+    merged="$(jq -s '.[0] * .[1]' "$ecc_cfg" "$personal_src")"
+    printf '%s\n' "$merged" > "$personal_cfg"
+    success "Merged ECC + personal OpenCode config"
+}
+
+# ─── App config helpers ───────────────────────────────────────────────────────
+
+# App config descriptions (name → label)
+get_app_label() {
+    case "$1" in
+        btop)      echo "btop — System resource monitor" ;;
+        ecc)       echo "ecc — Everything Claude Code (agents, skills, hooks, rules)" ;;
+        fastfetch) echo "fastfetch — System info display" ;;
+        ghostty)   echo "ghostty — Terminal emulator config" ;;
+        hypr)      echo "hypr — Hyprland window manager config" ;;
+        k9s)       echo "k9s — Kubernetes TUI manager" ;;
+        kitty)     echo "kitty — Terminal emulator config" ;;
+        lazygit)   echo "lazygit — Git TUI client" ;;
+        mako)      echo "mako — Wayland notification daemon" ;;
+        omarchy)   echo "omarchy — Desktop environment config" ;;
+        opencode)  echo "opencode — AI coding assistant config" ;;
+        tmux)      echo "tmux — Terminal multiplexer config" ;;
+        walker)    echo "walker — Application launcher config" ;;
+        waybar)    echo "waybar — Wayland status bar config" ;;
+        *)         echo "$1" ;;
+    esac
+}
+
+# Discover available app configs (stow packages + tmux + ecc)
+list_app_configs() {
+    {
+        for dir in "$DOTFILES_DIR"/*/; do
+            local name
+            name="$(basename "$dir")"
+            if [[ -d "$dir/.config/$name" ]]; then
+                echo "$name"
+            fi
+        done
+
+        if [[ -f "$DOTFILES_DIR/.tmux.conf" ]]; then
+            echo "tmux"
+        fi
+
+        if [[ -d "$DOTFILES_DIR/ecc" ]]; then
+            echo "ecc"
+        fi
+    } | sort
 }
 
 # Install a single app config
@@ -378,6 +589,9 @@ install_app_config() {
     local pkg="$1"
 
     case "$pkg" in
+        ecc)
+            install_ecc
+            ;;
         tmux)
             for file in "${TMUX_FILES[@]}"; do
                 if [[ -f "$DOTFILES_DIR/$file" ]]; then
@@ -427,18 +641,23 @@ run_post_install_hooks() {
     for pkg in "${pkgs[@]}"; do
         case "$pkg" in
             opencode)
-                local opencode_tpl="$HOME/.config/opencode/opencode.json.tpl"
-                local opencode_cfg="$HOME/.config/opencode/opencode.json"
-                if [[ -f "$opencode_tpl" ]]; then
-                    if command -v op &>/dev/null; then
-                        info "Injecting secrets into opencode.json via 1Password..."
-                        if op inject -i "$opencode_tpl" -o "$opencode_cfg"; then
-                            success "Generated opencode.json with secrets"
+                # Merge with ECC if installed, otherwise just inject secrets
+                if [[ -d "$DOTFILES_DIR/ecc" ]]; then
+                    merge_opencode_config
+                else
+                    local opencode_tpl="$HOME/.config/opencode/opencode.json.tpl"
+                    local opencode_cfg="$HOME/.config/opencode/opencode.json"
+                    if [[ -f "$opencode_tpl" ]]; then
+                        if command -v op &>/dev/null; then
+                            info "Injecting secrets into opencode.json via 1Password..."
+                            if op_inject_multi "$opencode_tpl" "$opencode_cfg"; then
+                                success "Generated opencode.json with secrets"
+                            else
+                                warn "Secret injection failed — you may need to sign in first: op signin"
+                            fi
                         else
-                            warn "op inject failed — you may need to sign in first: op signin"
+                            warn "1Password CLI (op) not found — opencode.json not generated"
                         fi
-                    else
-                        warn "1Password CLI (op) not found — opencode.json not generated"
                     fi
                 fi
                 ;;
@@ -458,8 +677,10 @@ run_pickers() {
 
     # App configs
     local app_configs=()
+    local app_labels=()
     while IFS= read -r pkg; do
         app_configs+=("$pkg")
+        app_labels+=("$(get_app_label "$pkg")")
     done < <(list_app_configs)
 
     if [[ ${#app_configs[@]} -gt 0 ]]; then
@@ -468,12 +689,12 @@ run_pickers() {
         echo
 
         local chosen_apps
-        chosen_apps="$(printf '%s\n' "${app_configs[@]}" | gum choose --no-limit --height=20)" || true
+        chosen_apps="$(printf '%s\n' "${app_labels[@]}" | gum choose --no-limit --height=20)" || true
 
         if [[ -n "$chosen_apps" ]]; then
             local selected_apps=()
-            while IFS= read -r pkg; do
-                selected_apps+=("$pkg")
+            while IFS= read -r label; do
+                selected_apps+=("${label%% —*}")
             done <<< "$chosen_apps"
 
             local needs_stow=0
@@ -578,4 +799,7 @@ main() {
     printf '%b\n' "${GREEN}${BOLD}Dotfiles setup completed.${RESET}"
 }
 
-main "$@"
+# Run main only when executed directly, not when sourced
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi

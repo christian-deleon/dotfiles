@@ -25,7 +25,7 @@ EOF
     echo "Options:"
     echo "  edit                  - Open the dotfiles directory in your editor"
     echo "  update                - Update system packages and dotfiles"
-    echo "  install [tool ...]    - Install dev tools (interactive picker if no args)"
+    echo "  install               - Install app configs and dev tools (interactive picker)"
     echo "  theme-add <url>       - Add an Omarchy theme as a git submodule"
     echo "  theme-list            - List installed Omarchy themes"
     echo "  brew-install          - Install Homebrew"
@@ -52,6 +52,13 @@ update_system() {
     if [[ -d "$DOTFILES_DIR/.git" ]]; then
         _info "Pulling latest dotfiles..."
         git -C "$DOTFILES_DIR" pull --rebase --autostash 2>/dev/null || _warn "Could not pull dotfiles"
+        git -C "$DOTFILES_DIR" submodule update --remote --init 2>/dev/null || _warn "Could not update submodules"
+
+        # Re-run ECC install to refresh symlinks after submodule update
+        if [[ -d "$DOTFILES_DIR/ecc" ]]; then
+            source "$DOTFILES_DIR/install.sh"
+            install_ecc
+        fi
     fi
 
     # Update packages based on OS
@@ -74,58 +81,10 @@ update_system() {
 }
 
 
-# Install dev tools — interactive or by name
-install_dev_tools() {
-    shift  # remove "install" from args
-
-    if [[ $# -eq 0 ]]; then
-        # No args: show interactive picker
-        ensure_gum || {
-            _error "gum is required for the interactive picker"
-            echo
-            _info "Install tools by name: ${_BOLD}dot install <tool> [tool ...]${_RESET}"
-            echo
-            _info "Available tools:"
-            while IFS= read -r tool; do
-                printf '  %-18s %s\n' "$tool" "$(get_tool_field "$tool" "description" 2>/dev/null)"
-            done < <(list_tools)
-            return 1
-        }
-
-        local tools=()
-        local labels=()
-        while IFS= read -r tool; do
-            tools+=("$tool")
-            labels+=("$(get_tool_label "$tool")")
-        done < <(list_tools)
-
-        echo
-        _info "Select tools to install (space to toggle, enter to confirm):"
-        echo
-
-        local chosen
-        chosen="$(printf '%s\n' "${labels[@]}" | gum choose --no-limit --height=22)" || {
-            _info "No tools selected"
-            return
-        }
-
-        if [[ -z "$chosen" ]]; then
-            _info "No tools selected"
-            return
-        fi
-
-        local selected_tools=()
-        while IFS= read -r label; do
-            local tool_name="${label%% —*}"
-            selected_tools+=("$tool_name")
-        done <<< "$chosen"
-
-        echo
-        install_tools "${selected_tools[@]}"
-    else
-        # Named tools: install directly
-        install_tools "$@"
-    fi
+# Install app configs and dev tools — runs interactive pickers from install.sh
+run_install() {
+    source "$DOTFILES_DIR/install.sh"
+    run_pickers
 }
 
 
@@ -243,7 +202,7 @@ case "$1" in
         update_system
         ;;
     install)
-        install_dev_tools "$@"
+        run_install
         ;;
     brew-install)
         echo
