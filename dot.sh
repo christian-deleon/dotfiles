@@ -92,6 +92,13 @@ update_system() {
 
         # Update critical submodules
         _info "Updating submodules (ssh, ecc, tpm)..."
+        
+        # Ensure ECC submodule is on the dotfiles branch (not detached HEAD)
+        if [[ -d "$DOTFILES_DIR/ecc/.git" ]]; then
+            _info "Checking out ECC dotfiles branch..."
+            git -C "$DOTFILES_DIR/ecc" checkout dotfiles 2>&1 || true
+        fi
+        
         if ! git -C "$DOTFILES_DIR" submodule update --remote --init .ssh ecc .tmux/plugins/tpm 2>&1; then
             _error "Could not update submodules"
             echo
