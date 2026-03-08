@@ -24,9 +24,10 @@ EOF
     echo
     echo "Options:"
     echo "  edit                  - Open the dotfiles directory in your editor"
-    echo "  update                - Update system packages and dotfiles"
+    echo "  update                - Update system packages and dotfiles (updates installed themes)"
     echo "  install               - Install app configs and dev tools (interactive picker)"
     echo "  theme-add <url>       - Add an Omarchy theme as a git submodule"
+    echo "  theme-update          - Update installed Omarchy theme submodules"
     echo "  theme-list            - List installed Omarchy themes"
     echo "  brew-install          - Install Homebrew"
     echo "  brew-bundle [profile] - Install Homebrew packages using a Brewfile profile"
@@ -89,11 +90,34 @@ update_system() {
             return 1
         fi
 
-        if ! git -C "$DOTFILES_DIR" submodule update --remote --init 2>&1; then
+        # Update critical submodules
+        _info "Updating submodules (ssh, ecc, tpm)..."
+        if ! git -C "$DOTFILES_DIR" submodule update --remote --init .ssh ecc .tmux/plugins/tpm 2>&1; then
             _error "Could not update submodules"
             echo
             _info "This may be due to SSH authentication failure (requires 1Password)"
             return 1
+        fi
+
+        # Update any initialized theme submodules (but don't init new ones)
+        local themes_dir="$DOTFILES_DIR/omarchy/.config/omarchy/themes"
+        if [[ -d "$themes_dir" ]]; then
+            local initialized_themes=()
+            for theme_dir in "$themes_dir"/*/; do
+                [[ -d "$theme_dir/.git" ]] || continue
+                local name
+                name="$(basename "$theme_dir")"
+                initialized_themes+=("omarchy/.config/omarchy/themes/$name")
+            done
+
+            if [[ ${#initialized_themes[@]} -gt 0 ]]; then
+                _info "Updating ${#initialized_themes[@]} initialized theme(s)..."
+                if git -C "$DOTFILES_DIR" submodule update --remote "${initialized_themes[@]}" 2>&1; then
+                    _success "Updated ${#initialized_themes[@]} theme(s)"
+                else
+                    _warn "Some themes failed to update"
+                fi
+            fi
         fi
 
         # Re-run ECC install to refresh symlinks after submodule update
@@ -152,6 +176,48 @@ brew_save() {
 
 
 THEMES_DIR="omarchy/.config/omarchy/themes"
+
+
+# Update installed Omarchy theme submodules (doesn't init new ones)
+theme_update() {
+    if ! check_1password; then
+        return 1
+    fi
+
+    echo
+    _info "Updating installed Omarchy themes..."
+
+    local themes_path="$DOTFILES_DIR/$THEMES_DIR"
+    if [[ ! -d "$themes_path" ]]; then
+        _warn "No themes directory found"
+        return 1
+    fi
+
+    # Get only initialized theme submodules (those with .git directory)
+    local initialized_themes=()
+    for theme_dir in "$themes_path"/*/; do
+        [[ -d "$theme_dir/.git" ]] || continue
+        local name
+        name="$(basename "$theme_dir")"
+        initialized_themes+=("$THEMES_DIR/$name")
+    done
+
+    if [[ ${#initialized_themes[@]} -eq 0 ]]; then
+        _warn "No themes installed yet"
+        echo
+        _info "Run ./install.sh to install themes interactively"
+        return 0
+    fi
+
+    if ! git -C "$DOTFILES_DIR" submodule update --remote "${initialized_themes[@]}" 2>&1; then
+        _error "Could not update theme submodules"
+        return 1
+    fi
+
+    _success "Updated ${#initialized_themes[@]} theme(s)"
+    echo
+    _info "Commit with: cd ~/.dotfiles && git add $THEMES_DIR && git commit -m 'chore: update omarchy theme submodules'"
+}
 
 
 # Add an Omarchy theme as a git submodule
@@ -256,6 +322,9 @@ case "$1" in
         ;;
     theme-add)
         theme_add "$2"
+        ;;
+    theme-update)
+        theme_update
         ;;
     theme-list)
         theme_list
