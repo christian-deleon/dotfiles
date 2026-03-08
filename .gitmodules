@@ -4,6 +4,7 @@
 [submodule ".ssh"]
 	path = .ssh
 	url = git@github.com:christian-deleon/ssh-config.git
+	branch = main
 [submodule "omarchy/.config/omarchy/themes/city-783"]
 	path = omarchy/.config/omarchy/themes/city-783
 	url = https://github.com/OldJobobo/omarchy-city-783-theme
