@@ -347,7 +347,7 @@ function my_function() {
 - **OpenCode** (`~/.config/opencode/`):
   - Commands — per-item symlinks via `link_directory_contents`
   - Config — three-way merge: ECC's `opencode.json` (agents, commands, instructions) + converted MCP servers from `mcp-configs/mcp-servers.json` + personal config using `jq -s '.[0] * .[1] * .[2]'` (personal wins on conflicts)
-  - MCP servers — auto-converted from Claude Desktop format (`{mcpServers: {name: {command, args, env}}}`) to OpenCode format (`{mcp: {name: {type, command, environment}}}`)
+  - MCP servers — auto-converted from Claude Desktop format to OpenCode format (only local/stdio servers; HTTP servers are skipped due to format incompatibility)
 
 **Idempotency:** `clean_ecc_symlinks()` runs before every install, removing any symlinks in the target directory that point into `~/.dotfiles/ecc/`. This handles renamed/deleted files in the fork.
 
