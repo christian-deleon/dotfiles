@@ -43,21 +43,66 @@ EOF
 }
 
 
+# Check if 1Password CLI can connect to desktop app
+check_1password() {
+    if ! command -v op &>/dev/null; then
+        return 0  # Skip check if op CLI not installed
+    fi
+
+    local op_check
+    if ! op_check="$(op account list 2>&1)"; then
+        echo
+        _error "1Password CLI cannot connect to desktop app"
+        if echo "$op_check" | grep -q "cannot connect to 1Password app"; then
+            _error "Make sure 1Password desktop app is running and CLI integration is enabled"
+            echo
+            _info "Fix: 1Password app > Settings > Developer > Enable 'Connect with 1Password CLI'"
+        fi
+        echo
+        _error "Cannot proceed — 1Password is required for:"
+        echo "  • Git authentication (SSH via 1Password)"
+        echo "  • Git commit signing"
+        echo "  • Secret injection (MCP configs)"
+        echo
+        return 1
+    fi
+    return 0
+}
+
 # Update system packages and dotfiles
 update_system() {
     echo
     _info "Updating system packages and dotfiles..."
 
+    # Validate 1Password CLI connectivity first
+    if ! check_1password; then
+        return 1
+    fi
+
     # Pull latest dotfiles
     if [[ -d "$DOTFILES_DIR/.git" ]]; then
         _info "Pulling latest dotfiles..."
-        git -C "$DOTFILES_DIR" pull --rebase --autostash 2>/dev/null || _warn "Could not pull dotfiles"
-        git -C "$DOTFILES_DIR" submodule update --remote --init 2>/dev/null || _warn "Could not update submodules"
+        if ! git -C "$DOTFILES_DIR" pull --rebase --autostash 2>&1; then
+            _error "Could not pull dotfiles"
+            echo
+            _info "This may be due to SSH authentication failure (requires 1Password)"
+            return 1
+        fi
+
+        if ! git -C "$DOTFILES_DIR" submodule update --remote --init 2>&1; then
+            _error "Could not update submodules"
+            echo
+            _info "This may be due to SSH authentication failure (requires 1Password)"
+            return 1
+        fi
 
         # Re-run ECC install to refresh symlinks after submodule update
         if [[ -d "$DOTFILES_DIR/ecc" ]]; then
             source "$DOTFILES_DIR/install.sh"
-            install_ecc
+            if ! install_ecc; then
+                _error "Failed to install ECC"
+                return 1
+            fi
         fi
     fi
 
