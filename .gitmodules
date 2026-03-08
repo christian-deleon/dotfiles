@@ -29,3 +29,7 @@
 [submodule "omarchy/.config/omarchy/themes/spacex"]
 	path = omarchy/.config/omarchy/themes/spacex
 	url = git@github.com:christian-deleon/omarchy-spacex-theme.git
+[submodule "ecc"]
+	path = ecc
+	url = git@github.com:christian-deleon/everything-claude-code.git
+	branch = dotfiles
