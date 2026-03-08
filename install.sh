@@ -576,10 +576,44 @@ install_ecc() {
     # Remove stale .opencode symlink from previous install method
     [[ -L "$oc_dir/.opencode" ]] && rm "$oc_dir/.opencode"
 
-    # Merge ECC opencode.json with personal config (personal wins on conflicts)
+    # Merge ECC opencode.json + MCP configs with personal config (personal wins on conflicts)
     merge_opencode_config
 
     success "Installed ECC for OpenCode"
+}
+
+# Convert ECC MCP configs from Claude Desktop format to OpenCode format.
+# Claude Desktop uses {mcpServers: {name: {command, args, env}}}
+# OpenCode uses {mcp: {name: {type, command, environment}}}
+convert_ecc_mcp_configs() {
+    local ecc_mcp="$DOTFILES_DIR/ecc/mcp-configs/mcp-servers.json"
+    
+    if [[ ! -f "$ecc_mcp" ]]; then
+        echo "{}"
+        return
+    fi
+    
+    jq '
+        .mcpServers | to_entries | map(
+            {
+                key: .key,
+                value: {
+                    type: (if .value.type then .value.type else "local" end),
+                    command: (
+                        if .value.command and .value.args then
+                            [.value.command] + .value.args
+                        elif .value.command then
+                            [.value.command]
+                        else
+                            null
+                        end
+                    ),
+                    url: .value.url,
+                    environment: .value.env
+                } | with_entries(select(.value != null))
+            }
+        ) | from_entries | {mcp: .}
+    ' "$ecc_mcp"
 }
 
 # Merge ECC's opencode.json (agents, commands, instructions) with personal config.
@@ -620,9 +654,14 @@ merge_opencode_config() {
         return
     fi
 
-    # Deep merge: ECC base * personal overrides
+    # Convert ECC MCP configs to OpenCode format
+    local ecc_mcp_converted
+    ecc_mcp_converted="$(convert_ecc_mcp_configs)"
+
+    # Three-way merge: ECC base * ECC MCPs * personal overrides
+    # Personal config wins on conflicts, preserving user customizations
     local merged
-    merged="$(jq -s '.[0] * .[1]' "$ecc_cfg" "$personal_src")"
+    merged="$(jq -s '.[0] * .[1] * .[2]' "$ecc_cfg" <(echo "$ecc_mcp_converted") "$personal_src")"
 
     # Rewrite relative .opencode/ refs to absolute paths so they resolve
     # from ~/.config/opencode/ without needing a .opencode symlink
@@ -630,7 +669,7 @@ merge_opencode_config() {
     merged="${merged//.\/\.opencode\//$DOTFILES_DIR/ecc/.opencode/}"
 
     printf '%s\n' "$merged" > "$personal_cfg"
-    success "Merged ECC + personal OpenCode config"
+    success "Merged ECC + personal OpenCode config (including MCP servers)"
 }
 
 # ─── App config helpers ───────────────────────────────────────────────────────

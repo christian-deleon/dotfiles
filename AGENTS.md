@@ -346,7 +346,8 @@ function my_function() {
   - Plugin — symlinks `ecc/` into `~/.claude/plugins/everything-claude-code` for hooks support
 - **OpenCode** (`~/.config/opencode/`):
   - Commands — per-item symlinks via `link_directory_contents`
-  - Config — deep merges ECC's `opencode.json` (agents, commands, instructions) with personal config using `jq -s '.[0] * .[1]'` (personal wins on conflicts)
+  - Config — three-way merge: ECC's `opencode.json` (agents, commands, instructions) + converted MCP servers from `mcp-configs/mcp-servers.json` + personal config using `jq -s '.[0] * .[1] * .[2]'` (personal wins on conflicts)
+  - MCP servers — auto-converted from Claude Desktop format (`{mcpServers: {name: {command, args, env}}}`) to OpenCode format (`{mcp: {name: {type, command, environment}}}`)
 
 **Idempotency:** `clean_ecc_symlinks()` runs before every install, removing any symlinks in the target directory that point into `~/.dotfiles/ecc/`. This handles renamed/deleted files in the fork.
 
