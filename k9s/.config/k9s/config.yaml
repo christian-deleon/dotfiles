@@ -11,7 +11,7 @@ k9s:
   ui:
     skin: dracula
     enableMouse: false
-    headless: false
+    headless: true
     logoless: false
     crumbsless: false
     splashless: false
