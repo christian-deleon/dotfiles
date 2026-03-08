@@ -585,6 +585,7 @@ install_ecc() {
 # Convert ECC MCP configs from Claude Desktop format to OpenCode format.
 # Claude Desktop uses {mcpServers: {name: {command, args, env}}}
 # OpenCode uses {mcp: {name: {type, command, environment}}}
+# Note: Only converts local (stdio) servers; skips HTTP servers (incompatible format)
 convert_ecc_mcp_configs() {
     local ecc_mcp="$DOTFILES_DIR/ecc/mcp-configs/mcp-servers.json"
     
@@ -594,21 +595,21 @@ convert_ecc_mcp_configs() {
     fi
     
     jq '
-        .mcpServers | to_entries | map(
+        .mcpServers | to_entries 
+        # Filter: only keep entries with command field (local servers)
+        | map(select(.value.command != null))
+        | map(
             {
                 key: .key,
                 value: {
-                    type: (if .value.type then .value.type else "local" end),
+                    type: "local",
                     command: (
-                        if .value.command and .value.args then
+                        if .value.args then
                             [.value.command] + .value.args
-                        elif .value.command then
-                            [.value.command]
                         else
-                            null
+                            [.value.command]
                         end
                     ),
-                    url: .value.url,
                     environment: .value.env
                 } | with_entries(select(.value != null))
             }
