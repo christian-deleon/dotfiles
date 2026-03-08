@@ -7,9 +7,13 @@ bun.lock
 opencode.json
 opencode.json.bak.*
 
-# ECC symlinks (managed by install_ecc, not tracked)
+# ECC symlinks and merged config (managed by install_ecc, not tracked)
 commands/
 skills/*
 !skills/commit
 !skills/contribute
 !skills/obsidian
+instructions
+prompts
+tools
+plugins/ecc
