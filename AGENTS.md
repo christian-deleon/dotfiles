@@ -14,6 +14,7 @@ Guidelines for AI coding agents working in this personal dotfiles repository. Th
 - Dev tool configs: git, tmux
 - Omarchy desktop configs: hypr, waybar, kitty, ghostty, mako, walker, btop, fastfetch, lazygit, omarchy, opencode (managed via GNU Stow + omadot)
 - ECC (Everything Claude Code): forked submodule providing agents, skills, hooks, commands, and rules for Claude Code and OpenCode
+- MCP servers: `mcp-servers.json.tpl` — shared config for Claude Code and OpenCode (with `op://` secret refs)
 - Package management: `packages.yaml` + `tools/lib.sh` (cross-platform), Homebrew Brewfile profiles (macOS)
 - Custom aliases, functions (many with fzf integration), shell utilities
 - Documentation: `docs/functions.md`, `docs/aliases.md`
@@ -346,8 +347,8 @@ function my_function() {
   - Plugin — symlinks `ecc/` into `~/.claude/plugins/everything-claude-code` for hooks support
 - **OpenCode** (`~/.config/opencode/`):
   - Commands — per-item symlinks via `link_directory_contents`
-  - Config — three-way merge: ECC's `opencode.json` (agents, commands, instructions) + converted MCP servers from `mcp-configs/mcp-servers.json` + personal config using `jq -s '.[0] * .[1] * .[2]'` (personal wins on conflicts)
-  - MCP servers — auto-converted from Claude Desktop format to OpenCode format (only local/stdio servers; HTTP servers are skipped due to format incompatibility)
+  - Config — two-way merge: ECC's `opencode.json` (agents, commands, instructions) + personal config using `jq -s '.[0] * .[1]'` (personal wins on conflicts)
+- **Shared MCP** — `generate_mcp_configs()` reads `~/.dotfiles/mcp-servers.json.tpl` (Claude Desktop format with `op://` refs), resolves secrets via 1Password, and writes to both `~/.claude.json` (mcpServers) and `~/.config/opencode/opencode.json` (mcp)
 
 **Idempotency:** `clean_ecc_symlinks()` runs before every install, removing any symlinks in the target directory that point into `~/.dotfiles/ecc/`. This handles renamed/deleted files in the fork.
 
@@ -408,7 +409,15 @@ Use `link_file` (symlinks the entire directory) when the directory is exclusivel
 
 ### Dynamic Config Merging
 
-When two sources contribute to a single config file (e.g., ECC agents + personal MCP servers in `opencode.json`), merge at install time using `jq -s '.[0] * .[1]'` rather than maintaining a combined copy. The base config comes first, personal overrides second (wins on conflicts). This eliminates duplication and keeps each source independently maintainable.
+When two sources contribute to a single config file (e.g., ECC agents + personal config in `opencode.json`), merge at install time using `jq -s '.[0] * .[1]'` rather than maintaining a combined copy. The base config comes first, personal overrides second (wins on conflicts). This eliminates duplication and keeps each source independently maintainable.
+
+### Shared MCP Configuration
+
+MCP servers are defined once in `~/.dotfiles/mcp-servers.json.tpl` (Claude Desktop format with `op://` secret references) and generated into tool-specific formats at install time:
+- **Claude Code**: merged into `~/.claude.json` as `mcpServers`
+- **OpenCode**: converted to OpenCode format and merged into `~/.config/opencode/opencode.json` as `mcp`
+
+Secrets are resolved via `op_inject_multi()` during generation. Add/remove servers by editing `mcp-servers.json.tpl` and running `dot update` or `./install.sh`.
 
 ### Gitignore for Generated Symlinks in Stowed Dirs
 
