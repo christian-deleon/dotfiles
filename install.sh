@@ -230,9 +230,74 @@ install_zsh_config() {
 }
 
 install_git_submodules() {
-    git -C "$DOTFILES_DIR" submodule sync --recursive
-    git -C "$DOTFILES_DIR" submodule update --init --recursive
-    success "Git submodules updated"
+    # Initialize critical submodules first
+    info "Initializing critical submodules (ssh, ecc, tpm)..."
+    git -C "$DOTFILES_DIR" submodule sync --recursive .ssh ecc .tmux/plugins/tpm
+    git -C "$DOTFILES_DIR" submodule update --init --recursive .ssh ecc .tmux/plugins/tpm
+    success "Git submodules initialized"
+}
+
+# List available theme submodules
+list_theme_submodules() {
+    git -C "$DOTFILES_DIR" config --file .gitmodules --get-regexp path \
+        | grep "omarchy/.config/omarchy/themes/" \
+        | awk '{print $2}' \
+        | xargs -I{} basename {} \
+        | sort
+}
+
+# Install selected theme submodules
+install_themes() {
+    local themes_dir="omarchy/.config/omarchy/themes"
+    
+    # Get available themes
+    local available_themes=()
+    while IFS= read -r theme; do
+        available_themes+=("$theme")
+    done < <(list_theme_submodules)
+
+    if [[ ${#available_themes[@]} -eq 0 ]]; then
+        return 0
+    fi
+
+    # Check if gum is available for picker
+    if ! command -v gum &>/dev/null; then
+        echo
+        info "Omarchy themes available (use ${BOLD}dot theme-update${RESET} to install later):"
+        printf '  %s\n' "${available_themes[@]}"
+        return 0
+    fi
+
+    echo
+    info "Select Omarchy themes to install (space to toggle, enter to confirm):"
+    echo
+    info "${DIM}Skip this to install later with: dot theme-update${RESET}"
+    echo
+
+    local chosen_themes
+    chosen_themes="$(printf '%s\n' "${available_themes[@]}" | gum choose --no-limit --height=12)" || {
+        info "No themes selected — use ${BOLD}dot theme-update${RESET} later"
+        return 0
+    }
+
+    if [[ -z "$chosen_themes" ]]; then
+        info "No themes selected — use ${BOLD}dot theme-update${RESET} later"
+        return 0
+    fi
+
+    # Install selected themes
+    local theme_paths=()
+    while IFS= read -r theme; do
+        theme_paths+=("$themes_dir/$theme")
+    done <<< "$chosen_themes"
+
+    echo
+    info "Installing ${#theme_paths[@]} theme(s)..."
+    if git -C "$DOTFILES_DIR" submodule update --init "${theme_paths[@]}" 2>&1; then
+        success "Installed ${#theme_paths[@]} theme(s)"
+    else
+        warn "Some themes failed to install — try ${BOLD}dot theme-update${RESET}"
+    fi
 }
 
 install_ssh_config() {
@@ -362,6 +427,10 @@ run_core_config() {
     echo
     info "Git submodules..."
     install_git_submodules
+
+    echo
+    info "Omarchy themes..."
+    install_themes
 
     echo
     info "SSH config..."
@@ -787,7 +856,7 @@ app configs and dev tools from interactive pickers.
 Core Config (always runs):
   Shell config       .commonrc, .aliases, .functions + inject into .bashrc
   Zsh config         Oh My Zsh, Powerlevel10k, zsh plugins, .zshrc (macOS only)
-  Git submodules     tpm, ssh-config, omarchy themes
+  Git submodules     .ssh, ecc, tpm (themes excluded, use 'dot theme-update')
   SSH config         ~/.ssh/config generation
   Git config         .gitconfig + .gitconfig.local
   Dot CLI            install dot command to ~/.local/bin
