@@ -43,7 +43,7 @@ detect_pkg_manager() {
 
 # List all tool names from packages.yaml
 list_tools() {
-    grep -E '^[a-zA-Z0-9_-]+:' "$PACKAGES_FILE" | sed 's/://'
+    grep -E '^[a-zA-Z0-9_-]+:' "$PACKAGES_FILE" | sed 's/://' | sort
 }
 
 # Get a field for a tool: get_tool_field <tool> <field>

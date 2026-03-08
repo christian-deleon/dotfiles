@@ -1,0 +1,11 @@
+node_modules
+package.json
+bun.lock
+.gitignore
+
+# Resolved config contains secrets — use opencode.json.tpl + op inject
+opencode.json
+opencode.json.bak.*
+
+# ECC symlinks (managed by install_ecc, not tracked)
+commands/
