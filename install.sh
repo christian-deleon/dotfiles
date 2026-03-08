@@ -524,9 +524,12 @@ clean_ecc_symlinks() {
 
     for item in "$target_dir"/*; do
         [[ -L "$item" ]] || continue
-        local link_target
-        link_target="$(readlink -f "$item" 2>/dev/null)" || continue
-        if [[ "$link_target" == "$DOTFILES_DIR/ecc/"* ]]; then
+        local raw_target
+        raw_target="$(readlink "$item")"
+        # Remove if it points into ecc/ (resolved, for valid symlinks)
+        local resolved_target
+        resolved_target="$(readlink -f "$item" 2>/dev/null)"
+        if [[ "$resolved_target" == "$DOTFILES_DIR/ecc/"* ]] || [[ "$raw_target" == "$DOTFILES_DIR/ecc/"* ]]; then
             rm "$item"
         fi
     done
@@ -561,6 +564,18 @@ install_ecc() {
     link_file "$ecc_dir" "$HOME/.claude/plugins/everything-claude-code"
 
     success "Installed ECC for Claude Code"
+
+    # --- OpenCode: link commands and skills into ~/.config/opencode/ ---
+    info "Installing ECC commands and skills for OpenCode..."
+
+    local oc_dir="$HOME/.config/opencode"
+    clean_ecc_symlinks "$oc_dir/commands"
+    clean_ecc_symlinks "$oc_dir/skills"
+    mkdir -p "$oc_dir/commands" "$oc_dir/skills"
+    link_directory_contents "$ecc_dir/commands" "$oc_dir/commands"
+    link_directory_contents "$ecc_dir/skills" "$oc_dir/skills"
+
+    success "Installed ECC commands and skills for OpenCode"
 
     # Generate shared MCP configs for Claude Code and OpenCode
     generate_mcp_configs
