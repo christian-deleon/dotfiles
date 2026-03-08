@@ -21,6 +21,16 @@ cdr              # Go to repo root
 cdr src/app      # Go to repo_root/src/app
 ```
 
+### `clocg [args...]`
+
+Run cloc (Count Lines of Code) with automatic git integration. If `.gitignore` exists in the current directory, automatically uses `--vcs=git` to respect gitignore rules. Always formats output with thousands delimiter and alignment.
+
+```bash
+clocg .                    # Count current directory (respects .gitignore if present)
+clocg --exclude-dir=vendor # Additional options still work
+clocg src/                 # Count specific directory
+```
+
 ---
 
 ## Kubernetes

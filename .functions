@@ -19,6 +19,15 @@ function cdr() {
     fi
 }
 
+# Run cloc with git integration if .gitignore exists
+function clocg() {
+    if [[ -f .gitignore ]]; then
+        cloc --fmt=1 --thousands-delimiter=, --vcs=git "$@"
+    else
+        cloc --fmt=1 --thousands-delimiter=, "$@"
+    fi
+}
+
 
 #################
 # Kubernetes
