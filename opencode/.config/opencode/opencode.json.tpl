@@ -2,6 +2,7 @@
   "$schema": "https://opencode.ai/config.json",
   "theme": "system",
   "autoupdate": false,
+  "model": "anthropic/claude-sonnet-4-6",
   "provider": {
     "anthropic": {
       "models": {
