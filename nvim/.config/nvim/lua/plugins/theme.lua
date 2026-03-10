@@ -1,0 +1,1 @@
+/home/cdeleon/.config/omarchy/current/theme/neovim.lua
