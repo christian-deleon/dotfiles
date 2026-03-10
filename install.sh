@@ -782,6 +782,7 @@ get_app_label() {
         kitty)     echo "kitty — Terminal emulator config" ;;
         lazygit)   echo "lazygit — Git TUI client" ;;
         mako)      echo "mako — Wayland notification daemon" ;;
+        nvim)      echo "nvim — Neovim (LazyVim) editor config with Copilot" ;;
         omarchy)   echo "omarchy — Desktop environment config" ;;
         opencode)  echo "opencode — AI coding assistant config" ;;
         tmux)      echo "tmux — Terminal multiplexer config" ;;
