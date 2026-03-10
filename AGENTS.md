@@ -55,7 +55,7 @@ App configs in `~/.config/` are managed via [GNU Stow](https://www.gnu.org/softw
 
 **Stow packages** (auto-discovered from repo — any dir with `.config/<name>/` inside; list may change as packages are added/removed):
 ```
-btop  fastfetch  ghostty  hypr  k9s  kitty  lazygit  mako  omarchy  opencode  walker  waybar
+btop  fastfetch  ghostty  hypr  k9s  kitty  lazygit  mako  nvim  omarchy  opencode  walker  waybar
 ```
 
 **Special packages** (not stow-based, handled by custom install functions):
@@ -324,6 +324,7 @@ function my_function() {
 | `kitty` | `~/.config/kitty/` | Kitty terminal |
 | `lazygit` | `~/.config/lazygit/` | Lazygit TUI |
 | `mako` | `~/.config/mako/` | Notifications |
+| `nvim` | `~/.config/nvim/` | Neovim (LazyVim) with Copilot AI autocomplete |
 | `omarchy` | `~/.config/omarchy/` | Themes, hooks, extensions |
 | `opencode` | `~/.config/opencode/` | OpenCode AI agent config (ECC merge + `op_inject_multi` post-hook) |
 | `walker` | `~/.config/walker/` | App launcher |
