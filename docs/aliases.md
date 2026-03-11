@@ -157,12 +157,12 @@ Kubernetes development workflow tool shortcuts.
 
 ## Worktrunk
 
-- `wtl` - List all worktrees (`wt list`)
-- `wtlf` - List worktrees with full details — CI, diffstat, summaries (`wt list --full`)
-- `wts` - Switch to a worktree (`wt switch`)
-- `wtsc` - Create and switch to a new worktree (`wt switch --create`)
-- `wtm` - Merge current worktree into default branch (`wt merge`)
-- `wtr` - Remove current worktree (`wt remove`)
+- `wl` - List all worktrees (`wt list`)
+- `wlf` - List worktrees with full details — CI, diffstat, summaries (`wt list --full`)
+- `ws` - Switch to a worktree (`wt switch`)
+- `wsc` - Create and switch to a new worktree (`wt switch --create`)
+- `wm` - Merge current worktree into default branch (`wt merge`)
+- `wr` - Remove current worktree (`wt remove`)
 
 ---
 
