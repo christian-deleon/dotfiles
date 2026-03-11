@@ -788,6 +788,7 @@ get_app_label() {
         tmux)      echo "tmux — Terminal multiplexer config" ;;
         walker)    echo "walker — Application launcher config" ;;
         waybar)    echo "waybar — Wayland status bar config" ;;
+        worktrunk) echo "worktrunk — Git worktree manager config" ;;
         *)         echo "$1" ;;
     esac
 }
