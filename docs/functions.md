@@ -211,14 +211,13 @@ gi python,node        # Python + Node + defaults
 gi "go, docker"       # Go + Docker + defaults
 ```
 
-### `gcbare <repo-url>`
+### `gcb <repo-url>`
 
-Clone a git repository as a bare repo for worktree workflows. Configures remote fetch, updates refs, and drops into the bare directory ready for `wt add`.
+Clone a git repository as a bare repo for worktree workflows. Configures remote fetch, updates refs, and cds into the bare directory.
 
 ```bash
-gcbare git@github.com:user/repo.git
+gcb git@github.com:user/repo.git
 # Creates repo.git/, cds into it
-# Then: wt add <branch-name>
 ```
 
 ---
