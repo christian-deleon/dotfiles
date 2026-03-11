@@ -55,7 +55,7 @@ App configs in `~/.config/` are managed via [GNU Stow](https://www.gnu.org/softw
 
 **Stow packages** (auto-discovered from repo — any dir with `.config/<name>/` inside; list may change as packages are added/removed):
 ```
-btop  fastfetch  ghostty  hypr  k9s  kitty  lazygit  mako  nvim  omarchy  opencode  walker  waybar
+btop  fastfetch  ghostty  hypr  k9s  kitty  lazygit  mako  nvim  omarchy  opencode  walker  waybar  worktrunk
 ```
 
 **Special packages** (not stow-based, handled by custom install functions):
@@ -453,12 +453,38 @@ When creating symlinks inside a stowed directory (e.g., `~/.config/opencode/comm
 
 ### Adding a New App Config to omadot
 
-1. Run `omadot get <package>` to capture from `~/.config/`
-2. Verify the stow package exists: `ls ~/.dotfiles/<package>/.config/<package>/`
-3. No code changes needed — `install.sh` auto-discovers packages with `<dir>/.config/<dir>/` structure
-4. If the package needs post-stow setup (like `op inject`), add a case to `run_post_install_hooks()` in `install.sh`
-5. Add a description to `get_app_label()` in `install.sh` for the picker display
-6. `git add ~/.dotfiles/<package> && git commit`
+> **STOP — read this before touching `~/.config/` directly.**
+> All configs are managed via omadot. Create files in the dotfiles repo first, then stow.
+
+**For a brand-new tool config (most common case):**
+
+1. **Create files in the dotfiles repo:**
+   ```bash
+   mkdir -p ~/.dotfiles/<pkg>/.config/<pkg>/
+   # Write config files there, e.g.:
+   # ~/.dotfiles/<pkg>/.config/<pkg>/config.toml
+   ```
+2. **Stow it** — creates the `~/.config/<pkg>` symlink:
+   ```bash
+   omadot put <pkg>
+   ```
+3. **Add a label** to `get_app_label()` in `install.sh` for the picker display
+4. **Update the stow packages list** in `AGENTS.md` (both the inline list and the "Currently managed packages" table)
+5. **Commit:**
+   ```bash
+   git add ~/.dotfiles/<pkg>/ install.sh AGENTS.md
+   git commit
+   ```
+
+**To import an existing `~/.config/<pkg>/` into the dotfiles repo** (only if it already exists and isn't stowed):
+
+1. `omadot get <pkg>` — captures from `~/.config/` into `~/.dotfiles/<pkg>/`
+2. Follow steps 3–5 above
+
+**Do NOT:**
+- Write files directly to `~/.config/<pkg>/` — they won't be tracked by git
+- Use `omadot get` for a brand-new config that doesn't exist in `~/.config/` yet
+- Use `omadot put --all`
 
 ### Modifying install.sh
 
@@ -518,6 +544,47 @@ Before committing:
 - **Idempotent** - all install modules must be safe to re-run
 - **Privacy** - never commit secrets, tokens, credentials
 - **fzf integration** - many kubectl/git functions support interactive mode
+
+## CRITICAL: How App Configs Are Managed
+
+**ALL `~/.config/<tool>/` configs are managed via omadot (GNU Stow). Never create or edit files directly in `~/.config/`.**
+
+When a user asks you to add, create, or update a config for any tool:
+
+1. **Create the file in the dotfiles repo** at `~/.dotfiles/<tool>/.config/<tool>/<file>`
+2. **Stow it** with `omadot put <tool>` to create the symlink `~/.config/<tool>` → `~/.dotfiles/<tool>/.config/<tool>/`
+3. **Add a label** to `get_app_label()` in `install.sh` if it's a new package
+4. **Update the stow packages list** in this file (`AGENTS.md`)
+5. **Commit** the new/updated files under `~/.dotfiles/<tool>/`
+
+The structure is always:
+```
+~/.dotfiles/<tool>/.config/<tool>/   ← files live here (tracked by git)
+~/.config/<tool>                     ← symlink created by omadot put
+```
+
+**Do NOT:**
+- Write files directly to `~/.config/<tool>/` — they won't be tracked
+- Use `omadot get` for new configs — that captures from `~/.config/` into dotfiles; only use it if the config already exists there and you want to import it
+- Use `omadot put --all` — it will try to stow non-package directories
+
+**Currently managed packages:**
+| Package | Config path in dotfiles |
+|---------|------------------------|
+| `btop` | `btop/.config/btop/` |
+| `fastfetch` | `fastfetch/.config/fastfetch/` |
+| `ghostty` | `ghostty/.config/ghostty/` |
+| `hypr` | `hypr/.config/hypr/` |
+| `k9s` | `k9s/.config/k9s/` |
+| `kitty` | `kitty/.config/kitty/` |
+| `lazygit` | `lazygit/.config/lazygit/` |
+| `mako` | `mako/.config/mako/` |
+| `nvim` | `nvim/.config/nvim/` |
+| `omarchy` | `omarchy/.config/omarchy/` |
+| `opencode` | `opencode/.config/opencode/` |
+| `walker` | `walker/.config/walker/` |
+| `waybar` | `waybar/.config/waybar/` |
+| `worktrunk` | `worktrunk/.config/worktrunk/` |
 
 ---
 
