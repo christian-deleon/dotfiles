@@ -13,7 +13,7 @@ alias diff='diff --color=auto'
 alias mkdir='mkdir -pv'
 
 # Neovim
-alias v='vim'
+alias v='nvim'
 alias nv='nvim'
 
 # Dropbox
