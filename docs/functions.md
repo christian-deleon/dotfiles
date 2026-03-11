@@ -213,45 +213,12 @@ gi "go, docker"       # Go + Docker + defaults
 
 ### `gcbare <repo-url>`
 
-Clone a git repository as bare repo for worktree workflows. Configures remote fetch and updates refs.
+Clone a git repository as a bare repo for worktree workflows. Configures remote fetch, updates refs, and drops into the bare directory ready for `wt add`.
 
 ```bash
 gcbare git@github.com:user/repo.git
-# Creates repo.git/ directory
-```
-
-### `gaw <branch-name> [base-branch] [-g|--group <group>]`
-
-Create a git worktree from bare repo. Creates new branch and worktree directory. Default base branch is main.
-
-```bash
-gaw feature-123           # Create from main
-gaw bugfix-456 develop    # Create from develop
-gaw agent-042 -g myagent  # Create in group directory
-```
-
-### `grw`
-
-Remove current git worktree and its branch. Requires confirmation via gum. Must be run from within a worktree. Checks for uncommitted changes and unpushed commits before deletion.
-
-```bash
-grw
-```
-
-### `gsync`
-
-Sync bare repo: fetch latest, prune dead remote tracking branches, delete orphaned local branches that have no worktree.
-
-```bash
-gsync
-```
-
-### `gsyncall`
-
-Sync all bare repos in the current directory.
-
-```bash
-gsyncall
+# Creates repo.git/, cds into it
+# Then: wt add <branch-name>
 ```
 
 ---

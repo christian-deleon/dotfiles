@@ -471,7 +471,7 @@ function gi() {
 }
 
 
-# Git Clone Bare for worktrees (optimized for AI agents)
+# Git Clone Bare — sets up a bare repo for use with worktrunk (wt)
 function gcbare() {
     if [[ -z "$1" ]]; then
         echo "Usage: gcbare <repo-url>"
@@ -485,206 +485,16 @@ function gcbare() {
 
     # Clone as bare repository
     git clone --bare "$repo_url" "$bare_dir" || return 1
-    
+
     # Configure remote to fetch all branches (bare repos need this)
     git -C "$bare_dir" config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
-    
+
     # Fetch all branches to have latest refs
     git -C "$bare_dir" fetch origin
 
     echo "Bare repo ready at: $bare_dir"
-    echo "Create worktrees with: cd $bare_dir && gaw <branch-name> [base-branch]"
-}
-
-
-# Create worktree from bare repo
-function gaw() {
-    local branch=""
-    local base_branch="main"
-    local group=""
-
-    # Parse arguments
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            -g|--group)
-                group="$2"
-                shift 2
-                ;;
-            *)
-                if [[ -z "$branch" ]]; then
-                    branch="$1"
-                else
-                    base_branch="$1"
-                fi
-                shift
-                ;;
-        esac
-    done
-
-    if [[ -z "$branch" ]]; then
-        echo "Usage: gaw <branch-name> [base-branch] [-g|--group <group>]"
-        echo "   ex: gaw agent-042"
-        echo "   ex: gaw agent-042 develop"
-        echo "   ex: gaw agent-042 -g myagent"
-        echo "   ex: gaw agent-042 -g myagent develop"
-        return 1
-    fi
-
-    if ! git rev-parse --is-bare-repository 2>/dev/null | grep -q true; then
-        echo "Not in a bare repository"
-        return 1
-    fi
-
-    # Sync first to ensure we have latest remote state
-    gsync || return 1
-
-    local repo_name="$(basename "$PWD" .git)"
-    local worktree_dir="../worktrees"
-    local worktree_path
-
-    if [[ -n "$group" ]]; then
-        worktree_path="${worktree_dir}/${group}/${repo_name}-${branch}"
-    else
-        worktree_path="${worktree_dir}/${repo_name}-${branch}"
-    fi
-
-    mkdir -p "$(dirname "$worktree_path")"
-
-    echo "Creating worktree: $worktree_path @ $branch (from origin/$base_branch)"
-    git worktree add -b "$branch" "$worktree_path" "origin/$base_branch" || return 1
-    cd "$worktree_path" || return 1
-}
-
-
-# Remove current worktree + branch (only works from inside worktree)
-function grw() {
-    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-        echo "Not inside a git worktree!"
-        return 1
-    fi
-
-    local cwd="$(pwd)"
-    local current_branch="$(git rev-parse --abbrev-ref HEAD)"
-
-    # git-common-dir points to the main repo's git directory
-    local main_repo_git="$(git rev-parse --git-common-dir)"
-
-    # Verify this is actually a worktree (not the main working tree)
-    local worktree_git_dir="$(git rev-parse --git-dir)"
-    if [[ "$worktree_git_dir" == "$main_repo_git" ]]; then
-        echo "Error: This appears to be the main repository, not a worktree"
-        return 1
-    fi
-
-    # Check for work that remote doesn't have
-    local has_risks=false
-
-    # Check for uncommitted changes (staged, unstaged, and untracked)
-    if [[ -n "$(git status --porcelain)" ]]; then
-        has_risks=true
-        echo "Warning: Worktree has uncommitted changes:"
-        git status --short
-        echo ""
-    fi
-
-    # Check for commits not reachable from any remote branch
-    local unique_commits
-    unique_commits=$(git rev-list --count HEAD --not --remotes 2>/dev/null || echo "0")
-    if [[ "$unique_commits" -gt 0 ]]; then
-        has_risks=true
-        echo "Warning: Branch '$current_branch' has $unique_commits commit(s) not on any remote:"
-        git log --oneline HEAD --not --remotes
-        echo ""
-    fi
-
-    # Confirmation prompt with appropriate warning level
-    local confirm_msg="Delete worktree and branch '$current_branch'?"
-    if $has_risks; then
-        confirm_msg="POTENTIAL DATA LOSS: $confirm_msg"
-    fi
-
-    if ! gum confirm --default=false "$confirm_msg"; then
-        echo "Cancelled."
-        return 0
-    fi
-
-    # Verify the main repo directory exists
-    if [[ ! -d "$main_repo_git" ]]; then
-        echo "Error: Cannot find main repository at: $main_repo_git"
-        return 1
-    fi
-
-    # Change to parent directory (not into the worktree we're removing)
-    cd "$(dirname "$cwd")" || return 1
-
-    # Remove the worktree using -C to run git commands in the main repo
-    if ! git -C "$main_repo_git" worktree remove "$cwd" --force; then
-        echo "Error: Failed to remove worktree"
-        return 1
-    fi
-
-    # Delete the branch
-    if ! git -C "$main_repo_git" branch -D "$current_branch" 2>/dev/null; then
-        echo "Note: Branch '$current_branch' may have already been deleted or is checked out elsewhere"
-    fi
-
-    echo "Worktree and branch '$current_branch' removed"
-}
-
-# Sync all bare repos in current directory
-function gsyncall() {
-    local count=0
-
-    for dir in *.git; do
-        if [[ -d "$dir" ]] && git -C "$dir" rev-parse --is-bare-repository 2>/dev/null | grep -q true; then
-            echo "=== Syncing: $dir ==="
-            (cd "$dir" && gsync)
-            ((count++))
-            echo ""
-        fi
-    done
-
-    if [[ $count -eq 0 ]]; then
-        echo "No bare repos found in current directory"
-    else
-        echo "Synced $count bare repo(s)"
-    fi
-}
-
-# Sync bare repo: fetch, prune, delete orphaned local branches
-function gsync() {
-    if ! git rev-parse --is-bare-repository 2>/dev/null | grep -q true; then
-        echo "Not in a bare repository"
-        return 1
-    fi
-
-    # Fetch latest and prune dead remote tracking branches
-    git fetch --prune origin
-
-    # Clean up worktree metadata for manually deleted worktrees
-    git worktree prune
-
-    # Get branches with active worktrees
-    local worktree_branches=$(git worktree list --porcelain | grep '^branch' | sed 's|branch refs/heads/||')
-
-    # Delete local branches that don't exist on remote and have no worktree
-    local deleted=0
-    local b
-    for b in $(git for-each-ref --format='%(refname:short)' refs/heads/); do
-        # Skip if branch exists on remote
-        if git show-ref --verify --quiet "refs/remotes/origin/$b"; then
-            continue
-        fi
-        # Skip if branch has active worktree
-        if echo "$worktree_branches" | grep -qx "$b"; then
-            continue
-        fi
-        echo "Deleting orphaned branch: $b"
-        git branch -D "$b"
-        ((deleted++))
-    done
-
-    echo "Synced (deleted $deleted orphaned branch(es))"
+    echo "Create worktrees with: cd $bare_dir && wt add <branch-name>"
+    cd "$bare_dir" || return 1
 }
 
 
