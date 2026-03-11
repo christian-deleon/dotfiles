@@ -128,3 +128,10 @@ poetry:
   apt: null
   brew: poetry
   script: tools/install-poetry.sh
+
+worktrunk:
+  description: Git worktree manager for parallel AI agent workflows
+  arch: null
+  apt: null
+  brew: null
+  script: tools/install-worktrunk.sh
