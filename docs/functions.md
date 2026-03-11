@@ -213,11 +213,11 @@ gi "go, docker"       # Go + Docker + defaults
 
 ### `gcb <repo-url>`
 
-Clone a git repository as a bare repo for worktree workflows. Configures remote fetch, updates refs, and cds into the bare directory.
+Clone a git repository as a bare repo for worktree workflows. Clones into `<repo>/.git`, configures remote fetch, and cds into the repo directory.
 
 ```bash
 gcb git@github.com:user/repo.git
-# Creates repo.git/, cds into it
+# Creates repo/.git, cds into repo/
 ```
 
 ---
