@@ -2,7 +2,13 @@
 # Shared library for dotfiles package management
 # Source this file from install.sh or dot.sh
 
-DOTFILES_DIR="${DOTFILES_DIR:-$HOME/dotfiles}"
+if [[ -z "${DOTFILES_DIR}" ]]; then
+    if [[ -d "$HOME/.dotfiles" ]]; then
+        DOTFILES_DIR="$HOME/.dotfiles"
+    else
+        DOTFILES_DIR="$HOME/dotfiles"
+    fi
+fi
 PACKAGES_FILE="$DOTFILES_DIR/packages.yaml"
 
 # ─── Color helpers ────────────────────────────────────────────────────────────
@@ -104,6 +110,7 @@ install_tool() {
         github-cli|gh) cmd_name="gh" ;;
         ripgrep) cmd_name="rg" ;;
         fd) cmd_name="fd" ;;
+        worktrunk) cmd_name="wt" ;;
     esac
 
     if command -v "$cmd_name" &>/dev/null; then
