@@ -242,7 +242,7 @@ fi
 
 - Descriptive names: `update_system()`, `install_tool()`
 - Kubernetes prefix: `k*` (`kcs`, `kn`, `kl`, `ke`, `kdp`)
-- Git prefix: `g*` (`gc`, `gaw`, `grw`, `gcbare`)
+- Git prefix: `g*` (`gc`, `gcbare`)
 - Many support fzf when called without arguments
 
 **Aliases:**
