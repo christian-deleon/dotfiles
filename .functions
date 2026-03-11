@@ -471,11 +471,11 @@ function gi() {
 }
 
 
-# Git Clone Bare — sets up a bare repo for use with worktrunk (wt)
-function gcbare() {
+# Git Clone Bare — clone a repo as a bare repo for worktree workflows
+function gcb() {
     if [[ -z "$1" ]]; then
-        echo "Usage: gcbare <repo-url>"
-        echo "   ex: gcbare git@github.com:user/repo.git"
+        echo "Usage: gcb <repo-url>"
+        echo "   ex: gcb git@github.com:user/repo.git"
         return 1
     fi
 
@@ -492,8 +492,7 @@ function gcbare() {
     # Fetch all branches to have latest refs
     git -C "$bare_dir" fetch origin
 
-    echo "Bare repo ready at: $bare_dir"
-    echo "Create worktrees with: cd $bare_dir && wt add <branch-name>"
+    echo "Bare repo cloned to: $bare_dir"
     cd "$bare_dir" || return 1
 }
 
