@@ -481,19 +481,18 @@ function gcb() {
 
     local repo_url="$1"
     local repo_name="$(basename "$repo_url" .git)"
-    local bare_dir="${repo_name}.git"
 
-    # Clone as bare repository
-    git clone --bare "$repo_url" "$bare_dir" || return 1
+    # Clone bare into <repo>/.git (worktrunk convention)
+    git clone --bare "$repo_url" "${repo_name}/.git" || return 1
 
     # Configure remote to fetch all branches (bare repos need this)
-    git -C "$bare_dir" config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+    git -C "${repo_name}/.git" config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
 
     # Fetch all branches to have latest refs
-    git -C "$bare_dir" fetch origin
+    git -C "${repo_name}/.git" fetch origin
 
-    echo "Bare repo cloned to: $bare_dir"
-    cd "$bare_dir" || return 1
+    echo "Bare repo cloned to: ${repo_name}/"
+    cd "$repo_name" || return 1
 }
 
 
