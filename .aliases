@@ -86,3 +86,11 @@ alias cld='claude --dangerously-skip-permissions'
 
 # OpenCode
 alias oc='opencode'
+
+# Worktrunk
+alias wtl='wt list'
+alias wtlf='wt list --full'
+alias wts='wt switch'
+alias wtsc='wt switch --create'
+alias wtm='wt merge'
+alias wtr='wt remove'
