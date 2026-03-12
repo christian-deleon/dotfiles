@@ -33,18 +33,7 @@ function clocg() {
 # Kubernetes
 #################
 
-function filter_kubectl_output() {
-    local PATTERN=$1
-    local COMMAND=$2
-
-    if [ ! -z "$PATTERN" ]; then
-        eval $COMMAND | grep -i "$PATTERN"
-    else
-        eval $COMMAND
-    fi
-}
-
-# Set the current kubeconfig (uses fzf if no argument provided)
+# Set kubeconfig (fzf if no argument)
 function kcs() {
     local config="$1"
     
@@ -81,15 +70,18 @@ function kcu() {
     unset KUBECONFIG
 }
 
-# Get all pods in all namespaces except kube-system, flux-system and metallb-system
+# Get all pods excluding system namespaces
 function kpa() {
-    local PATTERN=$1
-    local COMMAND="kubectl get pods --all-namespaces --field-selector 'metadata.namespace!=kube-system,metadata.namespace!=flux-system,metadata.namespace!=metallb-system'"
-
-    filter_kubectl_output "$PATTERN" "$COMMAND"
+    local pattern="$1"
+    local cmd="kubectl get pods --all-namespaces --field-selector 'metadata.namespace!=kube-system,metadata.namespace!=flux-system,metadata.namespace!=metallb-system'"
+    if [[ -n "$pattern" ]]; then
+        eval "$cmd" | grep -i "$pattern"
+    else
+        eval "$cmd"
+    fi
 }
 
-# Get cumulative CPU and Memory usage of all pods in a namespace (uses fzf if no argument provided)
+# Cumulative CPU/Memory for a namespace (fzf if no argument)
 function ktns() {
     local namespace="$1"
     local awk_script='{cpu+=$2; memory+=$3} END {print "CPU(m):", cpu, " - ", "Memory(Mi):", memory}'
@@ -121,7 +113,7 @@ function ktnsa() {
     done
 }
 
-# Set namespace for current context (uses fzf if no argument provided)
+# Set namespace for current context (fzf if no argument)
 function kn() {
     local namespace="$1"
     
@@ -161,7 +153,7 @@ function kc() {
     kubectl config use-context "$context"
 }
 
-# Get logs from a pod (uses fzf to select pod and container if needed)
+# Stream pod logs (fzf to select pod and container)
 function kl() {
     local namespace="${1}"
     local pod_name
@@ -204,7 +196,7 @@ function kl() {
     fi
 }
 
-# Execute command in a pod (uses fzf to select pod and container if needed)
+# Exec into a pod (fzf to select pod and container)
 function ke() {
     local namespace="${1}"
     local pod_name
@@ -387,7 +379,7 @@ function gs() {
     git status -s
 }
 
-# gitignore.io command line function
+# Generate .gitignore via gitignore.io (vim, macOS, vscode)
 function gi() {
     local gitignore_file
     local content
@@ -471,7 +463,7 @@ function gi() {
 }
 
 
-# Git Clone Bare — clone a repo as a bare repo for worktree workflows
+# Clone a repo as a bare repo for worktree workflows
 function gcb() {
     if [[ -z "$1" ]]; then
         echo "Usage: gcb <repo-url>"
@@ -520,9 +512,7 @@ function opl() {
 # Tmux
 #################
 
-# Interactive tmux session switcher with fzf preview
-# Shows a live snapshot of each session's active pane as you navigate
-# Usage: ts
+# Switch tmux session with fzf (live pane preview)
 function ts() {
     if ! command -v tmux &>/dev/null; then
         echo "Error: tmux is not installed"
@@ -562,8 +552,7 @@ function ts() {
 # Worktrunk
 #################
 
-# Interactive worktree switcher (uses fzf if no argument provided)
-# Usage: wf [branch]
+# Switch to a worktree (fzf if no argument)
 function wf() {
     local branch="$1"
 
@@ -584,8 +573,7 @@ function wf() {
     wt switch "$branch"
 }
 
-# Interactive worktree remover with fzf multi-select
-# Usage: wrf
+# Remove worktrees with fzf multi-select
 function wrf() {
     if ! command -v fzf &>/dev/null; then
         echo "Error: fzf required for interactive selection"
@@ -608,9 +596,7 @@ function wrf() {
     done <<< "$branches"
 }
 
-# Attach to a worktree's tmux session (created automatically by wt post-create hook)
-# Creates the session on-the-fly for worktrees that predate the hook
-# Usage: wts [branch] [cmd...]
+# Attach to a worktree's tmux session (creates it if missing)
 function wts() {
     local branch="$1"
 
@@ -656,12 +642,7 @@ function wts() {
     fi
 }
 
-# Attach to a worktree's tmux session and launch Claude Code
-# Creates the worktree if it doesn't exist (hook auto-creates tmux session)
-# Usage: wcl <branch> [prompt...]
-# Examples:
-#   wcl feature/auth                           # launch claude in worktree
-#   wcl feature/auth "fix the login bug"       # launch claude with a starting prompt
+# Open a worktree in tmux and launch Claude Code
 function wcl() {
     local branch="$1"
 
@@ -683,12 +664,7 @@ function wcl() {
     fi
 }
 
-# Attach to a worktree's tmux session and launch OpenCode
-# Creates the worktree if it doesn't exist (hook auto-creates tmux session)
-# Usage: woc <branch> [prompt...]
-# Examples:
-#   woc feature/api                                # launch opencode in worktree
-#   woc feature/api "add pagination to endpoint"   # launch opencode with a starting prompt
+# Open a worktree in tmux and launch OpenCode
 function woc() {
     local branch="$1"
 
@@ -710,102 +686,7 @@ function woc() {
     fi
 }
 
-#################
-# Dotfiles
-#################
-
-# Interactive explorer for all shell functions and aliases (uses fzf)
-# Usage: dothelp [initial-query]
-function dothelp() {
-    if ! command -v fzf &>/dev/null; then
-        echo "Error: fzf required for interactive search"
-        return 1
-    fi
-
-    local df="$HOME/.dotfiles"
-    local -a entries=()
-    local category="General"
-    local comment=""
-    local next_is_cat=false
-    local comment_set=false
-
-    # Parse .functions: detect #####\n# Category\n##### section headers.
-    # Only the FIRST comment in a consecutive block is used as the description.
-    while IFS= read -r line; do
-        if [[ "$line" =~ ^#{5,}$ ]]; then
-            if [[ "$next_is_cat" == true ]]; then
-                next_is_cat=false
-            else
-                next_is_cat=true
-            fi
-            comment=""
-            comment_set=false
-        elif [[ "$next_is_cat" == true && "$line" =~ ^#[[:space:]]*(.+) ]]; then
-            category="${BASH_REMATCH[1]}"
-        elif [[ "$line" =~ ^#[[:space:]]*(.+) ]]; then
-            if [[ "$comment_set" == false ]]; then
-                comment="${BASH_REMATCH[1]}"
-                comment_set=true
-            fi
-            next_is_cat=false
-        elif [[ "$line" =~ ^function[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)\(\) ]]; then
-            entries+=("$(printf 'func  %-16s %-14s %s' "${BASH_REMATCH[1]}" "$category" "${comment:-}")")
-            comment=""
-            comment_set=false
-            next_is_cat=false
-        elif [[ -z "$line" ]]; then
-            comment=""
-            comment_set=false
-            next_is_cat=false
-        fi
-    done < "$df/.functions"
-
-    # Parse .aliases: first comment in a consecutive block sets the category
-    local alias_cat="General"
-    local new_cat_block=true
-    while IFS= read -r line; do
-        if [[ "$line" =~ ^#[[:space:]]*(.+) ]]; then
-            if [[ "$new_cat_block" == true ]]; then
-                alias_cat="${BASH_REMATCH[1]}"
-                new_cat_block=false
-            fi
-        elif [[ "$line" =~ ^alias[[:space:]]+([^=]+)=(.+)$ ]]; then
-            entries+=("$(printf 'alias %-16s %-14s %s' "${BASH_REMATCH[1]}" "$alias_cat" "${BASH_REMATCH[2]}")")
-            new_cat_block=false
-        elif [[ -z "$line" ]]; then
-            new_cat_block=true
-        fi
-    done < "$df/.aliases"
-
-    local preview
-    preview="
-        name=\$(echo {} | awk '{print \$2}')
-        type=\$(echo {} | awk '{print \$1}')
-        if [[ \"\$type\" == \"alias\" ]]; then
-            grep -m1 \"^alias \${name}=\" \"$df/.aliases\"
-        else
-            awk \"/^function[[:space:]]+\${name}[(]/,/^}\$/{print}\" \"$df/.functions\"
-        fi
-    "
-
-    local selected
-    selected=$(printf '%s\n' "${entries[@]}" | \
-        fzf \
-            --query="${1:-}" \
-            --prompt=" dotfiles > " \
-            --height=80% \
-            --reverse \
-            --header=" Shell shortcuts | ENTER: print name | Ctrl-H: toggle preview" \
-            --preview="$preview" \
-            --preview-window=right:55%:wrap \
-            --bind='ctrl-h:toggle-preview')
-
-    [[ -n "$selected" ]] && echo "$selected" | awk '{print $2}'
-}
-
-
-# Interactive cleanup of worktrees with fzf multi-select
-# Usage: wclean
+# Remove worktrees with fzf multi-select (dirty/clean status)
 function wclean() {
     if ! command -v fzf &>/dev/null; then
         echo "Error: fzf required for interactive selection"

@@ -439,9 +439,10 @@ When creating symlinks inside a stowed directory (e.g., `~/.config/opencode/comm
 1. Add to `.functions` with comment above
 2. Group by category (General, Kubernetes, Git, etc.)
 3. Consider fzf integration for interactive selection
-4. Update `docs/functions.md` with examples
-5. `dot` CLI auto-parses documented functions
-6. Update README.md for major utilities
+4. Run `bash tools/check-descriptions.sh` — description must be single-line, ≤60 chars
+5. Update `docs/functions.md` with examples
+6. `dot` CLI auto-parses documented functions
+7. Update README.md for major utilities
 
 ### Adding a New Tool to packages.yaml
 
@@ -522,6 +523,7 @@ Before committing:
 
 - [ ] `bash -n <script>` - shell syntax check
 - [ ] `for f in tools/*.sh; do bash -n "$f"; done` - check all install scripts
+- [ ] `bash tools/check-descriptions.sh` - validate function/alias descriptions
 - [ ] `source .functions && <function-name>` - test functions work
 - [ ] Aliases work in new shell session
 - [ ] Documentation updated (`README.md`, `docs/functions.md`, `docs/aliases.md`)

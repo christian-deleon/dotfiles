@@ -281,32 +281,113 @@ theme_list() {
 }
 
 
-parse_functions() {
-    local FUNCTIONS_PATH="${DOTFILES_DIR}/.functions"
-    local comments=()
-    local func_name=""
+dothelp() {
+    if ! command -v fzf &>/dev/null; then
+        echo "Error: fzf required for interactive search"
+        return 1
+    fi
 
+    local df="$DOTFILES_DIR"
+    local -a entries=()
+    local category="General"
+    local comment=""
+    local next_is_cat=false
+    local comment_set=false
+
+    # Parse .functions: detect #####\n# Category\n##### section headers.
+    # Only the FIRST comment in a consecutive block is used as the description.
     while IFS= read -r line; do
-        if [[ "$line" =~ ^function\ (.+)\(\) ]]; then
-            if [[ ${#comments[@]} -eq 0 ]]; then
-                continue
+        if [[ "$line" =~ ^#{5,}$ ]]; then
+            if [[ "$next_is_cat" == true ]]; then
+                next_is_cat=false
+            else
+                next_is_cat=true
             fi
-            func_name="${BASH_REMATCH[1]}"
-            printf "  %-6s - %s\n" "$func_name" "${comments[*]}"
-            comments=()
-        elif [[ "$line" =~ ^#(.*) ]]; then
-            comments+=("${BASH_REMATCH[1]}")
-        else
-            comments=()
+            comment=""
+            comment_set=false
+        elif [[ "$next_is_cat" == true && "$line" =~ ^#[[:space:]]*(.+) ]]; then
+            category="${BASH_REMATCH[1]}"
+        elif [[ "$line" =~ ^#[[:space:]]*(.+) ]]; then
+            if [[ "$comment_set" == false ]]; then
+                comment="${BASH_REMATCH[1]}"
+                comment_set=true
+            fi
+            next_is_cat=false
+        elif [[ "$line" =~ ^function[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)\(\) ]]; then
+            entries+=("$(printf 'func  %-16s %-14s %s' "${BASH_REMATCH[1]}" "$category" "${comment:-}")")
+            comment=""
+            comment_set=false
+            next_is_cat=false
+        elif [[ -z "$line" ]]; then
+            comment=""
+            comment_set=false
+            next_is_cat=false
         fi
-    done < "$FUNCTIONS_PATH"
+    done < "$df/.functions"
+
+    # Parse .aliases: first comment in a consecutive block sets the category
+    local alias_cat="General"
+    local new_cat_block=true
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^#[[:space:]]*(.+) ]]; then
+            if [[ "$new_cat_block" == true ]]; then
+                alias_cat="${BASH_REMATCH[1]}"
+                new_cat_block=false
+            fi
+        elif [[ "$line" =~ ^alias[[:space:]]+([^=]+)=(.+)$ ]]; then
+            entries+=("$(printf 'alias %-16s %-14s %s' "${BASH_REMATCH[1]}" "$alias_cat" "${BASH_REMATCH[2]}")")
+            new_cat_block=false
+        elif [[ -z "$line" ]]; then
+            new_cat_block=true
+        fi
+    done < "$df/.aliases"
+
+    local preview
+    preview="
+        name=\$(echo {} | awk '{print \$2}')
+        type=\$(echo {} | awk '{print \$1}')
+        if [[ \"\$type\" == \"alias\" ]]; then
+            grep -m1 \"^alias \${name}=\" \"$df/.aliases\"
+        else
+            awk \"/^function[[:space:]]+\${name}[(]/,/^}\$/{print}\" \"$df/.functions\"
+        fi
+    "
+
+    local selected
+    selected=$(printf '%s\n' "${entries[@]}" | \
+        fzf \
+            --query="${1:-}" \
+            --prompt=" dotfiles > " \
+            --height=80% \
+            --reverse \
+            --header=" Shell shortcuts | ENTER: copy to clipboard | Ctrl-H: toggle preview" \
+            --preview="$preview" \
+            --preview-window=right:55%:wrap \
+            --bind='ctrl-h:toggle-preview')
+
+    if [[ -n "$selected" ]]; then
+        local name
+        name=$(echo "$selected" | awk '{print $2}')
+
+        if command -v pbcopy &>/dev/null; then
+            echo "$name" | pbcopy
+        elif command -v wl-copy &>/dev/null; then
+            echo "$name" | wl-copy
+        elif command -v xclip &>/dev/null; then
+            echo "$name" | xclip -selection clipboard
+        else
+            echo "$name"
+            return 0
+        fi
+
+        echo "Copied to clipboard: $name"
+    fi
 }
 
 
 # Main logic to handle arguments
 case "$1" in
     help)
-        source "$DOTFILES_DIR/.functions"
         dothelp "${2:-}"
         ;;
     edit)
