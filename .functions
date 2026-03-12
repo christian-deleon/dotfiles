@@ -662,6 +662,100 @@ function woc() {
     fi
 }
 
+#################
+# Dotfiles
+#################
+
+# Interactive explorer for all shell functions and aliases (uses fzf)
+# Usage: dothelp [initial-query]
+function dothelp() {
+    if ! command -v fzf &>/dev/null; then
+        echo "Error: fzf required for interactive search"
+        return 1
+    fi
+
+    local df="$HOME/.dotfiles"
+    local -a entries=()
+    local category="General"
+    local comment=""
+    local next_is_cat=false
+    local comment_set=false
+
+    # Parse .functions: detect #####\n# Category\n##### section headers.
+    # Only the FIRST comment in a consecutive block is used as the description.
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^#{5,}$ ]]; then
+            if [[ "$next_is_cat" == true ]]; then
+                next_is_cat=false
+            else
+                next_is_cat=true
+            fi
+            comment=""
+            comment_set=false
+        elif [[ "$next_is_cat" == true && "$line" =~ ^#[[:space:]]*(.+) ]]; then
+            category="${BASH_REMATCH[1]}"
+        elif [[ "$line" =~ ^#[[:space:]]*(.+) ]]; then
+            if [[ "$comment_set" == false ]]; then
+                comment="${BASH_REMATCH[1]}"
+                comment_set=true
+            fi
+            next_is_cat=false
+        elif [[ "$line" =~ ^function[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)\(\) ]]; then
+            entries+=("$(printf 'func  %-16s %-14s %s' "${BASH_REMATCH[1]}" "$category" "${comment:-}")")
+            comment=""
+            comment_set=false
+            next_is_cat=false
+        elif [[ -z "$line" ]]; then
+            comment=""
+            comment_set=false
+            next_is_cat=false
+        fi
+    done < "$df/.functions"
+
+    # Parse .aliases: first comment in a consecutive block sets the category
+    local alias_cat="General"
+    local new_cat_block=true
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^#[[:space:]]*(.+) ]]; then
+            if [[ "$new_cat_block" == true ]]; then
+                alias_cat="${BASH_REMATCH[1]}"
+                new_cat_block=false
+            fi
+        elif [[ "$line" =~ ^alias[[:space:]]+([^=]+)=(.+)$ ]]; then
+            entries+=("$(printf 'alias %-16s %-14s %s' "${BASH_REMATCH[1]}" "$alias_cat" "${BASH_REMATCH[2]}")")
+            new_cat_block=false
+        elif [[ -z "$line" ]]; then
+            new_cat_block=true
+        fi
+    done < "$df/.aliases"
+
+    local preview
+    preview="
+        name=\$(echo {} | awk '{print \$2}')
+        type=\$(echo {} | awk '{print \$1}')
+        if [[ \"\$type\" == \"alias\" ]]; then
+            grep -m1 \"^alias \${name}=\" \"$df/.aliases\"
+        else
+            awk \"/^function[[:space:]]+\${name}[(]/,/^}\$/{print}\" \"$df/.functions\"
+        fi
+    "
+
+    local selected
+    selected=$(printf '%s\n' "${entries[@]}" | \
+        fzf \
+            --query="${1:-}" \
+            --prompt=" dotfiles > " \
+            --height=80% \
+            --reverse \
+            --header=" Shell shortcuts | ENTER: print name | Ctrl-H: toggle preview" \
+            --preview="$preview" \
+            --preview-window=right:55%:wrap \
+            --bind='ctrl-h:toggle-preview')
+
+    [[ -n "$selected" ]] && echo "$selected" | awk '{print $2}'
+}
+
+
 # Interactive cleanup of worktrees with fzf multi-select
 # Usage: wclean
 function wclean() {

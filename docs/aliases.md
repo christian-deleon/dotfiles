@@ -207,6 +207,12 @@ These are tmux keybindings (not shell aliases) defined in `.tmux.conf`:
 
 ---
 
+## Dotfiles
+
+- `dh` — Interactive fzf explorer for all functions and aliases (`dothelp`) — see [functions.md](functions.md#dotfiles)
+
+---
+
 ## Notes
 
 - Many Kubernetes operations have interactive fzf-enabled functions available — see [functions.md](functions.md)
