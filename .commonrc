@@ -39,6 +39,13 @@ if [[ -n "$BASH_VERSION" ]]; then
     if command -v just &>/dev/null && [[ -f "$HOME/.just_completion_bash" ]]; then
         source "$HOME/.just_completion_bash"
     fi
+    _dot_completions() {
+        local cur="${COMP_WORDS[COMP_CWORD]}"
+        local subcommands
+        subcommands=$(grep -oP '^\s+\K[a-z][a-z0-9-]+(?=\))' "$HOME/.dotfiles/dot.sh")
+        COMPREPLY=($(compgen -W "$subcommands" -- "$cur"))
+    }
+    complete -F _dot_completions dot
 elif [[ -n "$ZSH_VERSION" ]]; then
     if command -v kubectl &>/dev/null; then
         source <(kubectl completion zsh)
@@ -49,4 +56,10 @@ elif [[ -n "$ZSH_VERSION" ]]; then
     if [[ -d "$HOME/.docker/completions" ]]; then
         fpath=("$HOME/.docker/completions" $fpath)
     fi
+    _dot_completions() {
+        local subcommands
+        subcommands=(${(f)"$(grep -oP '^\s+\K[a-z][a-z0-9-]+(?=\))' "$HOME/.dotfiles/dot.sh")"})
+        _describe 'subcommand' subcommands
+    }
+    compdef _dot_completions dot
 fi
