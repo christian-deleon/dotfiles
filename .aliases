@@ -1,14 +1,14 @@
-# Aliases for 'ls' command variations
+# ls
 alias la='ls -lAh'
 alias ll='ls -lah'
 
-# Aliases for directory navigation
+# Navigation
 alias up='cd ..'
 alias up2='cd ../..'
 alias up3='cd ../../..'
 alias up4='cd ../../../..'
 
-# Aliases for frequent commands
+# General
 alias diff='diff --color=auto'
 alias mkdir='mkdir -pv'
 
@@ -19,8 +19,7 @@ alias nv='nvim'
 # Dropbox
 alias db='dropbox-cli'
 
-# Kubernetes shortcuts
-# Note: kc, kn, ke, kl, kdp, kdd, kdelp, ks are functions in .functions with fzf support
+# Kubernetes
 alias k='kubectl'
 alias kapi='kubectl api-resources'
 alias kcg='kubectl config get-contexts'
@@ -44,7 +43,7 @@ alias kssa='kubectl get statefulsets --all-namespaces'
 alias ksv='kubectl get services'
 alias ksva='kubectl get services --all-namespaces'
 
-# Flux CD
+# Flux
 alias fe='flux events'
 alias fea='flux events --all-namespaces'
 alias fgs='flux get sources git'
@@ -86,9 +85,6 @@ alias tls='tmux ls'
 alias tn='tmux new -s'
 alias tk='tmux kill-session -t'
 alias tka='tmux kill-server'
-
-# Dotfiles
-alias dh='dothelp'
 
 # Claude
 alias cl='claude'
