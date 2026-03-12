@@ -267,31 +267,31 @@ Interactive multi-select worktree remover using fzf. Select multiple worktrees w
 wrf              # fzf multi-select, removes selected worktrees and their branches
 ```
 
-### `wts [branch]` \*
+### `wts [branch] [cmd...]` \*
 
-Create or attach to a tmux session scoped to a worktree. Session name matches the branch name. If the worktree doesn't exist yet, creates it first (without changing the current shell directory).
+Attach to a worktree's tmux session. Sessions are created automatically by worktrunk's `post-create` hook; this function creates one on-the-fly for worktrees that predate the hook. Optionally sends a command to the session.
 
 ```bash
 wts              # fzf picker, attach to selected worktree's tmux session
-wts feature/auth # Create/attach session for feature/auth worktree
+wts feature/auth # Attach to feature/auth's tmux session
 ```
 
 ### `wcl <branch> [prompt]`
 
-Create or switch to a worktree and launch Claude Code in a tmux session. Creates the worktree if it doesn't exist.
+Attach to a worktree's tmux session and launch Claude Code. Creates the worktree if it doesn't exist (the `post-create` hook auto-creates the tmux session).
 
 ```bash
-wcl feature/auth                   # Create worktree if needed, launch claude
-wcl feature/auth "fix login bug"   # Create worktree if needed, launch claude with prompt
+wcl feature/auth                   # Launch claude in worktree
+wcl feature/auth "fix login bug"   # Launch claude with a starting prompt
 ```
 
 ### `woc <branch> [prompt]`
 
-Create or switch to a worktree and launch OpenCode in a tmux session. Creates the worktree if it doesn't exist.
+Attach to a worktree's tmux session and launch OpenCode. Creates the worktree if it doesn't exist (the `post-create` hook auto-creates the tmux session).
 
 ```bash
-woc feature/auth                   # Create worktree if needed, launch opencode
-woc feature/auth "fix login bug"   # Create worktree if needed, launch opencode with prompt
+woc feature/auth                   # Launch opencode in worktree
+woc feature/auth "fix login bug"   # Launch opencode with a starting prompt
 ```
 
 ### `wclean` \*

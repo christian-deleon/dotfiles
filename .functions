@@ -566,7 +566,8 @@ function wrf() {
     done <<< "$branches"
 }
 
-# Create or attach tmux session scoped to a worktree
+# Attach to a worktree's tmux session (created automatically by wt post-create hook)
+# Creates the session on-the-fly for worktrees that predate the hook
 # Usage: wts [branch] [cmd...]
 function wts() {
     local branch="$1"
@@ -588,25 +589,22 @@ function wts() {
     local cmd="$*"
     local session="${branch//\//-}"
 
-    # Create worktree if needed (subshell avoids directory change from shell integration)
-    # Try switch first; if branch doesn't exist, create it
-    (wt switch "$branch") 2>/dev/null || (wt switch --create "$branch") 2>/dev/null
-
-    # Get worktree path
-    local wt_path
-    wt_path=$(wt list --format json 2>/dev/null | \
-              jq -r --arg b "$branch" '.[] | select(.branch == $b) | .path')
-
-    if [[ -z "$wt_path" || "$wt_path" == "null" ]]; then
-        echo "Error: worktree not found for $branch"
-        return 1
-    fi
-
-    # Create tmux session if it doesn't exist
+    # Create session if it doesn't exist (for worktrees predating the hook)
     if ! tmux has-session -t="$session" 2>/dev/null; then
+        local wt_path
+        wt_path=$(wt list --format json 2>/dev/null | \
+                  jq -r --arg b "$branch" '.[] | select(.branch == $b) | .path')
+
+        if [[ -z "$wt_path" || "$wt_path" == "null" ]]; then
+            echo "Error: no worktree found for '$branch'"
+            return 1
+        fi
+
         tmux new-session -d -s "$session" -c "$wt_path"
-        [[ -n "$cmd" ]] && tmux send-keys -t "$session" "$cmd" Enter
     fi
+
+    # Run command in the session if provided
+    [[ -n "$cmd" ]] && tmux send-keys -t "$session" "$cmd" Enter
 
     # Attach or switch to session
     if [[ -n "$TMUX" ]]; then
@@ -616,10 +614,11 @@ function wts() {
     fi
 }
 
-# Create/switch to worktree and launch Claude Code in a tmux session
+# Attach to a worktree's tmux session and launch Claude Code
+# Creates the worktree if it doesn't exist (hook auto-creates tmux session)
 # Usage: wcl <branch> [prompt...]
 # Examples:
-#   wcl feature/auth                           # create worktree if needed, launch claude
+#   wcl feature/auth                           # launch claude in worktree
 #   wcl feature/auth "fix the login bug"       # launch claude with a starting prompt
 function wcl() {
     local branch="$1"
@@ -632,6 +631,9 @@ function wcl() {
 
     local prompt="$*"
 
+    # Ensure worktree exists (subshell avoids directory change)
+    (wt switch "$branch") 2>/dev/null || (wt switch --create "$branch") 2>/dev/null
+
     if [[ -n "$prompt" ]]; then
         wts "$branch" "claude \"${prompt}\""
     else
@@ -639,10 +641,11 @@ function wcl() {
     fi
 }
 
-# Create/switch to worktree and launch OpenCode in a tmux session
+# Attach to a worktree's tmux session and launch OpenCode
+# Creates the worktree if it doesn't exist (hook auto-creates tmux session)
 # Usage: woc <branch> [prompt...]
 # Examples:
-#   woc feature/api                                # create worktree if needed, launch opencode
+#   woc feature/api                                # launch opencode in worktree
 #   woc feature/api "add pagination to endpoint"   # launch opencode with a starting prompt
 function woc() {
     local branch="$1"
@@ -654,6 +657,9 @@ function woc() {
     shift
 
     local prompt="$*"
+
+    # Ensure worktree exists (subshell avoids directory change)
+    (wt switch "$branch") 2>/dev/null || (wt switch --create "$branch") 2>/dev/null
 
     if [[ -n "$prompt" ]]; then
         wts "$branch" "opencode --prompt \"${prompt}\""
