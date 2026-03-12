@@ -1,6 +1,5 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "_plugin_todo": "TEMPORARY: remove 'opencode-anthropic-context-1m' once OpenCode sends context-1m-2025-08-07 beta header natively. Track: https://github.com/anomalyco/opencode/issues/13455",
   "theme": "system",
   "autoupdate": false,
   "model": "anthropic/claude-sonnet-4-6",
