@@ -722,13 +722,30 @@ generate_mcp_configs() {
     # --- Claude Code: merge mcpServers into ~/.claude.json ---
     local claude_cfg="$HOME/.claude.json"
 
+    # Only these MCP servers are enabled by default; all others are disabled.
+    # Add server names here to enable them globally across all projects.
+    local enabled_mcp_servers=("context7" "brave-search")
+
+    # Compute disabledMcpServers = all servers in template minus the enabled ones
+    local enabled_json
+    enabled_json="$(printf '%s\n' "${enabled_mcp_servers[@]}" | jq -R . | jq -s .)"
+    local default_disabled_json
+    default_disabled_json="$(jq --argjson enabled "$enabled_json" '[keys[] | select(. as $k | $enabled | contains([$k]) | not)] | sort' "$resolved")"
+
     if [[ -f "$claude_cfg" ]]; then
         local claude_mcp
         claude_mcp="$(jq '{mcpServers: .}' "$resolved")"
-        jq -s '(.[0] | del(.mcpServers)) * .[1]' "$claude_cfg" <(echo "$claude_mcp") > "$claude_cfg.tmp"
+        # Merge mcpServers and ensure all projects have the computed disabled list
+        jq -s --argjson disabled "$default_disabled_json" '
+            ((.[0] | del(.mcpServers)) * .[1])
+            | .projects //= {}
+            | .projects |= with_entries(
+                .value.disabledMcpServers = ($disabled + (.value.disabledMcpServers // []) | unique | sort)
+            )
+        ' "$claude_cfg" <(echo "$claude_mcp") > "$claude_cfg.tmp"
         mv "$claude_cfg.tmp" "$claude_cfg"
     else
-        jq '{mcpServers: .}' "$resolved" > "$claude_cfg"
+        jq --argjson disabled "$default_disabled_json" '{mcpServers: .}' "$resolved" > "$claude_cfg"
     fi
     success "Updated Claude Code MCP servers in ~/.claude.json"
 
@@ -743,11 +760,13 @@ generate_mcp_configs() {
 
     if [[ -f "$oc_cfg" ]]; then
         local oc_mcp
-        oc_mcp="$(jq '
+        oc_mcp="$(jq --argjson enabled "$enabled_json" '
             to_entries
             | map(
-                if .value.type == "http" then
-                    {key: .key, value: {type: "remote", url: .value.url}}
+                (.key as $name | ($enabled | contains([$name]))) as $is_enabled
+                | if .value.type == "http" then
+                    {key: .key, value: ({type: "remote", url: .value.url}
+                        + if $is_enabled then {} else {enabled: false} end)}
                 else
                     {key: .key, value: ({
                         type: "local",
@@ -758,7 +777,8 @@ generate_mcp_configs() {
                                 [.value.command]
                             end
                         )
-                    } + if .value.env then {environment: .value.env} else {} end)}
+                    } + (if .value.env then {environment: .value.env} else {} end)
+                      + (if $is_enabled then {} else {enabled: false} end))}
                 end
             )
             | from_entries | {mcp: .}
