@@ -597,7 +597,7 @@ function wrf() {
     done <<< "$branches"
 }
 
-# Attach to a worktree's tmux session (creates it if missing)
+# Attach to a worktree's window in the project tmux session (creates if missing)
 function wts() {
     local branch="$1"
 
@@ -616,30 +616,37 @@ function wts() {
     fi
 
     local cmd="$*"
-    local session="${branch//\//-}"
+    local window="${branch//\//-}"
+    local wt_path
+    wt_path=$(wt list --format json 2>/dev/null | \
+              jq -r --arg b "$branch" '.[] | select(.branch == $b) | .path')
 
-    # Create session if it doesn't exist (for worktrees predating the hook)
-    if ! tmux has-session -t="$session" 2>/dev/null; then
-        local wt_path
-        wt_path=$(wt list --format json 2>/dev/null | \
-                  jq -r --arg b "$branch" '.[] | select(.branch == $b) | .path')
-
-        if [[ -z "$wt_path" || "$wt_path" == "null" ]]; then
-            echo "Error: no worktree found for '$branch'"
-            return 1
-        fi
-
-        tmux new-session -d -s "$session" -c "$wt_path"
+    if [[ -z "$wt_path" || "$wt_path" == "null" ]]; then
+        echo "Error: no worktree found for '$branch'"
+        return 1
     fi
 
-    # Run command in the session if provided
-    [[ -n "$cmd" ]] && tmux send-keys -t "$session" "$cmd" Enter
+    local session
+    session=$(basename "$(dirname "$wt_path")")
 
-    # Attach or switch to session
+    # Create session if it doesn't exist
+    if ! tmux has-session -t "$session" 2>/dev/null; then
+        tmux new-session -d -s "$session" -n "$window" -c "$wt_path" -x 220 -y 50
+        tmux set-window-option -t "$session:$window" allow-rename off 2>/dev/null || true
+    # Create window if it doesn't exist in the session
+    elif ! tmux list-windows -t "$session" -F "#{window_name}" 2>/dev/null | grep -qx "$window"; then
+        tmux new-window -t "$session" -n "$window" -c "$wt_path"
+        tmux set-window-option -t "$session:$window" allow-rename off 2>/dev/null || true
+    fi
+
+    # Run command in the window if provided
+    [[ -n "$cmd" ]] && tmux send-keys -t "$session:$window" "$cmd" Enter
+
+    # Attach or switch to session:window
     if [[ -n "$TMUX" ]]; then
-        tmux switch-client -t "$session"
+        tmux switch-client -t "$session:$window"
     else
-        tmux attach -t "$session"
+        tmux attach -t "$session:$window"
     fi
 }
 
