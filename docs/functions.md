@@ -246,9 +246,68 @@ opl
 
 ---
 
+## Worktrunk
+
+Functions for git worktree management with fzf interactive selection and tmux integration.
+
+### `wf [query]` \*
+
+Interactive worktree switcher using fzf. Filters out the main worktree.
+
+```bash
+wf               # fzf picker from all worktrees
+wf auth          # pre-filter fzf for "auth"
+```
+
+### `wrf` \*
+
+Interactive multi-select worktree remover using fzf. Select multiple worktrees with Tab, confirm with Enter.
+
+```bash
+wrf              # fzf multi-select, removes selected worktrees and their branches
+```
+
+### `wts [branch]` \*
+
+Create or attach to a tmux session scoped to a worktree. Session name matches the branch name. If the worktree doesn't exist yet, creates it first (without changing the current shell directory).
+
+```bash
+wts              # fzf picker, attach to selected worktree's tmux session
+wts feature/auth # Create/attach session for feature/auth worktree
+```
+
+### `wcl <branch> [prompt]`
+
+Create or switch to a worktree and launch Claude Code in a tmux session. Creates the worktree if it doesn't exist.
+
+```bash
+wcl feature/auth                   # Create worktree if needed, launch claude
+wcl feature/auth "fix login bug"   # Create worktree if needed, launch claude with prompt
+```
+
+### `woc <branch> [prompt]`
+
+Create or switch to a worktree and launch OpenCode in a tmux session. Creates the worktree if it doesn't exist.
+
+```bash
+woc feature/auth                   # Create worktree if needed, launch opencode
+woc feature/auth "fix login bug"   # Create worktree if needed, launch opencode with prompt
+```
+
+### `wclean` \*
+
+Interactive multi-select worktree cleanup using fzf. Shows merged/stale worktrees and removes selected ones along with their branches.
+
+```bash
+wclean           # fzf multi-select merged/stale worktrees for removal
+```
+
+---
+
 ## Notes
 
 - Functions marked with \* use fzf for interactive selection
 - Most Kubernetes functions respect the current namespace context
 - Many functions provide both interactive (fzf) and direct argument modes
-- Worktree functions expect bare repo naming: `repo.git`
+- Worktrunk functions require a bare repo clone (use `gcb` to set up)
+- `wcl` and `woc` create tmux sessions — use `tls` to list and `tka` to kill all
