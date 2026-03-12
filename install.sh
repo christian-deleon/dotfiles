@@ -658,7 +658,10 @@ merge_ecc_opencode_config() {
             agent: (.agent | rewrite_paths),
             command: (.command | rewrite_paths),
             instructions: [.instructions[] | rewrite_instructions],
-            plugin: [($oc_dir + "/plugins/ecc")]
+            # TEMPORARY: "opencode-anthropic-context-1m" workaround until OpenCode sends
+            # the context-1m-2025-08-07 beta header natively. Remove when resolved:
+            # https://github.com/anomalyco/opencode/issues/13455
+            plugin: [($oc_dir + "/plugins/ecc"), "opencode-anthropic-context-1m"]
         }
     ' "$ecc_oc")"
 
