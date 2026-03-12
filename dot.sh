@@ -370,11 +370,11 @@ dothelp() {
         name=$(echo "$selected" | awk '{print $2}')
 
         if command -v pbcopy &>/dev/null; then
-            echo "$name" | pbcopy
+            printf '%s' "$name" | pbcopy
         elif command -v wl-copy &>/dev/null; then
-            echo "$name" | wl-copy
+            printf '%s' "$name" | wl-copy
         elif command -v xclip &>/dev/null; then
-            echo "$name" | xclip -selection clipboard
+            printf '%s' "$name" | xclip -selection clipboard
         else
             echo "$name"
             return 0
