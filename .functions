@@ -19,12 +19,13 @@ function cdr() {
     fi
 }
 
-# Run cloc with git integration if .gitignore exists
+# Run cloc with git integration if .gitignore exists, defaults to current dir
 function clocg() {
+    local args=("${@:-.}")
     if [[ -f .gitignore ]]; then
-        cloc --fmt=1 --thousands-delimiter=, --vcs=git "$@"
+        cloc --fmt=1 --thousands-delimiter=, --vcs=git "${args[@]}"
     else
-        cloc --fmt=1 --thousands-delimiter=, "$@"
+        cloc --fmt=1 --thousands-delimiter=, "${args[@]}"
     fi
 }
 
