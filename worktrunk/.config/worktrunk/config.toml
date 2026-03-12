@@ -1,40 +1,5 @@
 worktree-path = "../{{ branch | sanitize }}"
 
-[post-create]
-tmux = """
-P=$(basename "$(dirname "{{ worktree_path }}")")
-B={{ branch | sanitize }}
-W={{ worktree_path }}
-if [ -n "$TMUX" ]; then
-    tmux new-window -n "$B" -c "$W"
-    tmux set-window-option -t "$B" allow-rename off 2>/dev/null || true
-else
-    tmux new-session -d -s "$P" -n "$B" -c "$W" -x 220 -y 50 2>/dev/null || true
-    tmux set-window-option -t "$P:$B" allow-rename off 2>/dev/null || true
-    echo "tmux session '$P' ready — attach with: tmux attach -t $P"
-fi
-"""
-
-[post-switch]
-tmux = """
-P=$(basename "$(dirname "{{ worktree_path }}")")
-B={{ branch | sanitize }}
-W={{ worktree_path }}
-if [ -n "$TMUX" ]; then
-    if ! tmux list-windows -F "#{window_name}" 2>/dev/null | grep -qx "$B"; then
-        tmux new-window -n "$B" -c "$W"
-    fi
-fi
-"""
-
-[pre-remove]
-tmux = """
-W={{ worktree_path }}
-tmux list-windows -a -F "#{session_name}:#{window_index} #{pane_current_path}" 2>/dev/null | \
-    awk -v w="$W" '$2 == w {print $1}' | \
-    xargs -I{} tmux kill-window -t {} 2>/dev/null || true
-"""
-
 [commit.generation]
 command = "CLAUDECODE= MAX_THINKING_TOKENS=0 claude -p --model=haiku --tools='' --disable-slash-commands --setting-sources='' --system-prompt=''"
 template = """
