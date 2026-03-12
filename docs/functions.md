@@ -246,6 +246,18 @@ opl
 
 ---
 
+## Tmux
+
+### `ts` \*
+
+Interactive tmux session switcher with fzf preview. Shows a live snapshot of each session's active pane as you navigate. Switches client if already inside tmux, otherwise attaches.
+
+```bash
+ts    # fzf picker with live pane preview
+```
+
+---
+
 ## Worktrunk
 
 Functions for git worktree management with fzf interactive selection and tmux integration.
