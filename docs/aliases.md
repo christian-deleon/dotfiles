@@ -154,6 +154,7 @@ Kubernetes development workflow tool shortcuts.
 - `tls` - List all sessions (`tmux ls`)
 - `tn` - Create a new named session (`tmux new -s`)
 - `tk` - Kill a named session (`tmux kill-session -t`)
+- `tka` - Kill the tmux server and all sessions (`tmux kill-server`)
 
 ---
 
@@ -164,7 +165,15 @@ Kubernetes development workflow tool shortcuts.
 
 ---
 
+## OpenCode
+
+- `oc` - OpenCode CLI (`opencode`)
+
+---
+
 ## Worktrunk
+
+### Core
 
 - `wl` - List all worktrees (`wt list`)
 - `wlf` - List worktrees with full details — CI, diffstat, summaries (`wt list --full`)
@@ -173,6 +182,29 @@ Kubernetes development workflow tool shortcuts.
 - `wm` - Merge current worktree into default branch (`wt merge`)
 - `wr` - Remove current worktree (`wt remove`)
 
+### Output
+
+- `wj` - List worktrees as JSON (`wt list --format json`)
+
+### Batch Operations
+
+- `wfe` - Run a command in all worktrees (`wt step for-each --`)
+
+### Merge & Cleanup
+
+- `wmn` - Merge current worktree but keep it (`wt merge --no-remove`)
+- `wp` - Preview stale worktrees to prune (`wt step prune --dry-run`)
+- `wpp` - Prune stale worktrees (`wt step prune`)
+
+---
+
+## Tmux Keybindings
+
+These are tmux keybindings (not shell aliases) defined in `.tmux.conf`:
+
+- `prefix + W` - Popup fzf worktree switcher — select a branch and `wt switch` runs in the original pane
+- `prefix + S` - Popup worktree status dashboard — shows `wt list` output
+
 ---
 
 ## Notes
@@ -180,4 +212,5 @@ Kubernetes development workflow tool shortcuts.
 - Many Kubernetes operations have interactive fzf-enabled functions available — see [functions.md](functions.md)
 - Aliases prefixed with `k` are Kubernetes-related
 - Aliases prefixed with `f` are Flux CD-related
+- Aliases prefixed with `w` are Worktrunk-related (see also [functions.md](functions.md) for fzf-enabled functions)
 - Most aliases support standard command arguments after the alias
