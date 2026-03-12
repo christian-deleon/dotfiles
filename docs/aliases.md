@@ -151,7 +151,7 @@ Kubernetes development workflow tool shortcuts.
 ## Tmux
 
 - `ta` - Attach to a named session (`tmux attach -t`)
-- `tls` - List all sessions (`tmux ls`)
+- `tl` - List all sessions (`tmux ls`)
 - `tn` - Create a new named session (`tmux new -s`)
 - `tk` - Kill a named session (`tmux kill-session -t`)
 - `tka` - Kill the tmux server and all sessions (`tmux kill-server`)
