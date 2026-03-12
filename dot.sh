@@ -23,6 +23,7 @@ EOF
     echo "Usage: dot [option]"
     echo
     echo "Options:"
+    echo "  help                  - Browse all functions and aliases interactively (fzf)"
     echo "  edit                  - Open the dotfiles directory in your editor"
     echo "  update                - Update system packages and dotfiles (updates installed themes)"
     echo "  install               - Install app configs and dev tools (interactive picker)"
@@ -32,15 +33,6 @@ EOF
     echo "  brew-install          - Install Homebrew"
     echo "  brew-bundle [profile] - Install Homebrew packages using a Brewfile profile"
     echo "  brew-save   [profile] - Save Homebrew packages to a Brewfile profile"
-    echo
-    echo "Available tools:"
-    while IFS= read -r tool; do
-        printf '  %-18s %s\n' "$tool" "$(get_tool_field "$tool" "description" 2>/dev/null)"
-    done < <(list_tools)
-    echo
-    echo "Standalone Functions:"
-    parse_functions
-    echo
 }
 
 
@@ -313,6 +305,10 @@ parse_functions() {
 
 # Main logic to handle arguments
 case "$1" in
+    help)
+        source "$DOTFILES_DIR/.functions"
+        dothelp "${2:-}"
+        ;;
     edit)
         ${EDITOR:-vim} "$DOTFILES_DIR"
         ;;

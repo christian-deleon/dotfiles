@@ -304,6 +304,26 @@ wclean           # fzf multi-select merged/stale worktrees for removal
 
 ---
 
+## Dotfiles
+
+### `dothelp [query]` \*
+
+Interactive fzf explorer for all shell functions and aliases defined in `.functions` and `.aliases`. Shows type, name, category, and description in the list; the preview pane shows the full function body or alias expansion.
+
+```bash
+dothelp          # Browse everything interactively
+dothelp kube     # Pre-filter to Kubernetes shortcuts
+dh               # Short alias
+dh git           # Pre-filter to git shortcuts
+```
+
+**Controls:**
+- Type to fuzzy-search across name, category, and description
+- `ENTER` — print the selected name to stdout
+- `Ctrl-H` — toggle the preview pane
+
+---
+
 ## Notes
 
 - Functions marked with \* use fzf for interactive selection
