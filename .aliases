@@ -80,6 +80,12 @@ alias skr='skaffold run'
 alias skrm='skaffold run --module'
 alias skrp='skaffold run --profile'
 
+# Tmux
+alias ta='tmux attach -t'
+alias tls='tmux ls'
+alias tn='tmux new -s'
+alias tk='tmux kill-session -t'
+
 # Claude
 alias cl='claude'
 alias cld='claude --dangerously-skip-permissions'
