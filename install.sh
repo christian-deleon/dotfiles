@@ -41,7 +41,7 @@ fi
 
 info()    { printf '%b\n' "${CYAN}::${RESET} $1"; }
 success() { printf '%b\n' "${GREEN}✓${RESET} $1"; }
-warn()    { printf '%b\n' "${YELLOW}!${RESET} $1"; }
+warn()    { printf '%b\n' "${YELLOW}!${RESET} $1" >&2; }
 error()   { printf '%b\n' "${RED}✗${RESET} $1" >&2; }
 
 backup_item() {
@@ -882,7 +882,11 @@ install_app_config() {
                 rm "$target"
             fi
 
-            omadot put "$pkg" 2>&1 && success "Stowed $pkg" || warn "Failed to stow $pkg"
+            if ! omadot put "$pkg"; then
+                error "Failed to stow $pkg"
+            else
+                success "Stowed $pkg"
+            fi
             ;;
     esac
 }
