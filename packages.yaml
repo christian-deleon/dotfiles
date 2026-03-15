@@ -132,8 +132,9 @@ poetry:
 neovim:
   description: Hyperextensible text editor
   arch: neovim
-  apt: neovim
+  apt: null
   brew: neovim
+  script: tools/install-neovim.sh
 
 npm:
   description: Node.js package manager

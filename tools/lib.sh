@@ -132,6 +132,7 @@ install_tool() {
         github-cli|gh) cmd_name="gh" ;;
         ripgrep) cmd_name="rg" ;;
         fd) cmd_name="fd" ;;
+        neovim) cmd_name="nvim" ;;
         worktrunk) cmd_name="wt" ;;
     esac
 
