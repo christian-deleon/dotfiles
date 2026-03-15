@@ -8,6 +8,9 @@ alias up2='cd ../..'
 alias up3='cd ../../..'
 alias up4='cd ../../../..'
 
+# Git
+alias g='git'
+
 # General
 alias diff='diff --color=auto'
 alias mkdir='mkdir -pv'
