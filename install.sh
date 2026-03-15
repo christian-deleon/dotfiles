@@ -231,9 +231,9 @@ install_zsh_config() {
 
 install_git_submodules() {
     # Initialize critical submodules first
-    info "Initializing critical submodules (ssh, ecc, tpm)..."
-    git -C "$DOTFILES_DIR" submodule sync --recursive .ssh ecc .tmux/plugins/tpm
-    git -C "$DOTFILES_DIR" submodule update --init --recursive .ssh ecc .tmux/plugins/tpm
+    info "Initializing critical submodules (ssh, tpm)..."
+    git -C "$DOTFILES_DIR" submodule sync --recursive .ssh .tmux/plugins/tpm
+    git -C "$DOTFILES_DIR" submodule update --init --recursive .ssh .tmux/plugins/tpm
     success "Git submodules initialized"
 }
 
@@ -515,175 +515,73 @@ op_inject_multi() {
     [[ "$failed" -eq 0 ]]
 }
 
-# ─── ECC (Everything Claude Code) ────────────────────────────────────────────
+# ─── AI config (agents, commands, skills, rules) ────────────────────────────
 
-# Remove symlinks in a directory that point into the ecc submodule
-clean_ecc_symlinks() {
+# Remove symlinks in a directory that point into ai/ or ecc/ (migration)
+clean_ai_symlinks() {
     local target_dir="$1"
     [[ -d "$target_dir" ]] || return 0
 
     for item in "$target_dir"/*; do
         [[ -L "$item" ]] || continue
-        local raw_target
+        local raw_target resolved_target
         raw_target="$(readlink "$item")"
-        # Remove if it points into ecc/ (resolved, for valid symlinks)
-        local resolved_target
         resolved_target="$(readlink -f "$item" 2>/dev/null)"
-        if [[ "$resolved_target" == "$DOTFILES_DIR/ecc/"* ]] || [[ "$raw_target" == "$DOTFILES_DIR/ecc/"* ]]; then
+        if [[ "$resolved_target" == "$DOTFILES_DIR/ai/"* ]] || [[ "$raw_target" == "$DOTFILES_DIR/ai/"* ]] \
+        || [[ "$resolved_target" == "$DOTFILES_DIR/ecc/"* ]] || [[ "$raw_target" == "$DOTFILES_DIR/ecc/"* ]]; then
             rm "$item"
         fi
     done
 }
 
-install_ecc() {
-    local ecc_dir="$DOTFILES_DIR/ecc"
+install_ai_claude() {
+    local ai_dir="$DOTFILES_DIR/ai"
+    [[ -d "$ai_dir" ]] || { warn "ai/ directory not found"; return; }
 
-    if [[ ! -f "$ecc_dir/CLAUDE.md" ]]; then
-        info "Initializing ECC submodule..."
-        git -C "$DOTFILES_DIR" submodule update --init ecc
-    fi
+    info "Installing AI config for Claude Code..."
 
-    # --- Claude Code ---
-    info "Installing ECC for Claude Code..."
+    for dir in rules commands skills agents; do
+        clean_ai_symlinks "$HOME/.claude/$dir"
+    done
 
-    # Clean stale ECC symlinks before re-linking
-    clean_ecc_symlinks "$HOME/.claude/rules"
-    clean_ecc_symlinks "$HOME/.claude/commands"
-    clean_ecc_symlinks "$HOME/.claude/skills"
-    clean_ecc_symlinks "$HOME/.claude/agents"
+    # Remove old ECC plugin symlink (migration)
+    [[ -L "$HOME/.claude/plugins/everything-claude-code" ]] && rm "$HOME/.claude/plugins/everything-claude-code"
 
-    # Rules, commands, skills, agents merge with existing dotfiles content
-    mkdir -p "$HOME/.claude/rules" "$HOME/.claude/commands" "$HOME/.claude/skills" "$HOME/.claude/agents"
-    link_directory_contents "$ecc_dir/rules" "$HOME/.claude/rules"
-    link_directory_contents "$ecc_dir/commands" "$HOME/.claude/commands"
-    link_directory_contents "$ecc_dir/skills" "$HOME/.claude/skills"
-    link_directory_contents "$ecc_dir/agents" "$HOME/.claude/agents"
+    mkdir -p "$HOME/.claude/rules" "$HOME/.claude/commands" \
+             "$HOME/.claude/skills" "$HOME/.claude/agents"
+    link_directory_contents "$ai_dir/agents" "$HOME/.claude/agents"
+    link_directory_contents "$ai_dir/commands" "$HOME/.claude/commands"
+    link_directory_contents "$ai_dir/skills" "$HOME/.claude/skills"
+    link_directory_contents "$ai_dir/rules" "$HOME/.claude/rules"
 
-    # Hooks — symlink as a Claude Code plugin (alongside other plugins)
-    mkdir -p "$HOME/.claude/plugins"
-    link_file "$ecc_dir" "$HOME/.claude/plugins/everything-claude-code"
-
-    success "Installed ECC for Claude Code"
-
-    # --- OpenCode: full ECC integration ---
-    info "Installing ECC for OpenCode..."
-
-    local oc_dir="$HOME/.config/opencode"
-
-    # Commands and skills — per-item symlinks (coexist with personal files)
-    clean_ecc_symlinks "$oc_dir/commands"
-    clean_ecc_symlinks "$oc_dir/skills"
-    mkdir -p "$oc_dir/commands" "$oc_dir/skills"
-    link_directory_contents "$ecc_dir/commands" "$oc_dir/commands"
-    link_directory_contents "$ecc_dir/skills" "$oc_dir/skills"
-
-    # Plugins, instructions, prompts, tools — directory symlinks
-    link_file "$ecc_dir/.opencode/plugins" "$oc_dir/plugins/ecc"
-    link_file "$ecc_dir/.opencode/instructions" "$oc_dir/instructions"
-    link_file "$ecc_dir/.opencode/prompts" "$oc_dir/prompts"
-    link_file "$ecc_dir/.opencode/tools" "$oc_dir/tools"
-
-    # Install OpenCode plugin dependencies (tools import @opencode-ai/plugin)
-    if [[ -f "$ecc_dir/.opencode/package.json" ]]; then
-        info "Installing ECC OpenCode plugin dependencies..."
-        (cd "$ecc_dir/.opencode" && npm install --no-fund --no-audit --silent) || warn "Failed to install ECC OpenCode dependencies"
-    fi
-
-    # Merge ECC agents, commands (with routing), instructions, and plugin config
-    # into opencode.json with paths rewritten to absolute ecc submodule paths
-    merge_ecc_opencode_config "$ecc_dir"
-
-    success "Installed ECC for OpenCode"
-
-    # Generate shared MCP configs for Claude Code and OpenCode
-    generate_mcp_configs
+    success "Installed AI config for Claude Code"
 }
 
-# Merge ECC's OpenCode config (agents, commands with routing, instructions, plugins)
-# into the user's opencode.json. Rewrites relative .opencode/ paths to absolute
-# paths pointing into the ecc submodule so they work from any project directory.
-merge_ecc_opencode_config() {
-    local ecc_dir="$1"
-    local ecc_oc="$ecc_dir/.opencode/opencode.json"
-    local oc_cfg="$HOME/.config/opencode/opencode.json"
+install_ai_opencode() {
+    local ai_dir="$DOTFILES_DIR/ai"
+    [[ -d "$ai_dir" ]] || { warn "ai/ directory not found"; return; }
 
-    if [[ ! -f "$ecc_oc" ]]; then
-        warn "ECC OpenCode config not found: $ecc_oc"
-        return
+    info "Installing AI config for OpenCode..."
+    local oc_dir="$HOME/.config/opencode"
+
+    clean_ai_symlinks "$oc_dir/commands"
+    clean_ai_symlinks "$oc_dir/skills"
+
+    # Remove old ECC directory symlinks (migration)
+    for old in "$oc_dir/plugins/ecc" "$oc_dir/instructions" "$oc_dir/prompts" "$oc_dir/tools"; do
+        [[ -L "$old" ]] && rm "$old"
+    done
+
+    mkdir -p "$oc_dir/commands" "$oc_dir/skills"
+    link_directory_contents "$ai_dir/commands" "$oc_dir/commands"
+    link_directory_contents "$ai_dir/skills" "$oc_dir/skills"
+
+    # Generate OpenCode agent/instructions config from ai/ sources
+    if [[ -x "$ai_dir/scripts/generate-opencode-config.sh" ]]; then
+        "$ai_dir/scripts/generate-opencode-config.sh" "$ai_dir" "$oc_dir"
     fi
 
-    ensure_jq || return
-
-    # Seed from template if opencode.json doesn't exist yet
-    local oc_tpl="${oc_cfg%.json}.json.tpl"
-    if [[ ! -f "$oc_cfg" ]]; then
-        if [[ -f "$oc_tpl" ]]; then
-            cp "$oc_tpl" "$oc_cfg"
-        else
-            printf '{}' > "$oc_cfg"
-        fi
-    fi
-
-    # Extract agent, command, instructions, and plugin from ECC config,
-    # rewriting relative .opencode/ paths to absolute submodule paths.
-    # Instructions paths are rewritten to point into linked dirs under ~/.config/opencode/.
-    local ecc_overlay
-    ecc_overlay="$(jq --arg ecc "$ecc_dir" --arg oc_dir "$HOME/.config/opencode" '
-        # Rewrite .opencode/ relative paths to absolute ecc submodule paths
-        def rewrite_paths:
-            if type == "string" then
-                gsub("{file:\\.opencode/"; "{file:" + $ecc + "/.opencode/")
-                | gsub("^\\./?\\./?\\.opencode/"; $ecc + "/.opencode/")
-                | gsub("^\\.opencode/"; $ecc + "/.opencode/")
-            elif type == "object" then
-                to_entries | map(.value = (.value | rewrite_paths)) | from_entries
-            elif type == "array" then
-                map(rewrite_paths)
-            else .
-            end;
-
-        # Rewrite instructions: skills/ -> ~/.config/opencode/skills/, .opencode/ -> ecc path
-        # Drops project-specific files (AGENTS.md, CONTRIBUTING.md)
-        def rewrite_instructions:
-            if type == "string" then
-                if startswith("skills/") then $oc_dir + "/" + .
-                elif startswith(".opencode/") then $ecc + "/" + .
-                elif . == "AGENTS.md" or . == "CONTRIBUTING.md" then empty
-                else .
-                end
-            else .
-            end;
-
-        {
-            agent: (.agent | rewrite_paths),
-            command: (.command | rewrite_paths),
-            instructions: [.instructions[] | rewrite_instructions],
-            # TEMPORARY: "opencode-anthropic-context-1m" workaround until OpenCode sends
-            # the context-1m-2025-08-07 beta header natively. Remove when resolved:
-            # https://github.com/anomalyco/opencode/issues/13455
-            plugin: [($oc_dir + "/plugins/ecc"), "opencode-anthropic-context-1m"]
-        }
-    ' "$ecc_oc")"
-
-    # Merge: personal config wins on conflicts (it comes second in jq -s merge)
-    local personal_backup
-    personal_backup="$(jq '.' "$oc_cfg")"
-    jq -s '.[0] * .[1]' <(echo "$ecc_overlay") <(echo "$personal_backup") > "$oc_cfg.tmp"
-    mv "$oc_cfg.tmp" "$oc_cfg"
-
-    # Drop instructions that point to non-existent files (trimmed skills)
-    local valid_instructions
-    valid_instructions="$(jq '[.instructions[] | select(. as $p | $p | test("^/") | if . then ($p | ltrimstr("")) else true end)]' "$oc_cfg")"
-    # Filter using a shell loop for actual file existence checks
-    local filtered="[]"
-    while IFS= read -r path; do
-        [[ -z "$path" ]] && continue
-        if [[ -f "$path" ]]; then
-            filtered="$(jq --arg p "$path" '. + [$p]' <(echo "$filtered"))"
-        fi
-    done < <(jq -r '.instructions[]' "$oc_cfg")
-    jq --argjson inst "$filtered" '.instructions = $inst' "$oc_cfg" > "$oc_cfg.tmp"
-    mv "$oc_cfg.tmp" "$oc_cfg"
+    success "Installed AI config for OpenCode"
 }
 
 # ─── Shared MCP config generation ────────────────────────────────────────────
@@ -819,7 +717,7 @@ generate_mcp_configs() {
 get_app_label() {
     case "$1" in
         btop)      echo "btop — System resource monitor" ;;
-        ecc)       echo "ecc — Everything Claude Code (agents, skills, hooks, rules)" ;;
+        claude)    echo "claude — Claude Code AI config (agents, skills, commands, rules)" ;;
         fastfetch) echo "fastfetch — System info display" ;;
         ghostty)   echo "ghostty — Terminal emulator config" ;;
         hypr)      echo "hypr — Hyprland window manager config" ;;
@@ -838,7 +736,7 @@ get_app_label() {
     esac
 }
 
-# Discover available app configs (stow packages + tmux + ecc)
+# Discover available app configs (stow packages + tmux + claude)
 list_app_configs() {
     {
         for dir in "$DOTFILES_DIR"/*/; do
@@ -853,8 +751,8 @@ list_app_configs() {
             echo "tmux"
         fi
 
-        if [[ -d "$DOTFILES_DIR/ecc" ]]; then
-            echo "ecc"
+        if [[ -d "$DOTFILES_DIR/ai" ]]; then
+            echo "claude"
         fi
     } | sort
 }
@@ -864,8 +762,8 @@ install_app_config() {
     local pkg="$1"
 
     case "$pkg" in
-        ecc)
-            install_ecc
+        claude)
+            install_ai_claude
             ;;
         tmux)
             for file in "${TMUX_FILES[@]}"; do
@@ -919,8 +817,11 @@ run_post_install_hooks() {
 
     for pkg in "${pkgs[@]}"; do
         case "$pkg" in
+            claude)
+                generate_mcp_configs
+                ;;
             opencode)
-                # Generate shared MCP configs (Claude Code + OpenCode)
+                install_ai_opencode
                 generate_mcp_configs
                 ;;
         esac
@@ -961,7 +862,7 @@ run_pickers() {
 
             local needs_stow=0
             for pkg in "${selected_apps[@]}"; do
-                if [[ "$pkg" != "tmux" ]]; then
+                if [[ "$pkg" != "tmux" && "$pkg" != "claude" ]]; then
                     needs_stow=1
                     break
                 fi
@@ -1022,7 +923,7 @@ app configs and dev tools from interactive pickers.
 Core Config (always runs):
   Shell config       .commonrc, .aliases, .functions + inject into .bashrc
   Zsh config         Oh My Zsh, Powerlevel10k, zsh plugins, .zshrc (macOS only)
-  Git submodules     .ssh, ecc, tpm (themes excluded, use 'dot theme-update')
+  Git submodules     .ssh, tpm (themes excluded, use 'dot theme-update')
   SSH config         ~/.ssh/config generation
   Git config         .gitconfig + .gitconfig.local
   Dot CLI            install dot command to ~/.local/bin

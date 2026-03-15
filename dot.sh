@@ -138,15 +138,9 @@ update_system() {
         fi
 
         # Update critical submodules
-        _info "Updating submodules (ssh, ecc, tpm)..."
-        
-        # Ensure ECC submodule is on the dotfiles branch (not detached HEAD)
-        if [[ -d "$DOTFILES_DIR/ecc/.git" ]]; then
-            _info "Checking out ECC dotfiles branch..."
-            git -C "$DOTFILES_DIR/ecc" checkout dotfiles 2>&1 || true
-        fi
-        
-        if ! git -C "$DOTFILES_DIR" submodule update --remote --init .ssh ecc .tmux/plugins/tpm 2>&1; then
+        _info "Updating submodules (ssh, tpm)..."
+
+        if ! git -C "$DOTFILES_DIR" submodule update --remote --init .ssh .tmux/plugins/tpm 2>&1; then
             _error "Could not update submodules"
             echo
             _info "This may be due to SSH authentication failure (requires 1Password)"
@@ -174,13 +168,11 @@ update_system() {
             fi
         fi
 
-        # Re-run ECC install to refresh symlinks after submodule update
-        if [[ -d "$DOTFILES_DIR/ecc" ]]; then
+        # Re-install AI config for both platforms after dotfiles pull
+        if [[ -d "$DOTFILES_DIR/ai" ]]; then
             source "$DOTFILES_DIR/install.sh"
-            if ! install_ecc; then
-                _error "Failed to install ECC"
-                return 1
-            fi
+            install_ai_claude 2>/dev/null || _warn "Failed to install Claude AI config"
+            install_ai_opencode 2>/dev/null || _warn "Failed to install OpenCode AI config"
         fi
     fi
 
