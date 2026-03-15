@@ -27,7 +27,5 @@
       }
     }
   },
-  "instructions": [
-    "/home/cdeleon/.dotfiles/ecc/.opencode/instructions/INSTRUCTIONS.md"
-  ]
+  "instructions": []
 }

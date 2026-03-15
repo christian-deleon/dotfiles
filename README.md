@@ -38,26 +38,14 @@ git add <package> && git commit
 
 `get` copies files into the repo. `put` swaps the original directory for a symlink so changes are tracked. Both steps are needed.
 
-## ECC (Everything Claude Code)
+## AI Config
 
-[Everything Claude Code](https://github.com/affaan-m/everything-claude-code) is included as a git submodule (fork on the `dotfiles` branch). It provides agents, skills, hooks, commands, and rules for Claude Code and OpenCode.
+Shared AI agent configuration for Claude Code and OpenCode lives in `ai/`. Select `claude` or `opencode` from `dot install` to symlink agents, commands, skills, and rules into the respective platform directories.
 
-Select `ecc` from `dot install` to set up:
+- **Claude Code** — agents, commands, skills, and rules symlinked into `~/.claude/`
+- **OpenCode** — commands and skills symlinked into `~/.config/opencode/`; agents converted from markdown to JSON via `ai/scripts/generate-opencode-config.sh`
 
-- **Claude Code** — rules, commands, skills, and agents symlinked into `~/.claude/`; hooks loaded as a plugin via `~/.claude/plugins/`
-- **OpenCode** — commands symlinked into `~/.config/opencode/commands/`; agent and command definitions merged into `opencode.json` at install time
-
-The install is idempotent — re-running cleans stale symlinks and refreshes everything. `dot update` pulls submodule changes and re-runs the ECC install automatically.
-
-To sync with upstream:
-
-```bash
-cd ~/.dotfiles/ecc
-git fetch upstream
-git merge upstream/main
-```
-
-To remove ECC entirely, delete the submodule and remove the symlinks.
+`dot update` refreshes AI config for both platforms automatically. See [docs/ai.md](docs/ai.md) for details on adding agents, commands, skills, and rules.
 
 ## Dev Tools
 
