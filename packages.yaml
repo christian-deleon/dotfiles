@@ -143,6 +143,13 @@ neovim:
   brew: neovim
   script: tools/install-neovim.sh
 
+ghostty:
+  description: GPU-accelerated terminal
+  arch: ghostty
+  apt: null
+  brew: --cask ghostty
+  script: tools/install-ghostty.sh
+
 npm:
   description: Node.js package manager
   arch: npm
