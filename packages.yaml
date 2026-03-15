@@ -88,6 +88,13 @@ just:
   brew: just
   script: tools/install-just.sh
 
+lazygit:
+  description: Terminal UI for git
+  arch: lazygit
+  apt: null
+  brew: lazygit
+  script: tools/install-lazygit.sh
+
 tmux:
   description: Terminal multiplexer
   arch: tmux
