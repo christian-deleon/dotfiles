@@ -695,6 +695,7 @@ merge_ecc_opencode_config() {
 #   OpenCode:    ~/.config/opencode/opencode.json mcp (converted format)
 generate_mcp_configs() {
     local mcp_src="$DOTFILES_DIR/mcp-servers.json.tpl"
+    local force="${FORCE_MCP_REGEN:-false}"
 
     if [[ ! -f "$mcp_src" ]]; then
         warn "Shared MCP config not found: $mcp_src"
@@ -702,6 +703,23 @@ generate_mcp_configs() {
     fi
 
     ensure_jq || return
+
+    # Skip 1Password injection if template hasn't changed and targets exist
+    local cache_dir="$HOME/.cache/dotfiles"
+    local hash_file="$cache_dir/mcp-servers.hash"
+    local current_hash
+    current_hash="$(sha256sum "$mcp_src" | awk '{print $1}')"
+
+    if [[ "$force" != true && -f "$hash_file" ]]; then
+        local cached_hash
+        cached_hash="$(cat "$hash_file")"
+        if [[ "$current_hash" == "$cached_hash" ]] \
+            && [[ -f "$HOME/.claude.json" ]] \
+            && jq -e '.mcpServers | length > 0' "$HOME/.claude.json" &>/dev/null; then
+            info "MCP config unchanged — skipping 1Password injection"
+            return 0
+        fi
+    fi
 
     # Resolve op:// secrets into a temp file
     local resolved
@@ -788,6 +806,10 @@ generate_mcp_configs() {
         chmod 600 "$oc_cfg"
         success "Updated OpenCode MCP servers in opencode.json"
     fi
+
+    # Cache template hash to skip 1Password on next run if unchanged
+    mkdir -p "$cache_dir"
+    printf '%s' "$current_hash" > "$hash_file"
 }
 
 

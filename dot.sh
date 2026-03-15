@@ -27,6 +27,7 @@ EOF
     echo "  edit                  - Open the dotfiles directory in your editor"
     echo "  update                - Update system packages and dotfiles (updates installed themes)"
     echo "  install [tool ...]     - Install dev tools (directly or interactive picker)"
+    echo "  mcp-regen             - Force regenerate MCP configs (re-injects 1Password secrets)"
     echo "  theme-add <url>       - Add an Omarchy theme as a git submodule"
     echo "  theme-update          - Update installed Omarchy theme submodules"
     echo "  theme-list            - List installed Omarchy themes"
@@ -36,41 +37,27 @@ EOF
 }
 
 
-# Ensure the dotfiles repo is in a clean state before operating.
-# If merge conflicts exist and there are no local changes, hard-reset to origin.
-# If there are uncommitted or unpushed local changes, abort.
+# Ensure the dotfiles repo has no merge conflicts before operating.
+# Uncommitted changes and unpushed commits are fine — git pull --rebase --autostash handles them.
+# If merge conflicts exist, offer to hard-reset to upstream.
 ensure_clean_dotfiles() {
     [[ -d "$DOTFILES_DIR/.git" ]] || return 0
 
-    local branch
-    branch="$(git -C "$DOTFILES_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null)" || return 0
     local upstream
     upstream="$(git -C "$DOTFILES_DIR" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)" || upstream=""
 
-    # Check for uncommitted changes (staged, unstaged, or unmerged)
-    local has_local_changes=false
-    if ! git -C "$DOTFILES_DIR" diff --quiet 2>/dev/null || \
-       ! git -C "$DOTFILES_DIR" diff --cached --quiet 2>/dev/null; then
-        has_local_changes=true
-    fi
-
-    # Check for unpushed commits
-    local has_unpushed=false
-    if [[ -n "$upstream" ]]; then
-        local ahead
-        ahead="$(git -C "$DOTFILES_DIR" rev-list --count "$upstream..HEAD" 2>/dev/null)" || ahead=0
-        if [[ "$ahead" -gt 0 ]]; then
-            has_unpushed=true
-        fi
-    fi
-
-    # Check for merge conflicts (unmerged paths)
-    local has_conflicts=false
+    # Check for merge conflicts (unmerged paths) — the only state we can't recover from automatically
     if git -C "$DOTFILES_DIR" ls-files -u --error-unmatch . &>/dev/null 2>&1; then
-        has_conflicts=true
-    fi
+        # Check for unpushed commits — can't safely reset if we'd lose them
+        local has_unpushed=false
+        if [[ -n "$upstream" ]]; then
+            local ahead
+            ahead="$(git -C "$DOTFILES_DIR" rev-list --count "$upstream..HEAD" 2>/dev/null)" || ahead=0
+            if [[ "$ahead" -gt 0 ]]; then
+                has_unpushed=true
+            fi
+        fi
 
-    if [[ "$has_conflicts" == true ]]; then
         if [[ "$has_unpushed" == true ]]; then
             _error "Dotfiles repo has merge conflicts AND unpushed commits"
             _error "Resolve manually: cd $DOTFILES_DIR && git status"
@@ -93,19 +80,6 @@ ensure_clean_dotfiles() {
         fi
         git -C "$DOTFILES_DIR" reset --hard "$upstream"
         _success "Reset dotfiles to $upstream"
-        return 0
-    fi
-
-    if [[ "$has_local_changes" == true ]]; then
-        _error "Dotfiles repo has uncommitted changes"
-        _info "Commit or stash them first: cd $DOTFILES_DIR && git status"
-        return 1
-    fi
-
-    if [[ "$has_unpushed" == true ]]; then
-        _error "Dotfiles repo has unpushed commits"
-        _info "Push them first: cd $DOTFILES_DIR && git push"
-        return 1
     fi
 
     return 0
@@ -494,6 +468,10 @@ case "$1" in
         echo
         _info "Installing Homebrew..."
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        ;;
+    mcp-regen)
+        source "$DOTFILES_DIR/install.sh"
+        FORCE_MCP_REGEN=true generate_mcp_configs
         ;;
     theme-add)
         theme_add "$2"
