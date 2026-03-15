@@ -27,7 +27,7 @@ fi
 
 _info()    { printf '%b\n' "${_CYAN}::${_RESET} $1"; }
 _success() { printf '%b\n' "${_GREEN}✓${_RESET} $1"; }
-_warn()    { printf '%b\n' "${_YELLOW}!${_RESET} $1"; }
+_warn()    { printf '%b\n' "${_YELLOW}!${_RESET} $1" >&2; }
 _error()   { printf '%b\n' "${_RED}✗${_RESET} $1" >&2; }
 
 # ─── OS Detection ─────────────────────────────────────────────────────────────
@@ -96,9 +96,31 @@ get_tool_label() {
 
 # ─── Package Installation ────────────────────────────────────────────────────
 
+# Resolve a command alias to its packages.yaml tool name
+# e.g., "op" -> "1password-cli", "rg" -> "ripgrep"
+resolve_tool_name() {
+    local name="$1"
+    # If the name already exists in packages.yaml, use it as-is
+    if grep -qE "^${name}:" "$PACKAGES_FILE" 2>/dev/null; then
+        echo "$name"
+        return 0
+    fi
+    # Map common command names to their package names
+    case "$name" in
+        op)  echo "1password-cli" ;;
+        rg)  echo "ripgrep" ;;
+        *)
+            _error "Unknown tool: $name"
+            _info "Run ${_BOLD}dot --help${_RESET} to see available tools"
+            return 1
+            ;;
+    esac
+}
+
 # Install a single tool by name
 install_tool() {
-    local tool="$1"
+    local tool
+    tool="$(resolve_tool_name "$1")" || return 1
     local pkg_manager
     pkg_manager="$(detect_pkg_manager)"
 
@@ -166,11 +188,13 @@ install_tools() {
 
     for tool in "${tools[@]}"; do
         if command -v gum &>/dev/null; then
-            if ! gum spin --spinner dot --title "Installing $tool..." -- bash -c "source '$DOTFILES_DIR/tools/lib.sh' && install_tool '$tool'" 2>&1; then
+            local output
+            if output=$(gum spin --spinner dot --title "Installing $tool..." -- bash -c "source '$DOTFILES_DIR/tools/lib.sh' && install_tool '$tool'" 2>&1); then
+                _success "Installed ${_BOLD}$tool${_RESET}"
+            else
                 failed+=("$tool")
                 _error "Failed to install $tool"
-            else
-                _success "Installed ${_BOLD}$tool${_RESET}"
+                [[ -n "$output" ]] && printf '%s\n' "$output" >&2
             fi
         else
             if ! install_tool "$tool"; then

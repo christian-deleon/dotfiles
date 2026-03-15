@@ -36,6 +36,82 @@ EOF
 }
 
 
+# Ensure the dotfiles repo is in a clean state before operating.
+# If merge conflicts exist and there are no local changes, hard-reset to origin.
+# If there are uncommitted or unpushed local changes, abort.
+ensure_clean_dotfiles() {
+    [[ -d "$DOTFILES_DIR/.git" ]] || return 0
+
+    local branch
+    branch="$(git -C "$DOTFILES_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null)" || return 0
+    local upstream
+    upstream="$(git -C "$DOTFILES_DIR" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)" || upstream=""
+
+    # Check for uncommitted changes (staged, unstaged, or unmerged)
+    local has_local_changes=false
+    if ! git -C "$DOTFILES_DIR" diff --quiet 2>/dev/null || \
+       ! git -C "$DOTFILES_DIR" diff --cached --quiet 2>/dev/null; then
+        has_local_changes=true
+    fi
+
+    # Check for unpushed commits
+    local has_unpushed=false
+    if [[ -n "$upstream" ]]; then
+        local ahead
+        ahead="$(git -C "$DOTFILES_DIR" rev-list --count "$upstream..HEAD" 2>/dev/null)" || ahead=0
+        if [[ "$ahead" -gt 0 ]]; then
+            has_unpushed=true
+        fi
+    fi
+
+    # Check for merge conflicts (unmerged paths)
+    local has_conflicts=false
+    if git -C "$DOTFILES_DIR" ls-files -u --error-unmatch . &>/dev/null 2>&1; then
+        has_conflicts=true
+    fi
+
+    if [[ "$has_conflicts" == true ]]; then
+        if [[ "$has_unpushed" == true ]]; then
+            _error "Dotfiles repo has merge conflicts AND unpushed commits"
+            _error "Resolve manually: cd $DOTFILES_DIR && git status"
+            return 1
+        fi
+
+        _warn "Dotfiles repo has merge conflicts"
+        echo
+        if command -v gum &>/dev/null; then
+            if ! gum confirm "Hard reset dotfiles to $upstream?"; then
+                _info "Aborting — resolve manually: cd $DOTFILES_DIR && git status"
+                return 1
+            fi
+        else
+            read -rp "Hard reset dotfiles to $upstream? [y/N] " answer
+            if [[ "$answer" != [yY] ]]; then
+                _info "Aborting — resolve manually: cd $DOTFILES_DIR && git status"
+                return 1
+            fi
+        fi
+        git -C "$DOTFILES_DIR" reset --hard "$upstream"
+        _success "Reset dotfiles to $upstream"
+        return 0
+    fi
+
+    if [[ "$has_local_changes" == true ]]; then
+        _error "Dotfiles repo has uncommitted changes"
+        _info "Commit or stash them first: cd $DOTFILES_DIR && git status"
+        return 1
+    fi
+
+    if [[ "$has_unpushed" == true ]]; then
+        _error "Dotfiles repo has unpushed commits"
+        _info "Push them first: cd $DOTFILES_DIR && git push"
+        return 1
+    fi
+
+    return 0
+}
+
+
 # Check if 1Password CLI can connect to desktop app
 check_1password() {
     if ! command -v op &>/dev/null; then
@@ -66,6 +142,11 @@ check_1password() {
 update_system() {
     echo
     _info "Updating system packages and dotfiles..."
+
+    # Ensure dotfiles repo is clean before pulling
+    if ! ensure_clean_dotfiles; then
+        return 1
+    fi
 
     # Validate 1Password CLI connectivity first
     if ! check_1password; then
@@ -151,6 +232,9 @@ update_system() {
 
 # Install app configs and dev tools — runs interactive pickers from install.sh
 run_install() {
+    if ! ensure_clean_dotfiles; then
+        return 1
+    fi
     source "$DOTFILES_DIR/install.sh"
     run_pickers
 }
