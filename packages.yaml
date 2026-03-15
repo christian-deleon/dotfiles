@@ -129,6 +129,12 @@ poetry:
   brew: poetry
   script: tools/install-poetry.sh
 
+npm:
+  description: Node.js package manager
+  arch: npm
+  apt: npm
+  brew: node
+
 worktrunk:
   description: Git worktree manager for parallel AI agent workflows
   arch: null
