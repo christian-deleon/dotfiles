@@ -17,6 +17,7 @@ alias mkdir='mkdir -pv'
 
 # Neovim
 alias v='nvim'
+alias n='nvim'
 alias nv='nvim'
 
 # Dropbox
