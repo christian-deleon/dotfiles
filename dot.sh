@@ -26,7 +26,7 @@ EOF
     echo "  help                  - Browse all functions and aliases interactively (fzf)"
     echo "  edit                  - Open the dotfiles directory in your editor"
     echo "  update                - Update system packages and dotfiles (updates installed themes)"
-    echo "  install               - Install app configs and dev tools (interactive picker)"
+    echo "  install [tool ...]     - Install dev tools (directly or interactive picker)"
     echo "  theme-add <url>       - Add an Omarchy theme as a git submodule"
     echo "  theme-update          - Update installed Omarchy theme submodules"
     echo "  theme-list            - List installed Omarchy themes"
@@ -230,8 +230,14 @@ update_system() {
 }
 
 
-# Install app configs and dev tools — runs interactive pickers from install.sh
+# Install app configs and dev tools
+# With args: install specific tools directly (e.g., dot install fzf jq)
+# Without args: runs interactive pickers from install.sh
 run_install() {
+    if [[ $# -gt 0 ]]; then
+        install_tools "$@"
+        return $?
+    fi
     if ! ensure_clean_dotfiles; then
         return 1
     fi
@@ -481,7 +487,8 @@ case "$1" in
         update_system
         ;;
     install)
-        run_install
+        shift
+        run_install "$@"
         ;;
     brew-install)
         echo
