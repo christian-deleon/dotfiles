@@ -8,27 +8,35 @@
 [submodule "omarchy/.config/omarchy/themes/city-783"]
 	path = omarchy/.config/omarchy/themes/city-783
 	url = https://github.com/OldJobobo/omarchy-city-783-theme
+	ignore = all
 [submodule "omarchy/.config/omarchy/themes/harbordark"]
 	path = omarchy/.config/omarchy/themes/harbordark
 	url = https://github.com/HANCORE-linux/omarchy-harbordark-theme.git
+	ignore = all
 [submodule "omarchy/.config/omarchy/themes/miasma"]
 	path = omarchy/.config/omarchy/themes/miasma
 	url = https://github.com/OldJobobo/omarchy-miasma-theme
+	ignore = all
 [submodule "omarchy/.config/omarchy/themes/temerald"]
 	path = omarchy/.config/omarchy/themes/temerald
 	url = https://github.com/Ahmad-Mtr/omarchy-temerald-theme
+	ignore = all
 [submodule "omarchy/.config/omarchy/themes/dracula"]
 	path = omarchy/.config/omarchy/themes/dracula
 	url = https://github.com/catlee/omarchy-dracula-theme
+	ignore = all
 [submodule "omarchy/.config/omarchy/themes/iron-man"]
 	path = omarchy/.config/omarchy/themes/iron-man
 	url = git@github.com:christian-deleon/omarchy-ironman-theme.git
+	ignore = all
 [submodule "omarchy/.config/omarchy/themes/robots"]
 	path = omarchy/.config/omarchy/themes/robots
 	url = git@github.com:christian-deleon/omarchy-robots-theme.git
+	ignore = all
 [submodule "omarchy/.config/omarchy/themes/spacex"]
 	path = omarchy/.config/omarchy/themes/spacex
 	url = git@github.com:christian-deleon/omarchy-spacex-theme.git
+	ignore = all
 [submodule "ecc"]
 	path = ecc
 	url = git@github.com:christian-deleon/everything-claude-code.git
