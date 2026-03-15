@@ -129,6 +129,12 @@ poetry:
   brew: poetry
   script: tools/install-poetry.sh
 
+neovim:
+  description: Hyperextensible text editor
+  arch: neovim
+  apt: neovim
+  brew: neovim
+
 npm:
   description: Node.js package manager
   arch: npm
