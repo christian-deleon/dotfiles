@@ -14,7 +14,7 @@ Guidelines for AI coding agents working in this personal dotfiles repository. Th
 - Dev tool configs: git, tmux
 - Omarchy desktop configs: hypr, waybar, kitty, ghostty, mako, walker, btop, fastfetch, lazygit, omarchy, opencode (managed via GNU Stow + omadot)
 - AI config: `ai/` directory with agents, commands, skills, and rules for Claude Code and OpenCode
-- MCP servers: `mcp-servers.json.tpl` — shared config for Claude Code and OpenCode (with `op://` secret refs)
+- MCP servers: `ai/mcp-servers.json.tpl` — shared config for Claude Code and OpenCode (with `op://` secret refs)
 - Package management: `packages.yaml` + `tools/lib.sh` (cross-platform), Homebrew Brewfile profiles (macOS)
 - Custom aliases, functions (many with fzf integration), shell utilities
 - Documentation: `docs/functions.md`, `docs/aliases.md`
@@ -350,7 +350,7 @@ Shared AI agent configuration owned by this dotfiles repo at `~/.dotfiles/ai/`. 
 - Symlinks commands and skills from `ai/` into `~/.config/opencode/`
 - Runs `ai/scripts/generate-opencode-config.sh` to convert agent markdown to OpenCode JSON
 
-**Shared MCP:** `generate_mcp_configs()` reads `~/.dotfiles/mcp-servers.json.tpl` (Claude Desktop format with `op://` refs), resolves secrets via 1Password, and writes to both `~/.claude.json` (mcpServers) and `~/.config/opencode/opencode.json` (mcp)
+**Shared MCP:** `generate_mcp_configs()` reads `~/.dotfiles/ai/mcp-servers.json.tpl` (Claude Desktop format with `op://` refs), resolves secrets via 1Password, and writes to both `~/.claude.json` (mcpServers) and `~/.config/opencode/opencode.json` (mcp)
 
 **Idempotency:** `clean_ai_symlinks()` runs before every install, removing any symlinks in the target directory that point into `~/.dotfiles/ai/` (or legacy `ecc/`).
 
@@ -404,11 +404,11 @@ When two sources contribute to a single config file (e.g., generated AI agents +
 
 ### Shared MCP Configuration
 
-MCP servers are defined once in `~/.dotfiles/mcp-servers.json.tpl` (Claude Desktop format with `op://` secret references) and generated into tool-specific formats at install time:
+MCP servers are defined once in `~/.dotfiles/ai/mcp-servers.json.tpl` (Claude Desktop format with `op://` secret references) and generated into tool-specific formats at install time:
 - **Claude Code**: merged into `~/.claude.json` as `mcpServers`
 - **OpenCode**: converted to OpenCode format and merged into `~/.config/opencode/opencode.json` as `mcp`
 
-Secrets are resolved via `op_inject_multi()` during generation. Add/remove servers by editing `mcp-servers.json.tpl` and running `dot update` or `./install.sh`.
+Secrets are resolved via `op_inject_multi()` during generation. Add/remove servers by editing `ai/mcp-servers.json.tpl` and running `dot update` or `./install.sh`.
 
 ### Gitignore for Generated Symlinks in Stowed Dirs
 

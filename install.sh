@@ -592,12 +592,12 @@ install_ai_opencode() {
 # ─── Shared MCP config generation ────────────────────────────────────────────
 
 # Generate MCP configs for Claude Code and OpenCode from the shared source.
-# Source: ~/.dotfiles/mcp-servers.json.tpl (Claude Desktop format with op:// refs)
+# Source: ~/.dotfiles/ai/mcp-servers.json.tpl (Claude Desktop format with op:// refs)
 # Targets:
 #   Claude Code: ~/.claude.json mcpServers (merges into existing config)
 #   OpenCode:    ~/.config/opencode/opencode.json mcp (converted format)
 generate_mcp_configs() {
-    local mcp_src="$DOTFILES_DIR/mcp-servers.json.tpl"
+    local mcp_src="$DOTFILES_DIR/ai/mcp-servers.json.tpl"
     local force="${FORCE_MCP_REGEN:-false}"
 
     if [[ ! -f "$mcp_src" ]]; then
