@@ -42,7 +42,7 @@ Picking `opencode` from `dot install` stows the OpenCode config and then runs `i
 
 ### MCP Configs
 
-MCP servers are shared between both platforms via `mcp-servers.json.tpl`. Picking either `claude` or `opencode` triggers `generate_mcp_configs()` which resolves 1Password secrets and writes to both `~/.claude.json` and `opencode.json`.
+MCP servers are shared between both platforms via `ai/mcp-servers.json.tpl`. Picking either `claude` or `opencode` triggers `generate_mcp_configs()` which resolves 1Password secrets and writes to both `~/.claude.json` and `opencode.json`.
 
 ## Adding Content
 
