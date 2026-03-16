@@ -576,9 +576,14 @@ install_ai_opencode() {
     link_directory_contents "$ai_dir/commands" "$oc_dir/commands"
     link_directory_contents "$ai_dir/skills" "$oc_dir/skills"
 
-    # Generate OpenCode agent/instructions config from ai/ sources
+    # Clean stale ECC entries from opencode.json (migration) and regenerate
+    # from ai/ sources. The generate script strips managed keys before merging.
     if [[ -x "$ai_dir/scripts/generate-opencode-config.sh" ]]; then
         "$ai_dir/scripts/generate-opencode-config.sh" "$ai_dir" "$oc_dir"
+    elif [[ -f "$oc_dir/opencode.json" ]] && command -v jq &>/dev/null; then
+        # Fallback: just strip stale managed keys if generate script isn't available
+        jq 'del(.agent, .command, .instructions, .plugin)' "$oc_dir/opencode.json" > "$oc_dir/opencode.json.tmp"
+        mv "$oc_dir/opencode.json.tmp" "$oc_dir/opencode.json"
     fi
 
     success "Installed AI config for OpenCode"
