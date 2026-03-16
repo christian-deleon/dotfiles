@@ -108,8 +108,10 @@ overlay="$(jq -n \
     --argjson instructions "$instructions_json" \
     '{agent: $agents, instructions: $instructions}')"
 
-# --- Merge into opencode.json (personal config wins) ---
+# --- Merge into opencode.json ---
+# Strip keys managed by this script before merging so stale entries don't persist.
+# Personal config (everything else) wins on conflicts.
 
-personal_backup="$(jq '.' "$OC_CFG")"
-jq -s '.[0] * .[1]' <(echo "$overlay") <(echo "$personal_backup") > "$OC_CFG.tmp"
+personal_clean="$(jq 'del(.agent, .command, .instructions, .plugin)' "$OC_CFG")"
+jq -s '.[0] * .[1]' <(echo "$overlay") <(echo "$personal_clean") > "$OC_CFG.tmp"
 mv "$OC_CFG.tmp" "$OC_CFG"
