@@ -88,6 +88,13 @@ just:
   brew: just
   script: tools/install-just.sh
 
+delta:
+  description: Syntax-highlighting pager for git diffs
+  arch: git-delta
+  apt: null
+  brew: git-delta
+  script: tools/install-delta.sh
+
 lazygit:
   description: Terminal UI for git
   arch: lazygit
