@@ -829,8 +829,29 @@ run_post_install_hooks() {
                 install_ai_opencode
                 generate_mcp_configs
                 ;;
+            nvim)
+                install_neovim_extras
+                ;;
         esac
     done
+}
+
+# Install lazygit + delta and stow lazygit config alongside neovim
+install_neovim_extras() {
+    info "Installing neovim extras (lazygit, delta, lazygit config)..."
+
+    install_tools lazygit delta
+
+    # Stow lazygit config if not already done
+    if [[ -d "$DOTFILES_DIR/lazygit" ]]; then
+        ensure_stow
+        ensure_omadot
+        install_app_config lazygit
+    else
+        warn "lazygit config not found in dotfiles — skipping"
+    fi
+
+    success "Neovim extras installed"
 }
 
 # ─── Interactive pickers ─────────────────────────────────────────────────────
