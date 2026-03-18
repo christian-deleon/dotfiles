@@ -1,20 +1,69 @@
 worktree-path = "../{{ branch | sanitize }}"
 
 [commit.generation]
-command = "CLAUDECODE= MAX_THINKING_TOKENS=0 claude -p --model=haiku --tools='' --disable-slash-commands --setting-sources='' --system-prompt=''"
+command = "CLAUDECODE= MAX_THINKING_TOKENS=0 claude -p --model=haiku --tools='' --disable-slash-commands --setting-sources='' --system-prompt='' | sed '/^```/d'"
 template = """
-Generate a git commit message for the following diff using the Conventional Commits format.
+You are a senior engineer writing a git commit message. Analyze the diff carefully and produce a single Conventional Commits 1.0.0 message.
 
-Rules:
-- Format: <type>(<optional scope>): <description>
-- Types: feat, fix, refactor, docs, test, chore, perf, ci
-- Description: imperative mood, lowercase, no period, max 72 chars
-- Add a body only if the change needs explanation (separate with blank line)
-- Output ONLY the commit message, nothing else
+## Format
+
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer(s)]
+
+## Type — choose the SINGLE most accurate type based on what the code actually does
+
+- feat     — introduces new behaviour, a new public function/method, a new endpoint, a new CLI flag, or any user-visible capability that did not exist before
+- fix      — corrects a defect: wrong logic, crash, incorrect output, off-by-one, missing null check, bad error handling
+- refactor — restructures existing code without changing observable behaviour (renames, extracts, splits files, replaces internal implementation)
+- perf     — a refactor whose primary motivation is measurable speed or memory improvement
+- test     — adds or fixes tests only; no production code changes
+- docs     — changes ONLY to documentation files (.md, .rst, doc comments in code with no logic change); if ANY source file with real logic changed, do NOT use docs
+- chore    — build system, dependency bumps, config files, CI scripts, tooling; no production logic
+- ci       — changes to CI/CD pipeline definitions only (.github/workflows, .gitlab-ci.yml, Dockerfile, etc.)
+- style    — whitespace, formatting, missing semicolons; zero logic change
+- revert   — reverts a previous commit
+
+When a commit mixes concerns, pick the type that reflects the PRIMARY change. If new functionality AND bug fixes are present, use feat and mention the fix in the body.
+
+## Scope
+
+Use a short lowercase noun identifying the subsystem or crate changed (e.g. engine, marketdata, api, auth). Omit if the change is truly cross-cutting.
+
+## Description
+
+- Imperative mood, present tense: "add" not "adds" or "added"
+- Lowercase first letter
+- No period at the end
+- Max 72 characters
+- Describe WHAT changed and WHY, not HOW
+
+## Body (include when helpful)
+
+- Separate from description with one blank line
+- Explain motivation, context, or trade-offs that are not obvious from the diff
+- Wrap at 100 characters per line
+- Do not re-describe the diff line by line
+
+## Breaking changes
+
+If the diff removes or renames a public API, changes a function signature, or alters a config schema in a non-backwards-compatible way, append `!` after the type/scope AND add a footer:
+
+BREAKING CHANGE: <what broke and what consumers must do>
+
+## Output rules
+
+- Output ONLY the raw commit message — no markdown, no code fences, no backticks, no quotes, no preamble
+- Do not explain your reasoning
+- Do not include any text before or after the commit message
+
+## Context
 
 Branch: {{ branch }}
 
-Recent commits (for context/style):
+Recent commits (for reference style and scope conventions used in this repo):
 {{ recent_commits }}
 
 Diff:
