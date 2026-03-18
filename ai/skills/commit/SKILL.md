@@ -34,7 +34,7 @@ Create well-structured git commits following the [Conventional Commits](https://
 |------|---------|--------|
 | `feat` | A new feature or capability | MINOR |
 | `fix` | A bug fix | PATCH |
-| `docs` | Documentation only (README, comments, docstrings) | - |
+| `docs` | Documentation only (.md, .rst, docstrings, comments) — use ONLY if **no** source files with logic changed | - |
 | `style` | Formatting, whitespace, semicolons — no logic change | - |
 | `refactor` | Code restructuring — no new feature, no bug fix | - |
 | `perf` | Performance improvement | - |
@@ -132,7 +132,9 @@ Follow this process:
 
 ### 4. Draft Commit Messages
 
-For each logical group, draft a commit message:
+For each logical group, draft a commit message.
+
+**When a group mixes concerns that cannot be split** (e.g. a bug fix that required adding a new helper, or a refactor that also fixed a latent bug), pick the type that reflects the **primary intent** of the change. Mention secondary concerns in the body, not the subject line. Never use `docs` if any file with real logic changed — use `feat`, `fix`, `refactor`, or `chore` instead and note the doc updates in the body.
 
 ```
 <type>(<scope>): <imperative description under 72 chars>
