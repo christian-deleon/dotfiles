@@ -44,6 +44,13 @@ terraform:
   brew: terraform
   script: tools/install-terraform.sh
 
+cloc:
+  description: Count lines of code
+  arch: cloc
+  apt: null
+  brew: cloc
+  script: tools/install-cloc.sh
+
 fzf:
   description: Fuzzy finder
   arch: fzf
