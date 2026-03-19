@@ -1,8 +1,10 @@
 worktree-path = "../{{ branch | sanitize }}"
 
 [commit.generation]
-command = "CLAUDECODE= MAX_THINKING_TOKENS=0 claude -p --model=haiku --tools='' --disable-slash-commands --setting-sources='' --system-prompt='' | sed '/^```/d'"
+command = "CLAUDECODE= MAX_THINKING_TOKENS=0 claude -p --model=haiku --output-format text --tools='' --disable-slash-commands --setting-sources='' --system-prompt='' | sed 's/```//g; /^[[:space:]]*$/d'"
 template = """
+OUTPUT ONLY THE RAW COMMIT MESSAGE. No markdown, no code fences, no backticks, no preamble, no explanation. Your entire response must be the commit message and nothing else.
+
 You are a senior engineer writing a git commit message. Analyze the diff carefully and produce a single Conventional Commits 1.0.0 message.
 
 ## Format
@@ -52,12 +54,6 @@ Use a short lowercase noun identifying the subsystem or crate changed (e.g. engi
 If the diff removes or renames a public API, changes a function signature, or alters a config schema in a non-backwards-compatible way, append `!` after the type/scope AND add a footer:
 
 BREAKING CHANGE: <what broke and what consumers must do>
-
-## Output rules
-
-- Output ONLY the raw commit message — no markdown, no code fences, no backticks, no quotes, no preamble
-- Do not explain your reasoning
-- Do not include any text before or after the commit message
 
 ## Context
 
