@@ -530,8 +530,8 @@ Before committing:
 - **Backup first** - `install.sh` auto-backs up to `~/dotfiles_backup`
 - **Test before push** - validate in safe environment
 - **Document everything** - keep docs comprehensive and current
-- **OS-aware** - use `$OSTYPE` for macOS vs Linux paths (1Password, Homebrew, etc.)
-- **Omarchy-aware** - don't duplicate or conflict with Omarchy's shell defaults
+- **OS-aware** - use `$OSTYPE` for macOS vs Linux paths (1Password, Homebrew, etc.). This repo supports multiple platforms (macOS, Omarchy/Arch, Ubuntu/Pop!_OS, Debian). Never assume the user is on a specific OS — check the actual environment when it matters. Omarchy is documented heavily here because it has unique integration points, but that does not mean the user is running Omarchy.
+- **Omarchy-aware** - when working on Omarchy-specific code, don't duplicate or conflict with Omarchy's shell defaults
 - **Stow-aware** - never use `omadot put --all`; always use the explicit package list
 - **Idempotent** - all install modules must be safe to re-run
 - **Privacy** - never commit secrets, tokens, credentials
