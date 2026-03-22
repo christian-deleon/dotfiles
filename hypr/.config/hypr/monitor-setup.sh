@@ -11,7 +11,7 @@ MSI_DESC="Microstep MAG321UP OLED"
 if [ "$1" = "--swap" ]; then
     # Read current positions and swap them
     eval "$(hyprctl monitors -j | jq -r --arg desc "$MSI_DESC" '
-        [.[] | select(.description == $desc)] |
+        [.[] | select(.description | startswith($desc))] |
         if length == 2 then
             "MON1=\(.[0].name) X1=\(.[1].x) MON2=\(.[1].name) X2=\(.[0].x)"
         else empty end')"
@@ -23,7 +23,7 @@ fi
 
 sleep 1 # let monitors settle after hotplug
 
-MSI_MONITORS=$(hyprctl monitors -j | jq -r --arg desc "$MSI_DESC" '.[] | select(.description == $desc) | .name')
+MSI_MONITORS=$(hyprctl monitors -j | jq -r --arg desc "$MSI_DESC" '.[] | select(.description | startswith($desc)) | .name')
 MSI_COUNT=$(echo "$MSI_MONITORS" | grep -c .)
 
 # Position MSI monitors first, then disable laptop
