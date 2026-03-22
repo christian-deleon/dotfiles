@@ -102,6 +102,13 @@ delta:
   brew: git-delta
   script: tools/install-delta.sh
 
+k9s:
+  description: Kubernetes cluster manager TUI
+  arch: k9s
+  apt: null
+  brew: derailed/k9s/k9s
+  script: tools/install-k9s.sh
+
 lazygit:
   description: Terminal UI for git
   arch: lazygit
