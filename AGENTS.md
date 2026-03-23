@@ -55,7 +55,7 @@ App configs in `~/.config/` are managed via [GNU Stow](https://www.gnu.org/softw
 
 **Stow packages** (auto-discovered from repo — any dir with `.config/<name>/` inside; list may change as packages are added/removed):
 ```
-btop  fastfetch  ghostty  hypr  k9s  kitty  lazygit  mako  nvim  omarchy  opencode  walker  waybar  worktrunk
+btop  fastfetch  ghostty  hypr  k9s  kitty  lazygit  makima  mako  nvim  omarchy  opencode  walker  waybar  worktrunk
 ```
 
 **Special packages** (not stow-based, handled by custom install functions):
@@ -322,6 +322,7 @@ function my_function() {
 | `hypr` | `~/.config/hypr/` | Hyprland WM (bindings, monitors, look-n-feel) |
 | `kitty` | `~/.config/kitty/` | Kitty terminal |
 | `lazygit` | `~/.config/lazygit/` | Lazygit TUI |
+| `makima` | `~/.config/makima/` | Key remapping daemon (Copilot key) |
 | `mako` | `~/.config/mako/` | Notifications |
 | `nvim` | `~/.config/nvim/` | Neovim (LazyVim) with Copilot AI autocomplete |
 | `omarchy` | `~/.config/omarchy/` | Themes, hooks, extensions |
@@ -570,6 +571,7 @@ The structure is always:
 | `k9s` | `k9s/.config/k9s/` |
 | `kitty` | `kitty/.config/kitty/` |
 | `lazygit` | `lazygit/.config/lazygit/` |
+| `makima` | `makima/.config/makima/` |
 | `mako` | `mako/.config/mako/` |
 | `nvim` | `nvim/.config/nvim/` |
 | `omarchy` | `omarchy/.config/omarchy/` |
