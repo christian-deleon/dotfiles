@@ -732,6 +732,7 @@ get_app_label() {
         k9s)       echo "k9s — Kubernetes TUI manager" ;;
         kitty)     echo "kitty — Terminal emulator config" ;;
         lazygit)   echo "lazygit — Git TUI client" ;;
+        makima)    echo "makima — Key remapping daemon config" ;;
         mako)      echo "mako — Wayland notification daemon" ;;
         nvim)      echo "nvim — Neovim (LazyVim) editor config with Copilot" ;;
         omarchy)   echo "omarchy — Desktop environment config" ;;
