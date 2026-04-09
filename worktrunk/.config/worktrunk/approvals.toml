@@ -1,0 +1,5 @@
+[projects."gitlab.devops.athenis.io/platform/athenis"]
+approved-commands = [
+    "just platform verify",
+    "just platform check",
+]
