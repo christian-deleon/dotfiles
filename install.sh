@@ -233,8 +233,12 @@ install_git_submodules() {
     # Initialize critical submodules first
     info "Initializing critical submodules (ssh, tpm)..."
     git -C "$DOTFILES_DIR" submodule sync --recursive .ssh .tmux/plugins/tpm
-    git -C "$DOTFILES_DIR" submodule update --init --recursive .ssh .tmux/plugins/tpm
-    success "Git submodules initialized"
+    if git -C "$DOTFILES_DIR" submodule update --init --recursive .ssh .tmux/plugins/tpm; then
+        success "Git submodules initialized"
+    else
+        warn "Some submodules failed to fetch (SSH auth may not be configured yet)"
+        warn "Run ${BOLD}git -C $DOTFILES_DIR submodule update --init --recursive${RESET} after setting up SSH"
+    fi
 }
 
 # List available theme submodules
@@ -301,11 +305,6 @@ install_themes() {
 }
 
 install_ssh_config() {
-    if [[ ! -f "$DOTFILES_DIR/.ssh/config" ]]; then
-        warn "No SSH config found in dotfiles (submodule may not be initialized)"
-        return
-    fi
-
     if [[ ! -d "$HOME/.ssh" ]]; then
         mkdir -p "$HOME/.ssh"
         chmod 700 "$HOME/.ssh"
@@ -331,6 +330,10 @@ Include $DOTFILES_DIR/.ssh/config
 SSHEOF
     chmod 600 "$HOME/.ssh/config"
     success "Generated ${DIM}.ssh/config${RESET}"
+
+    if [[ ! -f "$DOTFILES_DIR/.ssh/config" ]]; then
+        warn "SSH submodule not populated yet — Include will resolve after: ${BOLD}git -C $DOTFILES_DIR submodule update --init .ssh${RESET}"
+    fi
 }
 
 install_git_config() {
