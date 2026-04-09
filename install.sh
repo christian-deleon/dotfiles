@@ -239,6 +239,20 @@ install_git_submodules() {
         warn "Some submodules failed to fetch (SSH auth may not be configured yet)"
         warn "Run ${BOLD}git -C $DOTFILES_DIR submodule update --init --recursive${RESET} after setting up SSH"
     fi
+
+    # Restore submodule working trees if they exist but have dirty/empty checkouts
+    local submodule_path
+    for submodule_path in .ssh .tmux/plugins/tpm; do
+        local full_path="$DOTFILES_DIR/$submodule_path"
+        if [[ -f "$full_path/.git" ]] && git -C "$full_path" diff-index --quiet HEAD -- 2>/dev/null; then
+            continue  # Clean checkout, nothing to do
+        fi
+        if [[ -f "$full_path/.git" ]]; then
+            info "Restoring $submodule_path working tree..."
+            git -C "$full_path" reset HEAD -- . 2>/dev/null
+            git -C "$full_path" checkout -- . 2>/dev/null
+        fi
+    done
 }
 
 # List available theme submodules
