@@ -149,9 +149,10 @@ install_tool() {
     if [[ -z "$pkg_name" || "$pkg_name" == "null" ]]; then
         local script
         script="$(get_tool_field "$tool" "script" 2>/dev/null)" || script=""
-        if [[ -n "$script" && -f "$DOTFILES_DIR/$script" ]]; then
+        local script_path="$DOTFILES_DIR/scripts/tools/$script"
+        if [[ -n "$script" && -f "$script_path" ]]; then
             _info "Installing ${_BOLD}$tool${_RESET} via script..."
-            bash "$DOTFILES_DIR/$script"
+            bash "$script_path"
             return $?
         else
             _warn "No install method for ${_BOLD}$tool${_RESET} on this system ($pkg_manager)"
@@ -190,7 +191,7 @@ install_tools() {
     for tool in "${tools[@]}"; do
         if command -v gum &>/dev/null; then
             local output
-            if output=$(gum spin --spinner dot --title "Installing $tool..." -- bash -c "source '$DOTFILES_DIR/tools/lib.sh' && install_tool '$tool'" 2>&1); then
+            if output=$(gum spin --spinner dot --title "Installing $tool..." -- bash -c "source '$DOTFILES_DIR/scripts/lib.sh' && install_tool '$tool'" 2>&1); then
                 _success "Installed ${_BOLD}$tool${_RESET}"
             else
                 failed+=("$tool")
@@ -224,8 +225,8 @@ ensure_gum() {
     _info "gum is required for the interactive installer."
     _info "Installing gum..."
 
-    if [[ -f "$DOTFILES_DIR/tools/install-gum.sh" ]]; then
-        bash "$DOTFILES_DIR/tools/install-gum.sh"
+    if [[ -f "$DOTFILES_DIR/scripts/tools/install-gum.sh" ]]; then
+        bash "$DOTFILES_DIR/scripts/tools/install-gum.sh"
     else
         _error "gum install script not found"
         return 1

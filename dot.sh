@@ -5,7 +5,7 @@ set -e
 DOTFILES_DIR="$HOME/.dotfiles"
 
 # Source package management library
-source "$DOTFILES_DIR/tools/lib.sh"
+source "$DOTFILES_DIR/scripts/lib.sh"
 
 
 usage() {
