@@ -14,42 +14,42 @@ kubectl:
   arch: kubectl
   apt: null
   brew: kubectl
-  script: tools/install-kubectl.sh
+  script: install-kubectl.sh
 
 skaffold:
   description: Kubernetes dev workflow
   arch: skaffold
   apt: null
   brew: skaffold
-  script: tools/install-skaffold.sh
+  script: install-skaffold.sh
 
 flux:
   description: GitOps toolkit
   arch: fluxcd
   apt: null
   brew: fluxcd/tap/flux
-  script: tools/install-flux.sh
+  script: install-flux.sh
 
 helm:
   description: Kubernetes package manager
   arch: helm
   apt: null
   brew: helm
-  script: tools/install-helm.sh
+  script: install-helm.sh
 
 terraform:
   description: Infrastructure as code
   arch: terraform
   apt: null
   brew: terraform
-  script: tools/install-terraform.sh
+  script: install-terraform.sh
 
 cloc:
   description: Count lines of code
   arch: cloc
   apt: null
   brew: cloc
-  script: tools/install-cloc.sh
+  script: install-cloc.sh
 
 fzf:
   description: Fuzzy finder
@@ -80,7 +80,7 @@ yq:
   arch: yq
   apt: null
   brew: yq
-  script: tools/install-yq.sh
+  script: install-yq.sh
 
 ripgrep:
   description: Fast grep alternative
@@ -93,28 +93,28 @@ just:
   arch: just
   apt: null
   brew: just
-  script: tools/install-just.sh
+  script: install-just.sh
 
 delta:
   description: Syntax-highlighting pager for git diffs
   arch: git-delta
   apt: null
   brew: git-delta
-  script: tools/install-delta.sh
+  script: install-delta.sh
 
 k9s:
   description: Kubernetes cluster manager TUI
   arch: k9s
   apt: null
   brew: derailed/k9s/k9s
-  script: tools/install-k9s.sh
+  script: install-k9s.sh
 
 lazygit:
   description: Terminal UI for git
   arch: lazygit
   apt: null
   brew: lazygit
-  script: tools/install-lazygit.sh
+  script: install-lazygit.sh
 
 tmux:
   description: Terminal multiplexer
@@ -127,49 +127,49 @@ gh:
   arch: github-cli
   apt: null
   brew: gh
-  script: tools/install-gh.sh
+  script: install-gh.sh
 
 1password-cli:
   description: 1Password CLI (op)
   arch: 1password-cli
   apt: null
   brew: --cask 1password-cli
-  script: tools/install-1password-cli.sh
+  script: install-1password-cli.sh
 
 gum:
   description: TUI components for scripts
   arch: gum
   apt: null
   brew: gum
-  script: tools/install-gum.sh
+  script: install-gum.sh
 
 mise:
   description: Dev tool version manager
   arch: mise
   apt: null
   brew: mise
-  script: tools/install-mise.sh
+  script: install-mise.sh
 
 poetry:
   description: Python dependency management
   arch: python-poetry
   apt: null
   brew: poetry
-  script: tools/install-poetry.sh
+  script: install-poetry.sh
 
 neovim:
   description: Hyperextensible text editor
   arch: neovim
   apt: null
   brew: neovim
-  script: tools/install-neovim.sh
+  script: install-neovim.sh
 
 ghostty:
   description: GPU-accelerated terminal
   arch: ghostty
   apt: null
   brew: --cask ghostty
-  script: tools/install-ghostty.sh
+  script: install-ghostty.sh
 
 npm:
   description: Node.js package manager
@@ -182,4 +182,4 @@ worktrunk:
   arch: null
   apt: null
   brew: null
-  script: tools/install-worktrunk.sh
+  script: install-worktrunk.sh

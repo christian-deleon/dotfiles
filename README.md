@@ -49,7 +49,7 @@ Shared AI agent configuration for Claude Code and OpenCode lives in `ai/`. Selec
 
 ## Dev Tools
 
-Tools are defined in `packages.yaml` with per-OS package names. The system auto-detects your package manager (pacman/yay, apt, brew) and falls back to install scripts in `tools/` when needed.
+Tools are defined in `packages.yaml` with per-OS package names. The system auto-detects your package manager (pacman/yay, apt, brew) and falls back to install scripts in `scripts/` when needed.
 
 ## Docs
 

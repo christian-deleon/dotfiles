@@ -15,7 +15,7 @@ Guidelines for AI coding agents working in this personal dotfiles repository. Th
 - Omarchy desktop configs: hypr, waybar, kitty, ghostty, mako, walker, btop, fastfetch, lazygit, omarchy, opencode (managed via GNU Stow + omadot)
 - AI config: `ai/` directory with agents, commands, skills, and rules for Claude Code and OpenCode
 - MCP servers: `ai/mcp-servers.json.tpl` — shared config for Claude Code and OpenCode (with `op://` secret refs)
-- Package management: `packages.yaml` + `tools/lib.sh` (cross-platform), Homebrew Brewfile profiles (macOS)
+- Package management: `packages.yaml` + `scripts/lib.sh` (cross-platform), Homebrew Brewfile profiles (macOS)
 - Custom aliases, functions (many with fzf integration), shell utilities
 - Documentation: `docs/functions.md`, `docs/aliases.md`
 
@@ -64,7 +64,7 @@ btop  fastfetch  ghostty  hypr  k9s  kitty  lazygit  makima  mako  nvim  omarchy
 
 **Not managed by omadot** (Omarchy-owned): `starship.toml`, `~/.config/git/`
 
-**IMPORTANT:** Never use `omadot put --all` in this repo. It would try to stow non-package directories (brew/, tools/, docs/, etc.). The installer auto-discovers valid packages by checking for `<dir>/.config/<dir>/` structure.
+**IMPORTANT:** Never use `omadot put --all` in this repo. It would try to stow non-package directories (brew/, scripts/, docs/, etc.). The installer auto-discovers valid packages by checking for `<dir>/.config/<dir>/` structure.
 
 ### Omarchy Compatibility
 
@@ -94,7 +94,7 @@ Submodules are initialized by `install_git_submodules()` during core config. `do
   2. `Include`s the shared submodule config
 - Never put OS-specific paths (like `IdentityAgent`) in the submodule config
 
-### Package Management (`packages.yaml` + `tools/`)
+### Package Management (`packages.yaml` + `scripts/`)
 
 Tools are defined in `packages.yaml` with per-OS package names and optional script fallbacks:
 
@@ -104,10 +104,10 @@ kubectl:
   arch: kubectl          # pacman/yay package name
   apt: null              # null = no native package, use script
   brew: kubectl          # Homebrew formula
-  script: tools/install-kubectl.sh  # fallback installer
+  script: install-kubectl.sh  # fallback (resolved to scripts/tools/)
 ```
 
-The shared library `tools/lib.sh` provides:
+The shared library `scripts/lib.sh` provides:
 - `detect_pkg_manager()` — returns `arch`, `apt`, or `brew`
 - `list_tools()` — lists all tool names from `packages.yaml`
 - `get_tool_field <tool> <field>` — minimal YAML parser (no yq dependency at bootstrap)
@@ -115,7 +115,7 @@ The shared library `tools/lib.sh` provides:
 - `install_tools <tool ...>` — installs multiple tools with gum spinner support
 - `ensure_gum()` — bootstraps gum if not installed
 
-Install scripts in `tools/install-*.sh` are fallbacks for systems where the tool isn't available as a native package. They use official install methods (curl binaries, APT repos, etc.).
+Install scripts in `scripts/tools/install-*.sh` are fallbacks for systems where the tool isn't available as a native package. They use official install methods (curl binaries, APT repos, etc.).
 
 ## Build/Test/Run Commands
 
@@ -132,7 +132,7 @@ bash -x install.sh
 source .functions && kcs
 
 # Syntax-check all tool install scripts
-for f in tools/*.sh; do bash -n "$f"; done
+for f in scripts/*.sh; do bash -n "$f"; done
 
 # Test all shell files
 for f in .[a-z]*; do [[ -f "$f" ]] && bash -n "$f" 2>&1 | grep -v "cannot execute" || true; done
@@ -234,7 +234,7 @@ fi
 
 - Dotfiles: `.filename` (`.commonrc`, `.aliases`, `.functions`)
 - Scripts: `lowercase-with-hyphens.sh` (`install.sh`)
-- Install scripts: `tools/install-<tool>.sh` (`tools/install-kubectl.sh`)
+- Install scripts: `scripts/tools/install-<tool>.sh` (referenced as `install-<tool>.sh` in packages.yaml)
 - Brewfiles: `Brewfile-profile` (`Brewfile-home`)
 
 **Functions:**
@@ -257,7 +257,7 @@ tool-name:
   arch: pacman-package-name
   apt: apt-package-name     # null if not available
   brew: homebrew-formula
-  script: tools/install-tool.sh  # optional fallback
+  script: install-tool.sh  # optional fallback (resolved to scripts/tools/)
 ```
 
 **Indentation:** 2 spaces (YAML), 4 spaces (Shell)
@@ -295,7 +295,7 @@ function my_function() {
 
 - Auto-detect OS: `$OSTYPE` (macOS vs Linux)
 - Detect Omarchy: `[[ -d "$HOME/.local/share/omarchy" ]]`
-- Detect package manager: `detect_pkg_manager()` in `tools/lib.sh`
+- Detect package manager: `detect_pkg_manager()` in `scripts/lib.sh`
 - macOS: Homebrew for packages (auto-installed by `install.sh` if missing)
 - Arch Linux: pacman/yay for packages
 - Debian/Ubuntu: apt + script fallbacks for missing tools
@@ -430,7 +430,7 @@ When creating symlinks inside a stowed directory (e.g., `~/.config/opencode/comm
 1. Add to `.functions` with comment above
 2. Group by category (General, Kubernetes, Git, etc.)
 3. Consider fzf integration for interactive selection
-4. Run `bash tools/check-descriptions.sh` — description must be single-line, ≤60 chars
+4. Run `bash scripts/check-descriptions.sh` — description must be single-line, ≤60 chars
 5. Update `docs/functions.md` with examples
 6. `dot` CLI auto-parses documented functions
 7. Update README.md for major utilities
@@ -439,7 +439,7 @@ When creating symlinks inside a stowed directory (e.g., `~/.config/opencode/comm
 
 1. Add entry to `packages.yaml` with description and per-OS package names
 2. Use `null` for OS package managers that don't have the tool
-3. If needed, create `tools/install-<tool>.sh` as a fallback script
+3. If needed, create `scripts/tools/install-<tool>.sh` as a fallback script (use just the filename in packages.yaml)
 4. Test: `dot install <tool>`
 5. Update README.md tool list
 
@@ -483,7 +483,7 @@ When creating symlinks inside a stowed directory (e.g., `~/.config/opencode/comm
 1. **No profiles or flags** — the installer is always interactive. Zsh config runs on macOS (`$OSTYPE == darwin*`), Homebrew auto-installed on macOS
 2. **Core config**: `run_core_config()` always runs — shell, git submodules, ssh, git config, dot CLI
 3. **App configs**: `list_app_configs()` auto-discovers stow packages + tmux + claude; `install_app_config()` handles each; `get_app_label()` provides descriptions for the picker
-4. **Dev tools**: Uses `tools/lib.sh` and `packages.yaml` — gum choose for interactive selection
+4. **Dev tools**: Uses `scripts/lib.sh` and `packages.yaml` — gum choose for interactive selection
 5. **Prerequisites**: `ensure_homebrew()`, `ensure_stow()`, `ensure_omadot()`, `ensure_jq()` auto-install if missing
 6. **Idempotency**: All modules must be safe to re-run. Use `ln -snf` for symlinks, check before stowing, skip if already done. AI config uses `clean_ai_symlinks()` to remove stale links before re-linking
 7. **1Password**: `op_inject_multi()` handles multi-account secret resolution (replaces `op inject` which only supports one account)
@@ -495,7 +495,7 @@ When creating symlinks inside a stowed directory (e.g., `~/.config/opencode/comm
 
 ### Modifying dot.sh
 
-1. Sources `tools/lib.sh` for package management
+1. Sources `scripts/lib.sh` for package management
 2. `dot install` sources `install.sh` and calls `run_pickers()` — shows both app configs and dev tools in one interactive flow
 3. `dot update` handles OS-appropriate package updates (pacman/yay, apt, brew), pulls dotfiles, updates all submodules, and re-runs `install_ai_claude` + `install_ai_opencode` if the `ai/` directory exists
 4. Keep brew commands as-is (macOS only)
@@ -513,8 +513,8 @@ When creating symlinks inside a stowed directory (e.g., `~/.config/opencode/comm
 Before committing:
 
 - [ ] `bash -n <script>` - shell syntax check
-- [ ] `for f in tools/*.sh; do bash -n "$f"; done` - check all install scripts
-- [ ] `bash tools/check-descriptions.sh` - validate function/alias descriptions
+- [ ] `for f in scripts/*.sh; do bash -n "$f"; done` - check all install scripts
+- [ ] `bash scripts/check-descriptions.sh` - validate function/alias descriptions
 - [ ] `source .functions && <function-name>` - test functions work
 - [ ] Aliases work in new shell session
 - [ ] Documentation updated (`README.md`, `docs/functions.md`, `docs/aliases.md`)

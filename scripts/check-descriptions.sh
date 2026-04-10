@@ -1,6 +1,6 @@
 #!/bin/bash
 # Check that all function/alias descriptions are single-line and under the max length.
-# Usage: bash tools/check-descriptions.sh
+# Usage: bash scripts/check-descriptions.sh
 # Exit 0 if all pass, 1 if any violations found.
 
 set -euo pipefail

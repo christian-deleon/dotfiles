@@ -16,7 +16,7 @@ set -e
 DOTFILES_DIR="$HOME/.dotfiles"
 BACKUP_DIR="$HOME/dotfiles_backup"
 
-source "$DOTFILES_DIR/tools/lib.sh"
+source "$DOTFILES_DIR/scripts/lib.sh"
 
 SHELL_FILES=(.commonrc .aliases .functions)
 ZSH_FILES=(.zshrc .p10k.zsh)
@@ -553,11 +553,11 @@ clean_ai_symlinks() {
 
 # Install lid-check script and patch PAM to skip fingerprint when lid is closed
 install_lid_check() {
-    local script_src="$DOTFILES_DIR/tools/lid-check.sh"
+    local script_src="$DOTFILES_DIR/scripts/lid-check.sh"
     local script_dest="/usr/local/bin/lid-check.sh"
     local pam_line="auth    [success=ignore default=1] pam_exec.so quiet $script_dest"
 
-    [[ -f "$script_src" ]] || { warn "tools/lid-check.sh not found"; return; }
+    [[ -f "$script_src" ]] || { warn "scripts/lid-check.sh not found"; return; }
 
     info "Installing lid-check fingerprint bypass..."
 
