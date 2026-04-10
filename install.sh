@@ -551,6 +551,32 @@ clean_ai_symlinks() {
     done
 }
 
+# Install lid-check script and patch PAM to skip fingerprint when lid is closed
+install_lid_check() {
+    local script_src="$DOTFILES_DIR/tools/lid-check.sh"
+    local script_dest="/usr/local/bin/lid-check.sh"
+    local pam_line="auth    [success=ignore default=1] pam_exec.so quiet $script_dest"
+
+    [[ -f "$script_src" ]] || { warn "tools/lid-check.sh not found"; return; }
+
+    info "Installing lid-check fingerprint bypass..."
+
+    sudo install -m 755 "$script_src" "$script_dest"
+
+    # Patch PAM files that use pam_fprintd.so
+    for pam_file in /etc/pam.d/sudo /etc/pam.d/polkit-1; do
+        [[ -f "$pam_file" ]] || continue
+        if grep -q "pam_fprintd.so" "$pam_file" && ! grep -q "lid-check.sh" "$pam_file"; then
+            sudo sed -i "/pam_fprintd.so/i\\$pam_line" "$pam_file"
+            success "Patched $pam_file"
+        else
+            info "$pam_file already patched or has no fprintd"
+        fi
+    done
+
+    success "Installed lid-check fingerprint bypass"
+}
+
 install_ai_claude() {
     local ai_dir="$DOTFILES_DIR/ai"
     [[ -d "$ai_dir" ]] || { warn "ai/ directory not found"; return; }
@@ -749,6 +775,7 @@ get_app_label() {
         k9s)       echo "k9s — Kubernetes TUI manager" ;;
         kitty)     echo "kitty — Terminal emulator config" ;;
         lazygit)   echo "lazygit — Git TUI client" ;;
+        lid-check) echo "lid-check — Skip fingerprint auth when lid is closed" ;;
         makima)    echo "makima — Key remapping daemon config" ;;
         mako)      echo "mako — Wayland notification daemon" ;;
         nvim)      echo "nvim — Neovim (LazyVim) editor config with Copilot" ;;
@@ -780,6 +807,11 @@ list_app_configs() {
         if [[ -d "$DOTFILES_DIR/ai" ]]; then
             echo "claude"
         fi
+
+        # Linux-only: fingerprint lid bypass (requires fprintd in PAM)
+        if [[ "$OSTYPE" != darwin* ]] && grep -ql "pam_fprintd.so" /etc/pam.d/* 2>/dev/null; then
+            echo "lid-check"
+        fi
     } | sort
 }
 
@@ -790,6 +822,9 @@ install_app_config() {
     case "$pkg" in
         claude)
             install_ai_claude
+            ;;
+        lid-check)
+            install_lid_check
             ;;
         tmux)
             for file in "${TMUX_FILES[@]}"; do
