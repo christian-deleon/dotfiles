@@ -18,5 +18,6 @@ case "$1" in
         ;;
     open)
         hyprctl keyword monitor "$LAPTOP_MONITOR, $LAPTOP_CONFIG"
+        hyprctl dispatch dpms on "$LAPTOP_MONITOR"
         ;;
 esac
