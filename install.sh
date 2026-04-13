@@ -686,33 +686,37 @@ generate_mcp_configs() {
     # --- Claude Code: merge mcpServers into ~/.claude.json ---
     local claude_cfg="$HOME/.claude.json"
 
-    # Only these MCP servers are enabled by default; all others get disabled: true.
+    # Only these MCP servers are enabled by default; all others are disabled.
     # Add server names here to enable them globally across all projects.
     local enabled_mcp_servers=("context7" "brave-search")
 
     local enabled_json
     enabled_json="$(printf '%s\n' "${enabled_mcp_servers[@]}" | jq -R . | jq -s .)"
 
+    # Build the disabledMcpServers array (all server names NOT in the enabled list)
+    local disabled_json
+    disabled_json="$(jq --argjson enabled "$enabled_json" '
+        keys | map(select(. as $k | $enabled | contains([$k]) | not))
+    ' "$resolved")"
+
+    # Build clean mcpServers (no "disabled" field inside entries)
+    local claude_mcp
+    claude_mcp="$(jq '{mcpServers: .}' "$resolved")"
+
     if [[ -f "$claude_cfg" ]]; then
-        local claude_mcp
-        # Mark non-enabled servers with disabled: true (global default)
-        claude_mcp="$(jq --argjson enabled "$enabled_json" '
-            with_entries(.key as $k |
-                if ($enabled | contains([$k])) then .
-                else .value += {disabled: true}
-                end
-            ) | {mcpServers: .}
-        ' "$resolved")"
-        jq -s '(.[0] | del(.mcpServers)) * .[1]' "$claude_cfg" <(echo "$claude_mcp") > "$claude_cfg.tmp"
+        # Merge mcpServers at root, and inject disabledMcpServers into every project entry
+        # (Claude Code reads disabledMcpServers from the per-project config, not root)
+        jq -s --argjson disabled "$disabled_json" '
+            (.[0] | del(.mcpServers)) * .[1]
+            | if .projects then
+                .projects |= with_entries(
+                    .value.disabledMcpServers = $disabled
+                )
+              else . end
+        ' "$claude_cfg" <(echo "$claude_mcp") > "$claude_cfg.tmp"
         mv "$claude_cfg.tmp" "$claude_cfg"
     else
-        jq --argjson enabled "$enabled_json" '
-            with_entries(.key as $k |
-                if ($enabled | contains([$k])) then .
-                else .value += {disabled: true}
-                end
-            ) | {mcpServers: .}
-        ' "$resolved" > "$claude_cfg"
+        jq '{mcpServers: .}' "$resolved" > "$claude_cfg"
     fi
     success "Updated Claude Code MCP servers in ~/.claude.json"
 
