@@ -103,37 +103,24 @@ echo
 echo ".aliases"
 echo "──────────────────────────────────────────────────"
 
-# Aliases inherit their category comment as the description.
-# Flag category comments that are too long or look like prose.
-alias_cat="General"
-new_cat_block=true
-
+# Each alias must carry an inline description: `alias foo='bar'  # Description`
 while IFS= read -r line; do
-    if [[ "$line" =~ ^#[[:space:]]*(.+) ]]; then
-        candidate="${BASH_REMATCH[1]}"
-        if [[ "$new_cat_block" == true ]]; then
-            alias_cat="$candidate"
-            new_cat_block=false
-        fi
-        continue
-    fi
-
     if [[ "$line" =~ ^alias[[:space:]]+([^=]+)=(.+)$ ]]; then
         name="${BASH_REMATCH[1]}"
-        # The category is the "description" shown in dothelp
-        if (( ${#alias_cat} > MAX_LEN )); then
-            fail "$name — category too long (${#alias_cat} chars > $MAX_LEN): $alias_cat"
-        else
-            ok "$name — [$alias_cat]"
+        rest="${BASH_REMATCH[2]}"
+        desc=""
+        if [[ "$rest" =~ ^(.+)[[:space:]]+#[[:space:]]+(.+)$ ]]; then
+            desc="${BASH_REMATCH[2]}"
         fi
-        new_cat_block=false
-        continue
-    fi
 
-    if [[ -z "$line" ]]; then
-        new_cat_block=true
+        if [[ -z "$desc" ]]; then
+            fail "$name — missing inline description"
+        elif (( ${#desc} > MAX_LEN )); then
+            fail "$name — description too long (${#desc} chars > $MAX_LEN): $desc"
+        else
+            ok "$name — $desc"
+        fi
     fi
-
 done < "$ALIASES_FILE"
 
 # ── summary ───────────────────────────────────────────────────────────────────

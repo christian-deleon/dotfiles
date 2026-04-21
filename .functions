@@ -19,7 +19,7 @@ function cdr() {
     fi
 }
 
-# Run cloc with git integration if .gitignore exists, defaults to current dir
+# Run cloc respecting .gitignore (defaults to current dir)
 function clocg() {
     local args=("${@:-.}")
     if [[ -f .gitignore ]]; then
@@ -597,7 +597,7 @@ function wrf() {
     done <<< "$branches"
 }
 
-# Attach to a worktree's window in the project tmux session (creates if missing)
+# Open a worktree's tmux window (create session if needed)
 function wts() {
     local branch="$1"
 
