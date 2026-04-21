@@ -98,19 +98,24 @@ alias cld='claude --dangerously-skip-permissions'
 alias oc='opencode'
 
 # Worktrunk
+# Top-level commands use w<letter>; `wt step` subcommands use wx<letter>.
 alias wl='wt list'
 alias wlf='wt list --full'
+alias wj='wt list --format json'
+
 alias ws='wt switch'
 alias wsc='wt switch --create'
 alias wsr='wt switch --remotes'
 
-alias wc='wt step commit'
-alias wsq='wt step squash'
-
 alias wm='wt merge'
-alias wr='wt remove'
-alias wj='wt list --format json'
-alias wfe='wt step for-each --'
 alias wmn='wt merge --no-remove'
-alias wp='wt step prune --dry-run'
-alias wpp='wt step prune'
+alias wr='wt remove'
+
+# wt step ...
+alias wxc='wt step commit'
+alias wxs='wt step squash'
+alias wxr='wt step rebase'
+alias wxp='wt step push'
+alias wxf='wt step for-each --'
+alias wxpr='wt step prune'
+alias wxprd='wt step prune --dry-run'
