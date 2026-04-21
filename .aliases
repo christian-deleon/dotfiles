@@ -102,6 +102,10 @@ alias wl='wt list'
 alias wlf='wt list --full'
 alias ws='wt switch'
 alias wsc='wt switch --create'
+alias wsr='wt switch --remotes'
+
+alias wc='wt step commit'
+alias wsq='wt step squash'
 
 alias wm='wt merge'
 alias wr='wt remove'
