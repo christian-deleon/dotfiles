@@ -179,8 +179,14 @@ Kubernetes development workflow tool shortcuts.
 - `wlf` - List worktrees with full details — CI, diffstat, summaries (`wt list --full`)
 - `ws` - Switch to a worktree (`wt switch`)
 - `wsc` - Create and switch to a new worktree (`wt switch --create`)
+- `wsr` - Switch to a worktree, picker includes remote branches (`wt switch --remotes`)
 - `wm` - Merge current worktree into default branch (`wt merge`)
 - `wr` - Remove current worktree (`wt remove`)
+
+### Commit
+
+- `wc` - Stage and commit current worktree with LLM-generated message (`wt step commit`)
+- `wsq` - Squash current worktree's commits with LLM-generated message (`wt step squash`)
 
 ### Output
 
