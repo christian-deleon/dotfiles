@@ -173,34 +173,35 @@ Kubernetes development workflow tool shortcuts.
 
 ## Worktrunk
 
-### Core
+Naming scheme: top-level `wt` commands use `w<letter>` (with a trailing modifier letter for flag variants). `wt step` subcommands use the `wx<letter>` prefix.
+
+### List
 
 - `wl` - List all worktrees (`wt list`)
 - `wlf` - List worktrees with full details — CI, diffstat, summaries (`wt list --full`)
+- `wj` - List worktrees as JSON (`wt list --format json`)
+
+### Switch
+
 - `ws` - Switch to a worktree (`wt switch`)
 - `wsc` - Create and switch to a new worktree (`wt switch --create`)
 - `wsr` - Switch to a worktree, picker includes remote branches (`wt switch --remotes`)
+
+### Merge & Remove
+
 - `wm` - Merge current worktree into default branch (`wt merge`)
+- `wmn` - Merge current worktree but keep it (`wt merge --no-remove`)
 - `wr` - Remove current worktree (`wt remove`)
 
-### Commit
+### `wt step` subcommands (`wx*`)
 
-- `wc` - Stage and commit current worktree with LLM-generated message (`wt step commit`)
-- `wsq` - Squash current worktree's commits with LLM-generated message (`wt step squash`)
-
-### Output
-
-- `wj` - List worktrees as JSON (`wt list --format json`)
-
-### Batch Operations
-
-- `wfe` - Run a command in all worktrees (`wt step for-each --`)
-
-### Merge & Cleanup
-
-- `wmn` - Merge current worktree but keep it (`wt merge --no-remove`)
-- `wp` - Preview stale worktrees to prune (`wt step prune --dry-run`)
-- `wpp` - Prune stale worktrees (`wt step prune`)
+- `wxc` - Stage and commit current worktree with LLM-generated message (`wt step commit`)
+- `wxs` - Squash current worktree's commits with LLM-generated message (`wt step squash`)
+- `wxr` - Rebase current worktree onto default branch (`wt step rebase`)
+- `wxp` - Fast-forward default branch to current worktree (`wt step push`)
+- `wxf` - Run a command in all worktrees (`wt step for-each --`)
+- `wxpr` - Prune stale worktrees (`wt step prune`)
+- `wxprd` - Preview stale worktrees to prune (`wt step prune --dry-run`)
 
 ---
 
