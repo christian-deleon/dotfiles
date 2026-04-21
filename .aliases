@@ -1,121 +1,117 @@
 # ls
-alias la='ls -lAh'
-alias ll='ls -lah'
+alias la='ls -lAh'                       # List files, human-readable sizes
+alias ll='ls -lah'                       # List all files in long format
 
 # Navigation
-alias up='cd ..'
-alias up2='cd ../..'
-alias up3='cd ../../..'
-alias up4='cd ../../../..'
+alias up='cd ..'                         # Go up one directory
+alias up2='cd ../..'                     # Go up two directories
+alias up3='cd ../../..'                  # Go up three directories
+alias up4='cd ../../../..'               # Go up four directories
 
 # Git
-alias g='git'
+alias g='git'                            # Git command shortcut
 
 # General
-alias diff='diff --color=auto'
-alias mkdir='mkdir -pv'
+alias diff='diff --color=auto'           # Colored diff output
+alias mkdir='mkdir -pv'                  # Create dirs with parents (verbose)
 
 # Neovim
-alias v='nvim'
-alias n='nvim'
-alias nv='nvim'
+alias v='nvim'                           # Launch Neovim
+alias n='nvim'                           # Launch Neovim
+alias nv='nvim'                          # Launch Neovim
 
 # Dropbox
-alias db='dropbox-cli'
+alias db='dropbox-cli'                   # Dropbox CLI
 
 # Kubernetes
-alias k='kubectl'
-alias kapi='kubectl api-resources'
-alias kcg='kubectl config get-contexts'
-alias kd='kubectl get deployments'
-alias kda='kubectl get deployments --all-namespaces'
-alias kev="kubectl get events --sort-by='.lastTimestamp'"
-alias keva="kubectl get events --all-namespaces --sort-by='.lastTimestamp'"
-alias kns='kubectl get namespaces'
-alias knsw='kubectl get namespaces --watch'
-alias kp='kubectl get pods'
-alias kpad='kubectl get pods --all-namespaces -o wide'
-alias kpaw='kubectl get pods --all-namespaces --watch'
-alias kpd='kubectl get pods -o wide'
-alias kpw='kubectl get pods --watch'
-alias krs='kubectl get replicasets'
-alias krsa='kubectl get replicasets --all-namespaces'
-alias kse='kubectl get secrets'
-alias ksea='kubectl get secrets --all-namespaces'
-alias kss='kubectl get statefulsets'
-alias kssa='kubectl get statefulsets --all-namespaces'
-alias ksv='kubectl get services'
-alias ksva='kubectl get services --all-namespaces'
+alias k='kubectl'                                                # kubectl shortcut
+alias kapi='kubectl api-resources'                               # List kubectl API resources
+alias kcg='kubectl config get-contexts'                          # List kubectl contexts
+alias kd='kubectl get deployments'                               # Get deployments
+alias kda='kubectl get deployments --all-namespaces'             # Get deployments in all namespaces
+alias kev="kubectl get events --sort-by='.lastTimestamp'"        # Get events sorted by timestamp
+alias keva="kubectl get events --all-namespaces --sort-by='.lastTimestamp'"  # Get events (all namespaces), sorted
+alias kns='kubectl get namespaces'                               # Get namespaces
+alias knsw='kubectl get namespaces --watch'                      # Watch namespaces
+alias kp='kubectl get pods'                                      # Get pods
+alias kpad='kubectl get pods --all-namespaces -o wide'           # Get pods (all namespaces) with detail
+alias kpaw='kubectl get pods --all-namespaces --watch'           # Watch pods in all namespaces
+alias kpd='kubectl get pods -o wide'                             # Get pods with detail (-o wide)
+alias kpw='kubectl get pods --watch'                             # Watch pods
+alias krs='kubectl get replicasets'                              # Get replicasets
+alias krsa='kubectl get replicasets --all-namespaces'            # Get replicasets in all namespaces
+alias kse='kubectl get secrets'                                  # Get secrets
+alias ksea='kubectl get secrets --all-namespaces'                # Get secrets in all namespaces
+alias kss='kubectl get statefulsets'                             # Get statefulsets
+alias kssa='kubectl get statefulsets --all-namespaces'           # Get statefulsets in all namespaces
+alias ksv='kubectl get services'                                 # Get services
+alias ksva='kubectl get services --all-namespaces'               # Get services in all namespaces
 
 # Flux
-alias fe='flux events'
-alias fea='flux events --all-namespaces'
-alias fgs='flux get sources git'
-alias fkls='flux get kustomizations --all-namespaces'
-alias fkr='flux resume kustomization'
-alias fks='flux suspend kustomization'
-alias fkw='watch -n 1 flux get kustomizations --all-namespaces'
-alias frg='flux reconcile source git flux-system'
-alias frh='flux reconcile helmrelease --with-source'
-alias frk='flux reconcile kustomization --with-source'
-alias fro='flux reconcile source oci flux-system'
-alias fs='flux stats'
+alias fe='flux events'                                           # Get Flux events
+alias fea='flux events --all-namespaces'                         # Get Flux events in all namespaces
+alias fgs='flux get sources git'                                 # Get Flux git sources
+alias fkls='flux get kustomizations --all-namespaces'            # List kustomizations in all namespaces
+alias fkr='flux resume kustomization'                            # Resume a kustomization
+alias fks='flux suspend kustomization'                           # Suspend a kustomization
+alias fkw='watch -n 1 flux get kustomizations --all-namespaces'  # Watch kustomizations (all namespaces)
+alias frg='flux reconcile source git flux-system'                # Reconcile flux-system git source
+alias frh='flux reconcile helmrelease --with-source'             # Reconcile helmrelease with source
+alias frk='flux reconcile kustomization --with-source'           # Reconcile kustomization with source
+alias fro='flux reconcile source oci flux-system'                # Reconcile flux-system OCI source
+alias fs='flux stats'                                            # Show Flux statistics
 
 # Terraform
-alias tf='terraform'
+alias tf='terraform'                     # Terraform command shortcut
 
 # Docker
-alias dc='docker compose'
-alias d='docker'
+alias dc='docker compose'                # Docker Compose shortcut
+alias d='docker'                         # Docker command shortcut
 
 # Poetry
-alias pl='poetry lock'
-alias pu='poetry update'
-alias pv='poetry version'
-alias plu='poetry lock && poetry update'
+alias pl='poetry lock'                   # Run poetry lock
+alias pu='poetry update'                 # Run poetry update
+alias pv='poetry version'                # Show/set poetry version
+alias plu='poetry lock && poetry update' # Poetry lock then update
 
 # Skaffold
-alias skdel='skaffold delete'
-alias skdelm='skaffold delete --module'
-alias skd='skaffold dev'
-alias skdp='skaffold dev --profile'
-alias skr='skaffold run'
-alias skrm='skaffold run --module'
-alias skrp='skaffold run --profile'
+alias skdel='skaffold delete'            # Delete skaffold resources
+alias skdelm='skaffold delete --module'  # Delete a skaffold module
+alias skd='skaffold dev'                 # Skaffold dev mode
+alias skdp='skaffold dev --profile'      # Skaffold dev mode with profile
+alias skr='skaffold run'                 # Skaffold run (deploy once)
+alias skrm='skaffold run --module'       # Skaffold run for a module
+alias skrp='skaffold run --profile'      # Skaffold run with profile
 
 # Tmux
-alias ta='tmux attach -t'
-alias tl='tmux ls'
-alias tn='tmux new -s'
-alias tk='tmux kill-session -t'
-alias tka='tmux kill-server'
+alias ta='tmux attach -t'                # Attach to a named tmux session
+alias tl='tmux ls'                       # List all tmux sessions
+alias tn='tmux new -s'                   # Create a new named tmux session
+alias tk='tmux kill-session -t'          # Kill a named tmux session
+alias tka='tmux kill-server'             # Kill the tmux server and all sessions
 
 # Claude
-alias cl='claude'
-alias cld='claude --dangerously-skip-permissions'
+alias cl='claude'                                 # Claude CLI
+alias cld='claude --dangerously-skip-permissions' # Claude CLI, skipping permission prompts
 
 # OpenCode
-alias oc='opencode'
+alias oc='opencode'                      # OpenCode CLI
 
 # Worktrunk
 # Top-level commands use w<letter>; `wt step` subcommands use wx<letter>.
-alias wl='wt list'
-alias wlf='wt list --full'
-alias wj='wt list --format json'
-
-alias ws='wt switch'
-alias wsc='wt switch --create'
-alias wsr='wt switch --remotes'
-
-alias wm='wt merge'
-alias wmn='wt merge --no-remove'
-alias wr='wt remove'
-
-# wt step ...
-alias wxc='wt step commit'
-alias wxs='wt step squash'
-alias wxr='wt step rebase'
-alias wxp='wt step push'
-alias wxf='wt step for-each --'
-alias wxpr='wt step prune'
-alias wxprd='wt step prune --dry-run'
+alias wl='wt list'                       # List all worktrees
+alias wlf='wt list --full'               # List worktrees with full details
+alias wj='wt list --format json'         # List worktrees as JSON
+alias ws='wt switch'                     # Switch to a worktree
+alias wsc='wt switch --create'           # Create and switch to a new worktree
+alias wsr='wt switch --remotes'          # Switch, picker includes remote branches
+alias wm='wt merge'                      # Merge current worktree into default branch
+alias wmn='wt merge --no-remove'         # Merge current worktree but keep it
+alias wr='wt remove'                     # Remove current worktree
+alias wxc='wt step commit'               # Stage & AI-commit current worktree
+alias wxs='wt step squash'               # Squash branch commits with AI-gen message
+alias wxr='wt step rebase'               # Rebase current worktree onto default branch
+alias wxp='wt step push'                 # Fast-forward default branch to current
+alias wxf='wt step for-each --'          # Run a command in all worktrees
+alias wxpr='wt step prune'               # Prune stale worktrees
+alias wxprd='wt step prune --dry-run'    # Preview stale worktrees to prune
