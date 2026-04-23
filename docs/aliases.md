@@ -171,6 +171,14 @@ Kubernetes development workflow tool shortcuts.
 
 ---
 
+## Ollama
+
+- `ol` - Ollama CLI (`ollama`)
+- `ols` - List installed Ollama models (`ollama list`)
+- `olp` - Pull an Ollama model (`ollama pull`)
+
+---
+
 ## Worktrunk
 
 Naming scheme: top-level `wt` commands use `w<letter>` (with a trailing modifier letter for flag variants). `wt step` subcommands use the `wx<letter>` prefix.

@@ -97,6 +97,11 @@ alias cld='claude --dangerously-skip-permissions' # Claude CLI, skipping permiss
 # OpenCode
 alias oc='opencode'                      # OpenCode CLI
 
+# Ollama
+alias ol='ollama'                        # Ollama CLI
+alias ols='ollama list'                  # List installed Ollama models
+alias olp='ollama pull'                  # Pull an Ollama model
+
 # Worktrunk
 # Top-level commands use w<letter>; `wt step` subcommands use wx<letter>.
 alias wl='wt list'                       # List all worktrees
