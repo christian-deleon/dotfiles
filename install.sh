@@ -435,31 +435,89 @@ run_core_config() {
     info "Shell config..."
     install_shell_config
 
-    if [[ "$OSTYPE" == darwin* ]]; then
-        echo
-        info "Zsh config..."
-        install_zsh_config
-    fi
-
-    echo
-    info "Git submodules..."
-    install_git_submodules
-
-    echo
-    info "Omarchy themes..."
-    install_themes
-
-    echo
-    info "SSH config..."
-    install_ssh_config
-
-    echo
-    info "Git config..."
-    install_git_config
-
     echo
     info "Dot CLI..."
     install_dot_cli
+}
+
+# ─── Core extras picker (opt-in/opt-out) ─────────────────────────────────────
+
+# Discover available core-extra items (some are OS-conditional)
+list_core_extras() {
+    echo "git-submodules"
+    echo "git-config"
+    echo "ssh-config"
+    if [[ "$OSTYPE" == darwin* ]]; then
+        echo "zsh-config"
+    fi
+    if [[ -d "$HOME/.local/share/omarchy" ]]; then
+        echo "omarchy-themes"
+    fi
+}
+
+get_core_extra_label() {
+    case "$1" in
+        git-submodules) echo "git-submodules — Initialize .ssh and tpm submodules" ;;
+        git-config)     echo "git-config — Symlink .gitconfig and set name/email/signing" ;;
+        ssh-config)     echo "ssh-config — Generate ~/.ssh/config (1Password SSH agent)" ;;
+        zsh-config)     echo "zsh-config — Oh My Zsh + Powerlevel10k + plugins + .zshrc" ;;
+        omarchy-themes) echo "omarchy-themes — Choose Omarchy theme submodules to install" ;;
+        *)              echo "$1" ;;
+    esac
+}
+
+install_core_extra() {
+    case "$1" in
+        git-submodules) install_git_submodules ;;
+        git-config)     install_git_config ;;
+        ssh-config)     install_ssh_config ;;
+        zsh-config)     install_zsh_config ;;
+        omarchy-themes) install_themes ;;
+        *)              warn "Unknown core extra: $1" ;;
+    esac
+}
+
+run_core_extras_picker() {
+    local extras=() labels=()
+    while IFS= read -r item; do
+        extras+=("$item")
+        labels+=("$(get_core_extra_label "$item")")
+    done < <(list_core_extras)
+
+    [[ ${#extras[@]} -eq 0 ]] && return 0
+
+    if ! command -v gum &>/dev/null; then
+        echo
+        info "gum not available — skipping core extras picker"
+        info "Available later via re-running ${BOLD}./install.sh${RESET}: ${extras[*]}"
+        return 0
+    fi
+
+    echo
+    info "Select core extras to set up (space to toggle, enter to confirm):"
+    info "${DIM}All defaults pre-selected — deselect anything you don't want.${RESET}"
+    echo
+
+    # Pre-select all labels by default (gum --selected takes a comma-separated list)
+    local preselected
+    preselected="$(IFS=,; echo "${labels[*]}")"
+
+    local chosen
+    chosen="$(printf '%s\n' "${labels[@]}" | gum choose --no-limit --height=10 --selected="$preselected")" || true
+
+    [[ -z "$chosen" ]] && { info "No core extras selected — skipping"; return 0; }
+
+    local selected=()
+    while IFS= read -r label; do
+        selected+=("${label%% —*}")
+    done <<< "$chosen"
+
+    echo
+    for item in "${selected[@]}"; do
+        echo
+        info "${item}..."
+        install_core_extra "$item" || warn "${item} failed — continuing"
+    done
 }
 
 # ─── 1Password multi-account injection ───────────────────────────────────────
@@ -672,15 +730,25 @@ generate_mcp_configs() {
     resolved="$(mktemp)"
     trap "rm -f '$resolved'" RETURN
 
+    # Drop any servers whose JSON contains unresolved op:// refs when 1Password
+    # isn't available. Keeps the MCP config valid on machines without `op`.
+    drop_op_servers() {
+        local src="$1" dst="$2"
+        local dropped
+        dropped="$(jq -r 'to_entries | map(select(.value | tostring | contains("op://")) | .key) | join(", ")' "$src")"
+        [[ -n "$dropped" ]] && warn "Skipping MCP servers that need 1Password: $dropped"
+        jq 'with_entries(select(.value | tostring | contains("op://") | not))' "$src" > "$dst"
+    }
+
     if command -v op &>/dev/null; then
         info "Injecting MCP secrets via 1Password..."
         if ! op_inject_multi "$mcp_src" "$resolved"; then
-            error "MCP secret injection failed — cannot proceed without 1Password connection"
-            error "Fix: Enable CLI integration in 1Password Settings > Developer"
-            return 1
+            warn "1Password injection failed — falling back to keyless servers only"
+            drop_op_servers "$mcp_src" "$resolved"
         fi
     else
-        cp "$mcp_src" "$resolved"
+        warn "1Password CLI not installed — MCP servers needing secrets will be skipped"
+        drop_op_servers "$mcp_src" "$resolved"
     fi
 
     # --- Claude Code: merge mcpServers into ~/.claude.json ---
@@ -992,7 +1060,10 @@ run_pickers() {
             done <<< "$chosen_tools"
 
             echo
-            install_tools "${selected_tools[@]}"
+            # Don't propagate per-tool failures — install_tools already prints
+            # a summary of what failed, and we want the rest of the install
+            # (and the final success banner) to keep going.
+            install_tools "${selected_tools[@]}" || true
         fi
     fi
 }
@@ -1003,19 +1074,21 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0")
 
-Dotfiles installer. Core config runs automatically, then you pick
-app configs and dev tools from interactive pickers.
+Dotfiles installer. Only the bare minimum runs unconditionally; everything
+else is opt-in/opt-out via interactive pickers so you can install just what
+you need on each machine.
 
 Core Config (always runs):
   Shell config       .commonrc, .aliases, .functions + inject into .bashrc
-  Zsh config         Oh My Zsh, Powerlevel10k, zsh plugins, .zshrc (macOS only)
-  Git submodules     .ssh, tpm (themes excluded, use 'dot theme-update')
-  SSH config         ~/.ssh/config generation
-  Git config         .gitconfig + .gitconfig.local
   Dot CLI            install dot command to ~/.local/bin
 
-App Configs (picker):
+Core Extras (picker — pre-selected by default):
 EOF
+    while IFS= read -r item; do
+        printf '  %s\n' "$(get_core_extra_label "$item")"
+    done < <(list_core_extras)
+    echo
+    echo "App Configs (picker):"
     while IFS= read -r pkg; do
         printf '  %s\n' "$pkg"
     done < <(list_app_configs)
@@ -1042,6 +1115,7 @@ main() {
     printf '%b\n' "${BOLD}Dotfiles Installer${RESET}"
 
     run_core_config
+    run_core_extras_picker
     run_pickers
 
     echo

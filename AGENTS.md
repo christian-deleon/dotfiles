@@ -37,12 +37,24 @@ SYSTEM-OWNED (never symlinked)          DOTFILES (symlinked from ~/.dotfiles/)
 
 ### Installer Flow
 
-There are no profiles or flags. The installer is always interactive:
+There are no profiles or flags. The installer is always interactive. Only the
+bare minimum runs unconditionally — everything else is opt-in/opt-out via
+pickers so you can install only what you need on a given machine (e.g. a
+locked-down WSL2 work box without 1Password or sudo for some packages):
 
-1. **Core config** runs automatically (shell, git submodules, ssh, git config, dot CLI)
-2. **Zsh config** runs automatically on macOS (`$OSTYPE == darwin*`)
+1. **Core config** runs automatically — only what every machine needs:
+   - Shell config (`.commonrc`, `.aliases`, `.functions` + inject into `.bashrc`)
+   - Dot CLI (link `dot.sh` into `~/.local/bin`)
+2. **Core extras picker** — gum multi-select, **all items pre-selected by default** so the typical install matches old behavior. Items are OS-conditional:
+   - `git-submodules` (`.ssh`, `tpm`)
+   - `git-config` (`.gitconfig` symlink + name/email + optional signing)
+   - `ssh-config` (generated `~/.ssh/config` with 1Password `IdentityAgent`)
+   - `zsh-config` (Oh My Zsh + Powerlevel10k + plugins, macOS only)
+   - `omarchy-themes` (only listed if `~/.local/share/omarchy` exists)
 3. **App configs picker** — gum multi-select of auto-discovered stow packages + tmux + claude (sorted alphabetically with descriptions)
-4. **Dev tools picker** — gum multi-select from `packages.yaml` (sorted alphabetically with descriptions)
+4. **Dev tools picker** — gum multi-select from `packages.yaml` (sorted alphabetically with descriptions). Failed individual tool installs print a summary and do **not** abort the rest of the installer.
+
+**MCP / 1Password graceful degradation:** `generate_mcp_configs` (the post-install hook for `claude` and `opencode`) drops any MCP server whose JSON contains an unresolved `op://` reference when `op` is missing or fails to connect. The remaining keyless servers are still configured. If you don't want any MCP at all, just don't pick `claude` in the app picker.
 
 ### App Config Management (Stow + omadot)
 
@@ -480,18 +492,19 @@ When creating symlinks inside a stowed directory (e.g., `~/.config/opencode/comm
 
 ### Modifying install.sh
 
-1. **No profiles or flags** — the installer is always interactive. Zsh config runs on macOS (`$OSTYPE == darwin*`), Homebrew auto-installed on macOS
-2. **Core config**: `run_core_config()` always runs — shell, git submodules, ssh, git config, dot CLI
-3. **App configs**: `list_app_configs()` auto-discovers stow packages + tmux + claude; `install_app_config()` handles each; `get_app_label()` provides descriptions for the picker
-4. **Dev tools**: Uses `scripts/lib.sh` and `packages.yaml` — gum choose for interactive selection
-5. **Prerequisites**: `ensure_homebrew()`, `ensure_stow()`, `ensure_omadot()`, `ensure_jq()` auto-install if missing
-6. **Idempotency**: All modules must be safe to re-run. Use `ln -snf` for symlinks, check before stowing, skip if already done. AI config uses `clean_ai_symlinks()` to remove stale links before re-linking
-7. **1Password**: `op_inject_multi()` handles multi-account secret resolution (replaces `op inject` which only supports one account)
-8. **Sourceable**: `main()` is guarded with `BASH_SOURCE` check so `dot.sh` can source `install.sh` for its functions
-7. OS-specific paths must use `$OSTYPE` detection
-8. Never replace `~/.bashrc` — only inject source line
-9. SSH config is generated (not symlinked) with OS-appropriate `IdentityAgent`
-10. Test with `bash -n install.sh` and `./install.sh --help`
+1. **No profiles or flags** — the installer is always interactive. Homebrew auto-installs on macOS.
+2. **Core config**: `run_core_config()` always runs — only shell config + dot CLI. Don't add anything here that depends on external services or could fail on a restricted machine.
+3. **Core extras picker**: `list_core_extras()` / `get_core_extra_label()` / `install_core_extra()` define the items and `run_core_extras_picker()` runs them. Add new optional-but-typical setup steps here. OS-conditional items are filtered in `list_core_extras()` (e.g. `zsh-config` only on macOS, `omarchy-themes` only when `~/.local/share/omarchy` exists).
+4. **App configs**: `list_app_configs()` auto-discovers stow packages + tmux + claude; `install_app_config()` handles each; `get_app_label()` provides descriptions for the picker
+5. **Dev tools**: Uses `scripts/lib.sh` and `packages.yaml` — gum choose for interactive selection. The `install_tools` call is wrapped with `|| true` so one failed tool doesn't abort the rest of the installer (`set -e` is on at the top of install.sh).
+6. **Prerequisites**: `ensure_homebrew()`, `ensure_stow()`, `ensure_omadot()`, `ensure_jq()` auto-install if missing
+7. **Idempotency**: All modules must be safe to re-run. Use `ln -snf` for symlinks, check before stowing, skip if already done. AI config uses `clean_ai_symlinks()` to remove stale links before re-linking
+8. **1Password**: `op_inject_multi()` handles multi-account secret resolution (replaces `op inject` which only supports one account). When `op` is missing or fails, `generate_mcp_configs` calls a local `drop_op_servers` jq filter to strip MCP entries containing `op://` rather than writing unresolved placeholders.
+9. **Sourceable**: `main()` is guarded with `BASH_SOURCE` check so `dot.sh` can source `install.sh` for its functions
+10. OS-specific paths must use `$OSTYPE` detection
+11. Never replace `~/.bashrc` — only inject source line
+12. SSH config is generated (not symlinked) with OS-appropriate `IdentityAgent`. Only generated if the user picks `ssh-config` in the core extras picker.
+13. Test with `bash -n install.sh` and `./install.sh --help`
 
 ### Modifying dot.sh
 

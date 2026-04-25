@@ -1,16 +1,22 @@
 # Dotfiles
 
-Personal dotfiles for macOS and Linux (including [Omarchy](https://omarchy.org/)). Shell configs, dev tools, and app configs managed across machines.
+Personal dotfiles for macOS, Linux (including [Omarchy](https://omarchy.org/)), and WSL2. Shell configs, dev tools, and app configs managed across machines.
 
 ## Install
 
 ```bash
 git clone git@github.com:christian-deleon/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
-./install.sh          # core config runs automatically, then interactive pickers
+./install.sh          # bare-minimum core, then pickers for everything else
 ```
 
-Core config (shell, git, ssh, dot CLI) runs automatically. On macOS, Homebrew, Oh My Zsh, and Powerlevel10k are auto-installed if missing. Then you pick app configs and dev tools from interactive pickers.
+Only the bare minimum runs unconditionally — shell config and the `dot` CLI. Everything else is opt-in/opt-out via interactive pickers, so you can install just what you need on each machine (e.g. skip SSH config and 1Password-dependent MCP servers on a locked-down work box):
+
+1. **Core extras** — `git-submodules`, `git-config`, `ssh-config`, `zsh-config` (macOS), `omarchy-themes` (Omarchy). All pre-selected by default; deselect what you don't want.
+2. **App configs** — stow packages + tmux + claude.
+3. **Dev tools** — anything in `packages.yaml`. Failed individual tool installs are reported but don't abort the rest.
+
+If `op` (1Password CLI) is missing, MCP servers that need secrets are skipped automatically; the keyless ones still install.
 
 ## `dot` CLI
 
