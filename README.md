@@ -24,11 +24,22 @@ If `op` (1Password CLI) is missing, MCP servers that need secrets are skipped au
 dot edit                  # Open dotfiles in $EDITOR
 dot update                # Update system packages, dotfiles, and submodules
 dot install               # Interactive picker for app configs and dev tools
+dot agent link [name]     # Symlink per-project AGENTS.md/CLAUDE.md (private overlay submodule)
+dot agent unlink          # Remove the symlinks
 dot theme-add <url>       # Add an Omarchy theme submodule
 dot theme-list            # List installed Omarchy themes
 dot brew-bundle <profile> # Install Homebrew packages (home/work)
 dot brew-save <profile>   # Save current Homebrew packages
 ```
+
+### Per-project agent files
+
+`dot agent link` makes `AGENTS.md` and `CLAUDE.md` resolve to the same content across every worktree of a project, in two modes:
+
+- **Overlay** — neither file is committed to the project. Symlinks both names to `agent-files/<project>/AGENTS.md` in the private submodule. Edit once, every worktree sees it; nothing ever gets committed to the project repo.
+- **Mirror** — the project already commits its own `AGENTS.md`. Just creates `CLAUDE.md` → `AGENTS.md` (or, if only `CLAUDE.md` exists as an untracked file, renames it and creates the symlink). The committed file is left alone.
+
+Both names go into the shared `.git/info/exclude` (no `.gitignore` changes). A worktrunk `post-start` hook in the user config auto-links every new worktree.
 
 ## App Configs
 
