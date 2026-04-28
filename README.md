@@ -34,12 +34,9 @@ dot brew save <profile>   # Save current Homebrew packages
 
 ### Per-project agent files
 
-`dot agent link` makes `AGENTS.md` and `CLAUDE.md` resolve to the same content across every worktree of a project, in two modes:
+For projects where `AGENTS.md` / `CLAUDE.md` can't be committed and `.gitignore` can't be modified. The actual content lives in a private `agent-files/<project>/` submodule (synced across machines via private GitHub); the project gets symlinks excluded via the shared `.git/info/exclude`.
 
-- **Overlay** — neither file is committed to the project. Symlinks both names to `agent-files/<project>/AGENTS.md` in the private submodule. Edit once, every worktree sees it; nothing ever gets committed to the project repo.
-- **Mirror** — the project already commits its own `AGENTS.md`. Just creates `CLAUDE.md` → `AGENTS.md` (or, if only `CLAUDE.md` exists as an untracked file, renames it and creates the symlink). The committed file is left alone.
-
-Both names go into the shared `.git/info/exclude` (no `.gitignore` changes). A worktrunk `post-start` hook in the user config auto-links every new worktree.
+`dot agent link` symlinks `AGENTS.md` → `agent-files/<project>/AGENTS.md` and `CLAUDE.md` → `AGENTS.md` in every worktree. If you have an untracked `AGENTS.md` or `CLAUDE.md` sitting in the project, it's auto-migrated into the submodule (with `CLAUDE.md` renamed to `AGENTS.md` as canonical) and committed there. Push to the agent-files remote is always manual. A worktrunk `post-start` hook auto-links every newly created worktree.
 
 ## App Configs
 
