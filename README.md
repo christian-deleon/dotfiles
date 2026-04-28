@@ -26,10 +26,10 @@ dot update                # Update system packages, dotfiles, and submodules
 dot install               # Interactive picker for app configs and dev tools
 dot agent link [name]     # Symlink per-project AGENTS.md/CLAUDE.md (private overlay submodule)
 dot agent unlink          # Remove the symlinks
-dot theme-add <url>       # Add an Omarchy theme submodule
-dot theme-list            # List installed Omarchy themes
-dot brew-bundle <profile> # Install Homebrew packages (home/work)
-dot brew-save <profile>   # Save current Homebrew packages
+dot theme add <url>       # Add an Omarchy theme submodule
+dot theme list            # List installed Omarchy themes
+dot brew bundle <profile> # Install Homebrew packages (home/work)
+dot brew save <profile>   # Save current Homebrew packages
 ```
 
 ### Per-project agent files

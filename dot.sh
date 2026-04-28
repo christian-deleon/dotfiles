@@ -9,7 +9,9 @@ source "$DOTFILES_DIR/scripts/lib.sh"
 
 # Source split-out command modules
 source "$DOTFILES_DIR/scripts/dot/agent.sh"
+source "$DOTFILES_DIR/scripts/dot/brew.sh"
 source "$DOTFILES_DIR/scripts/dot/help.sh"
+source "$DOTFILES_DIR/scripts/dot/theme.sh"
 
 
 usage() {
@@ -30,15 +32,11 @@ EOF
     echo "  help                  - Browse all functions and aliases interactively (fzf)"
     echo "  edit                  - Open the dotfiles directory in your editor"
     echo "  update                - Update system packages and dotfiles (updates installed themes)"
-    echo "  install [tool ...]     - Install dev tools (directly or interactive picker)"
+    echo "  install [tool ...]    - Install dev tools (directly or interactive picker)"
     echo "  mcp-regen             - Force regenerate MCP configs (re-injects 1Password secrets)"
     echo "  agent <subcommand>    - Manage per-project AGENTS.md/CLAUDE.md (link/unlink/list/status/update)"
-    echo "  theme-add <url>       - Add an Omarchy theme as a git submodule"
-    echo "  theme-update          - Update installed Omarchy theme submodules"
-    echo "  theme-list            - List installed Omarchy themes"
-    echo "  brew-install          - Install Homebrew"
-    echo "  brew-bundle [profile] - Install Homebrew packages using a Brewfile profile"
-    echo "  brew-save   [profile] - Save Homebrew packages to a Brewfile profile"
+    echo "  theme <subcommand>    - Manage Omarchy theme submodules (add/update/list)"
+    echo "  brew  <subcommand>    - Homebrew helpers (install/bundle/save)"
 }
 
 
@@ -227,131 +225,6 @@ run_install() {
 }
 
 
-brew_bundle() {
-    local PROFILE="$1"
-
-    echo
-    _info "Installing Homebrew packages using Brewfile profile..."
-    brew bundle --file="${DOTFILES_DIR}/brew/Brewfile-${PROFILE}"
-}
-
-
-brew_save() {
-    local PROFILE="$1"
-
-    echo
-    _info "Saving Homebrew packages to Brewfile profile..."
-    brew bundle dump --file="${DOTFILES_DIR}/brew/Brewfile-${PROFILE}" --force
-}
-
-
-THEMES_DIR="omarchy/.config/omarchy/themes"
-
-
-# Update installed Omarchy theme submodules (doesn't init new ones)
-theme_update() {
-    if ! check_1password; then
-        return 1
-    fi
-
-    echo
-    _info "Updating installed Omarchy themes..."
-
-    local themes_path="$DOTFILES_DIR/$THEMES_DIR"
-    if [[ ! -d "$themes_path" ]]; then
-        _warn "No themes directory found"
-        return 1
-    fi
-
-    # Get only initialized theme submodules (those with .git directory)
-    local initialized_themes=()
-    for theme_dir in "$themes_path"/*/; do
-        [[ -d "$theme_dir/.git" ]] || continue
-        local name
-        name="$(basename "$theme_dir")"
-        initialized_themes+=("$THEMES_DIR/$name")
-    done
-
-    if [[ ${#initialized_themes[@]} -eq 0 ]]; then
-        _warn "No themes installed yet"
-        echo
-        _info "Run ./install.sh to install themes interactively"
-        return 0
-    fi
-
-    if ! git -C "$DOTFILES_DIR" submodule update --remote "${initialized_themes[@]}" 2>&1; then
-        _error "Could not update theme submodules"
-        return 1
-    fi
-
-    _success "Updated ${#initialized_themes[@]} theme(s)"
-    echo
-    _info "Commit with: cd ~/.dotfiles && git add $THEMES_DIR && git commit -m 'chore: update omarchy theme submodules'"
-}
-
-
-# Add an Omarchy theme as a git submodule
-theme_add() {
-    local url="$1"
-
-    if [[ -z "$url" ]]; then
-        _error "Usage: dot theme-add <git-url>"
-        echo
-        _info "Example: dot theme-add https://github.com/user/omarchy-theme-name"
-        return 1
-    fi
-
-    # Derive theme name from URL (strip .git suffix and extract repo name)
-    local repo_name="${url%.git}"
-    repo_name="${repo_name##*/}"
-
-    # Strip common prefixes to get a clean theme name
-    local theme_name="$repo_name"
-    theme_name="${theme_name#omarchy-}"
-    theme_name="${theme_name%-theme}"
-
-    local theme_path="$THEMES_DIR/$theme_name"
-
-    if [[ -d "$DOTFILES_DIR/$theme_path" ]]; then
-        _warn "Theme '$theme_name' already exists at $theme_path"
-        return 1
-    fi
-
-    echo
-    _info "Adding theme ${_BOLD}$theme_name${_RESET} from $url"
-
-    git -C "$DOTFILES_DIR" submodule add "$url" "$theme_path"
-
-    _success "Theme ${_BOLD}$theme_name${_RESET} added to $theme_path"
-    echo
-    _info "Commit with: git add .gitmodules $theme_path && git commit -m 'Add $theme_name omarchy theme'"
-}
-
-
-# List installed Omarchy themes
-theme_list() {
-    echo
-    _info "Installed Omarchy themes:"
-    echo
-
-    local themes_path="$DOTFILES_DIR/$THEMES_DIR"
-    if [[ ! -d "$themes_path" ]]; then
-        _warn "No themes directory found"
-        return 1
-    fi
-
-    for theme_dir in "$themes_path"/*/; do
-        [[ -d "$theme_dir" ]] || continue
-        local name
-        name="$(basename "$theme_dir")"
-        local url
-        url="$(git -C "$DOTFILES_DIR" config --file .gitmodules "submodule.$THEMES_DIR/$name.url" 2>/dev/null)" || url="(unknown)"
-        printf "  ${_BOLD}%-16s${_RESET} %s\n" "$name" "$url"
-    done
-    echo
-}
-
-
 # Main logic to handle arguments
 case "$1" in
     help)
@@ -367,11 +240,6 @@ case "$1" in
         shift
         run_install "$@"
         ;;
-    brew-install)
-        echo
-        _info "Installing Homebrew..."
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        ;;
     mcp-regen)
         source "$DOTFILES_DIR/install.sh"
         FORCE_MCP_REGEN=true generate_mcp_configs
@@ -380,34 +248,13 @@ case "$1" in
         shift
         manage_agent_files "$@"
         ;;
-    theme-add)
-        theme_add "$2"
+    theme)
+        shift
+        manage_themes "$@"
         ;;
-    theme-update)
-        theme_update
-        ;;
-    theme-list)
-        theme_list
-        ;;
-    brew-bundle)
-        if [[ -z "$2" ]]; then
-            echo
-            _info "Please specify a Brewfile profile."
-            echo
-            ls "${DOTFILES_DIR}/brew" | grep Brewfile
-        else
-            brew_bundle "$2"
-        fi
-        ;;
-    brew-save)
-        if [[ -z "$2" ]]; then
-            echo
-            _info "Please specify a Brewfile profile."
-            echo
-            ls "${DOTFILES_DIR}/brew" | grep Brewfile
-        else
-            brew_save "$2"
-        fi
+    brew)
+        shift
+        manage_brew "$@"
         ;;
     *)
         echo

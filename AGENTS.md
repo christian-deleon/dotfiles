@@ -196,9 +196,9 @@ dot agent list | status | update      # List projects, show cwd state, pull late
 ### Homebrew (macOS only)
 
 ```bash
-dot brew-install          # Install Homebrew
-dot brew-bundle <profile> # Install from profile (home, work)
-dot brew-save <profile>   # Save current packages to profile
+dot brew install          # Install Homebrew
+dot brew bundle <profile> # Install from profile (home, work)
+dot brew save <profile>   # Save current packages to profile
 ```
 
 ### Omadot (Omarchy only)

@@ -281,7 +281,7 @@ install_themes() {
     # Check if gum is available for picker
     if ! command -v gum &>/dev/null; then
         echo
-        info "Omarchy themes available (use ${BOLD}dot theme-update${RESET} to install later):"
+        info "Omarchy themes available (use ${BOLD}dot theme update${RESET} to install later):"
         printf '  %s\n' "${available_themes[@]}"
         return 0
     fi
@@ -289,17 +289,17 @@ install_themes() {
     echo
     info "Select Omarchy themes to install (space to toggle, enter to confirm):"
     echo
-    info "${DIM}Skip this to install later with: dot theme-update${RESET}"
+    info "${DIM}Skip this to install later with: dot theme update${RESET}"
     echo
 
     local chosen_themes
     chosen_themes="$(printf '%s\n' "${available_themes[@]}" | gum choose --no-limit --height=12)" || {
-        info "No themes selected — use ${BOLD}dot theme-update${RESET} later"
+        info "No themes selected — use ${BOLD}dot theme update${RESET} later"
         return 0
     }
 
     if [[ -z "$chosen_themes" ]]; then
-        info "No themes selected — use ${BOLD}dot theme-update${RESET} later"
+        info "No themes selected — use ${BOLD}dot theme update${RESET} later"
         return 0
     fi
 
@@ -314,7 +314,7 @@ install_themes() {
     if git -C "$DOTFILES_DIR" submodule update --init "${theme_paths[@]}" 2>&1; then
         success "Installed ${#theme_paths[@]} theme(s)"
     else
-        warn "Some themes failed to install — try ${BOLD}dot theme-update${RESET}"
+        warn "Some themes failed to install — try ${BOLD}dot theme update${RESET}"
     fi
 }
 
