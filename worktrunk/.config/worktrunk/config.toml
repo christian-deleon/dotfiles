@@ -1,5 +1,17 @@
 worktree-path = "../{{ branch | sanitize }}"
 
+# Auto-link per-project AGENTS.md / CLAUDE.md (managed by `dot agent`) into
+# every new worktree. Soft-skips when the project has no entry in the private
+# agent-files submodule, so this is safe as a global hook.
+[post-start]
+agent-files = "dot agent link"
+
+# If a project ever opts into `wt step copy-ignored`, don't let it copy our
+# managed symlinks (it would dereference them into a frozen file in the new
+# worktree and break update propagation from the agent-files source).
+[step.copy-ignored]
+exclude = ["AGENTS.md", "CLAUDE.md"]
+
 [commit.generation]
 command = "CLAUDECODE= MAX_THINKING_TOKENS=0 claude -p --model=haiku --output-format text --tools='' --disable-slash-commands --setting-sources='' --system-prompt='' | sed 's/```//g; /^[[:space:]]*$/d'"
 template = """

@@ -37,3 +37,7 @@
 	path = omarchy/.config/omarchy/themes/spacex
 	url = git@github.com:christian-deleon/omarchy-spacex-theme.git
 	ignore = all
+[submodule "agent-files"]
+	path = agent-files
+	url = git@github.com:christian-deleon/agent-files.git
+	branch = main

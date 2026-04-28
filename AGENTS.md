@@ -95,8 +95,38 @@ On [Omarchy](https://omarchy.org/) (Arch Linux + Hyprland):
 | tpm | `.tmux/plugins/tpm` | default | Tmux plugin manager |
 | ssh-config | `.ssh` | main | Shared SSH host entries |
 | omarchy themes | `omarchy/.config/omarchy/themes/*` | default | Omarchy theme submodules |
+| agent-files | `agent-files` | main | Per-project AGENTS.md overlays — lazy-init via `dot agent` |
 
 Submodules are initialized by `install_git_submodules()` during core config. `dot update` runs `git submodule update --remote --init` to pull latest from all remotes.
+
+`agent-files` is intentionally not initialized by the installer or by `dot update --init` — it's lazy-initialized the first time a `dot agent` subcommand needs it, and `dot update` only refreshes it if it's already initialized. This keeps locked-down machines (no SSH access to the private repo) working without errors.
+
+### Per-Project Agent Files (`dot agent`)
+
+`dot agent link` sets up `AGENTS.md` and `CLAUDE.md` so both names resolve to the same content — across every worktree of the project. The mode is decided per-worktree from current state:
+
+**Overlay mode** — neither file exists locally (or both are already our managed symlinks) AND the project has an entry in the private `agent-files/<project>/` submodule:
+- `AGENTS.md` → `~/.dotfiles/agent-files/<project>/AGENTS.md` (canonical source — edit once, every worktree sees it)
+- `CLAUDE.md` → `AGENTS.md` (relative)
+
+This is the work-project case: agent file content stays in the private submodule, never gets committed to the project repo.
+
+**Mirror mode** — the project commits its own `AGENTS.md` (or `CLAUDE.md`) and just needs the other name to point at it:
+- `AGENTS.md` exists, `CLAUDE.md` missing → create `CLAUDE.md` → `AGENTS.md`
+- `CLAUDE.md` exists (untracked, regular file), `AGENTS.md` missing → rename `CLAUDE.md` to `AGENTS.md`, create `CLAUDE.md` symlink. `AGENTS.md` is always canonical.
+- Tracked `CLAUDE.md` alone is left untouched (won't auto-rename a tracked file; the explicit-mode warning suggests `git mv CLAUDE.md AGENTS.md`).
+
+**Both names are written into the shared `.git/info/exclude`** inside a `# >>> dot-agent-files >>>` / `# <<< dot-agent-files <<<` sentinel block. Listing a tracked name in `info/exclude` is a no-op (only untracked files are affected), so it's safe in mirror mode.
+
+**Project name resolution** — `[name]` defaults to the basename of the *project root* (parent of the common git dir), so it works correctly inside a worktrunk worktree where the cwd basename is the branch name. The exclude file itself is the shared one in the common git dir — one write covers every worktree.
+
+**Soft-skip** — implicit `dot agent link` (no `[name]`) silent-skips when there's nothing to do (no overlay AND no mirror applicable), or when a conflict in any worktree means we can't proceed safely. Explicit `dot agent link <name>` errors loudly when the overlay can't be applied. The soft path is what makes the worktrunk hook safe to run globally.
+
+**Worktrunk integration** — the user config (`worktrunk/.config/worktrunk/config.toml`) defines `[post-start] agent-files = "dot agent link"` so every newly created worktree is set up automatically. It also ships `[step.copy-ignored] exclude = ["AGENTS.md", "CLAUDE.md"]` defensively so a project using `wt step copy-ignored` never dereferences our symlinks into a frozen file in the new worktree.
+
+**Worktree removal** — no cleanup step is needed and none should be added. Symlinks live inside the worktree dir, so `wt remove` / `git worktree remove` deletes them with the directory. The shared `.git/info/exclude` keeps its sentinel block (harmless — patterns just don't match anything in the gone worktree). Adding a `pre-remove` hook for `dot agent unlink` would be wrong because `unlink` operates on every worktree.
+
+The implementation lives in `dot.sh` (`manage_agent_files` and `agent_*` helpers) — keep new behavior there rather than in `install.sh`.
 
 ### SSH Config
 
@@ -158,6 +188,9 @@ for f in .[a-z]*; do [[ -f "$f" ]] && bash -n "$f" 2>&1 | grep -v "cannot execut
 dot edit                              # Open dotfiles in editor ($EDITOR)
 dot update                            # Update system packages, dotfiles, submodules, and AI config
 dot install                           # Interactive picker for app configs and dev tools (gum choose)
+dot agent link [name]                 # Symlink per-project AGENTS.md / CLAUDE.md from agent-files submodule
+dot agent unlink                      # Remove the symlinks and clean .git/info/exclude
+dot agent list | status | update      # List projects, show cwd state, pull latest from agent-files
 ```
 
 ### Homebrew (macOS only)
