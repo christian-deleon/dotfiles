@@ -152,30 +152,41 @@ agent_list_projects() {
     done
 }
 
-# Set up AGENTS.md / CLAUDE.md in every worktree of the current project.
+# Commit pending changes inside the agent-files submodule. Doesn't push —
+# remote sync stays an explicit user action. Silent if nothing to commit.
+agent_commit_in_submodule() {
+    local name="$1" msg="$2"
+    [[ -e "$AGENT_FILES_DIR/.git" ]] || return 0
+
+    if [[ -z "$(git -C "$AGENT_FILES_DIR" status --porcelain -- "$name/" 2>/dev/null)" ]]; then
+        return 0
+    fi
+
+    git -C "$AGENT_FILES_DIR" add "$name/" 2>/dev/null || true
+    if git -C "$AGENT_FILES_DIR" commit -m "$msg" >/dev/null 2>&1; then
+        _info "Committed in agent-files (run ${_BOLD}cd $AGENT_FILES_DIR && git push${_RESET} to sync)"
+    fi
+}
+
+# Set up AGENTS.md / CLAUDE.md symlinks in every worktree of the current
+# project, pointing at the canonical source in $AGENT_FILES_DIR/<name>/AGENTS.md.
 #
-# Two modes, decided per-worktree based on what already exists:
+# This tool exists for one use case: projects where the agent files can't
+# be committed to the project repo and `.gitignore` can't be modified. The
+# content lives only in the private agent-files submodule and the project
+# gets symlinks (excluded via .git/info/exclude).
 #
-#   1. Overlay mode — when neither file exists (or both are already our
-#      managed symlinks) AND the project has an entry in agent-files:
-#        AGENTS.md  → $AGENT_FILES_DIR/$name/AGENTS.md  (canonical source)
-#        CLAUDE.md  → AGENTS.md                          (relative)
+# Pre-flight handling of the submodule entry:
+#   1. If $AGENT_FILES_DIR/<name>/AGENTS.md exists → use it.
+#   2. Else if only CLAUDE.md exists in that entry → rename it to AGENTS.md
+#      inside the submodule (canonicalize), then commit.
+#   3. Else if the cwd's worktree has an untracked AGENTS.md or CLAUDE.md →
+#      migrate it into the submodule (renaming CLAUDE.md → AGENTS.md as
+#      needed), then commit.
+#   4. Else: implicit call → silent-skip; explicit → error.
 #
-#   2. Mirror mode — when one of AGENTS.md/CLAUDE.md already exists locally
-#      (e.g. the project commits its own AGENTS.md) and the other is
-#      missing, just create the missing side as a symlink so both names
-#      resolve to the same content. AGENTS.md is always the canonical name:
-#        - AGENTS.md exists, CLAUDE.md missing  → create CLAUDE.md → AGENTS.md
-#        - CLAUDE.md exists (untracked, regular file), AGENTS.md missing
-#          → rename CLAUDE.md to AGENTS.md, then create CLAUDE.md symlink
-#
-# Name resolution: explicit `[name]` is used as-is. If omitted, derived from
-# the project root's basename (parent of the common git dir) — works inside
-# any worktree.
-#
-# Soft-skip: with no `[name]` and no actionable changes, prints an info line
-# and exits 0. Lets the worktrunk post-start hook run on every project
-# without failing.
+# Then for every worktree of the project, create AGENTS.md → submodule source
+# and CLAUDE.md → AGENTS.md. Refuses to overwrite tracked or unmanaged files.
 agent_link() {
     local explicit=true
     local name="${1:-}"
@@ -190,30 +201,86 @@ agent_link() {
     fi
     [[ -z "$name" ]] && name="$(basename "$project_root")"
 
-    # Determine if the project has an agent-files overlay entry. Only fetch
-    # the submodule if the user gave an explicit name (mirror mode doesn't
-    # need the submodule at all).
-    local src_agents="$AGENT_FILES_DIR/$name/AGENTS.md"
-    local has_overlay=false
-    if [[ -f "$src_agents" ]]; then
-        has_overlay=true
-    elif "$explicit"; then
-        agent_ensure_submodule || return 1
-        if [[ -f "$src_agents" ]]; then
-            has_overlay=true
+    local src_dir="$AGENT_FILES_DIR/$name"
+    local src_agents="$src_dir/AGENTS.md"
+    local src_claude="$src_dir/CLAUDE.md"
+
+    # Lazy-init the submodule. Implicit calls tolerate failure so the
+    # post-start hook never blocks worktree creation on locked-down boxes.
+    if [[ ! -e "$AGENT_FILES_DIR/.git" ]]; then
+        if "$explicit"; then
+            agent_ensure_submodule || return 1
         else
+            agent_ensure_submodule 2>/dev/null || true
+        fi
+    fi
+
+    # 1. Normalize CLAUDE.md → AGENTS.md inside the submodule entry.
+    if [[ ! -f "$src_agents" && -f "$src_claude" ]]; then
+        _info "Normalizing ${_DIM}agent-files/$name${_RESET}: CLAUDE.md → AGENTS.md"
+        mv "$src_claude" "$src_agents"
+        agent_commit_in_submodule "$name" "chore($name): rename CLAUDE.md to AGENTS.md"
+    fi
+
+    # 2. If still no source, try migrating an untracked file from cwd's worktree.
+    if [[ ! -f "$src_agents" ]]; then
+        local cwd_root
+        cwd_root="$(git rev-parse --show-toplevel 2>/dev/null)" || cwd_root=""
+        if [[ -n "$cwd_root" ]]; then
+            local local_agents="$cwd_root/AGENTS.md"
+            local local_claude="$cwd_root/CLAUDE.md"
+            local migrated_from=""
+
+            local has_a=false has_c=false
+            [[ -f "$local_agents" && ! -L "$local_agents" ]] \
+                && ! git -C "$cwd_root" ls-files --error-unmatch -- AGENTS.md &>/dev/null \
+                && has_a=true
+            [[ -f "$local_claude" && ! -L "$local_claude" ]] \
+                && ! git -C "$cwd_root" ls-files --error-unmatch -- CLAUDE.md &>/dev/null \
+                && has_c=true
+
+            if "$has_a"; then
+                mkdir -p "$src_dir"
+                cp "$local_agents" "$src_agents"
+                rm "$local_agents"
+                migrated_from="$local_agents"
+                # Drop a redundant untracked CLAUDE.md alongside — it's about
+                # to be replaced with our managed symlink anyway.
+                if "$has_c"; then
+                    rm "$local_claude"
+                fi
+            elif "$has_c"; then
+                mkdir -p "$src_dir"
+                cp "$local_claude" "$src_agents"
+                rm "$local_claude"
+                migrated_from="$local_claude (renamed to AGENTS.md)"
+            fi
+
+            if [[ -n "$migrated_from" ]]; then
+                _success "Migrated ${_BOLD}$migrated_from${_RESET} → ${_DIM}$src_agents${_RESET}"
+                agent_commit_in_submodule "$name" "feat($name): import agent file from project"
+            fi
+        fi
+    fi
+
+    # 3. If still nothing in the submodule, give up (loud or quiet).
+    if [[ ! -f "$src_agents" ]]; then
+        if "$explicit"; then
             _error "No project in agent-files: ${_BOLD}$name${_RESET}"
             local available
             available="$(agent_list_projects | paste -sd ' ' -)"
             if [[ -n "$available" ]]; then
                 _info "Available: $available"
             else
-                _info "Create one at ${_DIM}$AGENT_FILES_DIR/$name/AGENTS.md${_RESET}"
+                _info "Create one at ${_DIM}$src_agents${_RESET}"
             fi
             return 1
         fi
+        _info "agent-files: no entry for ${_BOLD}$name${_RESET} — skipping"
+        return 0
     fi
 
+    # 4. Iterate all worktrees and create symlinks.
     local -a worktrees=()
     while IFS= read -r wt; do
         [[ -n "$wt" ]] && worktrees+=("$wt")
@@ -224,97 +291,35 @@ agent_link() {
         return 1
     fi
 
-    # Decide per-worktree action: overlay | mirror_claude | mirror_swap | noop
-    local -a act_wt=() act_kind=()
-    local wt agents claude
-    local a_present c_present a_managed c_managed
+    # Safety: refuse to overwrite tracked or unmanaged files in any worktree.
+    # Implicit mode silent-skips so the global hook stays harmless on projects
+    # that already commit their own files.
+    local wt base
     for wt in "${worktrees[@]}"; do
-        agents="$wt/AGENTS.md"
-        claude="$wt/CLAUDE.md"
-        a_present=false; c_present=false; a_managed=false; c_managed=false
-        [[ -e "$agents" || -L "$agents" ]] && a_present=true
-        [[ -e "$claude" || -L "$claude" ]] && c_present=true
-        agent_is_managed_link "$agents" && a_managed=true
-        agent_is_managed_link "$claude" && c_managed=true
-
-        # Both empty OR both already our managed symlinks → overlay (or noop).
-        if (! "$a_present" || "$a_managed") && (! "$c_present" || "$c_managed"); then
-            if "$has_overlay"; then
-                act_wt+=("$wt"); act_kind+=("overlay")
-            else
-                act_wt+=("$wt"); act_kind+=("noop")
-            fi
-            continue
-        fi
-
-        # AGENTS.md exists (any kind), CLAUDE.md missing → create the symlink.
-        if "$a_present" && ! "$c_present"; then
-            act_wt+=("$wt"); act_kind+=("mirror_claude")
-            continue
-        fi
-
-        # CLAUDE.md exists, AGENTS.md missing.
-        if ! "$a_present" && "$c_present"; then
-            if [[ -L "$claude" ]]; then
-                # Pre-existing symlink (likely dangling) — don't touch.
-                act_wt+=("$wt"); act_kind+=("noop")
-            elif git -C "$wt" ls-files --error-unmatch -- CLAUDE.md &>/dev/null; then
-                # Tracked file — refuse to rename via dot agent.
-                if "$explicit"; then
-                    _warn "$claude is tracked — rename to AGENTS.md manually if you want the mirror"
+        for base in AGENTS.md CLAUDE.md; do
+            if [[ "$explicit" == false ]]; then
+                if ! agent_check_safe "$wt" "$base" true; then
+                    _info "agent-files: ${_BOLD}$wt/$base${_RESET} already exists (tracked or unmanaged) — skipping"
+                    return 0
                 fi
-                act_wt+=("$wt"); act_kind+=("noop")
             else
-                act_wt+=("$wt"); act_kind+=("mirror_swap")
+                agent_check_safe "$wt" "$base" || return 1
             fi
-            continue
-        fi
-
-        # Both present, mixed managed/unmanaged or both unmanaged → leave alone.
-        act_wt+=("$wt"); act_kind+=("noop")
+        done
     done
 
-    # Count actionable changes.
-    local i active=0
-    for ((i=0; i<${#act_kind[@]}; i++)); do
-        [[ "${act_kind[$i]}" != "noop" ]] && active=$((active + 1))
-    done
-
-    if [[ "$active" -eq 0 ]]; then
-        if "$explicit"; then
-            _info "Nothing to do — see ${_BOLD}dot agent status${_RESET}"
-            return 0
-        fi
-        if "$has_overlay"; then
-            _info "agent-files: ${_BOLD}$name${_RESET} already linked"
-        else
-            _info "agent-files: no overlay for ${_BOLD}$name${_RESET} and no AGENTS.md/CLAUDE.md to mirror — skipping"
-        fi
-        return 0
-    fi
-
-    echo
-    for ((i=0; i<${#act_kind[@]}; i++)); do
-        wt="${act_wt[$i]}"
-        case "${act_kind[$i]}" in
-            overlay)
-                ln -snf "$src_agents" "$wt/AGENTS.md"
-                ln -snf "AGENTS.md" "$wt/CLAUDE.md"
-                _success "Overlay: ${_DIM}$wt${_RESET}"
-                ;;
-            mirror_claude)
-                ln -snf "AGENTS.md" "$wt/CLAUDE.md"
-                _success "Mirror: created CLAUDE.md → AGENTS.md in ${_DIM}$wt${_RESET}"
-                ;;
-            mirror_swap)
-                mv "$wt/CLAUDE.md" "$wt/AGENTS.md"
-                ln -snf "AGENTS.md" "$wt/CLAUDE.md"
-                _success "Mirror: renamed CLAUDE.md → AGENTS.md (and re-linked CLAUDE.md) in ${_DIM}$wt${_RESET}"
-                ;;
-        esac
+    for wt in "${worktrees[@]}"; do
+        ln -snf "$src_agents" "$wt/AGENTS.md"
+        ln -snf "AGENTS.md" "$wt/CLAUDE.md"
     done
 
     agent_write_exclude
+
+    echo
+    _success "Linked ${_BOLD}$name${_RESET} in ${#worktrees[@]} worktree(s):"
+    for wt in "${worktrees[@]}"; do
+        printf "  ${_DIM}%s${_RESET}\n" "$wt"
+    done
     _success "Updated .git/info/exclude (shared across worktrees)"
 }
 
@@ -424,20 +429,16 @@ agent_update() {
 
 agent_help() {
     echo
-    echo "Manage per-project AGENTS.md / CLAUDE.md across all worktrees of"
-    echo "a project. .git/info/exclude keeps the symlinks untracked in the"
-    echo "project repo (no .gitignore changes required)."
+    echo "Manage per-project AGENTS.md / CLAUDE.md for projects where the"
+    echo "agent files can't be committed to the project repo and .gitignore"
+    echo "can't be modified. The actual content lives in the private"
+    echo "agent-files submodule; the project gets symlinks excluded via"
+    echo ".git/info/exclude."
     echo
-    echo "Two modes, picked per-worktree based on what already exists:"
-    echo
-    echo "  Overlay  — both files absent; the project has an entry in the"
-    echo "             private agent-files submodule. Links AGENTS.md to"
-    echo "             that source, CLAUDE.md → AGENTS.md."
-    echo "  Mirror   — the project commits its own AGENTS.md (or CLAUDE.md)."
-    echo "             Just creates the missing side as a symlink so both"
-    echo "             names resolve to the same content. AGENTS.md is"
-    echo "             always canonical; if only CLAUDE.md exists, it is"
-    echo "             renamed to AGENTS.md (only when untracked)."
+    echo "On link, if there's no entry yet for the project but the cwd's"
+    echo "worktree has an untracked AGENTS.md (or CLAUDE.md), it is moved"
+    echo "into the submodule first (CLAUDE.md is renamed to AGENTS.md so the"
+    echo "submodule is canonicalized on AGENTS.md), then committed there."
     echo
     echo "New worktrees are handled automatically via the worktrunk"
     echo "post-start hook in the user config."
@@ -445,10 +446,11 @@ agent_help() {
     echo "Usage: dot agent <subcommand>"
     echo
     echo "Subcommands:"
-    echo "  link [name]   Set up AGENTS.md / CLAUDE.md in every worktree."
-    echo "                [name] defaults to the project root's basename."
-    echo "                With no [name], silent-skips when there's nothing"
-    echo "                to do (safe for use as a global hook)."
+    echo "  link [name]   Set up AGENTS.md / CLAUDE.md symlinks in every"
+    echo "                worktree. [name] defaults to the project root's"
+    echo "                basename. With no [name], silent-skips when there's"
+    echo "                no entry and nothing to migrate (safe for global"
+    echo "                hook use)."
     echo "  unlink        Remove the managed symlinks from all worktrees and"
     echo "                clean the exclude block."
     echo "  list          List available projects in the agent-files submodule."
