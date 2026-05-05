@@ -29,7 +29,7 @@
     "description": "Kubernetes cluster operations"
   },
   "aws-api": {
-    "command": "/home/cdeleon/.local/share/mise/shims/uvx",
+    "command": "uvx",
     "args": ["awslabs.aws-api-mcp-server@latest"],
     "env": {
       "READ_OPERATIONS_ONLY": "true",

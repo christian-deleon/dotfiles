@@ -157,6 +157,12 @@ poetry:
   brew: poetry
   script: install-poetry.sh
 
+uv:
+  description: Fast Python package installer (provides uv + uvx)
+  arch: uv
+  apt: null
+  brew: uv
+
 neovim:
   description: Hyperextensible text editor
   arch: neovim
