@@ -28,6 +28,15 @@
     "args": ["-y", "kubernetes-mcp-server@latest"],
     "description": "Kubernetes cluster operations"
   },
+  "aws-api": {
+    "command": "/home/cdeleon/.local/share/mise/shims/uvx",
+    "args": ["awslabs.aws-api-mcp-server@latest"],
+    "env": {
+      "READ_OPERATIONS_ONLY": "true",
+      "REQUIRE_MUTATION_CONSENT": "true"
+    },
+    "description": "AWS API access (awslabs official, read-only by default)"
+  },
   "playwright": {
     "command": "npx",
     "args": ["@playwright/mcp@latest", "--browser", "chrome", "--executable-path", "/usr/bin/chromium"],
