@@ -19,6 +19,7 @@ alias mkdir='mkdir -pv'                  # Create dirs with parents (verbose)
 alias v='nvim'                           # Launch Neovim
 alias n='nvim'                           # Launch Neovim
 alias nv='nvim'                          # Launch Neovim
+alias vim='nvim'                         # Redirect vim to Neovim
 
 # Dropbox
 alias db='dropbox-cli'                   # Dropbox CLI
