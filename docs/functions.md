@@ -167,6 +167,19 @@ Internal helper function to filter kubectl output by pattern.
 
 ---
 
+## Flux
+
+### `fpush [git-push-args...]`
+
+Push the current branch, then reconcile any Flux `GitRepository` whose `.spec.url` matches the local repo's `origin`, and cascade to every Kustomization that references that source. Matches by normalized URL (strips scheme, user, `.git`, trailing `/`; converts `git@host:owner/repo` ↔ `https://host/owner/repo`); falls back to repo basename when no exact URL match. Operates against the current kubeconfig context. Requires `kubectl`, `flux`, and `jq`.
+
+```bash
+fpush                  # git push, then source + kustomization reconcile
+fpush -u origin feat   # arguments forward to git push
+```
+
+---
+
 ## Git
 
 ### `gc <repo-url>`
