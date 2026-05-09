@@ -205,6 +205,9 @@ update_system() {
         sudo apt-get update && sudo apt-get upgrade -y && sudo apt-get autoremove -y
     fi
 
+    # Rebuild source-built tools (e.g., cargo install --git from a fork)
+    update_source_tools || true
+
     _success "System updated"
 }
 
