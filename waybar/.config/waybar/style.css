@@ -101,6 +101,11 @@ tooltip {
   color: #a55555;
 }
 
+#custom-waycal {
+  margin-left: 7.5px;
+  margin-right: 7.5px;
+}
+
 #custom-weather {
   margin-left: 7.5px;
   margin-right: 7.5px;
