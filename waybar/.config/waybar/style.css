@@ -68,6 +68,10 @@ tooltip {
   margin-left: 8.75px;
 }
 
+#clock.utc {
+  margin-right: 7.5px;
+}
+
 .hidden {
   opacity: 0;
 }
