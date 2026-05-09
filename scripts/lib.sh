@@ -214,6 +214,58 @@ install_tools() {
     fi
 }
 
+# Rebuild source-built tools marked with `update: true` in packages.yaml.
+# Each script must accept a --force flag to bypass its install-time short-circuit.
+update_source_tools() {
+    local tools=()
+    local tool update_flag
+    while IFS= read -r tool; do
+        update_flag="$(get_tool_field "$tool" "update" 2>/dev/null)" || update_flag=""
+        [[ "$update_flag" == "true" ]] && tools+=("$tool")
+    done < <(list_tools)
+
+    [[ ${#tools[@]} -eq 0 ]] && return 0
+
+    _info "Rebuilding source-built tools: ${tools[*]}"
+    local failed=()
+    for tool in "${tools[@]}"; do
+        local script
+        script="$(get_tool_field "$tool" "script" 2>/dev/null)" || script=""
+        if [[ -z "$script" ]]; then
+            _warn "$tool has update: true but no script — skipping"
+            continue
+        fi
+        local script_path="$DOTFILES_DIR/scripts/tools/$script"
+        if [[ ! -f "$script_path" ]]; then
+            _warn "Script not found for $tool: $script_path — skipping"
+            continue
+        fi
+
+        if command -v gum &>/dev/null; then
+            local output
+            if output=$(gum spin --spinner dot --title "Rebuilding $tool..." -- bash "$script_path" --force 2>&1); then
+                _success "Rebuilt ${_BOLD}$tool${_RESET}"
+            else
+                failed+=("$tool")
+                _error "Failed to rebuild $tool"
+                [[ -n "$output" ]] && printf '%s\n' "$output" >&2
+            fi
+        else
+            if bash "$script_path" --force; then
+                _success "Rebuilt ${_BOLD}$tool${_RESET}"
+            else
+                failed+=("$tool")
+                _error "Failed to rebuild $tool"
+            fi
+        fi
+    done
+
+    if [[ ${#failed[@]} -gt 0 ]]; then
+        _warn "Failed to rebuild: ${failed[*]}"
+        return 1
+    fi
+}
+
 # ─── Gum Bootstrap ────────────────────────────────────────────────────────────
 
 ensure_gum() {

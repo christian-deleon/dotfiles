@@ -5,6 +5,7 @@
 # ─── PATH ─────────────────────────────────────────────────────────────────────
 
 export PATH="$HOME/.local/bin:$PATH"
+[[ -d "$HOME/.cargo/bin" ]] && export PATH="$PATH:$HOME/.cargo/bin"
 export PATH="$PATH:$HOME/.lmstudio/bin"
 
 # ─── SSH agent forwarding (stable symlink for tmux) ─────────────────────────

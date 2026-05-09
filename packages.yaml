@@ -2,6 +2,8 @@
 # Each tool has a description and per-OS package names.
 # Use "script: <path>" for tools that need custom install logic.
 # Use null or omit the key if a tool isn't available for that OS.
+# Use "update: true" for source-built tools that should be rebuilt on `dot update`
+# (the install script must accept a --force flag).
 
 docker:
   description: Container platform
@@ -191,7 +193,9 @@ worktrunk:
   script: install-worktrunk.sh
 
 waycal:
-  description: Tiny calendar popup for waybar
-  arch: waycal
+  description: Tiny calendar popup for waybar (Christian's fork — system colors)
+  arch: null
   apt: null
   brew: null
+  script: install-waycal.sh
+  update: true
