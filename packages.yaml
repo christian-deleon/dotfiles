@@ -189,3 +189,9 @@ worktrunk:
   apt: null
   brew: null
   script: install-worktrunk.sh
+
+waycal:
+  description: Tiny calendar popup for waybar
+  arch: waycal
+  apt: null
+  brew: null

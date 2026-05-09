@@ -5,7 +5,7 @@
   "spacing": 0,
   "height": 26,
   "modules-left": ["custom/omarchy", "hyprland/workspaces"],
-  "modules-center": ["clock", "clock#utc", "custom/weather", "custom/update", "custom/voxtype", "custom/screenrecording-indicator", "custom/idle-indicator", "custom/notification-silencing-indicator"],
+  "modules-center": ["clock", "clock#utc", "custom/waycal", "custom/weather", "custom/update", "custom/voxtype", "custom/screenrecording-indicator", "custom/idle-indicator", "custom/notification-silencing-indicator"],
   "modules-right": [
     "group/tray-expander",
     "bluetooth",
@@ -69,6 +69,11 @@
     "format": "{:%Z %Y-%m-%d %H:%M}",
     "timezone": "UTC",
     "tooltip": false
+  },
+  "custom/waycal": {
+    "format": "󰃭",
+    "on-click": "pkill -x waycal || waycal",
+    "tooltip-format": "Calendar"
   },
   "custom/weather": {
     "exec": "$OMARCHY_PATH/default/waybar/weather.sh",
