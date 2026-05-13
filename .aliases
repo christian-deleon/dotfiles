@@ -62,6 +62,9 @@ alias frk='flux reconcile kustomization --with-source'           # Reconcile kus
 alias fro='flux reconcile source oci flux-system'                # Reconcile flux-system OCI source
 alias fs='flux stats'                                            # Show Flux statistics
 
+# AWS
+alias assume='source assume'             # granted: assume AWS profile (exports creds into shell)
+
 # Terraform
 alias tf='terraform'                     # Terraform command shortcut
 

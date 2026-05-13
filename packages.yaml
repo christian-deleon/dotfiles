@@ -111,6 +111,13 @@ k9s:
   brew: derailed/k9s/k9s
   script: install-k9s.sh
 
+granted:
+  description: AWS SSO profile switcher with shell env export
+  arch: null
+  apt: null
+  brew: null
+  script: install-granted.sh
+
 lazygit:
   description: Terminal UI for git
   arch: lazygit
