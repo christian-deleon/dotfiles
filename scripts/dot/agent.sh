@@ -316,6 +316,29 @@ agent_env_link() {
         else
             cat > "$src" <<EOF
 # Global agent instructions — env: $name
+
+## About this file
+
+This file is a **per-environment agent overlay** managed by the \`dot agent env\` system in
+\`~/.dotfiles\`. It lives in the private \`agent-files\` submodule at
+\`agent-files/env/$name/AGENTS.md\` and is symlinked into the global config paths
+of each AI tool on this machine (\`~/.config/opencode/AGENTS.md\`, \`~/.claude/CLAUDE.md\`).
+
+Its purpose is to give every AI agent session on this machine persistent, automatic context
+about the environment — constraints, quirks, and capabilities — without having to re-explain
+them each session. When the user says "update the env AGENTS.md", this is the file they mean.
+
+To update: edit the canonical source at \`~/.dotfiles/agent-files/env/$name/AGENTS.md\`
+(or follow the symlink). Changes are immediately active in the next session. Push the
+submodule manually when ready: \`cd ~/.dotfiles/agent-files && git push\`.
+
+## Environment
+
+<!-- Describe this machine: OS, host, any quirks -->
+
+## Constraints
+
+<!-- Network restrictions, missing tools, auth limitations, etc. -->
 EOF
             _success "Created stub ${_DIM}$src${_RESET}"
             agent_commit_in_submodule "env/$name" "feat(env/$name): scaffold env agent file"
