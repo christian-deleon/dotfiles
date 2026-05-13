@@ -34,7 +34,7 @@ EOF
     echo "  update                - Update system packages and dotfiles (updates installed themes)"
     echo "  install [tool ...]    - Install dev tools (directly or interactive picker)"
     echo "  mcp-regen             - Force regenerate MCP configs (re-injects 1Password secrets)"
-    echo "  agent <subcommand>    - Manage per-project AGENTS.md/CLAUDE.md (link/unlink/list/status/update)"
+    echo "  agent <subcommand>    - Manage per-project & per-env AGENTS.md/CLAUDE.md (link/unlink/list/status/update/env)"
     echo "  theme <subcommand>    - Manage Omarchy theme submodules (add/update/list)"
     echo "  brew  <subcommand>    - Homebrew helpers (install/bundle/save)"
 }
