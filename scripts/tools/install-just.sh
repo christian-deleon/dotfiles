@@ -7,4 +7,5 @@ if command -v just &>/dev/null; then
     exit 0
 fi
 
-curl -fsSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+mkdir -p "$HOME/.local/bin"
+curl -fsSL https://just.systems/install.sh | bash -s -- --to "$HOME/.local/bin"
