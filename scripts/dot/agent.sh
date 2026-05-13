@@ -316,15 +316,6 @@ agent_env_link() {
         else
             cat > "$src" <<EOF
 # Global agent instructions — env: $name
-
-<!--
-Loaded into every AI session on machines that have run:
-  dot agent env link $name
-
-Use this for environment-scoped context that isn't tied to a single project —
-e.g. "this is a locked-down WSL VM behind a corp proxy, network egress is
-restricted, sudo requires MFA, X tool is unavailable", etc.
--->
 EOF
             _success "Created stub ${_DIM}$src${_RESET}"
             agent_commit_in_submodule "env/$name" "feat(env/$name): scaffold env agent file"
