@@ -14,11 +14,11 @@ elif command -v paru &>/dev/null; then
     paru -S --noconfirm --answerdiff=None --answerclean=None --needed worktrunk-bin
 elif command -v yay &>/dev/null; then
     yay -S --noconfirm --answerdiff=None --answerclean=None --needed worktrunk-bin
-elif command -v cargo &>/dev/null; then
-    cargo install worktrunk
 else
-    echo "Error: no supported install method found (brew, paru, yay, or cargo required)"
-    exit 1
+    # Use the official installer script (downloads prebuilt musl binary from GitHub releases)
+    mkdir -p "$HOME/.local/bin"
+    curl -fsSL https://github.com/max-sixty/worktrunk/releases/latest/download/worktrunk-installer.sh \
+        | CARGO_HOME="$HOME/.local" bash
 fi
 
 # Set up shell integration so 'wt switch' can change directories
