@@ -49,14 +49,21 @@ detect_pkg_manager() {
 
 # List all tool names from packages.yaml, filtered for the current platform.
 # Tools with `omarchy_only: true` are excluded unless ~/.local/share/omarchy exists.
+# Tools with `wsl_only: true` are excluded unless running inside WSL2.
 list_tools() {
     local _is_omarchy=0
+    local _is_wsl=0
     [[ -d "$HOME/.local/share/omarchy" ]] && _is_omarchy=1
+    grep -qi microsoft /proc/version 2>/dev/null && _is_wsl=1
 
     while IFS= read -r tool; do
-        local omarchy_only
+        local omarchy_only wsl_only
         omarchy_only="$(get_tool_field "$tool" "omarchy_only" 2>/dev/null)" || omarchy_only=""
+        wsl_only="$(get_tool_field "$tool" "wsl_only" 2>/dev/null)" || wsl_only=""
         if [[ "$omarchy_only" == "true" && "$_is_omarchy" -eq 0 ]]; then
+            continue
+        fi
+        if [[ "$wsl_only" == "true" && "$_is_wsl" -eq 0 ]]; then
             continue
         fi
         echo "$tool"
