@@ -47,9 +47,20 @@ detect_pkg_manager() {
 # ─── Package YAML parser ─────────────────────────────────────────────────────
 # Minimal YAML parser — no external dependencies (no yq needed at bootstrap)
 
-# List all tool names from packages.yaml
+# List all tool names from packages.yaml, filtered for the current platform.
+# Tools with `omarchy_only: true` are excluded unless ~/.local/share/omarchy exists.
 list_tools() {
-    grep -E '^[a-zA-Z0-9_-]+:' "$PACKAGES_FILE" | sed 's/://' | sort
+    local _is_omarchy=0
+    [[ -d "$HOME/.local/share/omarchy" ]] && _is_omarchy=1
+
+    while IFS= read -r tool; do
+        local omarchy_only
+        omarchy_only="$(get_tool_field "$tool" "omarchy_only" 2>/dev/null)" || omarchy_only=""
+        if [[ "$omarchy_only" == "true" && "$_is_omarchy" -eq 0 ]]; then
+            continue
+        fi
+        echo "$tool"
+    done < <(grep -E '^[a-zA-Z0-9_-]+:' "$PACKAGES_FILE" | sed 's/://' | sort)
 }
 
 # Get a field for a tool: get_tool_field <tool> <field>
