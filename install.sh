@@ -856,6 +856,7 @@ get_app_label() {
         tmux)      echo "tmux — Terminal multiplexer config" ;;
         walker)    echo "walker — Application launcher config" ;;
         waybar)    echo "waybar — Wayland status bar config" ;;
+        windows-terminal) echo "windows-terminal — Windows Terminal theme + font config (WSL only)" ;;
         worktrunk) echo "worktrunk — Git worktree manager config" ;;
         *)         echo "$1" ;;
     esac
@@ -884,6 +885,11 @@ list_app_configs() {
         if [[ "$OSTYPE" != darwin* ]] && grep -ql "pam_fprintd.so" /etc/pam.d/* 2>/dev/null; then
             echo "lid-check"
         fi
+
+        # WSL-only: Windows Terminal config
+        if grep -qi microsoft /proc/version 2>/dev/null; then
+            echo "windows-terminal"
+        fi
     } | sort
 }
 
@@ -897,6 +903,9 @@ install_app_config() {
             ;;
         lid-check)
             install_lid_check
+            ;;
+        windows-terminal)
+            bash "$DOTFILES_DIR/scripts/tools/install-windows-terminal.sh"
             ;;
         tmux)
             for file in "${TMUX_FILES[@]}"; do

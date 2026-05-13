@@ -201,3 +201,11 @@ waycal:
   script: install-waycal.sh
   update: true
   omarchy_only: true
+
+windows-terminal:
+  description: Configure Windows Terminal with Everforest theme and JetBrainsMono font
+  arch: null
+  apt: null
+  brew: null
+  script: install-windows-terminal.sh
+  wsl_only: true
