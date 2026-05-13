@@ -10,3 +10,6 @@ opencode.json.bak.*
 # AI symlinks (managed by install_ai_opencode, not tracked)
 commands/
 skills/
+
+# Per-env global agent file (managed by `dot agent env`, not tracked)
+AGENTS.md
