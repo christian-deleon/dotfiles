@@ -164,6 +164,7 @@ uv:
   arch: uv
   apt: null
   brew: uv
+  script: install-uv.sh
 
 neovim:
   description: Hyperextensible text editor
@@ -199,3 +200,4 @@ waycal:
   brew: null
   script: install-waycal.sh
   update: true
+  omarchy_only: true
