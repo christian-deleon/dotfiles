@@ -613,6 +613,7 @@ clean_ai_symlinks() {
 
 # Remove ~/.config symlinks pointing into the dotfiles repo whose targets no longer exist.
 # Idempotent reconciliation for dropped stow packages (e.g. former ghostty, kitty).
+# Uses readlink -m (no existence check) so dangling links don't trip set -e.
 clean_stale_dotfile_symlinks() {
     local dotfiles_real
     dotfiles_real="$(readlink -f "$DOTFILES_DIR")"
@@ -620,7 +621,7 @@ clean_stale_dotfile_symlinks() {
 
     find "$HOME/.config" -maxdepth 1 -type l 2>/dev/null | while read -r link; do
         local resolved
-        resolved="$(readlink -f "$link" 2>/dev/null)"
+        resolved="$(readlink -m "$link" 2>/dev/null)"
         if [[ "$resolved" == "$dotfiles_real"/* ]] && [[ ! -e "$resolved" ]]; then
             printf '%b\n' "Removing stale dotfile symlink: $link"
             rm "$link"
