@@ -1,0 +1,4 @@
+# Empty alacritty theme.
+# Used as the import target on non-Omarchy machines where
+# ~/.config/omarchy/current/theme/alacritty.toml doesn't exist.
+# install.sh symlinks this file into that path when the Omarchy theme dir is absent.

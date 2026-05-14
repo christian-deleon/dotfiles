@@ -180,12 +180,18 @@ neovim:
   brew: neovim
   script: install-neovim.sh
 
-ghostty:
-  description: GPU-accelerated terminal
-  arch: ghostty
+alacritty:
+  description: GPU-accelerated cross-platform terminal
+  arch: alacritty
+  apt: alacritty
+  brew: --cask alacritty
+
+starship:
+  description: Cross-shell prompt
+  arch: starship
   apt: null
-  brew: --cask ghostty
-  script: install-ghostty.sh
+  brew: starship
+  script: install-starship.sh
 
 npm:
   description: Node.js package manager

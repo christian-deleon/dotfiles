@@ -432,6 +432,8 @@ run_core_config() {
     echo
     printf '%b\n' "${BOLD}Core Config${RESET}"
 
+    clean_stale_dotfile_symlinks
+
     info "Shell config..."
     install_shell_config
 
@@ -605,6 +607,23 @@ clean_ai_symlinks() {
         if [[ "$resolved_target" == "$DOTFILES_DIR/ai/"* ]] || [[ "$raw_target" == "$DOTFILES_DIR/ai/"* ]] \
         || [[ "$resolved_target" == "$DOTFILES_DIR/ecc/"* ]] || [[ "$raw_target" == "$DOTFILES_DIR/ecc/"* ]]; then
             rm "$item"
+        fi
+    done
+}
+
+# Remove ~/.config symlinks pointing into the dotfiles repo whose targets no longer exist.
+# Idempotent reconciliation for dropped stow packages (e.g. former ghostty, kitty).
+clean_stale_dotfile_symlinks() {
+    local dotfiles_real
+    dotfiles_real="$(readlink -f "$DOTFILES_DIR")"
+    [[ -d "$HOME/.config" ]] || return 0
+
+    find "$HOME/.config" -maxdepth 1 -type l 2>/dev/null | while read -r link; do
+        local resolved
+        resolved="$(readlink -f "$link" 2>/dev/null)"
+        if [[ "$resolved" == "$dotfiles_real"/* ]] && [[ ! -e "$resolved" ]]; then
+            printf '%b\n' "Removing stale dotfile symlink: $link"
+            rm "$link"
         fi
     done
 }
@@ -839,13 +858,12 @@ generate_mcp_configs() {
 # App config descriptions (name → label)
 get_app_label() {
     case "$1" in
+        alacritty) echo "alacritty — GPU-accelerated cross-platform terminal" ;;
         btop)      echo "btop — System resource monitor" ;;
         claude)    echo "claude — Claude Code AI config (agents, skills, commands, rules)" ;;
         fastfetch) echo "fastfetch — System info display" ;;
-        ghostty)   echo "ghostty — Terminal emulator config" ;;
         hypr)      echo "hypr — Hyprland window manager config" ;;
         k9s)       echo "k9s — Kubernetes TUI manager" ;;
-        kitty)     echo "kitty — Terminal emulator config" ;;
         lazygit)   echo "lazygit — Git TUI client" ;;
         lid-check) echo "lid-check — Skip fingerprint auth when lid is closed" ;;
         makima)    echo "makima — Key remapping daemon config" ;;
@@ -853,6 +871,7 @@ get_app_label() {
         nvim)      echo "nvim — Neovim (LazyVim) editor config with Copilot" ;;
         omarchy)   echo "omarchy — Desktop environment config" ;;
         opencode)  echo "opencode — AI coding assistant config" ;;
+        starship)  echo "starship — Cross-shell prompt" ;;
         tmux)      echo "tmux — Terminal multiplexer config" ;;
         walker)    echo "walker — Application launcher config" ;;
         waybar)    echo "waybar — Wayland status bar config" ;;
@@ -868,7 +887,8 @@ list_app_configs() {
         for dir in "$DOTFILES_DIR"/*/; do
             local name
             name="$(basename "$dir")"
-            if [[ -d "$dir/.config/$name" ]]; then
+            # Match directory packages (<pkg>/.config/<pkg>/) and single-file packages (<pkg>/.config/<pkg>.<ext>)
+            if [[ -d "$dir/.config/$name" ]] || compgen -G "$dir/.config/$name".* >/dev/null; then
                 echo "$name"
             fi
         done
@@ -926,16 +946,29 @@ install_app_config() {
                 return 1
             fi
 
-            local target="$HOME/.config/$pkg"
+            # Resolve source: directory package <pkg>/.config/<pkg>/ or single-file <pkg>/.config/<pkg>.<ext>
+            local src target
+            if [[ -d "$DOTFILES_DIR/$pkg/.config/$pkg" ]]; then
+                src="$DOTFILES_DIR/$pkg/.config/$pkg"
+                target="$HOME/.config/$pkg"
+            else
+                local matches=("$DOTFILES_DIR/$pkg/.config/$pkg".*)
+                if [[ ! -e "${matches[0]}" ]]; then
+                    warn "Package contents not found for $pkg"
+                    return 1
+                fi
+                src="${matches[0]}"
+                target="$HOME/.config/$(basename "$src")"
+            fi
             local expected
-            expected="$(readlink -f "$DOTFILES_DIR/$pkg/.config/$pkg")"
+            expected="$(readlink -f "$src")"
 
             if [[ -L "$target" ]] && [[ "$(readlink -f "$target")" == "$expected" ]]; then
                 info "$pkg already stowed"
                 return 0
             fi
 
-            if [[ -d "$target" && ! -L "$target" ]]; then
+            if [[ -e "$target" && ! -L "$target" ]]; then
                 backup_item "$target"
                 rm -rf "$target"
             fi
@@ -968,6 +1001,19 @@ run_post_install_hooks() {
                 ;;
             nvim)
                 install_neovim_extras
+                ;;
+            alacritty)
+                # alacritty.toml imports ~/.config/omarchy/current/theme/alacritty.toml.
+                # On non-Omarchy machines that path doesn't exist; symlink to an empty
+                # theme shim so alacritty starts cleanly without an import warning.
+                local theme_dir="$HOME/.config/omarchy/current/theme"
+                local theme_file="$theme_dir/alacritty.toml"
+                local shim="$DOTFILES_DIR/alacritty/.config/alacritty/empty-theme.toml"
+                if [[ ! -d "$theme_dir" ]] && [[ -f "$shim" ]]; then
+                    mkdir -p "$theme_dir"
+                    ln -snf "$shim" "$theme_file"
+                    info "Linked alacritty empty-theme shim (non-Omarchy fallback)"
+                fi
                 ;;
         esac
     done
