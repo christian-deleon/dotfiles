@@ -12,7 +12,7 @@ Guidelines for AI coding agents working in this personal dotfiles repository. Th
 
 - Shell configs: `.commonrc` (cross-platform), `.zshrc` (macOS with Oh My Zsh + Powerlevel10k), `.bashrc` (reference only)
 - Dev tool configs: git, tmux
-- Omarchy desktop configs: hypr, waybar, kitty, ghostty, mako, walker, btop, fastfetch, lazygit, omarchy, opencode (managed via GNU Stow + omadot)
+- Omarchy desktop configs: hypr, waybar, alacritty, mako, walker, btop, fastfetch, lazygit, omarchy, opencode, starship (managed via GNU Stow + omadot)
 - AI config: `ai/` directory with agents, commands, skills, and rules for Claude Code and OpenCode
 - MCP servers: `ai/mcp-servers.json.tpl` — shared config for Claude Code and OpenCode (with `op://` secret refs)
 - Package management: `packages.yaml` + `scripts/lib.sh` (cross-platform), Homebrew Brewfile profiles (macOS)
@@ -67,16 +67,16 @@ App configs in `~/.config/` are managed via [GNU Stow](https://www.gnu.org/softw
 
 **Stow packages** (auto-discovered from repo — any dir with `.config/<name>/` inside; list may change as packages are added/removed):
 ```
-btop  fastfetch  ghostty  hypr  k9s  kitty  lazygit  makima  mako  nvim  omarchy  opencode  walker  waybar  worktrunk
+alacritty  btop  fastfetch  hypr  k9s  lazygit  makima  mako  nvim  omarchy  opencode  starship  walker  waybar  worktrunk
 ```
 
 **Special packages** (not stow-based, handled by custom install functions):
 - `claude` — Claude Code AI config from `ai/` directory (agents, skills, commands, rules)
 - `tmux` — direct symlinks for `.tmux.conf` and `.tmux/`
 
-**Not managed by omadot** (Omarchy-owned): `starship.toml`, `~/.config/git/`
+**Not managed by omadot** (Omarchy-owned): `~/.config/git/`
 
-**IMPORTANT:** Never use `omadot put --all` in this repo. It would try to stow non-package directories (brew/, scripts/, docs/, etc.). The installer auto-discovers valid packages by checking for `<dir>/.config/<dir>/` structure.
+**IMPORTANT:** Never use `omadot put --all` in this repo. It would try to stow non-package directories (brew/, scripts/, docs/, etc.). The installer auto-discovers valid packages by checking for either a `<dir>/.config/<dir>/` directory (e.g. `nvim`) or a `<dir>/.config/<dir>.<ext>` single-file package (e.g. `starship/.config/starship.toml`).
 
 ### Omarchy Compatibility
 
@@ -84,7 +84,7 @@ On [Omarchy](https://omarchy.org/) (Arch Linux + Hyprland):
 
 - Omarchy owns `~/.bashrc` and sources its defaults (starship, mise, zoxide, eza, etc.)
 - Dotfiles layer on top via `.commonrc` — never replace Omarchy's shell setup
-- Omarchy owns `~/.config/starship.toml` — dotfiles do not manage starship config
+- Dotfiles own `~/.config/starship.toml` (stowed from `starship/.config/starship.toml`); seeded byte-for-byte from Omarchy's default and evolved from there. `.commonrc` initializes starship on bash with a `$STARSHIP_SHELL` guard to avoid double-init on Omarchy.
 - 1Password SSH agent path: `/opt/1Password/op-ssh-sign` (Linux) vs `/Applications/1Password.app/Contents/MacOS/op-ssh-sign` (macOS)
 - 1Password SSH socket: `~/.1password/agent.sock` (Linux) vs `~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock` (macOS)
 
@@ -395,17 +395,17 @@ function my_function() {
 
 | Package | Config location | Notes |
 |---------|----------------|-------|
+| `alacritty` | `~/.config/alacritty/` | GPU-accelerated cross-platform terminal |
 | `btop` | `~/.config/btop/` | System monitor |
 | `fastfetch` | `~/.config/fastfetch/` | System info display |
-| `ghostty` | `~/.config/ghostty/` | Ghostty terminal |
 | `hypr` | `~/.config/hypr/` | Hyprland WM (bindings, monitors, look-n-feel) |
-| `kitty` | `~/.config/kitty/` | Kitty terminal |
 | `lazygit` | `~/.config/lazygit/` | Lazygit TUI |
 | `makima` | `~/.config/makima/` | Key remapping daemon (Copilot key) |
 | `mako` | `~/.config/mako/` | Notifications |
 | `nvim` | `~/.config/nvim/` | Neovim (LazyVim) with Copilot AI autocomplete |
 | `omarchy` | `~/.config/omarchy/` | Themes, hooks, extensions |
 | `opencode` | `~/.config/opencode/` | OpenCode AI agent config (ai/ merge + MCP generation post-hook) |
+| `starship` | `~/.config/starship.toml` | Cross-shell prompt (single-file stow package) |
 | `walker` | `~/.config/walker/` | App launcher |
 | `waybar` | `~/.config/waybar/` | Status bar layout and styling |
 
@@ -641,21 +641,23 @@ The structure is always:
 - Use `omadot get` for new configs — that captures from `~/.config/` into dotfiles; only use it if the config already exists there and you want to import it
 - Use `omadot put --all` — it will try to stow non-package directories
 
+**Stale-symlink cleanup (`clean_stale_dotfile_symlinks`):** when a stow package is removed from the repo, the `~/.config/<pkg>` symlink on each machine becomes a dangling pointer into `$DOTFILES_DIR/<pkg>/`. `clean_stale_dotfile_symlinks()` in `install.sh` scans `~/.config/` (depth 1), removes any symlink that resolves into `$DOTFILES_DIR/` and whose target no longer exists. It runs at the top of `run_core_config()` (every `./install.sh` and `dot install`) and from `dot.sh:update_system()` after the AI reinstall (every `dot update`). One function, two call sites — generalization of `clean_ai_symlinks()`.
+
 **Currently managed packages:**
 | Package | Config path in dotfiles |
 |---------|------------------------|
+| `alacritty` | `alacritty/.config/alacritty/` |
 | `btop` | `btop/.config/btop/` |
 | `fastfetch` | `fastfetch/.config/fastfetch/` |
-| `ghostty` | `ghostty/.config/ghostty/` |
 | `hypr` | `hypr/.config/hypr/` |
 | `k9s` | `k9s/.config/k9s/` |
-| `kitty` | `kitty/.config/kitty/` |
 | `lazygit` | `lazygit/.config/lazygit/` |
 | `makima` | `makima/.config/makima/` |
 | `mako` | `mako/.config/mako/` |
 | `nvim` | `nvim/.config/nvim/` |
 | `omarchy` | `omarchy/.config/omarchy/` |
 | `opencode` | `opencode/.config/opencode/` |
+| `starship` | `starship/.config/starship.toml` (single-file package) |
 | `walker` | `walker/.config/walker/` |
 | `waybar` | `waybar/.config/waybar/` |
 | `worktrunk` | `worktrunk/.config/worktrunk/` |

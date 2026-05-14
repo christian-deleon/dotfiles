@@ -192,6 +192,12 @@ update_system() {
             install_ai_claude 2>/dev/null || _warn "Failed to install Claude AI config"
             install_ai_opencode 2>/dev/null || _warn "Failed to install OpenCode AI config"
         fi
+
+        # Reconcile stale symlinks left by dropped stow packages
+        source "$DOTFILES_DIR/install.sh" 2>/dev/null
+        if declare -F clean_stale_dotfile_symlinks &>/dev/null; then
+            clean_stale_dotfile_symlinks
+        fi
     fi
 
     # Update packages based on OS
