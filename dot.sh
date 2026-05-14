@@ -140,14 +140,19 @@ update_system() {
             return 1
         fi
 
-        # Update critical submodules
-        _info "Updating submodules (ssh, tpm)..."
+        # Update critical submodules — only those already initialized (no --init)
+        local submodules_to_update=()
+        [[ -e "$DOTFILES_DIR/.ssh/.git" ]] && submodules_to_update+=(.ssh)
+        [[ -e "$DOTFILES_DIR/.tmux/plugins/tpm/.git" ]] && submodules_to_update+=(.tmux/plugins/tpm)
 
-        if ! git -C "$DOTFILES_DIR" submodule update --remote --init .ssh .tmux/plugins/tpm 2>&1; then
-            _error "Could not update submodules"
-            echo
-            _info "This may be due to SSH authentication failure (requires 1Password)"
-            return 1
+        if [[ ${#submodules_to_update[@]} -gt 0 ]]; then
+            _info "Updating submodules (${submodules_to_update[*]})..."
+            if ! git -C "$DOTFILES_DIR" submodule update --remote "${submodules_to_update[@]}" 2>&1; then
+                _error "Could not update submodules"
+                echo
+                _info "This may be due to SSH authentication failure (requires 1Password)"
+                return 1
+            fi
         fi
 
         # Update agent-files submodule if initialized (don't init new)
