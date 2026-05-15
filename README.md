@@ -21,36 +21,53 @@ If `op` (1Password CLI) is missing, MCP servers that need secrets are skipped au
 ## `dot` CLI
 
 ```bash
-dot edit                  # Open dotfiles in $EDITOR
-dot update                # Update system packages, dotfiles, and submodules
-dot install               # Interactive picker for app configs and dev tools
-dot agent link [name]     # Symlink per-project AGENTS.md/CLAUDE.md (private overlay submodule)
-dot agent unlink          # Remove the symlinks
-dot theme add <url>       # Add an Omarchy theme submodule
-dot theme list            # List installed Omarchy themes
-dot brew bundle <profile> # Install Homebrew packages (home/work)
-dot brew save <profile>   # Save current Homebrew packages
+dot edit                       # Open dotfiles in $EDITOR
+dot update                     # Update system packages, dotfiles, submodules, and AI config
+dot install                    # Interactive picker for app configs and dev tools
+dot install <tool>...          # Install specific tool(s) from packages.yaml directly
+dot mcp-regen                  # Regenerate MCP config for Claude and OpenCode from ai/mcp-servers.json.tpl
+dot agent link [name]          # Symlink per-project AGENTS.md/CLAUDE.md (private overlay submodule)
+dot agent unlink               # Remove the per-project symlinks
+dot agent list|status|update   # List projects / show cwd state / pull latest agent-files
+dot agent env link <name>      # Symlink per-environment AGENTS.md into ~/.claude/ and ~/.config/opencode/
+dot agent env unlink|list|status
+dot theme add <url>            # Add an Omarchy theme submodule
+dot theme list                 # List installed Omarchy themes
+dot theme update               # Pull latest from all theme submodules
+dot brew bundle <profile>      # macOS: install Homebrew packages (home/work)
+dot brew save <profile>        # macOS: save current Homebrew packages
 ```
 
-### Per-project agent files
+### Agent files (`dot agent`)
 
-For projects where `AGENTS.md` / `CLAUDE.md` can't be committed and `.gitignore` can't be modified. The actual content lives in a private `agent-files/<project>/` submodule (synced across machines via private GitHub); the project gets symlinks excluded via the shared `.git/info/exclude`.
+Two scopes of overlay agent files, sourced from the private `agent-files` submodule (synced across machines via private GitHub). Content is committed automatically inside the submodule; push to the remote is always manual.
 
-`dot agent link` symlinks `AGENTS.md` → `agent-files/<project>/AGENTS.md` and `CLAUDE.md` → `AGENTS.md` in every worktree. If you have an untracked `AGENTS.md` or `CLAUDE.md` sitting in the project, it's auto-migrated into the submodule (with `CLAUDE.md` renamed to `AGENTS.md` as canonical) and committed there. Push to the agent-files remote is always manual. A worktrunk `post-start` hook auto-links every newly created worktree.
+**Per-project — `dot agent link`.** For projects where `AGENTS.md` / `CLAUDE.md` can't be committed and `.gitignore` can't be modified. Content lives in `agent-files/projects/<project>/AGENTS.md`; the project gets symlinks excluded via the shared `.git/info/exclude`. `dot agent link` symlinks `AGENTS.md` → the canonical source and `CLAUDE.md` → `AGENTS.md` in every worktree. An untracked `AGENTS.md` / `CLAUDE.md` sitting in the project is auto-migrated into the submodule. A worktrunk `post-start` hook auto-links every newly created worktree.
+
+**Per-environment — `dot agent env link <name>`.** For machine- or environment-scoped context (e.g. "this is a locked-down WSL VM behind a corp proxy, X tool is unavailable"). Content lives in `agent-files/env/<env>/AGENTS.md` and is symlinked from one source into every AI tool's global config path (`~/.claude/CLAUDE.md`, `~/.config/opencode/AGENTS.md`). The symlinks themselves are the state — no marker files. Opt out with `dot agent env unlink`.
 
 ## App Configs
 
-App configs (`~/.config/`) are managed via [GNU Stow](https://www.gnu.org/software/stow/) + [omadot](https://github.com/tomhayes/omadot) on all platforms. The installer auto-discovers stow packages and presents a picker.
+App configs (`~/.config/`) are managed via [GNU Stow](https://www.gnu.org/software/stow/) + [omadot](https://github.com/tomhayes/omadot) on all platforms. The installer auto-discovers stow packages (any `<pkg>/.config/<pkg>/` directory or single-file `<pkg>/.config/<pkg>.<ext>`) and presents a picker.
 
-To add a new config:
+**New config from scratch** — write files into the repo first, then stow:
 
 ```bash
-omadot get <package>     # capture ~/.config/<package> into the repo
+mkdir -p <package>/.config/<package>/
+# ...edit files in <package>/.config/<package>/...
+omadot put <package>     # creates symlink ~/.config/<package> -> ~/.dotfiles/<package>/.config/<package>
+git add <package> && git commit
+```
+
+**Importing an existing `~/.config/<package>/`** into the repo:
+
+```bash
+omadot get <package>     # copy ~/.config/<package> into the repo
 omadot put <package>     # replace original with symlink to dotfiles
 git add <package> && git commit
 ```
 
-`get` copies files into the repo. `put` swaps the original directory for a symlink so changes are tracked. Both steps are needed.
+Stale `~/.config/<pkg>` symlinks from packages that have since been dropped are cleaned automatically on every `./install.sh`, `dot install`, and `dot update`.
 
 ## AI Config
 
@@ -58,6 +75,7 @@ Shared AI agent configuration for Claude Code and OpenCode lives in `ai/`. Selec
 
 - **Claude Code** — agents, commands, skills, and rules symlinked into `~/.claude/`
 - **OpenCode** — commands and skills symlinked into `~/.config/opencode/`; agents converted from markdown to JSON via `ai/scripts/generate-opencode-config.sh`
+- **MCP servers** — defined once in `ai/mcp-servers.json.tpl` (Claude Desktop format, with `op://` references for secrets), then generated into `~/.claude.json` and `~/.config/opencode/opencode.json` at install time. If the 1Password CLI is missing or fails, any server with unresolved `op://` refs is silently dropped; keyless servers still install. Regenerate manually with `dot mcp-regen`.
 
 `dot update` refreshes AI config for both platforms automatically. See [docs/ai.md](docs/ai.md) for details on adding agents, commands, skills, and rules.
 
