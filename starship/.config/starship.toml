@@ -1,6 +1,6 @@
 add_newline = true
 command_timeout = 200
-format = "[$directory$git_branch$git_status]($style)$character"
+format = "[$directory$git_branch$git_status]($style)$kubernetes$aws$character"
 
 [character]
 error_symbol = "[✗](bold cyan)"
@@ -30,3 +30,13 @@ stashed    = ""
 staged     = ""
 renamed    = ""
 deleted    = ""
+
+[kubernetes]
+disabled = true
+format = '[⎈ $context(\($namespace\))]($style) '
+style = 'bold blue'
+
+[aws]
+disabled = true
+format = '[☁ $profile(\($region\))]($style) '
+style = 'bold yellow'
