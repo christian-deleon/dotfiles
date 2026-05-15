@@ -52,6 +52,7 @@ locked-down WSL2 work box without 1Password or sudo for some packages):
    - `ssh-config` (generated `~/.ssh/config` with 1Password `IdentityAgent`)
    - `zsh-config` (Oh My Zsh + Powerlevel10k + plugins, macOS only)
    - `omarchy-themes` (only listed if `~/.local/share/omarchy` exists)
+   - `default-terminal` (only listed if `~/.local/share/omarchy` exists; runs `omarchy default terminal alacritty`)
 3. **App configs picker** — gum multi-select of auto-discovered stow packages + tmux + claude (sorted alphabetically with descriptions)
 4. **Dev tools picker** — gum multi-select from `packages.yaml` (sorted alphabetically with descriptions). Failed individual tool installs print a summary and do **not** abort the rest of the installer.
 
