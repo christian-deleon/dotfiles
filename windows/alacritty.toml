@@ -14,7 +14,7 @@ osc52 = "CopyPaste"
 
 [terminal.shell]
 program = "wsl.exe"
-args = ["-d", "Ubuntu-26.04"]
+args = ["-d", "Ubuntu-26.04", "--cd", "~"]
 
 [font]
 normal = { family = "JetBrainsMono Nerd Font", style = "Regular" }
