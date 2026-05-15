@@ -1,6 +1,6 @@
 # Agent Guidelines for Dotfiles Repository
 
-Guidelines for AI coding agents working in this personal dotfiles repository. This repository manages shell configurations, development tool setups, Omarchy desktop configs, and system bootstrapping scripts for macOS and Linux (including Omarchy/Arch Linux).
+Guidelines for AI coding agents working in this personal dotfiles repository. This repository manages shell configurations, development tool setups, Omarchy desktop configs, and system bootstrapping scripts for macOS, Linux (including Omarchy/Arch Linux), and Windows (PowerShell WSL bootstrap).
 
 ## Repository Overview
 
@@ -16,6 +16,7 @@ Guidelines for AI coding agents working in this personal dotfiles repository. Th
 - AI config: `ai/` directory with agents, commands, skills, and rules for Claude Code and OpenCode
 - MCP servers: `ai/mcp-servers.json.tpl` — shared config for Claude Code and OpenCode (with `op://` secret refs)
 - Package management: `packages.yaml` + `scripts/lib.sh` (cross-platform), Homebrew Brewfile profiles (macOS)
+- Windows bootstrap: `windows/bootstrap.ps1` — fresh-Windows entry point (Alacritty + JetBrainsMono Nerd Font + WSL Ubuntu-26.04)
 - Custom aliases, functions (many with fzf integration), shell utilities
 - Documentation: `docs/functions.md`, `docs/aliases.md`
 
@@ -87,6 +88,37 @@ On [Omarchy](https://omarchy.org/) (Arch Linux + Hyprland):
 - Dotfiles own `~/.config/starship.toml` (stowed from `starship/.config/starship.toml`); seeded byte-for-byte from Omarchy's default and evolved from there. `.commonrc` initializes starship on bash with a `$STARSHIP_SHELL` guard to avoid double-init on Omarchy.
 - 1Password SSH agent path: `/opt/1Password/op-ssh-sign` (Linux) vs `/Applications/1Password.app/Contents/MacOS/op-ssh-sign` (macOS)
 - 1Password SSH socket: `~/.1password/agent.sock` (Linux) vs `~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock` (macOS)
+
+### Windows Bootstrap (`windows/`)
+
+Out-of-band entry point that runs on Windows itself, before WSL exists. **Not part of `install.sh` or `dot`.**
+
+`windows/bootstrap.ps1` does:
+
+1. Verifies winget is available.
+2. `winget install Alacritty.Alacritty`.
+3. `winget install DEVCOM.JetBrainsMonoNerdFont`.
+4. `wsl --install --distribution Ubuntu-26.04 --no-launch`.
+
+After the script, the user finishes first-time Ubuntu user setup manually, then clones the repo inside Ubuntu and runs `./install.sh` — the normal Linux flow.
+
+**No admin gate.** The script doesn't enforce elevation. Individual steps that need elevation (typically `wsl --install` on a system where WSL features have never been enabled) will trigger their own UAC prompts. winget at user scope and font install don't need admin.
+
+**Idempotent — safe to run twice.** On a brand-new Windows machine, the first `wsl --install` enables features but the distro install may not complete until after a reboot. The script detects a non-zero `wsl --install` exit, prints a clear "reboot and re-run" message at the end, and continues exiting cleanly. winget steps no-op when already installed; the second run after reboot picks up only the distro install.
+
+**Invocation.** Primary path is the GitHub raw `irm | iex` one-liner (see README); the script runs fine without a local checkout because it references no template files. A local checkout still works — `bootstrap.ps1` is self-contained.
+
+**Hard split, by design:**
+- `bootstrap.ps1` only does things that **cannot** be done from inside WSL (winget, WSL distro install). Anything that *can* be done from inside WSL stays in `install.sh` / `dot`. Don't let bootstrap.ps1 grow tendrils into the Linux side.
+
+**Currently out of scope** (was considered, explicitly deferred — may be added later):
+- **Windows Terminal install + settings.json** — settings.json is handled by `scripts/tools/install-windows-terminal.sh` from inside WSL after first WT launch (it needs the WSL profile GUID that WT auto-generates). Installing WT itself is also deferred.
+- **1Password install + SSH agent → WSL forwarding** — agent forwarding needs an `npiperelay` shim + `socat` listener in WSL. Whole pipeline deferred.
+- **`%USERPROFILE%\.wslconfig`** — memory/cpu caps for the WSL VM. Deferred; rely on WSL defaults.
+- **Windows-side `%APPDATA%\alacritty\alacritty.toml`** — no Windows-tuned alacritty config is shipped yet. The Linux config at `alacritty/.config/alacritty/alacritty.toml` is **not** suitable as-is on Windows (Omarchy `general.import` line won't resolve). If/when added later, it must be a *separate file* (not the Linux one).
+- **Auto-cloning the repo inside WSL** — first-time user creation + private-submodule auth make this brittle. One paste inside Ubuntu is simpler.
+
+**Ubuntu version is hard-coded to Ubuntu-26.04** in `bootstrap.ps1`. Single source of truth for now.
 
 ### Git Submodules
 

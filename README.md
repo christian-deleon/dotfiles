@@ -46,6 +46,25 @@ Two scopes of overlay agent files, sourced from the private `agent-files` submod
 
 **Per-environment — `dot agent env link <name>`.** For machine- or environment-scoped context (e.g. "this is a locked-down WSL VM behind a corp proxy, X tool is unavailable"). Content lives in `agent-files/env/<env>/AGENTS.md` and is symlinked from one source into every AI tool's global config path (`~/.claude/CLAUDE.md`, `~/.config/opencode/AGENTS.md`). The symlinks themselves are the state — no marker files. Opt out with `dot agent env unlink`.
 
+## Windows bootstrap
+
+For a fresh Windows machine. `windows/bootstrap.ps1` `winget`-installs Alacritty and JetBrainsMono Nerd Font, then runs `wsl --install --distribution Ubuntu-26.04`.
+
+From PowerShell — no admin needed; UAC will prompt if individual steps require it:
+
+```powershell
+irm https://raw.githubusercontent.com/christian-deleon/dotfiles/main/windows/bootstrap.ps1 | iex
+```
+
+On a brand-new Windows machine where WSL features have to be enabled, the WSL step may need a reboot first. If the script warns about that, **reboot Windows and re-run the same one-liner** — it's safe to run twice (winget steps are idempotent, and `wsl --install` resumes correctly after the reboot).
+
+After Ubuntu-26.04 is installed, launch the Ubuntu app from the Start menu, finish the first-time user setup, then inside Ubuntu:
+
+```bash
+git clone git@github.com:christian-deleon/dotfiles.git ~/.dotfiles
+cd ~/.dotfiles && ./install.sh
+```
+
 ## App Configs
 
 App configs (`~/.config/`) are managed via [GNU Stow](https://www.gnu.org/software/stow/) + [omadot](https://github.com/tomhayes/omadot) on all platforms. The installer auto-discovers stow packages (any `<pkg>/.config/<pkg>/` directory or single-file `<pkg>/.config/<pkg>.<ext>`) and presents a picker.
