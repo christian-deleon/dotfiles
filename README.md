@@ -48,7 +48,7 @@ Two scopes of overlay agent files, sourced from the private `agent-files` submod
 
 ## Windows bootstrap
 
-For a fresh Windows machine. `windows/bootstrap.ps1` `winget`-installs Alacritty and JetBrainsMono Nerd Font, then runs `wsl --install --distribution Ubuntu-26.04`.
+For a fresh Windows machine. `windows/bootstrap.ps1` `winget`-installs Alacritty and JetBrainsMono Nerd Font, drops a Windows-side Alacritty config (`%APPDATA%\alacritty\alacritty.toml`) that auto-launches WSL Ubuntu-26.04 when Alacritty starts, then installs WSL Ubuntu-26.04.
 
 From PowerShell — no admin needed; UAC will prompt if individual steps require it:
 

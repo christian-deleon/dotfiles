@@ -81,6 +81,16 @@ Invoke-Winget -Id 'Alacritty.Alacritty' -Label 'Alacritty'
 Write-Step "Installing JetBrainsMono Nerd Font"
 Invoke-Winget -Id 'DEVCOM.JetBrainsMonoNerdFont' -Label 'JetBrainsMono Nerd Font'
 
+Write-Step "Writing Alacritty config"
+$alacrittyDir = Join-Path $env:APPDATA 'alacritty'
+$alacrittyDst = Join-Path $alacrittyDir 'alacritty.toml'
+$alacrittyUrl = 'https://raw.githubusercontent.com/christian-deleon/dotfiles/refs/heads/main/windows/alacritty.toml'
+if (-not (Test-Path $alacrittyDir)) {
+    New-Item -ItemType Directory -Path $alacrittyDir | Out-Null
+}
+Invoke-WebRequest -Uri $alacrittyUrl -OutFile $alacrittyDst -UseBasicParsing
+Write-Host "  Wrote $alacrittyDst"
+
 $rebootRequired = $false
 $distroInstalled = $false
 

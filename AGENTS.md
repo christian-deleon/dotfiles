@@ -98,11 +98,12 @@ Out-of-band entry point that runs on Windows itself, before WSL exists. **Not pa
 1. Verifies winget is available.
 2. `winget install Alacritty.Alacritty`.
 3. `winget install DEVCOM.JetBrainsMonoNerdFont`.
-4. **WSL setup (two-phase with readiness probe):**
+4. **Downloads `windows/alacritty.toml` from GitHub** and writes it to `%APPDATA%\alacritty\alacritty.toml`. This is the Windows-tuned Alacritty config — the key thing it does is set `[terminal.shell]` to `wsl.exe -d Ubuntu-26.04` so Alacritty auto-launches into Ubuntu instead of PowerShell. Downloaded (not embedded inline) so the config file stays independently editable and the `irm | iex` invocation can fetch it without a local checkout.
+5. **WSL setup (two-phase with readiness probe):**
    - Probes WSL with `wsl --status` (returns 0 only if the WSL service can actually start, which requires both the WSL feature *and* VM Platform to be active).
-   - If WSL is ready, skip to step 5.
+   - If WSL is ready, skip to step 6.
    - Otherwise run `wsl --install --no-distribution` to enable features, then re-probe. If it's *still* not ready, features were just enabled and a reboot is required — script stops here with a clear reboot message, *without* attempting the distro install (avoids the wasted Ubuntu rootfs download + failed VM creation that happens if you try to install the distro before VM Platform is active).
-5. `wsl --install --distribution Ubuntu-26.04 --no-launch`.
+6. `wsl --install --distribution Ubuntu-26.04 --no-launch`.
 
 After the script, the user finishes first-time Ubuntu user setup manually, then clones the repo inside Ubuntu and runs `./install.sh` — the normal Linux flow.
 
@@ -121,13 +122,14 @@ winget steps no-op when already installed; the WSL probe correctly skips redunda
 **Invocation.** Primary path is the GitHub raw `irm | iex` one-liner (see README); the script runs fine without a local checkout because it references no template files. A local checkout still works — `bootstrap.ps1` is self-contained.
 
 **Hard split, by design:**
-- `bootstrap.ps1` only does things that **cannot** be done from inside WSL (winget, WSL distro install). Anything that *can* be done from inside WSL stays in `install.sh` / `dot`. Don't let bootstrap.ps1 grow tendrils into the Linux side.
+- `bootstrap.ps1` only does things that **cannot** be done from inside WSL (winget, WSL distro install, Windows-side configs). Anything that *can* be done from inside WSL stays in `install.sh` / `dot`. Don't let bootstrap.ps1 grow tendrils into the Linux side.
+
+**Dual Alacritty configs.** `windows/alacritty.toml` and `alacritty/.config/alacritty/alacritty.toml` are two separate files and will drift. The Linux one has a `general.import` line for an Omarchy theme path that doesn't resolve on Windows; the Windows one has a `[terminal.shell]` block pointing at `wsl.exe -d Ubuntu-26.04`. Mirror font/padding/key changes manually. Because `bootstrap.ps1` fetches `windows/alacritty.toml` from GitHub at runtime (not from a local checkout), config changes must be pushed to `main` before they take effect on a re-run.
 
 **Currently out of scope** (was considered, explicitly deferred — may be added later):
 - **Windows Terminal install + settings.json** — settings.json is handled by `scripts/tools/install-windows-terminal.sh` from inside WSL after first WT launch (it needs the WSL profile GUID that WT auto-generates). Installing WT itself is also deferred.
 - **1Password install + SSH agent → WSL forwarding** — agent forwarding needs an `npiperelay` shim + `socat` listener in WSL. Whole pipeline deferred.
 - **`%USERPROFILE%\.wslconfig`** — memory/cpu caps for the WSL VM. Deferred; rely on WSL defaults.
-- **Windows-side `%APPDATA%\alacritty\alacritty.toml`** — no Windows-tuned alacritty config is shipped yet. The Linux config at `alacritty/.config/alacritty/alacritty.toml` is **not** suitable as-is on Windows (Omarchy `general.import` line won't resolve). If/when added later, it must be a *separate file* (not the Linux one).
 - **Auto-cloning the repo inside WSL** — first-time user creation + private-submodule auth make this brittle. One paste inside Ubuntu is simpler.
 
 **Ubuntu version is hard-coded to Ubuntu-26.04** in `bootstrap.ps1`. Single source of truth for now.
