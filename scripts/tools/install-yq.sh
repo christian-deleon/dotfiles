@@ -1,9 +1,19 @@
 #!/bin/bash
-# Install yq via official binary
+# Install yq via Homebrew on Darwin, official binary release on Linux.
 set -e
 
 if command -v yq &>/dev/null; then
     echo "yq is already installed"
+    exit 0
+fi
+
+if [[ "$OSTYPE" == darwin* ]]; then
+    if command -v brew &>/dev/null; then
+        brew install yq
+    else
+        echo "Error: Homebrew not installed — cannot install yq on macOS" >&2
+        exit 1
+    fi
     exit 0
 fi
 

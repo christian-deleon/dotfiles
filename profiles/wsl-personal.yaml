@@ -1,0 +1,50 @@
+# profiles/wsl-personal.yaml
+# Personal WSL2 Ubuntu under personal Windows. Full dev stack without desktop
+# bits (no Hyprland, no Alacritty config — Alacritty on Windows is configured
+# by windows/bootstrap.ps1). Adjust to taste.
+
+name: wsl-personal
+description: Personal WSL2 Ubuntu (full dev stack)
+
+requires: [wsl]
+
+core_extras:
+  - git-submodules
+  - git-config
+  - ssh-config
+
+items:
+  - 1password-cli
+  - bat
+  - btop
+  - claude
+  - cloc
+  - delta
+  - docker
+  - fd
+  - flux
+  - fzf
+  - gh
+  - granted
+  - grok
+  - gum
+  - helm
+  - jq
+  - just
+  - k9s
+  - kubectl
+  - lazygit
+  - mise
+  - neovim
+  - npm
+  - opencode
+  - poetry
+  - ripgrep
+  - skaffold
+  - starship
+  - terraform
+  - tmux
+  - uv
+  - windows-terminal
+  - worktrunk
+  - yq

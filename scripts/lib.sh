@@ -1,6 +1,6 @@
 #!/bin/bash
-# Shared library for dotfiles package management
-# Source this file from install.sh or dot.sh
+# Shared library for dotfiles installer + dot CLI.
+# Source this file from install.sh or dot.sh.
 
 if [[ -z "${DOTFILES_DIR}" ]]; then
     if [[ -d "$HOME/.dotfiles" ]]; then
@@ -9,7 +9,7 @@ if [[ -z "${DOTFILES_DIR}" ]]; then
         DOTFILES_DIR="$HOME/dotfiles"
     fi
 fi
-PACKAGES_FILE="$DOTFILES_DIR/packages.yaml"
+MANIFEST_FILE="$DOTFILES_DIR/manifest.yaml"
 
 # ─── Color helpers ────────────────────────────────────────────────────────────
 
@@ -44,144 +44,203 @@ detect_pkg_manager() {
     fi
 }
 
-# ─── Package YAML parser ─────────────────────────────────────────────────────
-# Minimal YAML parser — no external dependencies (no yq needed at bootstrap)
+# Source host predicates (host_has, host_has_<predicate>). Used by
+# manifest_requires_met and by install.sh:select_profile.
+if [[ -f "$DOTFILES_DIR/scripts/predicates.sh" ]]; then
+    # shellcheck disable=SC1091
+    source "$DOTFILES_DIR/scripts/predicates.sh"
+fi
 
-# List all tool names from packages.yaml, filtered for the current platform.
-# Tools with `omarchy_only: true` are excluded unless ~/.local/share/omarchy exists.
-# Tools with `wsl_only: true` are excluded unless running inside WSL2.
-list_tools() {
-    local _is_omarchy=0
-    local _is_wsl=0
-    [[ -d "$HOME/.local/share/omarchy" ]] && _is_omarchy=1
-    grep -qi microsoft /proc/version 2>/dev/null && _is_wsl=1
+# ─── yq bootstrap ─────────────────────────────────────────────────────────────
 
-    while IFS= read -r tool; do
-        local omarchy_only wsl_only
-        omarchy_only="$(get_tool_field "$tool" "omarchy_only" 2>/dev/null)" || omarchy_only=""
-        wsl_only="$(get_tool_field "$tool" "wsl_only" 2>/dev/null)" || wsl_only=""
-        if [[ "$omarchy_only" == "true" && "$_is_omarchy" -eq 0 ]]; then
-            continue
-        fi
-        if [[ "$wsl_only" == "true" && "$_is_wsl" -eq 0 ]]; then
-            continue
-        fi
-        echo "$tool"
-    done < <(grep -E '^[a-zA-Z0-9_-]+:' "$PACKAGES_FILE" | sed 's/://' | sort)
-}
+ensure_yq() {
+    if command -v yq &>/dev/null; then
+        return 0
+    fi
 
-# Get a field for a tool: get_tool_field <tool> <field>
-# e.g., get_tool_field docker description
-get_tool_field() {
-    local tool="$1"
-    local field="$2"
-    local in_tool=0
+    echo
+    _info "yq is required to read manifest.yaml."
 
-    while IFS= read -r line; do
-        # Match tool header
-        if [[ "$line" =~ ^${tool}: ]]; then
-            in_tool=1
-            continue
+    if [[ "$OSTYPE" == darwin* ]]; then
+        if command -v brew &>/dev/null; then
+            _info "Installing yq via Homebrew..."
+            brew install yq
+        else
+            _error "Homebrew not installed — cannot bootstrap yq"
+            return 1
         fi
-        # If we hit the next top-level key, stop
-        if [[ "$in_tool" -eq 1 && "$line" =~ ^[a-zA-Z0-9_-]+: ]]; then
-            break
-        fi
-        # Match the field within the tool block
-        if [[ "$in_tool" -eq 1 && "$line" =~ ^[[:space:]]+${field}:[[:space:]]*(.*) ]]; then
-            local value="${BASH_REMATCH[1]}"
-            # Strip quotes if present
-            value="${value#\"}"
-            value="${value%\"}"
-            echo "$value"
-            return 0
-        fi
-    done < "$PACKAGES_FILE"
-    return 1
-}
-
-# Get the display label for a tool: "name — description"
-get_tool_label() {
-    local tool="$1"
-    local desc
-    desc="$(get_tool_field "$tool" "description" 2>/dev/null)" || desc=""
-    if [[ -n "$desc" ]]; then
-        echo "$tool — $desc"
+    elif [[ -f "$DOTFILES_DIR/scripts/tools/install-yq.sh" ]]; then
+        _info "Installing yq via install-yq.sh..."
+        bash "$DOTFILES_DIR/scripts/tools/install-yq.sh"
     else
-        echo "$tool"
+        _error "Cannot bootstrap yq — no install method available"
+        return 1
+    fi
+
+    if ! command -v yq &>/dev/null; then
+        _error "Failed to install yq"
+        return 1
+    fi
+
+    _success "yq installed"
+}
+
+# ─── Manifest accessors ───────────────────────────────────────────────────────
+#
+# All readers assume yq is on PATH. Callers must call `ensure_yq` first (or
+# rely on install.sh/dot.sh having done so).
+#
+# Field naming convention: top-level item key, dotted yq path for nested
+# fields (e.g. `.install.arch`, `.config.handler`).
+
+# Read a field from the manifest. Returns "null" (yq's default) when absent.
+#   manifest_field <item> <yq-path>
+# Example: manifest_field docker .install.arch
+manifest_field() {
+    local item="$1"
+    local path="$2"
+    yq ".\"$item\"$path // \"\"" "$MANIFEST_FILE" 2>/dev/null
+}
+
+# Return 0 if the item exists as a top-level key in the manifest.
+manifest_has() {
+    local item="$1"
+    yq -e ".\"$item\"" "$MANIFEST_FILE" &>/dev/null
+}
+
+# List every item key in the manifest, alphabetically.
+manifest_list_all() {
+    yq -r 'keys | .[]' "$MANIFEST_FILE" | sort
+}
+
+# Resolve a name (item key, install.command alias, or config.package alias)
+# to its canonical item key. Prints the resolved name; empty if not found.
+manifest_resolve_alias() {
+    local input="$1"
+    if manifest_has "$input"; then
+        echo "$input"
+        return 0
+    fi
+    yq -r --arg n "$input" '
+        to_entries
+        | map(select((.value.install.command // "") == $n or (.value.config.package // "") == $n))
+        | .[0].key // ""
+    ' "$MANIFEST_FILE"
+}
+
+# Return "tool" / "config" / "bundle" for the given canonical item key.
+manifest_kind() {
+    local item="$1"
+    local has_install has_config
+    has_install="$(yq -r ".\"$item\".install != null" "$MANIFEST_FILE")"
+    has_config="$(yq -r ".\"$item\".config != null" "$MANIFEST_FILE")"
+    if [[ "$has_install" == "true" && "$has_config" == "true" ]]; then
+        echo "bundle"
+    elif [[ "$has_install" == "true" ]]; then
+        echo "tool"
+    elif [[ "$has_config" == "true" ]]; then
+        echo "config"
+    else
+        echo "unknown"
+    fi
+}
+
+# Return the post_install hook function names for an item, one per line.
+manifest_post_install() {
+    local item="$1"
+    yq -r ".\"$item\".post_install[]?" "$MANIFEST_FILE" 2>/dev/null
+}
+
+# Return 0 if every predicate in the item's `requires:` list passes on this
+# host. Predicate names map to host_has_<name> functions in predicates.sh.
+manifest_requires_met() {
+    local item="$1"
+    local preds
+    preds="$(yq -r ".\"$item\".requires[]?" "$MANIFEST_FILE" 2>/dev/null)"
+    [[ -z "$preds" ]] && return 0  # No requires = eligible everywhere
+
+    local pred
+    while IFS= read -r pred; do
+        [[ -z "$pred" ]] && continue
+        if ! host_has "$pred"; then
+            return 1
+        fi
+    done <<< "$preds"
+    return 0
+}
+
+# Display label for the picker: "<name> — <description>".
+# Bundles get " (+ config)" suffix so the picker is self-describing.
+manifest_label() {
+    local item="$1"
+    local desc kind
+    desc="$(yq -r ".\"$item\".description // \"\"" "$MANIFEST_FILE")"
+    kind="$(manifest_kind "$item")"
+    if [[ "$kind" == "bundle" ]]; then
+        echo "$item — $desc (+ config)"
+    else
+        echo "$item — $desc"
     fi
 }
 
 # ─── Package Installation ────────────────────────────────────────────────────
 
-# Resolve a command alias to its packages.yaml tool name
-# e.g., "op" -> "1password-cli", "rg" -> "ripgrep"
-resolve_tool_name() {
-    local name="$1"
-    # If the name already exists in packages.yaml, use it as-is
-    if grep -qE "^${name}:" "$PACKAGES_FILE" 2>/dev/null; then
-        echo "$name"
+# Install a single tool by item name. Uses manifest.install fields.
+install_tool() {
+    local item="$1"
+
+    # Allow callers to pass an alias (op, rg, nvim, wt) — resolve to canonical.
+    local resolved
+    resolved="$(manifest_resolve_alias "$item")"
+    if [[ -z "$resolved" ]]; then
+        _error "Unknown item: $item"
+        _info "Run ${_BOLD}dot --help${_RESET} to see available items"
+        return 1
+    fi
+    item="$resolved"
+
+    # Must have an install block to be installable as a tool.
+    if [[ "$(yq -r ".\"$item\".install != null" "$MANIFEST_FILE")" != "true" ]]; then
+        _warn "${_BOLD}$item${_RESET} has no binary install (config-only)"
+        return 1
+    fi
+
+    # Check if already installed using install.command (or item name as fallback).
+    local cmd_name
+    cmd_name="$(yq -r ".\"$item\".install.command // \"$item\"" "$MANIFEST_FILE")"
+    if command -v "$cmd_name" &>/dev/null; then
+        _info "${_DIM}$item${_RESET} already installed — skipping"
         return 0
     fi
-    # Map common command names to their package names
-    case "$name" in
-        op)  echo "1password-cli" ;;
-        rg)  echo "ripgrep" ;;
-        *)
-            _error "Unknown tool: $name"
-            _info "Run ${_BOLD}dot --help${_RESET} to see available tools"
-            return 1
-            ;;
-    esac
-}
 
-# Install a single tool by name
-install_tool() {
-    local tool
-    tool="$(resolve_tool_name "$1")" || return 1
     local pkg_manager
     pkg_manager="$(detect_pkg_manager)"
 
-    # Check if already installed (use the tool name as the command name)
-    local cmd_name="$tool"
-    # Some tools have different command names
-    case "$tool" in
-        1password-cli) cmd_name="op" ;;
-        github-cli|gh) cmd_name="gh" ;;
-        ripgrep) cmd_name="rg" ;;
-        fd) cmd_name="fd" ;;
-        neovim) cmd_name="nvim" ;;
-        worktrunk) cmd_name="wt" ;;
-    esac
-
-    if command -v "$cmd_name" &>/dev/null; then
-        _info "${_DIM}$tool${_RESET} already installed — skipping"
-        return 0
-    fi
-
-    # Get package name for current OS
+    # Get per-OS package name (may be null).
     local pkg_name
-    pkg_name="$(get_tool_field "$tool" "$pkg_manager" 2>/dev/null)" || pkg_name=""
+    pkg_name="$(yq -r ".\"$item\".install.$pkg_manager // \"\"" "$MANIFEST_FILE")"
 
-    # If no package name or null, try the script fallback
+    # If no package name (null/empty), fall back to script.
     if [[ -z "$pkg_name" || "$pkg_name" == "null" ]]; then
         local script
-        script="$(get_tool_field "$tool" "script" 2>/dev/null)" || script=""
+        script="$(yq -r ".\"$item\".install.script // \"\"" "$MANIFEST_FILE")"
         local script_path="$DOTFILES_DIR/scripts/tools/$script"
         if [[ -n "$script" && -f "$script_path" ]]; then
-            _info "Installing ${_BOLD}$tool${_RESET} via script..."
+            _info "Installing ${_BOLD}$item${_RESET} via script..."
             bash "$script_path"
             return $?
         else
-            _warn "No install method for ${_BOLD}$tool${_RESET} on this system ($pkg_manager)"
+            _warn "No install method for ${_BOLD}$item${_RESET} on this system ($pkg_manager)"
             return 1
         fi
     fi
 
-    # Install via package manager
-    _info "Installing ${_BOLD}$tool${_RESET} via $pkg_manager..."
+    # Install via package manager.
+    _info "Installing ${_BOLD}$item${_RESET} via $pkg_manager..."
     case "$pkg_manager" in
         brew)
+            # Unquoted intentional: "--cask docker" must split into 2 args.
+            # shellcheck disable=SC2086
             brew install $pkg_name
             ;;
         arch)
@@ -201,26 +260,27 @@ install_tool() {
     esac
 }
 
-# Install multiple tools (with gum spinner if available)
+# Install multiple items (with gum spinner if available). Per-item failures
+# accumulate in `failed` but don't abort the rest.
 install_tools() {
-    local tools=("$@")
+    local items=("$@")
     local failed=()
 
-    for tool in "${tools[@]}"; do
+    for item in "${items[@]}"; do
         if command -v gum &>/dev/null; then
             local output
-            if output=$(gum spin --spinner dot --title "Installing $tool..." -- bash -c "source '$DOTFILES_DIR/scripts/lib.sh' && install_tool '$tool'" 2>&1); then
-                _success "Installed ${_BOLD}$tool${_RESET}"
+            if output=$(gum spin --spinner dot --title "Installing $item..." -- bash -c "source '$DOTFILES_DIR/scripts/lib.sh' && install_tool '$item'" 2>&1); then
+                _success "Installed ${_BOLD}$item${_RESET}"
             else
-                failed+=("$tool")
-                _error "Failed to install $tool"
+                failed+=("$item")
+                _error "Failed to install $item"
                 [[ -n "$output" ]] && printf '%s\n' "$output" >&2
             fi
         else
-            if ! install_tool "$tool"; then
-                failed+=("$tool")
+            if ! install_tool "$item"; then
+                failed+=("$item")
             else
-                _success "Installed ${_BOLD}$tool${_RESET}"
+                _success "Installed ${_BOLD}$item${_RESET}"
             fi
         fi
     done
@@ -232,48 +292,50 @@ install_tools() {
     fi
 }
 
-# Rebuild source-built tools marked with `update: true` in packages.yaml.
-# Each script must accept a --force flag to bypass its install-time short-circuit.
+# Rebuild source-built items marked with `install.update: true`.
+# Each script must accept --force to bypass its install-time short-circuit.
 update_source_tools() {
-    local tools=()
-    local tool update_flag
-    while IFS= read -r tool; do
-        update_flag="$(get_tool_field "$tool" "update" 2>/dev/null)" || update_flag=""
-        [[ "$update_flag" == "true" ]] && tools+=("$tool")
-    done < <(list_tools)
+    ensure_yq || return 0
 
-    [[ ${#tools[@]} -eq 0 ]] && return 0
+    local items=()
+    while IFS= read -r item; do
+        local flag
+        flag="$(yq -r ".\"$item\".install.update // false" "$MANIFEST_FILE")"
+        [[ "$flag" == "true" ]] && items+=("$item")
+    done < <(manifest_list_all)
 
-    _info "Rebuilding source-built tools: ${tools[*]}"
+    [[ ${#items[@]} -eq 0 ]] && return 0
+
+    _info "Rebuilding source-built items: ${items[*]}"
     local failed=()
-    for tool in "${tools[@]}"; do
-        local script
-        script="$(get_tool_field "$tool" "script" 2>/dev/null)" || script=""
+    local item script script_path
+    for item in "${items[@]}"; do
+        script="$(yq -r ".\"$item\".install.script // \"\"" "$MANIFEST_FILE")"
         if [[ -z "$script" ]]; then
-            _warn "$tool has update: true but no script — skipping"
+            _warn "$item has install.update: true but no script — skipping"
             continue
         fi
-        local script_path="$DOTFILES_DIR/scripts/tools/$script"
+        script_path="$DOTFILES_DIR/scripts/tools/$script"
         if [[ ! -f "$script_path" ]]; then
-            _warn "Script not found for $tool: $script_path — skipping"
+            _warn "Script not found for $item: $script_path — skipping"
             continue
         fi
 
         if command -v gum &>/dev/null; then
             local output
-            if output=$(gum spin --spinner dot --title "Rebuilding $tool..." -- bash "$script_path" --force 2>&1); then
-                _success "Rebuilt ${_BOLD}$tool${_RESET}"
+            if output=$(gum spin --spinner dot --title "Rebuilding $item..." -- bash "$script_path" --force 2>&1); then
+                _success "Rebuilt ${_BOLD}$item${_RESET}"
             else
-                failed+=("$tool")
-                _error "Failed to rebuild $tool"
+                failed+=("$item")
+                _error "Failed to rebuild $item"
                 [[ -n "$output" ]] && printf '%s\n' "$output" >&2
             fi
         else
             if bash "$script_path" --force; then
-                _success "Rebuilt ${_BOLD}$tool${_RESET}"
+                _success "Rebuilt ${_BOLD}$item${_RESET}"
             else
-                failed+=("$tool")
-                _error "Failed to rebuild $tool"
+                failed+=("$item")
+                _error "Failed to rebuild $item"
             fi
         fi
     done

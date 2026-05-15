@@ -1,0 +1,59 @@
+# profiles/omarchy-personal.yaml
+# Personal Omarchy desktop (Arch + Hyprland). The reference profile derived
+# from this machine's current state.
+
+name: omarchy-personal
+description: Personal Omarchy desktop (Arch + Hyprland)
+
+requires: [omarchy]
+
+core_extras:
+  - git-submodules
+  - git-config
+  - ssh-config
+  - omarchy-themes
+  - default-terminal
+
+items:
+  - 1password-cli
+  - alacritty
+  - bat
+  - btop
+  - claude
+  - cloc
+  - delta
+  - docker
+  - fastfetch
+  - fd
+  - flux
+  - fzf
+  - gh
+  - granted
+  - grok
+  - gum
+  - helm
+  - hypr
+  - jq
+  - just
+  - k9s
+  - kubectl
+  - lazygit
+  - makima
+  - mako
+  - mise
+  - neovim
+  - npm
+  - omarchy
+  - opencode
+  - poetry
+  - ripgrep
+  - skaffold
+  - starship
+  - terraform
+  - tmux
+  - uv
+  - walker
+  - waybar
+  - waycal
+  - worktrunk
+  - yq
