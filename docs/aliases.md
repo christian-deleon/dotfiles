@@ -215,8 +215,8 @@ Naming scheme: top-level `wt` commands use `w<letter>` (with a trailing modifier
 
 ## Starship
 
-- `sk` - Toggle Kubernetes module in prompt (`starship toggle kubernetes`)
-- `sa` - Toggle AWS module in prompt (`starship toggle aws`)
+- `stk` - Toggle Kubernetes module in prompt (`starship toggle kubernetes`)
+- `sta` - Toggle AWS module in prompt (`starship toggle aws`)
 
 ---
 
