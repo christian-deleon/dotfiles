@@ -4,10 +4,18 @@ Personal dotfiles for macOS, Linux (including [Omarchy](https://omarchy.org/)), 
 
 ## Install
 
+Clone over HTTPS first — on a fresh machine the 1Password SSH agent isn't set up yet, so SSH cloning would fail:
+
 ```bash
-git clone git@github.com:christian-deleon/dotfiles.git ~/.dotfiles
+git clone https://github.com/christian-deleon/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
 ./install.sh          # bare-minimum core, then pickers for everything else
+```
+
+After install (1Password + SSH agent now configured), switch the remote to SSH:
+
+```bash
+git -C ~/.dotfiles remote set-url origin git@github.com:christian-deleon/dotfiles.git
 ```
 
 Only the bare minimum runs unconditionally — shell config and the `dot` CLI. Everything else is opt-in/opt-out via interactive pickers, so you can install just what you need on each machine (e.g. skip SSH config and 1Password-dependent MCP servers on a locked-down work box):
@@ -61,8 +69,10 @@ On a brand-new Windows machine where WSL features have to be enabled, the WSL st
 After Ubuntu-26.04 is installed, launch the Ubuntu app from the Start menu, finish the first-time user setup, then inside Ubuntu:
 
 ```bash
-git clone git@github.com:christian-deleon/dotfiles.git ~/.dotfiles
+git clone https://github.com/christian-deleon/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles && ./install.sh
+# After install, switch to SSH:
+git -C ~/.dotfiles remote set-url origin git@github.com:christian-deleon/dotfiles.git
 ```
 
 ## App Configs
