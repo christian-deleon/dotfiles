@@ -180,6 +180,11 @@ ensure_omadot() {
     curl -fsSL "https://raw.githubusercontent.com/tomhayes/omadot/main/omadot" -o "$install_dir/omadot"
     chmod +x "$install_dir/omadot"
     success "Installed omadot to ${DIM}$install_dir/omadot${RESET}"
+
+    case ":$PATH:" in
+        *":$install_dir:"*) ;;
+        *) export PATH="$install_dir:$PATH" ;;
+    esac
 }
 
 # ─── Core config (always runs) ───────────────────────────────────────────────
@@ -681,6 +686,8 @@ install_ai_claude() {
 install_ai_opencode() {
     local ai_dir="$DOTFILES_DIR/ai"
     [[ -d "$ai_dir" ]] || { warn "ai/ directory not found"; return; }
+
+    ensure_jq || return
 
     info "Installing AI config for OpenCode..."
     local oc_dir="$HOME/.config/opencode"
