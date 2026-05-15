@@ -21,6 +21,10 @@ param()
 
 $ErrorActionPreference = 'Stop'
 
+# winget's progress bars use UTF-8 block characters. Force the console output
+# encoding to UTF-8 so they render correctly instead of as mojibake.
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
 function Write-Step {
     param([string]$Message)
     Write-Host ""
