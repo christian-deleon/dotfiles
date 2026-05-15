@@ -581,16 +581,6 @@ function gcb() {
 
 
 #################
-# Starship
-#################
-
-# Toggle Kubernetes module
-function sk() {
-    starship toggle kubernetes
-}
-
-
-#################
 # 1Password
 #################
 

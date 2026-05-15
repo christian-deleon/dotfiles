@@ -124,3 +124,7 @@ alias wxp='wt step push'                 # Fast-forward default branch to curren
 alias wxf='wt step for-each --'          # Run a command in all worktrees
 alias wxpr='wt step prune'               # Prune stale worktrees
 alias wxprd='wt step prune --dry-run'    # Preview stale worktrees to prune
+
+# Starship
+alias sk='starship toggle kubernetes'    # Toggle Kubernetes module in prompt
+alias sa='starship toggle aws'           # Toggle AWS module in prompt
