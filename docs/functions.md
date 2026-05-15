@@ -247,6 +247,30 @@ opl
 
 ---
 
+## Sudo
+
+Temporary passwordless sudo for agent/automation workflows. Grants `NOPASSWD: ALL` to the current user via a drop-in in `/etc/sudoers.d/`, with a systemd transient timer that auto-removes the grant and wipes the sudo timestamp cache when it fires. Linux + systemd only.
+
+### `sudo-grant [duration]`
+
+Grant temp NOPASSWD sudo with auto-expire. Duration defaults to `10m`; accepts `30s`, `10m`, `1h`, `2d`, or a bare integer (treated as minutes). Calling again replaces the pending revoke with a fresh timer. The grant itself requires entering your password once (it edits sudoers).
+
+```bash
+sudo-grant            # 10 minutes
+sudo-grant 30         # 30 minutes
+sudo-grant 1h         # 1 hour
+```
+
+### `sudo-revoke`
+
+Revoke temp NOPASSWD sudo immediately. Removes the drop-in, cancels the pending timer, and wipes `/run/sudo/ts/$USER` so the timestamp cache can't keep sudo passwordless after the grant is gone.
+
+```bash
+sudo-revoke
+```
+
+---
+
 ## Tmux
 
 ### `ts` \*
