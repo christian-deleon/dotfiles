@@ -70,6 +70,24 @@ function Test-WslReady {
     }
 }
 
+function Test-WslDistroInstalled {
+    # Check if a named distro is already registered. Catches the case where a
+    # previous failed `wsl --install -d <name>` left the distro registered (the
+    # registration step happens BEFORE the VM creation step that may fail), so a
+    # naive retry would hit ERROR_ALREADY_EXISTS even though the distro is fine.
+    # WSL_UTF8=1 makes wsl.exe output UTF-8 instead of its default UTF-16, which
+    # PowerShell otherwise renders with embedded null bytes.
+    param([string]$Name)
+    try {
+        $env:WSL_UTF8 = '1'
+        $output = & wsl.exe --list --quiet 2>$null
+        if ($LASTEXITCODE -ne 0) { return $false }
+        return ($output -split "`r?`n" | ForEach-Object { $_.Trim() }) -contains $Name
+    } catch {
+        return $false
+    }
+}
+
 if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     Write-Error "winget is not installed. Install 'App Installer' from the Microsoft Store and re-run."
     return
@@ -107,8 +125,13 @@ if (Test-WslReady) {
 
 if (-not $rebootRequired) {
     Write-Step "Installing Ubuntu-26.04 via WSL"
-    & wsl --install --distribution Ubuntu-26.04 --no-launch
-    $distroInstalled = ($LASTEXITCODE -eq 0)
+    if (Test-WslDistroInstalled -Name 'Ubuntu-26.04') {
+        Write-Host "  Ubuntu-26.04 already registered — skipping install."
+        $distroInstalled = $true
+    } else {
+        & wsl --install --distribution Ubuntu-26.04 --no-launch
+        $distroInstalled = ($LASTEXITCODE -eq 0)
+    }
 }
 
 Write-Step "Done"
