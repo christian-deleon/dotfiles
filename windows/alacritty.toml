@@ -1,0 +1,31 @@
+# Windows-side alacritty config. Auto-launches into WSL Ubuntu-26.04.
+# Separate file from the Linux config (alacritty/.config/alacritty/) since the
+# Linux one imports an Omarchy theme path that doesn't resolve on Windows.
+# Mirror manually if you change fonts/padding/keys.
+
+[env]
+TERM = "xterm-256color"
+
+[terminal]
+osc52 = "CopyPaste"
+
+[terminal.shell]
+program = "wsl.exe"
+args = ["-d", "Ubuntu-26.04"]
+
+[font]
+normal = { family = "JetBrainsMono Nerd Font", style = "Regular" }
+bold = { family = "JetBrainsMono Nerd Font", style = "Bold" }
+italic = { family = "JetBrainsMono Nerd Font", style = "Italic" }
+size = 9
+
+[window]
+padding.x = 14
+padding.y = 14
+
+[keyboard]
+bindings = [
+{ key = "Insert", mods = "Shift", action = "Paste" },
+{ key = "Insert", mods = "Control", action = "Copy" },
+{ key = "Return", mods = "Shift", chars = "\r" }
+]
