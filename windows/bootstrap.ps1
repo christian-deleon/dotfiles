@@ -41,8 +41,11 @@ function Invoke-Winget {
         [string]$Label = $Id
     )
     Write-Host "  Installing $Label ($Id)..."
+    # Don't pipe winget through Out-Host — the pipeline buffers line-by-line and
+    # breaks the in-place spinner/progress bar (each frame ends up on its own line).
+    # Letting winget write straight to the console preserves its \r overwrites.
     & winget install --id $Id --exact --silent `
-        --accept-package-agreements --accept-source-agreements 2>&1 | Out-Host
+        --accept-package-agreements --accept-source-agreements
     $code = $LASTEXITCODE
     # winget returns 0 on success, -1978335189 (0x8A15002B) if already installed.
     if ($code -ne 0 -and $code -ne -1978335189) {
@@ -64,7 +67,7 @@ Write-Step "Installing JetBrainsMono Nerd Font"
 Invoke-Winget -Id 'DEVCOM.JetBrainsMonoNerdFont' -Label 'JetBrainsMono Nerd Font'
 
 Write-Step "Installing Ubuntu-26.04 via WSL"
-& wsl --install --distribution Ubuntu-26.04 --no-launch 2>&1 | Out-Host
+& wsl --install --distribution Ubuntu-26.04 --no-launch
 $wslCode = $LASTEXITCODE
 if ($wslCode -ne 0) {
     Write-Host ""
