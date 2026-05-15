@@ -213,6 +213,13 @@ Naming scheme: top-level `wt` commands use `w<letter>` (with a trailing modifier
 
 ---
 
+## Starship
+
+- `sk` - Toggle Kubernetes module in prompt (`starship toggle kubernetes`)
+- `sa` - Toggle AWS module in prompt (`starship toggle aws`)
+
+---
+
 ## Tmux Keybindings
 
 These are tmux keybindings (not shell aliases) defined in `.tmux.conf`:

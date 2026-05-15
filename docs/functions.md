@@ -235,18 +235,6 @@ gcb git@github.com:user/repo.git
 
 ---
 
-## Starship
-
-### `sk`
-
-Toggle Kubernetes module visibility in Starship prompt.
-
-```bash
-sk
-```
-
----
-
 ## 1Password
 
 ### `opl`
