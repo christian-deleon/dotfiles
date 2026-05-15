@@ -21,8 +21,12 @@ param()
 
 $ErrorActionPreference = 'Stop'
 
-# winget's progress bars use UTF-8 block characters. Force the console output
-# encoding to UTF-8 so they render correctly instead of as mojibake.
+# winget's progress bars emit UTF-8 block characters. Switch the console host
+# codepage to UTF-8 (chcp 65001) so they render correctly instead of as mojibake.
+# Windows PowerShell 5.1 defaults to a legacy OEM codepage (typically 437/850),
+# which is what causes the rûêrûêr garbage. Setting [Console]::OutputEncoding
+# alone is not enough — that only affects PowerShell's own writes, not winget's.
+$null = & chcp.com 65001
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 function Write-Step {
