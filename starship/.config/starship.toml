@@ -1,6 +1,6 @@
 add_newline = true
 command_timeout = 200
-format = "[$directory$git_branch$git_status]($style)$kubernetes$aws$character"
+format = "$username$hostname[$directory$git_branch$git_status]($style)$python$nodejs$terraform$kubernetes$aws$cmd_duration$character"
 
 [character]
 error_symbol = "[✗](bold cyan)"
@@ -40,3 +40,32 @@ style = 'bold blue'
 disabled = true
 format = '[☁ $profile(\($region\))]($style) '
 style = 'bold yellow'
+
+[username]
+format = '[$user]($style)@'
+style_user = 'bold cyan'
+style_root = 'bold red'
+
+[hostname]
+ssh_only = true
+ssh_symbol = ''
+format = '[$hostname]($style) '
+style = 'bold cyan'
+
+[cmd_duration]
+min_time = 2000
+format = '[⏱ $duration]($style) '
+style = 'bold yellow'
+
+[python]
+format = '[🐍 $version]($style) '
+style = 'bold yellow'
+
+[nodejs]
+format = '[⬢ $version]($style) '
+style = 'bold green'
+
+[terraform]
+disabled = false
+format = '[▲ $workspace]($style) '
+style = 'bold purple'
