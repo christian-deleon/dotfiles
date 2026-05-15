@@ -53,7 +53,7 @@ For a fresh Windows machine. `windows/bootstrap.ps1` `winget`-installs Alacritty
 From PowerShell — no admin needed; UAC will prompt if individual steps require it:
 
 ```powershell
-irm https://raw.githubusercontent.com/christian-deleon/dotfiles/main/windows/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/christian-deleon/dotfiles/refs/heads/main/windows/bootstrap.ps1 | iex
 ```
 
 On a brand-new Windows machine where WSL features have to be enabled, the WSL step may need a reboot first. If the script warns about that, **reboot Windows and re-run the same one-liner** — it's safe to run twice (winget steps are idempotent, and `wsl --install` resumes correctly after the reboot).
