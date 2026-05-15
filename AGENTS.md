@@ -103,7 +103,7 @@ Out-of-band entry point that runs on Windows itself, before WSL exists. **Not pa
    - Probes WSL with `wsl --status` (returns 0 only if the WSL service can actually start, which requires both the WSL feature *and* VM Platform to be active).
    - If WSL is ready, skip to step 6.
    - Otherwise run `wsl --install --no-distribution` to enable features, then re-probe. If it's *still* not ready, features were just enabled and a reboot is required — script stops here with a clear reboot message, *without* attempting the distro install (avoids the wasted Ubuntu rootfs download + failed VM creation that happens if you try to install the distro before VM Platform is active).
-6. `wsl --install --distribution Ubuntu-26.04 --no-launch`.
+6. Probes for existing Ubuntu-26.04 registration via `wsl --list --quiet`; if already registered, skips the install (treats it as success). Otherwise runs `wsl --install --distribution Ubuntu-26.04 --no-launch`. The pre-probe catches the case where a *previous* failed run registered the distro before crashing at VM creation — re-running would otherwise hit `ERROR_ALREADY_EXISTS` and misreport as a failure. `WSL_UTF8=1` is set when invoking `wsl --list` so the output is UTF-8 instead of the default UTF-16.
 
 After the script, the user finishes first-time Ubuntu user setup manually, then clones the repo inside Ubuntu and runs `./install.sh` — the normal Linux flow.
 
