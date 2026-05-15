@@ -224,11 +224,40 @@ update_system() {
 }
 
 
+# List of special app configs that have custom install functions (not in packages.yaml)
+# These can be installed directly with `dot install <name>` in addition to the interactive picker.
+SPECIAL_APP_CONFIGS=(claude grok opencode tmux lid-check windows-terminal)
+
+is_special_app_config() {
+    local name="$1"
+    for special in "${SPECIAL_APP_CONFIGS[@]}"; do
+        [[ "$name" == "$special" ]] && return 0
+    done
+    return 1
+}
+
+install_special_app_config() {
+    local pkg="$1"
+    if ! source "$DOTFILES_DIR/install.sh" 2>/dev/null; then
+        _error "Failed to source install.sh"
+        return 1
+    fi
+    install_app_config "$pkg"
+}
+
 # Install app configs and dev tools
 # With args: install specific tools directly (e.g., dot install fzf jq)
+# Special app configs (claude, grok, tmux, etc.) are also supported directly.
 # Without args: runs interactive pickers from install.sh
 run_install() {
     if [[ $# -gt 0 ]]; then
+        local first="$1"
+        if is_special_app_config "$first"; then
+            # Direct install of a special app config (e.g. dot install grok)
+            shift
+            install_special_app_config "$first"
+            return $?
+        fi
         install_tools "$@"
         return $?
     fi
