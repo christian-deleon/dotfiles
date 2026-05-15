@@ -1,0 +1,116 @@
+# Grok Build TUI - Pager / Appearance Configuration
+# This file controls the visual appearance and behavior of the TUI.
+# Changes take effect on next launch.
+#
+# Location in dotfiles: ~/.dotfiles/grok/.grok/pager.toml
+# Installed to: ~/.grok/pager.toml
+
+[terminal]
+# Use alternate screen when the terminal supports it (full-screen TUI)
+alt_screen = "auto"
+
+[animation]
+fps = 30
+wave_rows = 32
+show_fps = false
+
+[prompt]
+collapse_unfocused = true
+mouse_hover = true
+show_prefix = true
+compact = false
+
+[scrollback.layout]
+outer_vpad = 1
+outer_hpad_left = 2
+outer_hpad_right = 2
+block_pad_left = 2
+block_pad_right = 2
+
+[scrollback.scrollbar]
+enabled = true
+gap_left = 0
+gap_right = 0
+
+[scrollback.scroll]
+margin = 0
+min_page_fraction = 0
+follow_indicator = "center"
+follow_auto_select = true
+follow_by_overscroll = true
+anchor_on_fold = true
+
+[scrollback.display]
+sticky_headers = true
+tab_width = 4
+expandable_indicator = true
+expandable_indicator_running = true
+expandable_indicator_char = ">"
+line_under_last_entry = false
+group_selection_split = true
+highlight_overlays_border = false
+dim_accent = 0.5
+
+[scrollback.blocks.edit]
+indent = true
+vpad = false
+expanded_by_default = true
+dual_line_numbers = false
+line_summary = false
+hunk_separator = "..."
+
+[scrollback.blocks.prompt]
+vpad = true
+invert = false
+show_prefix = true
+min_lines = 2
+
+[scrollback.blocks.thinking]
+animate = true
+truncated_lines = 3
+
+[todo]
+badge_format = "default"
+
+# ---------------------------------------------------------------------------
+# Notifications (important on tiling WMs)
+# ---------------------------------------------------------------------------
+[ui.notifications]
+# "auto" lets Grok pick the best protocol for the detected terminal.
+# On Hyprland/Wayland with modern terminals (foot, kitty, ghostty, wezterm)
+# this usually resolves to OSC 777 or OSC 99.
+method = "auto"
+
+# Only notify when the terminal does not have focus
+condition = "unfocused"
+
+# Seconds the terminal must be unfocused before a notification is sent
+idle_threshold_secs = 3
+
+# Events that should trigger notifications
+events = ["turn_complete", "approval_required"]
+
+# Prevent the display from sleeping while the agent is working
+sleep_prevention = true
+
+# Show progress in the terminal tab (OSC 9;4)
+progress_bar = true
+
+[ui.notifications.title]
+enabled = true
+items = ["action-required", "spinner", "activity", "session-name", "grok"]
+
+# ---------------------------------------------------------------------------
+# Example notification hooks (uncomment and customize as needed)
+# ---------------------------------------------------------------------------
+# [[ui.notifications.hooks]]
+# command = "notify-send 'Grok' '$GROK_MESSAGE'"
+# events = ["turn_complete", "approval_required"]
+# only_unfocused = true
+# timeout_secs = 10
+
+# macOS example (if you also use Grok on macOS):
+# [[ui.notifications.hooks]]
+# command = "terminal-notifier -title 'Grok' -message '$GROK_MESSAGE' -group grok"
+# events = ["turn_complete"]
+# only_unfocused = true

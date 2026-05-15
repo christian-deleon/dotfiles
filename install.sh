@@ -717,6 +717,40 @@ install_ai_opencode() {
     success "Installed AI config for OpenCode"
 }
 
+install_ai_grok() {
+    local ai_dir="$DOTFILES_DIR/ai"
+    [[ -d "$ai_dir" ]] || { warn "ai/ directory not found"; return; }
+
+    info "Installing AI config for Grok Build TUI (native paths)..."
+
+    # Clean any stale symlinks we previously created in ~/.grok/
+    for dir in skills agents hooks; do
+        clean_ai_symlinks "$HOME/.grok/$dir"
+    done
+
+    mkdir -p "$HOME/.grok/skills" "$HOME/.grok/agents" "$HOME/.grok/hooks"
+
+    # Link shared skills/agents/hooks from the central ai/ directory.
+    # Grok discovers these natively (higher priority than the ~/.claude/ compat paths).
+    link_directory_contents "$ai_dir/skills" "$HOME/.grok/skills"
+    link_directory_contents "$ai_dir/agents" "$HOME/.grok/agents"
+    link_directory_contents "$ai_dir/hooks" "$HOME/.grok/hooks"
+
+    # Link the two main Grok configuration files (config.toml + pager.toml).
+    # These live in grok/.grok/ so they can be managed alongside the rest of the dotfiles.
+    local grok_cfg_src="$DOTFILES_DIR/grok/.grok"
+    if [[ -d "$grok_cfg_src" ]]; then
+        mkdir -p "$HOME/.grok"
+        for f in config.toml pager.toml; do
+            if [[ -f "$grok_cfg_src/$f" ]]; then
+                link_file "$grok_cfg_src/$f" "$HOME/.grok/$f"
+            fi
+        done
+    fi
+
+    success "Installed AI config for Grok Build TUI"
+}
+
 # ─── Shared MCP config generation ────────────────────────────────────────────
 
 # Generate MCP configs for Claude Code and OpenCode from the shared source.
@@ -869,6 +903,7 @@ get_app_label() {
         alacritty) echo "alacritty — GPU-accelerated cross-platform terminal" ;;
         btop)      echo "btop — System resource monitor" ;;
         claude)    echo "claude — Claude Code AI config (agents, skills, commands, rules)" ;;
+        grok)      echo "grok — Grok Build TUI native config (skills, config.toml, pager.toml)" ;;
         fastfetch) echo "fastfetch — System info display" ;;
         hypr)      echo "hypr — Hyprland window manager config" ;;
         k9s)       echo "k9s — Kubernetes TUI manager" ;;
@@ -907,6 +942,7 @@ list_app_configs() {
 
         if [[ -d "$DOTFILES_DIR/ai" ]]; then
             echo "claude"
+            echo "grok"
         fi
 
         # Linux-only: fingerprint lid bypass (requires fprintd in PAM)
@@ -928,6 +964,9 @@ install_app_config() {
     case "$pkg" in
         claude)
             install_ai_claude
+            ;;
+        grok)
+            install_ai_grok
             ;;
         lid-check)
             install_lid_check

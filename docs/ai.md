@@ -1,6 +1,8 @@
 # AI Config (`ai/`)
 
-Shared AI agent configuration for Claude Code and OpenCode. Lives in `~/.dotfiles/ai/` and is symlinked into both platforms by the installer.
+Shared AI agent configuration for **Claude Code**, **OpenCode**, and **Grok Build TUI**.
+
+Lives in `~/.dotfiles/ai/` (skills, agents, hooks, rules, commands) and `~/.dotfiles/grok/.grok/` (native config files). The installer symlinks assets into all three tools.
 
 ## Directory Structure
 
@@ -40,9 +42,20 @@ Picking `opencode` from `dot install` stows the OpenCode config and then runs `i
 1. Symlinks `ai/commands/*` and `ai/skills/*` into `~/.config/opencode/`
 2. Runs `generate-opencode-config.sh` to convert `ai/agents/*.md` into OpenCode JSON agent definitions and merge them into `opencode.json`
 
+### Grok Build TUI
+
+Picking `grok` from `dot install` runs `install_ai_grok()`, which does:
+
+1. Symlinks `ai/skills/*`, `ai/agents/*`, and `ai/hooks/*` into the **native** `~/.grok/` locations (higher priority than the `~/.claude/` compatibility paths).
+2. Symlinks `grok/.grok/config.toml` and `grok/.grok/pager.toml` into `~/.grok/`.
+
+Grok also benefits automatically from:
+- All MCP servers (loaded from `~/.claude.json` via its documented Claude Code compatibility layer)
+- Project `AGENTS.md` / `CLAUDE.md` files (native discovery + Claude compat)
+
 ### MCP Configs
 
-MCP servers are shared between both platforms via `ai/mcp-servers.json.tpl`. Picking either `claude` or `opencode` triggers `generate_mcp_configs()` which resolves 1Password secrets and writes to both `~/.claude.json` and `opencode.json`.
+MCP servers are shared between all three platforms via `ai/mcp-servers.json.tpl`. Picking `claude`, `opencode`, or `grok` triggers `generate_mcp_configs()` which resolves 1Password secrets and writes to `~/.claude.json` (consumed by both Claude Code and Grok) and `opencode.json`.
 
 ## Adding Content
 

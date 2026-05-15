@@ -73,6 +73,7 @@ alacritty  btop  fastfetch  hypr  k9s  lazygit  makima  mako  nvim  omarchy  ope
 
 **Special packages** (not stow-based, handled by custom install functions):
 - `claude` — Claude Code AI config from `ai/` directory (agents, skills, commands, rules)
+- `grok` — Grok Build TUI native config from `ai/` + `grok/.grok/` (skills at `~/.grok/skills/`, `config.toml`, `pager.toml`)
 - `tmux` — direct symlinks for `.tmux.conf` and `.tmux/`
 
 **Not managed by omadot** (Omarchy-owned): `~/.config/git/`
