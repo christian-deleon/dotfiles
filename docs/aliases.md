@@ -171,6 +171,13 @@ Kubernetes development workflow tool shortcuts.
 
 ---
 
+## Grok
+
+- `gr` - Grok Build TUI (`grok`)
+- `gra` - Grok Build TUI with auto-approve (`grok --always-approve`)
+
+---
+
 ## Ollama
 
 - `ol` - Ollama CLI (`ollama`)
