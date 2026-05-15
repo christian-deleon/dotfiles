@@ -1,0 +1,63 @@
+# profiles/_template.yaml
+#
+# Profile template. The installer ignores any file whose basename starts with
+# `_` or `.`, so this file never appears in the picker. To create a new
+# profile:
+#
+#   cp profiles/_template.yaml profiles/<your-machine>.yaml
+#   $EDITOR profiles/<your-machine>.yaml
+#   ./install.sh    # pick the new profile
+#
+# Profile schema reference: docs/profiles.md
+# Manifest schema reference: docs/manifest.md
+
+# Display name — must match the filename (without .yaml).
+name: example
+
+# One-line description shown in the picker.
+description: One-line summary of this profile's purpose
+
+# Host predicates that must all pass for this profile to appear in the picker.
+# Available predicates (defined in scripts/predicates.sh):
+#   linux, darwin, wsl, omarchy, hyprland, fprintd
+# Leave empty (or omit) to make the profile compatible everywhere.
+requires: []
+# Examples:
+#   requires: [omarchy]
+#   requires: [wsl]
+#   requires: [wsl, fprintd]
+#   requires: [darwin]
+
+# Core extras to run as part of this profile. The installer runs each via
+# install_core_extra. Available names:
+#   git-submodules, git-config, ssh-config, zsh-config,
+#   omarchy-themes, default-terminal
+core_extras:
+  - git-submodules
+  - git-config
+  - ssh-config
+
+# Manifest items to install. Each name must be a top-level key in manifest.yaml
+# (or an install.command / config.package alias, e.g. `nvim` resolves to
+# `neovim`). Items whose `requires:` are not met on the host are silently
+# skipped during install.
+items: []
+# Examples — replace with your selection:
+#   - 1password-cli
+#   - bat
+#   - claude
+#   - delta
+#   - fd
+#   - fzf
+#   - gh
+#   - jq
+#   - just
+#   - lazygit
+#   - mise
+#   - neovim
+#   - opencode
+#   - ripgrep
+#   - starship
+#   - tmux
+#   - worktrunk
+#   - yq

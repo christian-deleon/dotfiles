@@ -2,10 +2,11 @@
 #
 # Dotfiles installer
 #
-# Core config runs automatically, then you pick app configs and dev tools.
+# Core config runs automatically. Then pick a profile (curated set of items)
+# or pick items manually from the universal manifest.
 #
 # Usage:
-#   ./install.sh        Interactive install
+#   ./install.sh        Interactive install (profile or manual)
 #   ./install.sh --help Show usage
 #
 
@@ -20,8 +21,6 @@ source "$DOTFILES_DIR/scripts/lib.sh"
 
 SHELL_FILES=(.commonrc .aliases .functions)
 ZSH_FILES=(.zshrc .p10k.zsh)
-TMUX_FILES=(.tmux.conf)
-TMUX_DIRS=(.tmux)
 
 # ─── Color helpers ────────────────────────────────────────────────────────────
 
@@ -187,6 +186,116 @@ ensure_omadot() {
     esac
 }
 
+# ─── 1Password multi-account injection ───────────────────────────────────────
+
+# Resolve op:// references across multiple 1Password accounts.
+# Usage: op_inject_multi <template> <output>
+op_inject_multi() {
+    local tpl="$1"
+    local out="$2"
+    local content
+    content="$(cat "$tpl")"
+
+    local vault_ids
+    vault_ids="$(grep -oE 'op://[^/]+' "$tpl" | sed 's|op://||' | sort -u)"
+
+    if [[ -z "$vault_ids" ]]; then
+        printf '%s\n' "$content" > "$out"
+        return 0
+    fi
+
+    local op_check
+    if ! op_check="$(op account list 2>&1)"; then
+        error "1Password CLI cannot connect to desktop app"
+        if echo "$op_check" | grep -q "cannot connect to 1Password app"; then
+            error "Make sure 1Password desktop app is running and CLI integration is enabled"
+        fi
+        return 1
+    fi
+
+    local -A vault_account_map
+    while IFS= read -r acct; do
+        local acct_url
+        acct_url="$(echo "$acct" | awk '{print $1}')"
+        while IFS= read -r vault_line; do
+            local vid
+            vid="$(echo "$vault_line" | awk '{print $1}')"
+            vault_account_map["$vid"]="$acct_url"
+        done < <(op vault list --account "$acct_url" 2>/dev/null | tail -n +2)
+    done < <(echo "$op_check" | tail -n +2)
+
+    local failed=0
+    while IFS= read -r ref; do
+        local vault_id
+        vault_id="$(echo "$ref" | cut -d'/' -f3)"
+        local account="${vault_account_map[$vault_id]:-}"
+
+        if [[ -z "$account" ]]; then
+            warn "Vault $vault_id not found in any account"
+            failed=1
+            continue
+        fi
+
+        local secret
+        secret="$(op read "$ref" --account "$account" 2>/dev/null)" || {
+            warn "Failed to read $ref"
+            failed=1
+            continue
+        }
+
+        content="${content//$ref/$secret}"
+    done < <(grep -oE 'op://[^"]+' "$tpl" | sort -u)
+
+    printf '%s\n' "$content" > "$out"
+    chmod 600 "$out"
+    [[ "$failed" -eq 0 ]]
+}
+
+# ─── Symlink hygiene ──────────────────────────────────────────────────────────
+
+# Remove symlinks in a directory that point into ai/ or ecc/ (migration).
+clean_ai_symlinks() {
+    local target_dir="$1"
+    [[ -d "$target_dir" ]] || return 0
+
+    for item in "$target_dir"/*; do
+        [[ -L "$item" ]] || continue
+        local raw_target resolved_target
+        raw_target="$(readlink "$item")"
+        resolved_target="$(readlink -f "$item" 2>/dev/null)"
+        if [[ "$resolved_target" == "$DOTFILES_DIR/ai/"* ]] || [[ "$raw_target" == "$DOTFILES_DIR/ai/"* ]] \
+        || [[ "$resolved_target" == "$DOTFILES_DIR/ecc/"* ]] || [[ "$raw_target" == "$DOTFILES_DIR/ecc/"* ]]; then
+            rm "$item"
+        fi
+    done
+}
+
+# Remove ~/.config symlinks pointing into the dotfiles repo whose targets no
+# longer exist. Idempotent reconciliation for dropped stow packages.
+clean_stale_dotfile_symlinks() {
+    local dotfiles_real
+    dotfiles_real="$(readlink -f "$DOTFILES_DIR")"
+    [[ -d "$HOME/.config" ]] || return 0
+
+    find "$HOME/.config" -maxdepth 1 -type l 2>/dev/null | while read -r link; do
+        local resolved
+        resolved="$(readlink -m "$link" 2>/dev/null)"
+        if [[ "$resolved" == "$dotfiles_real"/* ]] && [[ ! -e "$resolved" ]]; then
+            printf '%b\n' "Removing stale dotfile symlink: $link"
+            rm "$link"
+        fi
+    done
+}
+
+# ─── Source handlers ──────────────────────────────────────────────────────────
+# Handler files in scripts/handlers/ define functions referenced from
+# manifest.yaml by name. They use the helpers defined above (info, link_file,
+# clean_ai_symlinks, op_inject_multi, ensure_jq, etc.).
+for _handler in "$DOTFILES_DIR"/scripts/handlers/*.sh; do
+    [[ -f "$_handler" ]] && source "$_handler"
+done
+unset _handler
+
 # ─── Core config (always runs) ───────────────────────────────────────────────
 
 install_shell_config() {
@@ -235,7 +344,6 @@ install_zsh_config() {
 }
 
 install_git_submodules() {
-    # Initialize critical submodules first
     info "Initializing critical submodules (ssh, tpm)..."
     git -C "$DOTFILES_DIR" submodule sync --recursive .ssh .tmux/plugins/tpm
     if git -C "$DOTFILES_DIR" submodule update --init --recursive .ssh .tmux/plugins/tpm; then
@@ -245,12 +353,11 @@ install_git_submodules() {
         warn "Run ${BOLD}git -C $DOTFILES_DIR submodule update --init --recursive${RESET} after setting up SSH"
     fi
 
-    # Restore submodule working trees if they exist but have dirty/empty checkouts
     local submodule_path
     for submodule_path in .ssh .tmux/plugins/tpm; do
         local full_path="$DOTFILES_DIR/$submodule_path"
         if [[ -f "$full_path/.git" ]] && git -C "$full_path" diff-index --quiet HEAD -- 2>/dev/null; then
-            continue  # Clean checkout, nothing to do
+            continue
         fi
         if [[ -f "$full_path/.git" ]]; then
             info "Restoring $submodule_path working tree..."
@@ -260,7 +367,6 @@ install_git_submodules() {
     done
 }
 
-# List available theme submodules
 list_theme_submodules() {
     git -C "$DOTFILES_DIR" config --file .gitmodules --get-regexp path \
         | grep "omarchy/.config/omarchy/themes/" \
@@ -269,11 +375,9 @@ list_theme_submodules() {
         | sort
 }
 
-# Install selected theme submodules
 install_themes() {
     local themes_dir="omarchy/.config/omarchy/themes"
-    
-    # Get available themes
+
     local available_themes=()
     while IFS= read -r theme; do
         available_themes+=("$theme")
@@ -283,7 +387,6 @@ install_themes() {
         return 0
     fi
 
-    # Check if gum is available for picker
     if ! command -v gum &>/dev/null; then
         echo
         info "Omarchy themes available (use ${BOLD}dot theme update${RESET} to install later):"
@@ -308,7 +411,6 @@ install_themes() {
         return 0
     fi
 
-    # Install selected themes
     local theme_paths=()
     while IFS= read -r theme; do
         theme_paths+=("$themes_dir/$theme")
@@ -467,22 +569,9 @@ run_core_config() {
     install_dot_cli
 }
 
-# ─── Core extras picker (opt-in/opt-out) ─────────────────────────────────────
+# ─── Core extras ──────────────────────────────────────────────────────────────
 
-# Discover available core-extra items (some are OS-conditional)
-list_core_extras() {
-    echo "git-submodules"
-    echo "git-config"
-    echo "ssh-config"
-    if [[ "$OSTYPE" == darwin* ]]; then
-        echo "zsh-config"
-    fi
-    if [[ -d "$HOME/.local/share/omarchy" ]]; then
-        echo "omarchy-themes"
-        echo "default-terminal"
-    fi
-}
-
+# Get the human-readable label for a core extra.
 get_core_extra_label() {
     case "$1" in
         git-submodules)    echo "git-submodules — Initialize .ssh and tpm submodules" ;;
@@ -495,6 +584,7 @@ get_core_extra_label() {
     esac
 }
 
+# Dispatch to the installer for a named core extra.
 install_core_extra() {
     case "$1" in
         git-submodules)    install_git_submodules ;;
@@ -507,30 +597,55 @@ install_core_extra() {
     esac
 }
 
+# All core extras the installer knows about. Profiles pick a subset via the
+# `core_extras:` field; manual mode shows the picker below.
+list_all_core_extras() {
+    echo "git-submodules"
+    echo "git-config"
+    echo "ssh-config"
+    echo "zsh-config"
+    echo "omarchy-themes"
+    echo "default-terminal"
+}
+
+# Manual-mode core extras picker — pre-selects host-compatible ones.
 run_core_extras_picker() {
-    local extras=() labels=()
+    local extras=() labels=() preselect_labels=()
+    local item
     while IFS= read -r item; do
+        local label
+        label="$(get_core_extra_label "$item")"
         extras+=("$item")
-        labels+=("$(get_core_extra_label "$item")")
-    done < <(list_core_extras)
+        labels+=("$label")
+        # Pre-select host-compatible items only
+        case "$item" in
+            zsh-config)
+                [[ "$OSTYPE" == darwin* ]] && preselect_labels+=("$label")
+                ;;
+            omarchy-themes|default-terminal)
+                host_has omarchy && preselect_labels+=("$label")
+                ;;
+            *)
+                preselect_labels+=("$label")
+                ;;
+        esac
+    done < <(list_all_core_extras)
 
     [[ ${#extras[@]} -eq 0 ]] && return 0
 
     if ! command -v gum &>/dev/null; then
         echo
         info "gum not available — skipping core extras picker"
-        info "Available later via re-running ${BOLD}./install.sh${RESET}: ${extras[*]}"
         return 0
     fi
 
     echo
     info "Select core extras to set up (space to toggle, enter to confirm):"
-    info "${DIM}All defaults pre-selected — deselect anything you don't want.${RESET}"
+    info "${DIM}Host-appropriate defaults pre-selected — adjust to taste.${RESET}"
     echo
 
-    # Pre-select all labels by default (gum --selected takes a comma-separated list)
     local preselected
-    preselected="$(IFS=,; echo "${labels[*]}")"
+    preselected="$(IFS=,; echo "${preselect_labels[*]}")"
 
     local chosen
     chosen="$(printf '%s\n' "${labels[@]}" | gum choose --no-limit --height=10 --selected="$preselected")" || true
@@ -550,647 +665,331 @@ run_core_extras_picker() {
     done
 }
 
-# ─── 1Password multi-account injection ───────────────────────────────────────
+# ─── Item installer (manifest-driven) ────────────────────────────────────────
 
-# Resolve op:// references across multiple 1Password accounts.
-# Usage: op_inject_multi <template> <output>
-op_inject_multi() {
-    local tpl="$1"
-    local out="$2"
-    local content
-    content="$(cat "$tpl")"
+# Stow a manifest item's config directory. Uses config.package override if set.
+install_stow_config() {
+    local item="$1"
+    local pkg
+    pkg="$(yq -r ".\"$item\".config.package // \"$item\"" "$MANIFEST_FILE")"
 
-    # Extract unique vault IDs from op:// references
-    local vault_ids
-    vault_ids="$(grep -oE 'op://[^/]+' "$tpl" | sed 's|op://||' | sort -u)"
-
-    if [[ -z "$vault_ids" ]]; then
-        # No secrets to inject
-        printf '%s\n' "$content" > "$out"
-        return 0
-    fi
-
-    # Check if 1Password CLI can connect to the desktop app
-    local op_check
-    if ! op_check="$(op account list 2>&1)"; then
-        error "1Password CLI cannot connect to desktop app"
-        if echo "$op_check" | grep -q "cannot connect to 1Password app"; then
-            error "Make sure 1Password desktop app is running and CLI integration is enabled"
-        fi
+    if [[ ! -d "$DOTFILES_DIR/$pkg" ]]; then
+        warn "Stow package not found: $pkg"
         return 1
     fi
 
-    # Build vault→account map by checking each account
-    local -A vault_account_map
-    while IFS= read -r acct; do
-        local acct_url
-        acct_url="$(echo "$acct" | awk '{print $1}')"
-        while IFS= read -r vault_line; do
-            local vid
-            vid="$(echo "$vault_line" | awk '{print $1}')"
-            vault_account_map["$vid"]="$acct_url"
-        done < <(op vault list --account "$acct_url" 2>/dev/null | tail -n +2)
-    done < <(echo "$op_check" | tail -n +2)
-
-    # Resolve each op:// reference using the correct account
-    local failed=0
-    while IFS= read -r ref; do
-        local vault_id
-        vault_id="$(echo "$ref" | cut -d'/' -f3)"
-        local account="${vault_account_map[$vault_id]:-}"
-
-        if [[ -z "$account" ]]; then
-            warn "Vault $vault_id not found in any account"
-            failed=1
-            continue
-        fi
-
-        local secret
-        secret="$(op read "$ref" --account "$account" 2>/dev/null)" || {
-            warn "Failed to read $ref"
-            failed=1
-            continue
-        }
-
-        content="${content//$ref/$secret}"
-    done < <(grep -oE 'op://[^"]+' "$tpl" | sort -u)
-
-    printf '%s\n' "$content" > "$out"
-    chmod 600 "$out"
-    [[ "$failed" -eq 0 ]]
-}
-
-# ─── AI config (agents, commands, skills, rules) ────────────────────────────
-
-# Remove symlinks in a directory that point into ai/ or ecc/ (migration)
-clean_ai_symlinks() {
-    local target_dir="$1"
-    [[ -d "$target_dir" ]] || return 0
-
-    for item in "$target_dir"/*; do
-        [[ -L "$item" ]] || continue
-        local raw_target resolved_target
-        raw_target="$(readlink "$item")"
-        resolved_target="$(readlink -f "$item" 2>/dev/null)"
-        if [[ "$resolved_target" == "$DOTFILES_DIR/ai/"* ]] || [[ "$raw_target" == "$DOTFILES_DIR/ai/"* ]] \
-        || [[ "$resolved_target" == "$DOTFILES_DIR/ecc/"* ]] || [[ "$raw_target" == "$DOTFILES_DIR/ecc/"* ]]; then
-            rm "$item"
-        fi
-    done
-}
-
-# Remove ~/.config symlinks pointing into the dotfiles repo whose targets no longer exist.
-# Idempotent reconciliation for dropped stow packages (e.g. former ghostty, kitty).
-# Uses readlink -m (no existence check) so dangling links don't trip set -e.
-clean_stale_dotfile_symlinks() {
-    local dotfiles_real
-    dotfiles_real="$(readlink -f "$DOTFILES_DIR")"
-    [[ -d "$HOME/.config" ]] || return 0
-
-    find "$HOME/.config" -maxdepth 1 -type l 2>/dev/null | while read -r link; do
-        local resolved
-        resolved="$(readlink -m "$link" 2>/dev/null)"
-        if [[ "$resolved" == "$dotfiles_real"/* ]] && [[ ! -e "$resolved" ]]; then
-            printf '%b\n' "Removing stale dotfile symlink: $link"
-            rm "$link"
-        fi
-    done
-}
-
-# Install lid-check script and patch PAM to skip fingerprint when lid is closed
-install_lid_check() {
-    local script_src="$DOTFILES_DIR/scripts/lid-check.sh"
-    local script_dest="/usr/local/bin/lid-check.sh"
-    local pam_line="auth    [success=ignore default=1] pam_exec.so quiet $script_dest"
-
-    [[ -f "$script_src" ]] || { warn "scripts/lid-check.sh not found"; return; }
-
-    info "Installing lid-check fingerprint bypass..."
-
-    sudo install -m 755 "$script_src" "$script_dest"
-
-    # Patch PAM files that use pam_fprintd.so
-    for pam_file in /etc/pam.d/sudo /etc/pam.d/polkit-1; do
-        [[ -f "$pam_file" ]] || continue
-        if grep -q "pam_fprintd.so" "$pam_file" && ! grep -q "lid-check.sh" "$pam_file"; then
-            sudo sed -i "/pam_fprintd.so/i\\$pam_line" "$pam_file"
-            success "Patched $pam_file"
-        else
-            info "$pam_file already patched or has no fprintd"
-        fi
-    done
-
-    success "Installed lid-check fingerprint bypass"
-}
-
-install_ai_claude() {
-    local ai_dir="$DOTFILES_DIR/ai"
-    [[ -d "$ai_dir" ]] || { warn "ai/ directory not found"; return; }
-
-    info "Installing AI config for Claude Code..."
-
-    for dir in rules commands skills agents; do
-        clean_ai_symlinks "$HOME/.claude/$dir"
-    done
-
-    # Remove old ECC plugin symlink (migration)
-    [[ -L "$HOME/.claude/plugins/everything-claude-code" ]] && rm "$HOME/.claude/plugins/everything-claude-code"
-
-    mkdir -p "$HOME/.claude/rules" "$HOME/.claude/commands" \
-             "$HOME/.claude/skills" "$HOME/.claude/agents"
-    link_directory_contents "$ai_dir/agents" "$HOME/.claude/agents"
-    link_directory_contents "$ai_dir/commands" "$HOME/.claude/commands"
-    link_directory_contents "$ai_dir/skills" "$HOME/.claude/skills"
-    link_directory_contents "$ai_dir/rules" "$HOME/.claude/rules"
-
-    success "Installed AI config for Claude Code"
-}
-
-install_ai_opencode() {
-    local ai_dir="$DOTFILES_DIR/ai"
-    [[ -d "$ai_dir" ]] || { warn "ai/ directory not found"; return; }
-
-    ensure_jq || return
-
-    info "Installing AI config for OpenCode..."
-    local oc_dir="$HOME/.config/opencode"
-
-    clean_ai_symlinks "$oc_dir/commands"
-    clean_ai_symlinks "$oc_dir/skills"
-
-    # Remove old ECC directory symlinks (migration)
-    for old in "$oc_dir/plugins/ecc" "$oc_dir/instructions" "$oc_dir/prompts" "$oc_dir/tools"; do
-        [[ -L "$old" ]] && rm "$old"
-    done
-
-    mkdir -p "$oc_dir/commands" "$oc_dir/skills"
-    link_directory_contents "$ai_dir/commands" "$oc_dir/commands"
-    link_directory_contents "$ai_dir/skills" "$oc_dir/skills"
-
-    # Clean stale ECC entries from opencode.json (migration) and regenerate
-    # from ai/ sources. The generate script strips managed keys before merging.
-    if [[ -x "$ai_dir/scripts/generate-opencode-config.sh" ]]; then
-        "$ai_dir/scripts/generate-opencode-config.sh" "$ai_dir" "$oc_dir"
-    elif [[ -f "$oc_dir/opencode.json" ]] && command -v jq &>/dev/null; then
-        # Fallback: just strip stale managed keys if generate script isn't available
-        jq 'del(.agent, .command, .instructions, .plugin)' "$oc_dir/opencode.json" > "$oc_dir/opencode.json.tmp"
-        mv "$oc_dir/opencode.json.tmp" "$oc_dir/opencode.json"
-    fi
-
-    success "Installed AI config for OpenCode"
-}
-
-install_ai_grok() {
-    local ai_dir="$DOTFILES_DIR/ai"
-    [[ -d "$ai_dir" ]] || { warn "ai/ directory not found"; return; }
-
-    info "Installing AI config for Grok Build TUI (native paths)..."
-
-    # Clean any stale symlinks we previously created in ~/.grok/
-    for dir in skills agents hooks; do
-        clean_ai_symlinks "$HOME/.grok/$dir"
-    done
-
-    mkdir -p "$HOME/.grok/skills" "$HOME/.grok/agents" "$HOME/.grok/hooks"
-
-    # Link shared skills/agents/hooks from the central ai/ directory.
-    # Grok discovers these natively (higher priority than the ~/.claude/ compat paths).
-    link_directory_contents "$ai_dir/skills" "$HOME/.grok/skills"
-    link_directory_contents "$ai_dir/agents" "$HOME/.grok/agents"
-    link_directory_contents "$ai_dir/hooks" "$HOME/.grok/hooks"
-
-    # Link the two main Grok configuration files (config.toml + pager.toml).
-    # These live in grok/.grok/ so they can be managed alongside the rest of the dotfiles.
-    local grok_cfg_src="$DOTFILES_DIR/grok/.grok"
-    if [[ -d "$grok_cfg_src" ]]; then
-        mkdir -p "$HOME/.grok"
-        for f in config.toml pager.toml; do
-            if [[ -f "$grok_cfg_src/$f" ]]; then
-                link_file "$grok_cfg_src/$f" "$HOME/.grok/$f"
-            fi
-        done
-    fi
-
-    success "Installed AI config for Grok Build TUI"
-}
-
-# ─── Shared MCP config generation ────────────────────────────────────────────
-
-# Generate MCP configs for Claude Code and OpenCode from the shared source.
-# Source: ~/.dotfiles/ai/mcp-servers.json.tpl (Claude Desktop format with op:// refs)
-# Targets:
-#   Claude Code: ~/.claude.json mcpServers (merges into existing config)
-#   OpenCode:    ~/.config/opencode/opencode.json mcp (converted format)
-generate_mcp_configs() {
-    local mcp_src="$DOTFILES_DIR/ai/mcp-servers.json.tpl"
-    local force="${FORCE_MCP_REGEN:-false}"
-
-    if [[ ! -f "$mcp_src" ]]; then
-        warn "Shared MCP config not found: $mcp_src"
-        return
-    fi
-
-    ensure_jq || return
-
-    # Skip 1Password injection if template hasn't changed and targets exist
-    local cache_dir="$HOME/.cache/dotfiles"
-    local hash_file="$cache_dir/mcp-servers.hash"
-    local current_hash
-    current_hash="$(sha256sum "$mcp_src" | awk '{print $1}')"
-
-    if [[ "$force" != true && -f "$hash_file" ]]; then
-        local cached_hash
-        cached_hash="$(cat "$hash_file")"
-        if [[ "$current_hash" == "$cached_hash" ]] \
-            && [[ -f "$HOME/.claude.json" ]] \
-            && jq -e '.mcpServers | length > 0' "$HOME/.claude.json" &>/dev/null; then
-            info "MCP config unchanged — skipping 1Password injection"
-            return 0
-        fi
-    fi
-
-    # Resolve op:// secrets into a temp file
-    local resolved
-    resolved="$(mktemp)"
-    trap "rm -f '$resolved'" RETURN
-
-    # Drop any servers whose JSON contains unresolved op:// refs when 1Password
-    # isn't available. Keeps the MCP config valid on machines without `op`.
-    drop_op_servers() {
-        local src="$1" dst="$2"
-        local dropped
-        dropped="$(jq -r 'to_entries | map(select(.value | tostring | contains("op://")) | .key) | join(", ")' "$src")"
-        [[ -n "$dropped" ]] && warn "Skipping MCP servers that need 1Password: $dropped"
-        jq 'with_entries(select(.value | tostring | contains("op://") | not))' "$src" > "$dst"
-    }
-
-    if command -v op &>/dev/null; then
-        info "Injecting MCP secrets via 1Password..."
-        if ! op_inject_multi "$mcp_src" "$resolved"; then
-            warn "1Password injection failed — falling back to keyless servers only"
-            drop_op_servers "$mcp_src" "$resolved"
-        fi
+    # Resolve src/target: directory <pkg>/.config/<pkg>/ or single-file <pkg>/.config/<pkg>.<ext>
+    local src target
+    if [[ -d "$DOTFILES_DIR/$pkg/.config/$pkg" ]]; then
+        src="$DOTFILES_DIR/$pkg/.config/$pkg"
+        target="$HOME/.config/$pkg"
     else
-        warn "1Password CLI not installed — MCP servers needing secrets will be skipped"
-        drop_op_servers "$mcp_src" "$resolved"
+        local matches=("$DOTFILES_DIR/$pkg/.config/$pkg".*)
+        if [[ ! -e "${matches[0]}" ]]; then
+            warn "Package contents not found for $pkg"
+            return 1
+        fi
+        src="${matches[0]}"
+        target="$HOME/.config/$(basename "$src")"
     fi
 
-    # --- Claude Code: merge mcpServers into ~/.claude.json ---
-    local claude_cfg="$HOME/.claude.json"
+    local expected
+    expected="$(readlink -f "$src")"
 
-    # Only these MCP servers are enabled by default; all others are disabled.
-    # Add server names here to enable them globally across all projects.
-    local enabled_mcp_servers=("context7" "brave-search")
+    if [[ -L "$target" ]] && [[ "$(readlink -f "$target")" == "$expected" ]]; then
+        info "$pkg already stowed"
+        return 0
+    fi
 
-    local enabled_json
-    enabled_json="$(printf '%s\n' "${enabled_mcp_servers[@]}" | jq -R . | jq -s .)"
+    if [[ -e "$target" && ! -L "$target" ]]; then
+        backup_item "$target"
+        rm -rf "$target"
+    fi
 
-    # Build the disabledMcpServers array (all server names NOT in the enabled list)
-    local disabled_json
-    disabled_json="$(jq --argjson enabled "$enabled_json" '
-        keys | map(select(. as $k | $enabled | contains([$k]) | not))
-    ' "$resolved")"
+    if [[ -L "$target" && ! -e "$target" ]]; then
+        rm "$target"
+    fi
 
-    # Build clean mcpServers (no "disabled" field inside entries)
-    local claude_mcp
-    claude_mcp="$(jq '{mcpServers: .}' "$resolved")"
-
-    if [[ -f "$claude_cfg" ]]; then
-        # Merge mcpServers at root, and inject disabledMcpServers into every project entry
-        # (Claude Code reads disabledMcpServers from the per-project config, not root)
-        jq -s --argjson disabled "$disabled_json" '
-            (.[0] | del(.mcpServers)) * .[1]
-            | if .projects then
-                .projects |= with_entries(
-                    .value.disabledMcpServers = $disabled
-                )
-              else . end
-        ' "$claude_cfg" <(echo "$claude_mcp") > "$claude_cfg.tmp"
-        mv "$claude_cfg.tmp" "$claude_cfg"
+    if ! omadot put "$pkg"; then
+        error "Failed to stow $pkg"
+        return 1
     else
-        jq '{mcpServers: .}' "$resolved" > "$claude_cfg"
+        success "Stowed $pkg"
     fi
-    success "Updated Claude Code MCP servers in ~/.claude.json"
-
-    # --- OpenCode: convert to OpenCode format and write to opencode.json ---
-    local oc_cfg="$HOME/.config/opencode/opencode.json"
-
-    # Seed from template if opencode.json doesn't exist yet
-    local oc_tpl="${oc_cfg%.json}.json.tpl"
-    if [[ ! -f "$oc_cfg" && -f "$oc_tpl" ]]; then
-        cp "$oc_tpl" "$oc_cfg"
-    fi
-
-    if [[ -f "$oc_cfg" ]]; then
-        local oc_mcp
-        oc_mcp="$(jq --argjson enabled "$enabled_json" '
-            to_entries
-            | map(
-                (.key as $name | ($enabled | contains([$name]))) as $is_enabled
-                | if .value.type == "http" then
-                    {key: .key, value: ({type: "remote", url: .value.url}
-                        + if $is_enabled then {} else {enabled: false} end)}
-                else
-                    {key: .key, value: ({
-                        type: "local",
-                        command: (
-                            if .value.args then
-                                [.value.command] + .value.args
-                            else
-                                [.value.command]
-                            end
-                        )
-                    } + (if .value.env then {environment: .value.env} else {} end)
-                      + (if $is_enabled then {} else {enabled: false} end))}
-                end
-            )
-            | from_entries | {mcp: .}
-        ' "$resolved")"
-        jq -s '(.[0] | del(.mcp)) * .[1]' "$oc_cfg" <(echo "$oc_mcp") > "$oc_cfg.tmp"
-        mv "$oc_cfg.tmp" "$oc_cfg"
-        chmod 600 "$oc_cfg"
-        success "Updated OpenCode MCP servers in opencode.json"
-    fi
-
-    # Cache template hash to skip 1Password on next run if unchanged
-    mkdir -p "$cache_dir"
-    printf '%s' "$current_hash" > "$hash_file"
 }
 
+# Call the handler function named by an item's config.handler field.
+install_handler_config() {
+    local item="$1"
+    local handler
+    handler="$(yq -r ".\"$item\".config.handler // \"\"" "$MANIFEST_FILE")"
+    if [[ -z "$handler" ]]; then
+        error "$item has type:handler but no handler name"
+        return 1
+    fi
+    if declare -F "$handler" >/dev/null; then
+        "$handler"
+    else
+        error "Handler function not defined: $handler (referenced by $item)"
+        return 1
+    fi
+}
 
-# ─── App config helpers ───────────────────────────────────────────────────────
+# Install a manifest item by name. Resolves aliases, checks `requires:`,
+# installs the binary side (if any), then the config side (if any).
+# Per-tool failures don't propagate — the config side still runs.
+install_item() {
+    local input="$1"
+    local item
+    item="$(manifest_resolve_alias "$input")"
+    if [[ -z "$item" ]]; then
+        error "Unknown item: $input"
+        return 1
+    fi
 
-# App config descriptions (name → label)
-get_app_label() {
-    case "$1" in
-        alacritty) echo "alacritty — GPU-accelerated cross-platform terminal" ;;
-        btop)      echo "btop — System resource monitor" ;;
-        claude)    echo "claude — Claude Code AI config (agents, skills, commands, rules)" ;;
-        grok)      echo "grok — Grok Build TUI native config (skills, config.toml, pager.toml)" ;;
-        fastfetch) echo "fastfetch — System info display" ;;
-        hypr)      echo "hypr — Hyprland window manager config" ;;
-        k9s)       echo "k9s — Kubernetes TUI manager" ;;
-        lazygit)   echo "lazygit — Git TUI client" ;;
-        lid-check) echo "lid-check — Skip fingerprint auth when lid is closed" ;;
-        makima)    echo "makima — Key remapping daemon config" ;;
-        mako)      echo "mako — Wayland notification daemon" ;;
-        nvim)      echo "nvim — Neovim (LazyVim) editor config with Copilot" ;;
-        omarchy)   echo "omarchy — Desktop environment config" ;;
-        opencode)  echo "opencode — AI coding assistant config" ;;
-        starship)  echo "starship — Cross-shell prompt" ;;
-        tmux)      echo "tmux — Terminal multiplexer config" ;;
-        walker)    echo "walker — Application launcher config" ;;
-        waybar)    echo "waybar — Wayland status bar config" ;;
-        windows-terminal) echo "windows-terminal — Windows Terminal theme + font config (WSL only)" ;;
-        worktrunk) echo "worktrunk — Git worktree manager config" ;;
-        *)         echo "$1" ;;
+    if ! manifest_requires_met "$item"; then
+        warn "Skipping $item — requires not met on this host"
+        return 0
+    fi
+
+    # Binary install (if present)
+    if [[ "$(yq -r ".\"$item\".install != null" "$MANIFEST_FILE")" == "true" ]]; then
+        install_tools "$item" || true
+    fi
+
+    # Config install (if present)
+    local config_type
+    config_type="$(yq -r ".\"$item\".config.type // \"\"" "$MANIFEST_FILE")"
+    case "$config_type" in
+        stow)    install_stow_config "$item" ;;
+        handler) install_handler_config "$item" ;;
+        "")      : ;;
+        *)       warn "Unknown config type for $item: $config_type" ;;
     esac
 }
 
-# Discover available app configs (stow packages + tmux + claude)
-list_app_configs() {
+# Run all post_install hooks for the given items, deduped. Items must be
+# canonical names (caller resolves aliases first).
+run_post_install() {
+    local items=("$@")
+    declare -A seen
+    local item hook
+    for item in "${items[@]}"; do
+        # Resolve in case caller passed an alias.
+        local canon
+        canon="$(manifest_resolve_alias "$item")"
+        [[ -z "$canon" ]] && continue
+        while IFS= read -r hook; do
+            [[ -z "$hook" ]] && continue
+            [[ -n "${seen[$hook]:-}" ]] && continue
+            seen["$hook"]=1
+            if declare -F "$hook" >/dev/null; then
+                info "Post-install: $hook"
+                "$hook"
+            else
+                warn "Post-install hook not defined: $hook (referenced by $canon)"
+            fi
+        done < <(manifest_post_install "$canon")
+    done
+}
+
+# Return 0 if at least one item in the list needs stow/omadot prerequisites.
+items_need_stow() {
+    local item
+    for item in "$@"; do
+        local canon kind cfg_type
+        canon="$(manifest_resolve_alias "$item")"
+        [[ -z "$canon" ]] && continue
+        kind="$(manifest_kind "$canon")"
+        [[ "$kind" == "config" || "$kind" == "bundle" ]] || continue
+        cfg_type="$(yq -r ".\"$canon\".config.type // \"\"" "$MANIFEST_FILE")"
+        [[ "$cfg_type" == "stow" ]] && return 0
+    done
+    return 1
+}
+
+# ─── Profiles ─────────────────────────────────────────────────────────────────
+
+PROFILE_STATE_FILE="$DOTFILES_DIR/.active-profile"
+
+# List profile basenames (without .yaml). Skips files starting with _ or .
+list_profiles() {
+    local f base
+    if [[ ! -d "$DOTFILES_DIR/profiles" ]]; then
+        return 0
+    fi
+    for f in "$DOTFILES_DIR/profiles"/*.yaml; do
+        [[ -e "$f" ]] || continue
+        base="$(basename "$f" .yaml)"
+        [[ "$base" == _* || "$base" == .* ]] && continue
+        echo "$base"
+    done | sort
+}
+
+# Check whether all of a profile's `requires:` predicates pass on this host.
+profile_is_compatible() {
+    local name="$1"
+    local file="$DOTFILES_DIR/profiles/$name.yaml"
+    [[ -f "$file" ]] || return 1
+    local preds
+    preds="$(yq -r '.requires[]?' "$file" 2>/dev/null)"
+    [[ -z "$preds" ]] && return 0  # No requires = compatible everywhere
+    local pred
+    while IFS= read -r pred; do
+        [[ -z "$pred" ]] && continue
+        if ! host_has "$pred"; then
+            return 1
+        fi
+    done <<< "$preds"
+    return 0
+}
+
+# Show the profile + "Manual selection" picker. Prints the chosen profile name
+# (or "manual") to stdout. Returns nonzero if the user cancels.
+#
+# IMPORTANT: stdout is the data channel (captured by $(select_profile)). All
+# user-facing output below is redirected to stderr so it doesn't pollute the
+# return value.
+select_profile() {
+    ensure_yq >&2 || return 1
+    ensure_gum >&2 || return 1
+
+    local compat=() labels=() p desc
+    while IFS= read -r p; do
+        if profile_is_compatible "$p"; then
+            compat+=("$p")
+            desc="$(yq -r '.description // ""' "$DOTFILES_DIR/profiles/$p.yaml")"
+            if [[ -n "$desc" ]]; then
+                labels+=("$p — $desc")
+            else
+                labels+=("$p")
+            fi
+        fi
+    done < <(list_profiles)
+
+    labels+=("Manual selection — pick items individually")
+
     {
-        for dir in "$DOTFILES_DIR"/*/; do
-            local name
-            name="$(basename "$dir")"
-            # Match directory packages (<pkg>/.config/<pkg>/) and single-file packages (<pkg>/.config/<pkg>.<ext>)
-            if [[ -d "$dir/.config/$name" ]] || compgen -G "$dir/.config/$name".* >/dev/null; then
-                echo "$name"
-            fi
+        echo
+        printf '%b\n' "${BOLD}What do you want to install?${RESET}"
+        if [[ ${#compat[@]} -eq 0 ]]; then
+            info "${DIM}No compatible profiles for this host — Manual selection only.${RESET}"
+        else
+            info "${DIM}Showing profiles compatible with this host + manual selection.${RESET}"
+        fi
+        echo
+    } >&2
+
+    local chosen
+    chosen="$(printf '%s\n' "${labels[@]}" | gum choose --height=10)" || return 1
+    [[ -z "$chosen" ]] && return 1
+
+    if [[ "$chosen" == "Manual selection"* ]]; then
+        echo "manual"
+    else
+        echo "${chosen%% —*}"
+    fi
+}
+
+# Install everything declared by a profile: core_extras, items, post_install hooks.
+# Writes .active-profile on success.
+install_from_profile() {
+    local name="$1"
+    local file="$DOTFILES_DIR/profiles/$name.yaml"
+    [[ -f "$file" ]] || { error "Profile not found: $name"; return 1; }
+
+    if ! profile_is_compatible "$name"; then
+        error "Profile '$name' requirements not met on this host"
+        return 1
+    fi
+
+    info "Installing profile: ${BOLD}$name${RESET}"
+
+    # Core extras from profile
+    local extras=() e
+    while IFS= read -r e; do
+        [[ -n "$e" ]] && extras+=("$e")
+    done < <(yq -r '.core_extras[]?' "$file")
+
+    if [[ ${#extras[@]} -gt 0 ]]; then
+        echo
+        info "Profile core extras: ${extras[*]}"
+        for extra in "${extras[@]}"; do
+            echo
+            info "${extra}..."
+            install_core_extra "$extra" || warn "${extra} failed — continuing"
+        done
+    fi
+
+    # Items from profile
+    local items=() i
+    while IFS= read -r i; do
+        [[ -n "$i" ]] && items+=("$i")
+    done < <(yq -r '.items[]?' "$file")
+
+    if [[ ${#items[@]} -gt 0 ]]; then
+        if items_need_stow "${items[@]}"; then
+            ensure_stow
+            ensure_omadot
+        fi
+
+        echo
+        info "Installing ${#items[@]} items..."
+        local item
+        for item in "${items[@]}"; do
+            install_item "$item"
         done
 
-        if [[ -f "$DOTFILES_DIR/.tmux.conf" ]]; then
-            echo "tmux"
-        fi
+        run_post_install "${items[@]}"
+    fi
 
-        if [[ -d "$DOTFILES_DIR/ai" ]]; then
-            echo "claude"
-            echo "grok"
-        fi
-
-        # Linux-only: fingerprint lid bypass (requires fprintd in PAM)
-        if [[ "$OSTYPE" != darwin* ]] && grep -ql "pam_fprintd.so" /etc/pam.d/* 2>/dev/null; then
-            echo "lid-check"
-        fi
-
-        # WSL-only: Windows Terminal config
-        if grep -qi microsoft /proc/version 2>/dev/null; then
-            echo "windows-terminal"
-        fi
-    } | sort
+    echo "$name" > "$PROFILE_STATE_FILE"
+    success "Profile '$name' active — recorded in ${DIM}.active-profile${RESET}"
 }
 
-# Install a single app config
-install_app_config() {
-    local pkg="$1"
+# Manual-mode installer: core extras picker + item picker (no profile state).
+install_manual() {
+    ensure_gum || return 1
+    ensure_yq || return 1
 
-    case "$pkg" in
-        claude)
-            install_ai_claude
-            ;;
-        grok)
-            install_ai_grok
-            ;;
-        lid-check)
-            install_lid_check
-            ;;
-        windows-terminal)
-            bash "$DOTFILES_DIR/scripts/tools/install-windows-terminal.sh"
-            ;;
-        tmux)
-            for file in "${TMUX_FILES[@]}"; do
-                if [[ -f "$DOTFILES_DIR/$file" ]]; then
-                    link_file "$DOTFILES_DIR/$file" "$HOME/$file"
-                else
-                    warn "File not found: $file"
-                fi
-            done
-            for dir in "${TMUX_DIRS[@]}"; do
-                link_directory_contents "$DOTFILES_DIR/$dir" "$HOME/$dir"
-            done
-            success "Installed tmux config"
-            ;;
-        *)
-            if [[ ! -d "$DOTFILES_DIR/$pkg" ]]; then
-                warn "Package not found: $pkg"
-                return 1
-            fi
+    run_core_extras_picker
 
-            # Resolve source: directory package <pkg>/.config/<pkg>/ or single-file <pkg>/.config/<pkg>.<ext>
-            local src target
-            if [[ -d "$DOTFILES_DIR/$pkg/.config/$pkg" ]]; then
-                src="$DOTFILES_DIR/$pkg/.config/$pkg"
-                target="$HOME/.config/$pkg"
-            else
-                local matches=("$DOTFILES_DIR/$pkg/.config/$pkg".*)
-                if [[ ! -e "${matches[0]}" ]]; then
-                    warn "Package contents not found for $pkg"
-                    return 1
-                fi
-                src="${matches[0]}"
-                target="$HOME/.config/$(basename "$src")"
-            fi
-            local expected
-            expected="$(readlink -f "$src")"
+    # Item picker — show only items whose requires are met on this host.
+    local items=() labels=() item
+    while IFS= read -r item; do
+        if manifest_requires_met "$item"; then
+            items+=("$item")
+            labels+=("$(manifest_label "$item")")
+        fi
+    done < <(manifest_list_all)
 
-            if [[ -L "$target" ]] && [[ "$(readlink -f "$target")" == "$expected" ]]; then
-                info "$pkg already stowed"
-                return 0
-            fi
+    [[ ${#items[@]} -eq 0 ]] && return 0
 
-            if [[ -e "$target" && ! -L "$target" ]]; then
-                backup_item "$target"
-                rm -rf "$target"
-            fi
+    echo
+    info "Select items to install (space to toggle, enter to confirm):"
+    info "${DIM}Items marked '(+ config)' install the binary and link the dotfiles config.${RESET}"
+    echo
 
-            if [[ -L "$target" && ! -e "$target" ]]; then
-                rm "$target"
-            fi
+    local chosen
+    chosen="$(printf '%s\n' "${labels[@]}" | gum choose --no-limit --height=25)" || true
+    [[ -z "$chosen" ]] && return 0
 
-            if ! omadot put "$pkg"; then
-                error "Failed to stow $pkg"
-            else
-                success "Stowed $pkg"
-            fi
-            ;;
-    esac
-}
+    local selected=()
+    while IFS= read -r label; do
+        selected+=("${label%% —*}")
+    done <<< "$chosen"
 
-# Post-install hooks for packages that need extra setup
-run_post_install_hooks() {
-    local pkgs=("$@")
-
-    for pkg in "${pkgs[@]}"; do
-        case "$pkg" in
-            claude)
-                generate_mcp_configs
-                ;;
-            opencode)
-                install_ai_opencode
-                generate_mcp_configs
-                ;;
-            nvim)
-                install_neovim_extras
-                ;;
-            alacritty)
-                # alacritty.toml imports ~/.config/omarchy/current/theme/alacritty.toml.
-                # On non-Omarchy machines that path doesn't exist; symlink to an empty
-                # theme shim so alacritty starts cleanly without an import warning.
-                local theme_dir="$HOME/.config/omarchy/current/theme"
-                local theme_file="$theme_dir/alacritty.toml"
-                local shim="$DOTFILES_DIR/alacritty/.config/alacritty/empty-theme.toml"
-                if [[ ! -d "$theme_dir" ]] && [[ -f "$shim" ]]; then
-                    mkdir -p "$theme_dir"
-                    ln -snf "$shim" "$theme_file"
-                    info "Linked alacritty empty-theme shim (non-Omarchy fallback)"
-                fi
-                ;;
-        esac
-    done
-}
-
-# Install lazygit + delta and stow lazygit config alongside neovim
-install_neovim_extras() {
-    info "Installing neovim extras (lazygit, delta, lazygit config)..."
-
-    install_tools lazygit delta
-
-    # Stow lazygit config if not already done
-    if [[ -d "$DOTFILES_DIR/lazygit" ]]; then
+    if items_need_stow "${selected[@]}"; then
         ensure_stow
         ensure_omadot
-        install_app_config lazygit
-    else
-        warn "lazygit config not found in dotfiles — skipping"
     fi
 
-    success "Neovim extras installed"
-}
+    echo
+    for item in "${selected[@]}"; do
+        install_item "$item"
+    done
 
-# ─── Interactive pickers ─────────────────────────────────────────────────────
-
-run_pickers() {
-    ensure_gum || {
-        error "gum is required for the interactive picker"
-        echo
-        info "Install tools manually with: ${BOLD}dot install <tool>${RESET}"
-        return
-    }
-
-    # App configs
-    local app_configs=()
-    local app_labels=()
-    while IFS= read -r pkg; do
-        app_configs+=("$pkg")
-        app_labels+=("$(get_app_label "$pkg")")
-    done < <(list_app_configs)
-
-    if [[ ${#app_configs[@]} -gt 0 ]]; then
-        echo
-        info "Select app configs to install (space to toggle, enter to confirm):"
-        echo
-
-        local chosen_apps
-        chosen_apps="$(printf '%s\n' "${app_labels[@]}" | gum choose --no-limit --height=20)" || true
-
-        if [[ -n "$chosen_apps" ]]; then
-            local selected_apps=()
-            while IFS= read -r label; do
-                selected_apps+=("${label%% —*}")
-            done <<< "$chosen_apps"
-
-            local needs_stow=0
-            for pkg in "${selected_apps[@]}"; do
-                if [[ "$pkg" != "tmux" && "$pkg" != "claude" ]]; then
-                    needs_stow=1
-                    break
-                fi
-            done
-
-            if [[ "$needs_stow" -eq 1 ]]; then
-                ensure_stow
-                ensure_omadot
-            fi
-
-            echo
-            for pkg in "${selected_apps[@]}"; do
-                install_app_config "$pkg"
-            done
-
-            run_post_install_hooks "${selected_apps[@]}"
-        fi
-    fi
-
-    # Dev tools
-    local tools=()
-    local labels=()
-    while IFS= read -r tool; do
-        tools+=("$tool")
-        labels+=("$(get_tool_label "$tool")")
-    done < <(list_tools)
-
-    if [[ ${#tools[@]} -gt 0 ]]; then
-        echo
-        info "Select dev tools to install (space to toggle, enter to confirm):"
-        echo
-
-        local chosen_tools
-        chosen_tools="$(printf '%s\n' "${labels[@]}" | gum choose --no-limit --height=22)" || true
-
-        if [[ -n "$chosen_tools" ]]; then
-            local selected_tools=()
-            while IFS= read -r label; do
-                local tool_name="${label%% —*}"
-                selected_tools+=("$tool_name")
-            done <<< "$chosen_tools"
-
-            echo
-            # Don't propagate per-tool failures — install_tools already prints
-            # a summary of what failed, and we want the rest of the install
-            # (and the final success banner) to keep going.
-            install_tools "${selected_tools[@]}" || true
-        fi
-    fi
+    run_post_install "${selected[@]}"
 }
 
 # ─── Usage ────────────────────────────────────────────────────────────────────
@@ -1199,29 +998,26 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0")
 
-Dotfiles installer. Only the bare minimum runs unconditionally; everything
-else is opt-in/opt-out via interactive pickers so you can install just what
-you need on each machine.
+Dotfiles installer. Pick a profile (curated set of items) or pick items
+manually from the universal manifest.
 
 Core Config (always runs):
-  Shell config       .commonrc, .aliases, .functions + inject into .bashrc
-  Dot CLI            install dot command to ~/.local/bin
+  Shell config   .commonrc, .aliases, .functions + inject into .bashrc
+  Dot CLI        install dot command to ~/.local/bin
 
-Core Extras (picker — pre-selected by default):
+Profiles (profiles/*.yaml — only host-compatible ones are picker-visible):
 EOF
+    local p desc
+    while IFS= read -r p; do
+        desc="$(yq -r '.description // ""' "$DOTFILES_DIR/profiles/$p.yaml" 2>/dev/null)"
+        printf '  %s — %s\n' "$p" "$desc"
+    done < <(list_profiles 2>/dev/null)
+    echo
+    echo "Items (manifest.yaml — '(+ config)' = bundle, installs binary + config):"
+    local item
     while IFS= read -r item; do
-        printf '  %s\n' "$(get_core_extra_label "$item")"
-    done < <(list_core_extras)
-    echo
-    echo "App Configs (picker):"
-    while IFS= read -r pkg; do
-        printf '  %s\n' "$pkg"
-    done < <(list_app_configs)
-    echo
-    echo "Dev Tools (picker):"
-    while IFS= read -r tool; do
-        printf '  %s\n' "$(get_tool_label "$tool")"
-    done < <(list_tools)
+        printf '  %s\n' "$(manifest_label "$item")"
+    done < <(manifest_list_all 2>/dev/null)
 }
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
@@ -1236,18 +1032,27 @@ main() {
         ensure_homebrew
     fi
 
+    ensure_yq
+
     echo
     printf '%b\n' "${BOLD}Dotfiles Installer${RESET}"
 
     run_core_config
-    run_core_extras_picker
-    run_pickers
+
+    local choice
+    choice="$(select_profile)" || { warn "No selection made — exiting"; exit 1; }
+
+    if [[ "$choice" == "manual" ]]; then
+        install_manual
+    else
+        install_from_profile "$choice"
+    fi
 
     echo
     printf '%b\n' "${GREEN}${BOLD}Dotfiles setup completed.${RESET}"
 }
 
-# Run main only when executed directly, not when sourced
+# Run main only when executed directly, not when sourced.
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     main "$@"
 fi

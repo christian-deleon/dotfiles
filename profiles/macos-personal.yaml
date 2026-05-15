@@ -1,0 +1,51 @@
+# profiles/macos-personal.yaml
+# Personal macOS dev machine. Full dev stack via Homebrew. Linux-specific
+# items (hypr, mako, walker, waybar, makima, lid-check, waycal) are excluded
+# since they don't apply to Darwin. Adjust to taste.
+
+name: macos-personal
+description: Personal macOS (full dev stack via Homebrew)
+
+requires: [darwin]
+
+core_extras:
+  - git-submodules
+  - git-config
+  - ssh-config
+  - zsh-config
+
+items:
+  - 1password-cli
+  - alacritty
+  - bat
+  - btop
+  - claude
+  - cloc
+  - delta
+  - docker
+  - fd
+  - flux
+  - fzf
+  - gh
+  - granted
+  - grok
+  - gum
+  - helm
+  - jq
+  - just
+  - k9s
+  - kubectl
+  - lazygit
+  - mise
+  - neovim
+  - npm
+  - opencode
+  - poetry
+  - ripgrep
+  - skaffold
+  - starship
+  - terraform
+  - tmux
+  - uv
+  - worktrunk
+  - yq

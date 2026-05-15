@@ -31,10 +31,12 @@ EOF
     echo "Options:"
     echo "  help                  - Browse all functions and aliases interactively (fzf)"
     echo "  edit                  - Open the dotfiles directory in your editor"
-    echo "  update                - Update system packages and dotfiles (updates installed themes)"
-    echo "  install [tool ...]    - Install dev tools (directly or interactive picker)"
-    echo "  mcp-regen             - Force regenerate MCP configs for Claude / OpenCode / Grok (re-injects 1Password secrets)"
-    echo "  agent <subcommand>    - Manage per-project & per-env AGENTS.md/CLAUDE.md (link/unlink/list/status/update/env)"
+    echo "  update                - Update OS packages, pull dotfiles, reconcile active profile"
+    echo "  install               - Interactive: pick a profile or items manually"
+    echo "  install <name>...     - Install one or more items by name (binary + config for bundles)"
+    echo "  profile <subcommand>  - Manage active profile (list/show/use)"
+    echo "  mcp-regen             - Force regenerate MCP configs (re-injects 1Password secrets)"
+    echo "  agent <subcommand>    - Manage per-project & per-env AGENTS.md/CLAUDE.md"
     echo "  theme <subcommand>    - Manage Omarchy theme submodules (add/update/list)"
     echo "  brew  <subcommand>    - Homebrew helpers (install/bundle/save)"
 }
@@ -49,9 +51,7 @@ ensure_clean_dotfiles() {
     local upstream
     upstream="$(git -C "$DOTFILES_DIR" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)" || upstream=""
 
-    # Check for merge conflicts (unmerged paths) — the only state we can't recover from automatically
     if git -C "$DOTFILES_DIR" ls-files -u --error-unmatch . &>/dev/null 2>&1; then
-        # Check for unpushed commits — can't safely reset if we'd lose them
         local has_unpushed=false
         if [[ -n "$upstream" ]]; then
             local ahead
@@ -92,7 +92,7 @@ ensure_clean_dotfiles() {
 # Check if 1Password CLI can connect to desktop app
 check_1password() {
     if ! command -v op &>/dev/null; then
-        return 0  # Skip check if op CLI not installed
+        return 0
     fi
 
     local op_check
@@ -115,22 +115,74 @@ check_1password() {
     return 0
 }
 
-# Update system packages and dotfiles
+# Read the active profile name. Prefers $DOTFILES_PROFILE env override (set in
+# .localrc to force a specific profile), falling back to the .active-profile
+# file written by the installer.
+read_active_profile() {
+    if [[ -n "${DOTFILES_PROFILE:-}" ]]; then
+        echo "$DOTFILES_PROFILE"
+    elif [[ -f "$DOTFILES_DIR/.active-profile" ]]; then
+        cat "$DOTFILES_DIR/.active-profile"
+    fi
+}
+
+# Reconcile the active profile during `dot update`: install any items present
+# in the profile but missing on this host. Add-only — removed items stay.
+# Idempotent; safe when no profile is active.
+reconcile_profile() {
+    local active
+    active="$(read_active_profile)"
+    [[ -z "$active" ]] && return 0
+
+    local file="$DOTFILES_DIR/profiles/$active.yaml"
+    if [[ ! -f "$file" ]]; then
+        _warn "Active profile '$active' not found in profiles/ — skipping reconciliation"
+        return 0
+    fi
+
+    # Source install.sh so we can call install_item / items_need_stow / etc.
+    source "$DOTFILES_DIR/install.sh" 2>/dev/null
+
+    if ! profile_is_compatible "$active"; then
+        _warn "Active profile '$active' is not compatible with this host — skipping reconciliation"
+        return 0
+    fi
+
+    _info "Reconciling profile '$active' (add missing items)..."
+
+    local items=() i
+    while IFS= read -r i; do
+        [[ -n "$i" ]] && items+=("$i")
+    done < <(yq -r '.items[]?' "$file")
+
+    [[ ${#items[@]} -eq 0 ]] && { _info "Profile has no items"; return 0; }
+
+    if items_need_stow "${items[@]}"; then
+        ensure_stow
+        ensure_omadot
+    fi
+
+    for i in "${items[@]}"; do
+        install_item "$i"
+    done
+
+    run_post_install "${items[@]}"
+    _success "Profile reconciliation complete"
+}
+
+# Update OS packages, pull dotfiles, reconcile profile.
 update_system() {
     echo
     _info "Updating system packages and dotfiles..."
 
-    # Ensure dotfiles repo is clean before pulling
     if ! ensure_clean_dotfiles; then
         return 1
     fi
 
-    # Validate 1Password CLI connectivity first
     if ! check_1password; then
         return 1
     fi
 
-    # Pull latest dotfiles
     if [[ -d "$DOTFILES_DIR/.git" ]]; then
         _info "Pulling latest dotfiles..."
         if ! git -C "$DOTFILES_DIR" pull --rebase --autostash 2>&1; then
@@ -140,7 +192,7 @@ update_system() {
             return 1
         fi
 
-        # Update critical submodules — only those already initialized (no --init)
+        # Update critical submodules — only those already initialized.
         local submodules_to_update=()
         [[ -e "$DOTFILES_DIR/.ssh/.git" ]] && submodules_to_update+=(.ssh)
         [[ -e "$DOTFILES_DIR/.tmux/plugins/tpm/.git" ]] && submodules_to_update+=(.tmux/plugins/tpm)
@@ -155,7 +207,7 @@ update_system() {
             fi
         fi
 
-        # Update agent-files submodule if initialized (don't init new)
+        # Update agent-files submodule if initialized
         if [[ -e "$DOTFILES_DIR/agent-files/.git" ]]; then
             _info "Updating agent-files submodule..."
             if git -C "$DOTFILES_DIR" submodule update --remote agent-files 2>&1; then
@@ -165,7 +217,7 @@ update_system() {
             fi
         fi
 
-        # Update any initialized theme submodules (but don't init new ones)
+        # Update any initialized theme submodules
         local themes_dir="$DOTFILES_DIR/omarchy/.config/omarchy/themes"
         if [[ -d "$themes_dir" ]]; then
             local initialized_themes=()
@@ -186,7 +238,7 @@ update_system() {
             fi
         fi
 
-        # Re-install AI config for Claude Code, OpenCode, and Grok Build after dotfiles pull
+        # Refresh AI symlinks after dotfiles pull (idempotent)
         if [[ -d "$DOTFILES_DIR/ai" ]]; then
             source "$DOTFILES_DIR/install.sh"
             install_ai_claude 2>/dev/null || _warn "Failed to install Claude AI config"
@@ -201,7 +253,7 @@ update_system() {
         fi
     fi
 
-    # Update packages based on OS
+    # Update OS packages
     if [[ "$OSTYPE" == darwin* ]]; then
         _info "Updating Homebrew..."
         brew update && brew upgrade && brew cleanup && brew doctor
@@ -217,55 +269,132 @@ update_system() {
         sudo apt-get update && sudo apt-get upgrade -y && sudo apt-get autoremove -y
     fi
 
-    # Rebuild source-built tools (e.g., cargo install --git from a fork)
+    # Rebuild source-built tools
     update_source_tools || true
+
+    # Reconcile active profile (add missing items)
+    reconcile_profile || true
 
     _success "System updated"
 }
 
 
-# List of special app configs that have custom install functions (not in packages.yaml)
-# These can be installed directly with `dot install <name>` in addition to the interactive picker.
-SPECIAL_APP_CONFIGS=(claude grok opencode tmux lid-check windows-terminal)
-
-is_special_app_config() {
-    local name="$1"
-    for special in "${SPECIAL_APP_CONFIGS[@]}"; do
-        [[ "$name" == "$special" ]] && return 0
-    done
-    return 1
-}
-
-install_special_app_config() {
-    local pkg="$1"
-    if ! source "$DOTFILES_DIR/install.sh" 2>/dev/null; then
-        _error "Failed to source install.sh"
-        return 1
-    fi
-    install_app_config "$pkg"
-}
-
-# Install app configs and dev tools
-# With args: install specific tools directly (e.g., dot install fzf jq)
-# Special app configs (claude, grok, tmux, etc.) are also supported directly.
-# Without args: runs interactive pickers from install.sh
+# Install items.
+# With args: dispatch each through install.sh's install_item (manifest-driven).
+#   Bundle items install binary + config. Unknown names error out (no fallback
+#   needed — manifest_resolve_alias handles op/rg/nvim/wt via install.command).
+# Without args: runs the interactive installer (profile picker).
 run_install() {
     if [[ $# -gt 0 ]]; then
-        local first="$1"
-        if is_special_app_config "$first"; then
-            # Direct install of a special app config (e.g. dot install grok)
-            shift
-            install_special_app_config "$first"
-            return $?
+        if ! source "$DOTFILES_DIR/install.sh" 2>/dev/null; then
+            _error "Failed to source install.sh"
+            return 1
         fi
-        install_tools "$@"
-        return $?
+
+        ensure_yq || return 1
+
+        local names=("$@")
+        if items_need_stow "${names[@]}"; then
+            ensure_stow
+            ensure_omadot
+        fi
+
+        local rc=0 name
+        for name in "${names[@]}"; do
+            install_item "$name" || rc=$?
+        done
+
+        run_post_install "${names[@]}"
+        return $rc
     fi
+
     if ! ensure_clean_dotfiles; then
         return 1
     fi
     source "$DOTFILES_DIR/install.sh"
-    run_pickers
+
+    ensure_yq
+
+    local choice
+    choice="$(select_profile)" || { _warn "No selection made"; return 1; }
+
+    if [[ "$choice" == "manual" ]]; then
+        install_manual
+    else
+        install_from_profile "$choice"
+    fi
+}
+
+
+# `dot profile {list,show,use}` — manage the active profile.
+manage_profile() {
+    local subcmd="${1:-list}"
+    shift || true
+
+    if ! source "$DOTFILES_DIR/install.sh" 2>/dev/null; then
+        _error "Failed to source install.sh"
+        return 1
+    fi
+    ensure_yq || return 1
+
+    case "$subcmd" in
+        list)
+            local active
+            active="$(read_active_profile)"
+            local p desc marker
+            while IFS= read -r p; do
+                desc="$(yq -r '.description // ""' "$DOTFILES_DIR/profiles/$p.yaml")"
+                marker=""
+                profile_is_compatible "$p" && marker+=" ✓"
+                [[ "$p" == "$active" ]] && marker+=" ★"
+                printf "  %-25s — %s%s\n" "$p" "$desc" "$marker"
+            done < <(list_profiles)
+            echo
+            echo "  ✓ = compatible with this host"
+            echo "  ★ = currently active"
+            ;;
+        show)
+            local active
+            active="$(read_active_profile)"
+            if [[ -z "$active" ]]; then
+                echo "No active profile (manual mode or never installed via picker)"
+                return 0
+            fi
+            echo "Active profile: $active"
+            if profile_is_compatible "$active"; then
+                echo "Compatible:     yes"
+            else
+                echo "Compatible:     NO — requirements not met on this host"
+            fi
+            ;;
+        use)
+            local name="${1:-}"
+            if [[ -z "$name" ]]; then
+                _error "Usage: dot profile use <name>"
+                return 1
+            fi
+            if [[ ! -f "$DOTFILES_DIR/profiles/$name.yaml" ]]; then
+                _error "Profile not found: $name"
+                _info "Run ${_BOLD}dot profile list${_RESET} to see available profiles"
+                return 1
+            fi
+            if ! profile_is_compatible "$name"; then
+                _error "Profile '$name' requirements not met on this host"
+                return 1
+            fi
+            install_from_profile "$name"
+            ;;
+        *)
+            cat <<EOF
+Usage: dot profile <subcommand>
+
+Subcommands:
+  list                Show all profiles with compatibility / active markers
+  show                Print the currently active profile
+  use <name>          Switch active profile to <name> and run reconciliation
+EOF
+            ;;
+    esac
 }
 
 
@@ -283,6 +412,10 @@ case "$1" in
     install)
         shift
         run_install "$@"
+        ;;
+    profile)
+        shift
+        manage_profile "$@"
         ;;
     mcp-regen)
         source "$DOTFILES_DIR/install.sh"

@@ -1,0 +1,33 @@
+# profiles/wsl-work.yaml
+# Work WSL2 Ubuntu — restricted toolset. Conservative defaults assuming corp
+# policy restricts Docker / cloud SDKs. Drafted as a guess: review and adjust
+# for your actual work-machine policy before committing.
+
+name: wsl-work
+description: Work WSL2 Ubuntu (restricted CLI dev toolset)
+
+requires: [wsl]
+
+core_extras:
+  - git-config
+
+# Bare-bones CLI essentials. No Docker, no kubernetes, no Terraform/IaC,
+# no granted/AWS SSO — add back any of these as your work environment allows.
+items:
+  - bat
+  - delta
+  - fd
+  - fzf
+  - gh
+  - jq
+  - just
+  - lazygit
+  - mise
+  - neovim
+  - opencode
+  - ripgrep
+  - starship
+  - tmux
+  - windows-terminal
+  - worktrunk
+  - yq

@@ -18,11 +18,12 @@ After install (1Password + SSH agent now configured), switch the remote to SSH:
 git -C ~/.dotfiles remote set-url origin git@github.com:christian-deleon/dotfiles.git
 ```
 
-Only the bare minimum runs unconditionally — shell config and the `dot` CLI. Everything else is opt-in/opt-out via interactive pickers, so you can install just what you need on each machine (e.g. skip SSH config and 1Password-dependent MCP servers on a locked-down work box):
+Only the bare minimum runs unconditionally — shell config and the `dot` CLI. Then you pick:
 
-1. **Core extras** — `git-submodules`, `git-config`, `ssh-config`, `zsh-config` (macOS), `omarchy-themes` (Omarchy), `default-terminal` (Omarchy — sets Alacritty as the default terminal). All pre-selected by default; deselect what you don't want.
-2. **App configs** — stow packages + tmux + claude.
-3. **Dev tools** — anything in `packages.yaml`. Failed individual tool installs are reported but don't abort the rest.
+- **A profile** — a curated, hand-authored set of tools + configs for a specific machine context (`omarchy-personal`, `wsl-personal`, `wsl-work`, `macos-personal`, …). Only profiles whose `requires:` predicates pass on the host appear in the picker.
+- **Manual selection** — ad-hoc picker of core extras + individual items from `manifest.yaml`. Use this on a brand-new machine type, then author a profile when you're ready to reproduce it elsewhere.
+
+The picker auto-suggests the first compatible profile based on host detection (Hyprland present → omarchy, Darwin → macos, microsoft in `/proc/version` → wsl). On `dot update`, the active profile is reconciled — missing items get installed, nothing is removed.
 
 If `op` (1Password CLI) is missing, MCP servers that need secrets are skipped automatically; the keyless ones still install.
 
@@ -30,9 +31,12 @@ If `op` (1Password CLI) is missing, MCP servers that need secrets are skipped au
 
 ```bash
 dot edit                       # Open dotfiles in $EDITOR
-dot update                     # Update system packages, dotfiles, submodules, and AI config
-dot install                    # Interactive picker for app configs and dev tools
-dot install <tool>...          # Install specific tool(s) from packages.yaml directly
+dot update                     # Update OS packages, pull dotfiles, reconcile active profile
+dot install                    # Interactive: pick a profile or items manually
+dot install <name>...          # Install one or more items directly (binary + config for bundles)
+dot profile list               # Show profiles with compatibility / active markers
+dot profile show               # Print the currently active profile
+dot profile use <name>         # Switch active profile and run reconciliation
 dot mcp-regen                  # Regenerate MCP config for Claude, OpenCode, and Grok from ai/mcp-servers.json.tpl
 dot agent link [name]          # Symlink per-project AGENTS.md/CLAUDE.md (private overlay submodule)
 dot agent unlink               # Remove the per-project symlinks
@@ -111,12 +115,14 @@ Select `claude`, `opencode`, or `grok` from `dot install`:
 
 `dot update` refreshes AI config for all three platforms automatically. See [docs/ai.md](docs/ai.md) for details on adding agents, commands, skills, and rules.
 
-## Dev Tools
+## Manifest and Profiles
 
-Tools are defined in `packages.yaml` with per-OS package names. The system auto-detects your package manager (pacman/yay, apt, brew) and falls back to install scripts in `scripts/` when needed.
+Every item the repo knows about — tools, configs, bundles, handlers — is declared in `manifest.yaml`. Profiles in `profiles/*.yaml` curate which items run on which machine context. See [docs/manifest.md](docs/manifest.md) and [docs/profiles.md](docs/profiles.md).
 
 ## Docs
 
+- [Manifest schema](docs/manifest.md) — the universal inventory of items
+- [Profiles](docs/profiles.md) — curated per-machine install sets
 - [Functions reference](docs/functions.md)
 - [Aliases reference](docs/aliases.md)
 

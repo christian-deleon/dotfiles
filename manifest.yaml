@@ -1,0 +1,325 @@
+# manifest.yaml — universal inventory of every installable item.
+# Schema reference: docs/manifest.md
+#
+# Each top-level key is an item name. The installer reads this file to:
+#   1. Discover what items exist (`dot install <name>`, picker, profiles)
+#   2. Decide how to install (binary install, stow config, handler function)
+#   3. Decide whether it's eligible on the current host (`requires:` predicates)
+#
+# Items that lack an `install:` block are config-only. Items that lack a
+# `config:` block are tool-only. Items with both are bundles — picking them
+# installs the binary AND links the config.
+
+1password-cli:
+  description: 1Password CLI (op)
+  install:
+    arch: 1password-cli
+    brew: --cask 1password-cli
+    script: install-1password-cli.sh
+    command: op
+
+alacritty:
+  description: GPU-accelerated cross-platform terminal
+  install:
+    arch: alacritty
+    apt: alacritty
+    brew: --cask alacritty
+  config:
+    type: stow
+  post_install: [alacritty_theme_shim]
+
+bat:
+  description: Cat with syntax highlighting
+  install:
+    arch: bat
+    apt: bat
+    brew: bat
+
+btop:
+  description: System resource monitor
+  config:
+    type: stow
+
+claude:
+  description: Claude Code AI config (agents, skills, commands, rules)
+  config:
+    type: handler
+    handler: install_ai_claude
+  post_install: [generate_mcp_configs]
+
+cloc:
+  description: Count lines of code
+  install:
+    arch: cloc
+    brew: cloc
+    script: install-cloc.sh
+
+delta:
+  description: Syntax-highlighting pager for git diffs
+  install:
+    arch: git-delta
+    brew: git-delta
+    script: install-delta.sh
+
+docker:
+  description: Container platform
+  install:
+    arch: docker
+    apt: docker.io
+    brew: --cask docker
+
+fastfetch:
+  description: System info display
+  config:
+    type: stow
+
+fd:
+  description: Fast find alternative
+  install:
+    arch: fd
+    apt: fd-find
+    brew: fd
+
+flux:
+  description: GitOps toolkit
+  install:
+    arch: fluxcd
+    brew: fluxcd/tap/flux
+    script: install-flux.sh
+
+fzf:
+  description: Fuzzy finder
+  install:
+    arch: fzf
+    apt: fzf
+    brew: fzf
+
+gh:
+  description: GitHub CLI
+  install:
+    arch: github-cli
+    brew: gh
+    script: install-gh.sh
+
+granted:
+  description: AWS SSO profile switcher with shell env export
+  install:
+    script: install-granted.sh
+
+grok:
+  description: Grok Build TUI native config (skills, config.toml, pager.toml)
+  config:
+    type: handler
+    handler: install_ai_grok
+
+gum:
+  description: TUI components for scripts
+  install:
+    arch: gum
+    brew: gum
+    script: install-gum.sh
+
+helm:
+  description: Kubernetes package manager
+  install:
+    arch: helm
+    brew: helm
+    script: install-helm.sh
+
+hypr:
+  description: Hyprland window manager config
+  config:
+    type: stow
+  requires: [hyprland]
+
+jq:
+  description: JSON processor
+  install:
+    arch: jq
+    apt: jq
+    brew: jq
+
+just:
+  description: Task runner
+  install:
+    arch: just
+    brew: just
+    script: install-just.sh
+
+k9s:
+  description: Kubernetes cluster manager TUI
+  install:
+    arch: k9s
+    brew: derailed/k9s/k9s
+    script: install-k9s.sh
+  config:
+    type: stow
+
+kubectl:
+  description: Kubernetes CLI
+  install:
+    arch: kubectl
+    brew: kubectl
+    script: install-kubectl.sh
+
+lazygit:
+  description: Terminal UI for git
+  install:
+    arch: lazygit
+    brew: lazygit
+    script: install-lazygit.sh
+  config:
+    type: stow
+
+lid-check:
+  description: Skip fingerprint auth when lid is closed
+  config:
+    type: handler
+    handler: install_lid_check
+  requires: [linux, fprintd]
+
+makima:
+  description: Key remapping daemon config
+  config:
+    type: stow
+  requires: [linux]
+
+mako:
+  description: Wayland notification daemon
+  config:
+    type: stow
+  requires: [hyprland]
+
+mise:
+  description: Dev tool version manager
+  install:
+    arch: mise
+    brew: mise
+    script: install-mise.sh
+
+neovim:
+  description: Hyperextensible text editor
+  install:
+    arch: neovim
+    brew: neovim
+    script: install-neovim.sh
+    command: nvim
+  config:
+    type: stow
+    package: nvim
+  post_install: [install_neovim_extras]
+
+npm:
+  description: Node.js package manager
+  install:
+    arch: npm
+    apt: npm
+    brew: node
+
+omarchy:
+  description: Omarchy desktop environment config
+  config:
+    type: stow
+  requires: [omarchy]
+
+opencode:
+  description: OpenCode AI coding assistant config
+  config:
+    type: stow
+  post_install: [install_ai_opencode, generate_mcp_configs]
+
+poetry:
+  description: Python dependency management
+  install:
+    arch: python-poetry
+    brew: poetry
+    script: install-poetry.sh
+
+ripgrep:
+  description: Fast grep alternative
+  install:
+    arch: ripgrep
+    apt: ripgrep
+    brew: ripgrep
+    command: rg
+
+skaffold:
+  description: Kubernetes dev workflow
+  install:
+    arch: skaffold
+    brew: skaffold
+    script: install-skaffold.sh
+
+starship:
+  description: Cross-shell prompt
+  install:
+    arch: starship
+    brew: starship
+    script: install-starship.sh
+  config:
+    type: stow
+
+terraform:
+  description: Infrastructure as code
+  install:
+    arch: terraform
+    brew: terraform
+    script: install-terraform.sh
+
+tmux:
+  description: Terminal multiplexer
+  install:
+    arch: tmux
+    apt: tmux
+    brew: tmux
+  config:
+    type: handler
+    handler: install_tmux_config
+
+uv:
+  description: Fast Python package installer (provides uv + uvx)
+  install:
+    arch: uv
+    brew: uv
+    script: install-uv.sh
+
+walker:
+  description: Application launcher config
+  config:
+    type: stow
+  requires: [hyprland]
+
+waybar:
+  description: Wayland status bar config
+  config:
+    type: stow
+  requires: [hyprland]
+
+waycal:
+  description: Tiny calendar popup for waybar (Christian's fork — system colors)
+  install:
+    script: install-waycal.sh
+    update: true
+  requires: [omarchy]
+
+windows-terminal:
+  description: Windows Terminal theme + font config (WSL only)
+  config:
+    type: handler
+    handler: install_windows_terminal_config
+  requires: [wsl]
+
+worktrunk:
+  description: Git worktree manager for parallel AI agent workflows
+  install:
+    script: install-worktrunk.sh
+    command: wt
+  config:
+    type: stow
+
+yq:
+  description: YAML processor
+  install:
+    arch: yq
+    brew: yq
+    script: install-yq.sh

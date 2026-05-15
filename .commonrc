@@ -23,6 +23,12 @@ fi
 [[ -f "$HOME/.env" ]]     && source "$HOME/.env"
 [[ -f "$HOME/.localrc" ]] && source "$HOME/.localrc"
 
+# Export the active dotfiles profile for scripts that branch on it (e.g.
+# `dot update` reconciliation). .localrc can override by setting it first.
+if [[ -z "$DOTFILES_PROFILE" && -f "$HOME/.dotfiles/.active-profile" ]]; then
+    export DOTFILES_PROFILE="$(cat "$HOME/.dotfiles/.active-profile")"
+fi
+
 # ─── Aliases & Functions ──────────────────────────────────────────────────────
 
 [[ -f "$HOME/.aliases" ]]   && source "$HOME/.aliases"
