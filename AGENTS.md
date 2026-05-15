@@ -98,13 +98,25 @@ Out-of-band entry point that runs on Windows itself, before WSL exists. **Not pa
 1. Verifies winget is available.
 2. `winget install Alacritty.Alacritty`.
 3. `winget install DEVCOM.JetBrainsMonoNerdFont`.
-4. `wsl --install --distribution Ubuntu-26.04 --no-launch`.
+4. **WSL setup (two-phase with readiness probe):**
+   - Probes WSL with `wsl --status` (returns 0 only if the WSL service can actually start, which requires both the WSL feature *and* VM Platform to be active).
+   - If WSL is ready, skip to step 5.
+   - Otherwise run `wsl --install --no-distribution` to enable features, then re-probe. If it's *still* not ready, features were just enabled and a reboot is required — script stops here with a clear reboot message, *without* attempting the distro install (avoids the wasted Ubuntu rootfs download + failed VM creation that happens if you try to install the distro before VM Platform is active).
+5. `wsl --install --distribution Ubuntu-26.04 --no-launch`.
 
 After the script, the user finishes first-time Ubuntu user setup manually, then clones the repo inside Ubuntu and runs `./install.sh` — the normal Linux flow.
 
 **No admin gate.** The script doesn't enforce elevation. Individual steps that need elevation (typically `wsl --install` on a system where WSL features have never been enabled) will trigger their own UAC prompts. winget at user scope and font install don't need admin.
 
-**Idempotent — safe to run twice.** On a brand-new Windows machine, the first `wsl --install` enables features but the distro install may not complete until after a reboot. The script detects a non-zero `wsl --install` exit, prints a clear "reboot and re-run" message at the end, and continues exiting cleanly. winget steps no-op when already installed; the second run after reboot picks up only the distro install.
+**Idempotent — safe to run twice.** Three terminal states the script can reach:
+
+- **Reboot required** (features were just enabled, VM Platform pending) — prints reboot message and the `irm | iex` one-liner to re-run. The distro install was *not* attempted, so re-running after reboot does it cleanly.
+- **Distro install failed** (most commonly BIOS virtualization off, or rarer post-reboot edge cases) — prints likely causes and tells you to fix and re-run.
+- **Success** — prints next steps for inside Ubuntu.
+
+winget steps no-op when already installed; the WSL probe correctly skips redundant feature-enable calls on a working machine, so re-running is fast on a healthy box.
+
+**Uses `return`, not `exit`, for early-exit paths.** The script is intended to be run via `irm | iex`, which evaluates it in the current PowerShell session. `exit` would close the user's PowerShell window; `return` exits only the iex'd code.
 
 **Invocation.** Primary path is the GitHub raw `irm | iex` one-liner (see README); the script runs fine without a local checkout because it references no template files. A local checkout still works — `bootstrap.ps1` is self-contained.
 
