@@ -107,7 +107,9 @@ granted:
     script: install-granted.sh
 
 grok:
-  description: Grok Build TUI native config (skills, config.toml, pager.toml)
+  description: Grok Build TUI (xAI's CLI agent) + skills, config.toml, pager.toml
+  install:
+    script: install-grok.sh
   config:
     type: handler
     handler: install_ai_grok
