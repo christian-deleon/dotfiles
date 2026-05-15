@@ -323,6 +323,26 @@ install_themes() {
     fi
 }
 
+install_default_terminal() {
+    if ! command -v omarchy &>/dev/null; then
+        warn "omarchy command not found — skipping default terminal setup"
+        return 0
+    fi
+
+    local current=""
+    current="$(omarchy default terminal 2>/dev/null || true)"
+    if [[ "$current" == "alacritty" ]]; then
+        info "Default terminal already set to alacritty"
+        return 0
+    fi
+
+    if omarchy default terminal alacritty; then
+        success "Set default terminal to alacritty"
+    else
+        warn "Failed to set default terminal to alacritty"
+    fi
+}
+
 install_ssh_config() {
     if [[ ! -d "$HOME/.ssh" ]]; then
         mkdir -p "$HOME/.ssh"
@@ -459,28 +479,31 @@ list_core_extras() {
     fi
     if [[ -d "$HOME/.local/share/omarchy" ]]; then
         echo "omarchy-themes"
+        echo "default-terminal"
     fi
 }
 
 get_core_extra_label() {
     case "$1" in
-        git-submodules) echo "git-submodules — Initialize .ssh and tpm submodules" ;;
-        git-config)     echo "git-config — Symlink .gitconfig and set name/email/signing" ;;
-        ssh-config)     echo "ssh-config — Generate ~/.ssh/config (1Password SSH agent)" ;;
-        zsh-config)     echo "zsh-config — Oh My Zsh + Powerlevel10k + plugins + .zshrc" ;;
-        omarchy-themes) echo "omarchy-themes — Choose Omarchy theme submodules to install" ;;
-        *)              echo "$1" ;;
+        git-submodules)    echo "git-submodules — Initialize .ssh and tpm submodules" ;;
+        git-config)        echo "git-config — Symlink .gitconfig and set name/email/signing" ;;
+        ssh-config)        echo "ssh-config — Generate ~/.ssh/config (1Password SSH agent)" ;;
+        zsh-config)        echo "zsh-config — Oh My Zsh + Powerlevel10k + plugins + .zshrc" ;;
+        omarchy-themes)    echo "omarchy-themes — Choose Omarchy theme submodules to install" ;;
+        default-terminal)  echo "default-terminal — Set Alacritty as the Omarchy default terminal" ;;
+        *)                 echo "$1" ;;
     esac
 }
 
 install_core_extra() {
     case "$1" in
-        git-submodules) install_git_submodules ;;
-        git-config)     install_git_config ;;
-        ssh-config)     install_ssh_config ;;
-        zsh-config)     install_zsh_config ;;
-        omarchy-themes) install_themes ;;
-        *)              warn "Unknown core extra: $1" ;;
+        git-submodules)    install_git_submodules ;;
+        git-config)        install_git_config ;;
+        ssh-config)        install_ssh_config ;;
+        zsh-config)        install_zsh_config ;;
+        omarchy-themes)    install_themes ;;
+        default-terminal)  install_default_terminal ;;
+        *)                 warn "Unknown core extra: $1" ;;
     esac
 }
 

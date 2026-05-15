@@ -12,7 +12,7 @@ cd ~/.dotfiles
 
 Only the bare minimum runs unconditionally — shell config and the `dot` CLI. Everything else is opt-in/opt-out via interactive pickers, so you can install just what you need on each machine (e.g. skip SSH config and 1Password-dependent MCP servers on a locked-down work box):
 
-1. **Core extras** — `git-submodules`, `git-config`, `ssh-config`, `zsh-config` (macOS), `omarchy-themes` (Omarchy). All pre-selected by default; deselect what you don't want.
+1. **Core extras** — `git-submodules`, `git-config`, `ssh-config`, `zsh-config` (macOS), `omarchy-themes` (Omarchy), `default-terminal` (Omarchy — sets Alacritty as the default terminal). All pre-selected by default; deselect what you don't want.
 2. **App configs** — stow packages + tmux + claude.
 3. **Dev tools** — anything in `packages.yaml`. Failed individual tool installs are reported but don't abort the rest.
 
