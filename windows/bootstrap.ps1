@@ -58,13 +58,26 @@ function Invoke-Winget {
 }
 
 function Test-WslReady {
-    # Probe WSL readiness. `wsl --status` returns 0 only when the WSL service
-    # can actually start, which requires both the WSL feature and VM Platform to
-    # be active. On a system where features were just enabled but Windows hasn't
-    # rebooted yet, the service can't start and this returns non-zero.
+    # Probe WSL readiness for the script's actual need: installing a WSL2
+    # distro (Ubuntu-26.04). `wsl.exe --status` returns exit 0 in many states,
+    # including:
+    #   - Features fully disabled (prints both WSL1 + WSL2 errors).
+    #   - Virtual Machine Platform active but the "Windows Subsystem for
+    #     Linux" component not enabled (prints only a WSL1 warning; WSL2 is
+    #     fully functional).
+    # We only care about WSL2 blockers, so match the WSL2-specific strings
+    # ("WSL2 is unable to start", any mention of "Virtual Machine Platform" —
+    # both indicate VMP isn't active). WSL1-only warnings about the "Windows
+    # Subsystem for Linux" component are ignored, since this script never uses
+    # WSL1. WSL_UTF8 makes wsl.exe emit UTF-8 so the regex doesn't fight UTF-16.
     try {
-        $null = & wsl.exe --status 2>&1
-        return $LASTEXITCODE -eq 0
+        $env:WSL_UTF8 = '1'
+        $output = & wsl.exe --status 2>&1 | Out-String
+        if ($LASTEXITCODE -ne 0) { return $false }
+        if ($output -match 'WSL2 is unable to start|Virtual Machine Platform') {
+            return $false
+        }
+        return $true
     } catch {
         return $false
     }
@@ -130,7 +143,17 @@ if (-not $rebootRequired) {
         $distroInstalled = $true
     } else {
         & wsl --install --distribution Ubuntu-26.04 --no-launch
-        $distroInstalled = ($LASTEXITCODE -eq 0)
+        if ($LASTEXITCODE -eq 0 -and (Test-WslDistroInstalled -Name 'Ubuntu-26.04')) {
+            $distroInstalled = $true
+        } elseif ($LASTEXITCODE -eq 0) {
+            # `wsl --install --distribution` can return exit 0 while only
+            # enabling features (printing "Changes will not be effective until
+            # the system is rebooted") — same false-success class as the
+            # readiness probe. Verify the distro is actually registered; if
+            # not, treat the run as reboot-required so the final block prints
+            # the reboot message instead of the success banner.
+            $rebootRequired = $true
+        }
     }
 }
 
