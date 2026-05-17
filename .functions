@@ -448,6 +448,36 @@ function fpush() {
 
 
 #################
+# AWS
+#################
+
+# Start an SSM session to an EC2 instance by ID
+function ssm() {
+    local profile="${AWS_PROFILE:-}"
+    local region="${AWS_REGION:-}"
+    local OPTIND opt
+    while getopts ":p:r:" opt; do
+        case "$opt" in
+            p) profile="$OPTARG" ;;
+            r) region="$OPTARG" ;;
+            \?) echo "ssm: unknown option -$OPTARG" >&2; return 1 ;;
+            :)  echo "ssm: -$OPTARG requires an argument" >&2; return 1 ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    if [[ -z "$1" ]]; then
+        echo "Usage: ssm [-p profile] [-r region] <instance-id>" >&2
+        return 1
+    fi
+
+    aws ${profile:+--profile "$profile"} \
+        ${region:+--region "$region"} \
+        ssm start-session --target "$1"
+}
+
+
+#################
 # Git
 #################
 
