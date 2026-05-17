@@ -180,6 +180,21 @@ fpush -u origin feat   # arguments forward to git push
 
 ---
 
+## AWS
+
+### `ssm [-p profile] [-r region] <instance-id>`
+
+Open an SSM Session Manager shell on an EC2 instance by ID. Uses IAM auth (no SSH key, no public IP, no open port 22 required). `-p` overrides `AWS_PROFILE`; `-r` overrides `AWS_REGION`. The instance needs the SSM agent running and an IAM role with `AmazonSSMManagedInstanceCore`. Requires the `aws` CLI plus the Session Manager plugin.
+
+```bash
+ssm i-0abc123def456789a                              # default profile/region
+ssm -p myprofile i-0abc123def456789a                 # explicit profile
+ssm -p myprofile -r us-west-2 i-0abc123def456789a    # profile + region
+AWS_PROFILE=myprofile ssm i-0abc123def456789a        # env var instead of flag
+```
+
+---
+
 ## Git
 
 ### `gc <repo-url>`
