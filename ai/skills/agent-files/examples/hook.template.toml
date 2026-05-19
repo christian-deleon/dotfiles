@@ -1,0 +1,31 @@
+# Grok Build hook example. Place inline in ~/.grok/config.toml,
+# OR as a standalone hooks.json under ~/.grok/, OR as event-prefixed
+# scripts in ~/.grok/hooks/ (auto-registered by filename).
+#
+# Filename auto-registration: scripts in ~/.grok/hooks/ named
+#   pre_tool_use_*.sh    -> PreToolUse
+#   post_tool_use_*.sh   -> PostToolUse
+#   session_start_*.sh   -> SessionStart
+# (etc.) are picked up automatically — no TOML needed.
+
+[[hooks.PreToolUse]]
+matcher = "^Bash$"
+
+[[hooks.PreToolUse.hooks]]
+type          = "command"
+command       = "/home/cdeleon/.dotfiles/ai/hooks/pre_tool_use_bash_safety.sh"
+timeout       = 5
+statusMessage = "Checking Bash command for safety"
+
+[[hooks.PostToolUse]]
+matcher = "Edit|Write"
+
+[[hooks.PostToolUse.hooks]]
+type    = "command"
+command = "/home/cdeleon/.dotfiles/ai/hooks/post_tool_use_format.sh"
+
+[[hooks.SessionStart]]
+
+[[hooks.SessionStart.hooks]]
+type    = "command"
+command = "/home/cdeleon/.dotfiles/ai/hooks/session_start_inject_context.sh"

@@ -1,0 +1,36 @@
+{
+  "_comment": "Append entries like these to ~/.dotfiles/ai/mcp-servers.json.tpl. Use Claude shape — installer converts to OpenCode shape automatically. Secrets via op:// references (1Password CLI).",
+
+  "stdio-with-secret": {
+    "command": "npx",
+    "args": ["-y", "@example/some-mcp-server"],
+    "env": {
+      "API_KEY": "op://vault-id/item-id/credential"
+    },
+    "description": "Example stdio server with 1Password-managed secret"
+  },
+
+  "stdio-with-args-secret": {
+    "command": "npx",
+    "args": ["-y", "@example/mcp-server", "--api-key", "op://vault-id/item-id/credential"],
+    "description": "Example where the secret is an arg, not env"
+  },
+
+  "remote-http": {
+    "type": "http",
+    "url": "https://mcp.example.com",
+    "headers": {
+      "Authorization": "Bearer op://vault-id/item-id/token"
+    },
+    "description": "Remote HTTP transport"
+  },
+
+  "uvx-pinned-to-mise": {
+    "command": "/home/cdeleon/.local/share/mise/shims/uvx",
+    "args": ["some-mcp-package@latest"],
+    "env": {
+      "READ_OPERATIONS_ONLY": "true"
+    },
+    "description": "Python-based server pinned to a specific uv via mise"
+  }
+}

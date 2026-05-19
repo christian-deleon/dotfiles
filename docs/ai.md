@@ -59,6 +59,17 @@ MCP servers are shared between all three platforms via `ai/mcp-servers.json.tpl`
 
 ## Adding Content
 
+> **Use the `agent-files` skill.** This document is the human-readable overview; the
+> canonical authoring guide is the skill at `ai/skills/agent-files/` — `SKILL.md` plus
+> topic files (`skills.md`, `agents.md`, `commands.md`, `hooks.md`, `rules.md`,
+> `mcp.md`, `workflow.md`) and templates in `examples/`. From any directory on the
+> machine, an agent can invoke `/agent-files` (or be prompted with "add a skill",
+> "new subagent", "add an MCP server", etc.) and it will load the right reference
+> file and produce a portable artifact. **Source of truth is always `~/.dotfiles/ai/`;
+> never edit the symlinked targets.**
+
+The summaries below remain as a quick reference for humans.
+
 ### Add an Agent
 
 Create `ai/agents/<name>.md` with YAML frontmatter:
