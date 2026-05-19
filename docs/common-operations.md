@@ -12,13 +12,14 @@ Step-by-step walkthroughs for the most common modifications to this repo. Load t
 
 ## Adding new functions
 
-1. Add to `.functions` with comment above
-2. Group by category (General, Kubernetes, Git, etc.)
-3. Consider fzf integration for interactive selection
-4. Run `bash scripts/check-descriptions.sh` — description must be single-line, ≤60 chars
-5. Update `docs/functions.md` with examples
-6. `dot` CLI auto-parses documented functions
-7. Update `README.md` for major utilities
+Functions live in topic fragments under `functions.d/`. The `.functions` file is just a loader that sources every `*.sh` in that directory.
+
+1. Pick the right fragment (`functions.d/kubernetes.sh`, `git.sh`, `aws.sh`, etc.) and add the function with a one-line `#` description above it. If the topic doesn't fit any existing fragment, create a new `functions.d/<topic>.sh` starting with `# Category: <Name>` — no other wiring is needed.
+2. Consider fzf integration for interactive selection.
+3. Run `bash scripts/check-descriptions.sh` — description must be single-line, ≤60 chars.
+4. Update `docs/functions.md` with examples.
+5. `dot` CLI auto-parses every fragment in `functions.d/`.
+6. Update `README.md` for major utilities.
 
 ## Adding a new manifest item
 

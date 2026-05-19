@@ -10,7 +10,7 @@ The system (Omarchy, Ubuntu, macOS) owns `~/.bashrc`. Dotfiles provide customiza
 SYSTEM-OWNED (never symlinked)          DOTFILES (symlinked from ~/.dotfiles/)
 ─────────────────────────────           ──────────────────────────────────────
 ~/.bashrc (Omarchy / Ubuntu / etc.)     ~/.commonrc ─┬─ ~/.aliases
-  └── source ~/.commonrc                             ├── ~/.functions
+  └── source ~/.commonrc                             ├── ~/.functions ── sources ~/.dotfiles/functions.d/*.sh
                                                      └── ~/.localrc (not tracked)
 ~/.zshrc (macOS, symlinked)
   └── source ~/.commonrc
@@ -37,7 +37,7 @@ SYSTEM-OWNED (never symlinked)          DOTFILES (symlinked from ~/.dotfiles/)
 
 The installer is always interactive. Core config (shell + dot CLI) runs unconditionally; then the user picks a **profile** or **Manual selection**:
 
-1. **Core config** (always): `.commonrc`, `.aliases`, `.functions` + inject into `.bashrc`, plus `dot` CLI linked to `~/.local/bin`.
+1. **Core config** (always): `.commonrc`, `.aliases`, `.functions` + inject into `.bashrc`, plus `dot` CLI linked to `~/.local/bin`. (`.functions` is a loader that sources `~/.dotfiles/functions.d/*.sh` directly — no separate symlink for the fragments dir.)
 2. **Profile picker**: one menu showing every profile in `profiles/*.yaml` whose `requires:` predicates pass on the host, with "Manual selection" appended. Picking a profile runs its `core_extras:` and installs its `items:` end-to-end, then writes `~/.dotfiles/.active-profile`. Manual mode shows the core-extras picker and the full item picker, but writes no profile state.
 
 Schema references: [manifest.md](manifest.md) for item entries, [profiles.md](profiles.md) for profile YAMLs. Predicates live in `scripts/predicates.sh` (`linux`, `darwin`, `wsl`, `omarchy`, `hyprland`, `fprintd`).

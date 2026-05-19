@@ -1,6 +1,6 @@
 # Shell Style
 
-Conventions for shell scripts in this repo. Load when you're writing or editing `.sh` / `.functions` / `.aliases` / `.commonrc`.
+Conventions for shell scripts in this repo. Load when you're writing or editing `.sh` / `functions.d/*.sh` / `.aliases` / `.commonrc`.
 
 ## Output
 
@@ -68,6 +68,7 @@ fi
 
 **Files:**
 - Dotfiles: `.filename` (`.commonrc`, `.aliases`, `.functions`)
+- Function fragments: `functions.d/<topic>.sh` (`kubernetes.sh`, `git.sh`, …) — one category per file, sourced by `.functions`
 - Scripts: `lowercase-with-hyphens.sh` (`install.sh`)
 - Install scripts: `scripts/tools/install-<tool>.sh` (referenced as `install-<tool>.sh` in manifest)
 - Brewfiles: `Brewfile-profile` (`Brewfile-home`)
