@@ -1,678 +1,114 @@
 # Agent Guidelines for Dotfiles Repository
 
-Guidelines for AI coding agents working in this personal dotfiles repository. This repository manages shell configurations, development tool setups, Omarchy desktop configs, and system bootstrapping scripts for macOS, Linux (including Omarchy/Arch Linux), and Windows (PowerShell WSL bootstrap).
+Guidelines for AI coding agents working in this personal dotfiles repo. Manages shell configs, dev tool setups, Omarchy desktop configs, and system bootstrapping for macOS, Linux (incl. Omarchy/Arch), and Windows (PowerShell WSL bootstrap).
 
 ## Repository Overview
 
-**Location:** `~/.dotfiles/`
-
-**Primary Languages:** Shell (Bash), YAML (manifest.yaml, profiles/*.yaml), Configuration files
-
-**Key Components:**
-
-- Shell configs: `.commonrc` (cross-platform), `.zshrc` (macOS with Oh My Zsh + Powerlevel10k), `.bashrc` (reference only)
-- Dev tool configs: git, tmux
-- Omarchy desktop configs: hypr, waybar, alacritty, mako, walker, btop, fastfetch, lazygit, omarchy, opencode, starship (managed via GNU Stow + omadot)
-- AI config: `ai/` directory with agents, commands, skills, and rules for Claude Code and OpenCode
-- MCP servers: `ai/mcp-servers.json.tpl` — shared config for Claude Code and OpenCode (with `op://` secret refs)
-- Package + config management: `manifest.yaml` (universal inventory) + `profiles/*.yaml` (per-machine curations) + `scripts/lib.sh` (yq accessors) + `scripts/handlers/*.sh` (custom installers) — see [docs/manifest.md](docs/manifest.md) and [docs/profiles.md](docs/profiles.md). Homebrew Brewfile profiles on macOS.
-- Windows bootstrap: `windows/bootstrap.ps1` — fresh-Windows entry point (Alacritty + JetBrainsMono Nerd Font + WSL Ubuntu-26.04)
-- Custom aliases, functions (many with fzf integration), shell utilities
-- Documentation: `docs/functions.md`, `docs/aliases.md`
-
-## Architecture
-
-**"Source into, never replace."** The system (Omarchy, Ubuntu, macOS) owns `~/.bashrc`. Dotfiles provide customizations via `~/.commonrc` which is sourced into the system's shell config.
-
-```
-SYSTEM-OWNED (never symlinked)          DOTFILES (symlinked from ~/.dotfiles/)
-─────────────────────────────           ──────────────────────────────────────
-~/.bashrc (Omarchy / Ubuntu / etc.)     ~/.commonrc ─┬─ ~/.aliases
-  └── source ~/.commonrc                             ├── ~/.functions
-                                                     └── ~/.localrc (not tracked)
-~/.zshrc (macOS, symlinked)
-  └── source ~/.commonrc
-```
-
-**Key principle:** `.bashrc` is never symlinked. `install.sh` injects `source ~/.commonrc` into the system's existing `~/.bashrc`. Machine-specific config (`EDITOR`, secrets, env vars) goes in `~/.localrc` (not tracked).
-
-### Installer Flow
-
-The installer is always interactive. Core config (shell + dot CLI) runs unconditionally; then the user picks a **profile** or **Manual selection**:
-
-1. **Core config** (always): `.commonrc`, `.aliases`, `.functions` + inject into `.bashrc`, plus `dot` CLI linked to `~/.local/bin`.
-2. **Profile picker**: one menu showing every profile in `profiles/*.yaml` whose `requires:` predicates pass on the host, with "Manual selection" appended. Picking a profile runs its `core_extras:` and installs its `items:` end-to-end, then writes `~/.dotfiles/.active-profile`. Manual mode shows the core-extras picker and the full item picker, but writes no profile state.
-
-Schema references: [docs/manifest.md](docs/manifest.md) for item entries, [docs/profiles.md](docs/profiles.md) for profile YAMLs. Predicates live in `scripts/predicates.sh` (`linux`, `darwin`, `wsl`, `omarchy`, `hyprland`, `fprintd`).
-
-**Item kinds** (from manifest blocks):
-- `tool` — `install:` block only (e.g. `docker`, `jq`)
-- `config` — `config:` block only (e.g. `btop`, `claude`)
-- `bundle` — both blocks; picker tags with `(+ config)` (e.g. `alacritty`, `neovim`, `tmux`)
-
-**Config types** (only two): `stow` (auto-stow from `<pkg>/.config/<pkg>/`) and `handler` (named bash function in `scripts/handlers/*.sh`).
-
-**Failed installs don't abort the rest** — `install_tools` collects failures and warns at the end.
-
-**MCP / 1Password graceful degradation:** `generate_mcp_configs` (the post-install hook for `claude` and `opencode`) drops any MCP server whose JSON contains an unresolved `op://` reference when `op` is missing or fails to connect. The remaining keyless servers are still configured. If you don't want any MCP at all, just don't include `claude` in the profile/selection.
-
-### App Config Management (Stow + omadot)
-
-App configs in `~/.config/` are managed via [GNU Stow](https://www.gnu.org/software/stow/) + [omadot](https://github.com/tomhayes/omadot) on all platforms:
-
-- Configs are stored as stow packages in `~/.dotfiles/<pkg>/.config/<pkg>/`
-- `omadot put <pkg>` creates directory-level symlinks: `~/.config/<pkg>` -> `~/.dotfiles/<pkg>/.config/<pkg>`
-- New files in `~/.config/<pkg>/` automatically appear in the repo (no re-run needed)
-- Stow packages are **declared in `manifest.yaml`** with `config.type: stow` — the installer no longer auto-discovers them from the filesystem. Adding a new stow config requires a manifest entry. Single-file packages (e.g. `starship/.config/starship.toml`) are handled by the same dispatcher.
-
-**Special configs** (manifest `config.type: handler`, dispatched to functions in `scripts/handlers/*.sh`):
-- `claude` — Claude Code AI config from `ai/` directory (`install_ai_claude`)
-- `grok` — Grok Build TUI native config from `ai/` + `grok/.grok/` (`install_ai_grok`)
-- `tmux` — direct symlinks for `.tmux.conf` and `.tmux/` (`install_tmux_config`)
-- `lid-check` — Linux+fprintd PAM patch (`install_lid_check`)
-- `windows-terminal` — WSL-side script wrapper (`install_windows_terminal_config`)
-
-**Not managed by omadot** (Omarchy-owned): `~/.config/git/`
-
-**IMPORTANT:** Never use `omadot put --all` in this repo. It would try to stow non-package directories (brew/, scripts/, docs/, etc.).
-
-### Omarchy Compatibility
-
-On [Omarchy](https://omarchy.org/) (Arch Linux + Hyprland):
-
-- Omarchy owns `~/.bashrc` and sources its defaults (starship, mise, zoxide, eza, etc.)
-- Dotfiles layer on top via `.commonrc` — never replace Omarchy's shell setup
-- Dotfiles own `~/.config/starship.toml` (stowed from `starship/.config/starship.toml`); seeded byte-for-byte from Omarchy's default and evolved from there. `.commonrc` initializes starship on bash with a `$STARSHIP_SHELL` guard to avoid double-init on Omarchy.
-- 1Password SSH agent path: `/opt/1Password/op-ssh-sign` (Linux) vs `/Applications/1Password.app/Contents/MacOS/op-ssh-sign` (macOS)
-- 1Password SSH socket: `~/.1password/agent.sock` (Linux) vs `~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock` (macOS)
-
-### Windows Bootstrap (`windows/`)
-
-Out-of-band entry point that runs on Windows itself, before WSL exists. **Not part of `install.sh` or `dot`.**
-
-`windows/bootstrap.ps1` does:
-
-1. Verifies winget is available.
-2. `winget install Alacritty.Alacritty`.
-3. `winget install DEVCOM.JetBrainsMonoNerdFont`.
-4. **Downloads `windows/alacritty.toml` from GitHub** and writes it to `%APPDATA%\alacritty\alacritty.toml`. This is the Windows-tuned Alacritty config — the key thing it does is set `[terminal.shell]` to `wsl.exe -d Ubuntu-26.04` so Alacritty auto-launches into Ubuntu instead of PowerShell. Downloaded (not embedded inline) so the config file stays independently editable and the `irm | iex` invocation can fetch it without a local checkout.
-5. **WSL setup (two-phase with readiness probe):**
-   - Probes WSL with `wsl --status` and parses the output text — `wsl.exe` returns exit 0 even when its operations didn't take effect, so exit code alone is unreliable. The probe matches **only WSL2-specific blockers** (`WSL2 is unable to start` or any mention of `Virtual Machine Platform`) and treats those as not-ready. WSL1-only warnings (e.g. `Please enable the "Windows Subsystem for Linux" optional component to use WSL1`) are deliberately ignored, since this script always installs a WSL2 distro — those warnings appear in normal post-VMP-enable states where WSL2 is fully functional, and would otherwise produce a false-negative readiness result.
-   - If WSL is ready, skip to step 6.
-   - Otherwise run `wsl --install --no-distribution` to enable features, then re-probe. If it's *still* not ready, features were just enabled and a reboot is required — script stops here with a clear reboot message, *without* attempting the distro install (avoids the wasted Ubuntu rootfs download + failed VM creation that happens if you try to install the distro before VM Platform is active).
-6. Probes for existing Ubuntu-26.04 registration via `wsl --list --quiet`; if already registered, skips the install (treats it as success). Otherwise runs `wsl --install --distribution Ubuntu-26.04 --no-launch` and **verifies the distro is actually registered afterward** by re-probing — `wsl --install --distribution` can return exit 0 while only enabling features (printing "Changes will not be effective until the system is rebooted") on a machine where the WSL feature was newly turned on by an earlier step, so exit-0 alone isn't enough. If exit 0 but the distro isn't registered, treat the run as reboot-required and fall through to the reboot message. The pre-probe also catches the case where a *previous* failed run registered the distro before crashing at VM creation — re-running would otherwise hit `ERROR_ALREADY_EXISTS` and misreport as a failure. `WSL_UTF8=1` is set when invoking `wsl --list` so the output is UTF-8 instead of the default UTF-16.
-
-After the script, the user finishes first-time Ubuntu user setup manually, then clones the repo inside Ubuntu and runs `./install.sh` — the normal Linux flow.
-
-**No admin gate.** The script doesn't enforce elevation. Individual steps that need elevation (typically `wsl --install` on a system where WSL features have never been enabled) will trigger their own UAC prompts. winget at user scope and font install don't need admin.
-
-**Idempotent — safe to run twice.** Three terminal states the script can reach:
-
-- **Reboot required** (features were just enabled, VM Platform pending) — prints reboot message and the `irm | iex` one-liner to re-run. The distro install was *not* attempted, so re-running after reboot does it cleanly.
-- **Distro install failed** (most commonly BIOS virtualization off, or rarer post-reboot edge cases) — prints likely causes and tells you to fix and re-run.
-- **Success** — prints next steps for inside Ubuntu.
-
-winget steps no-op when already installed; the WSL probe correctly skips redundant feature-enable calls on a working machine, so re-running is fast on a healthy box.
-
-**Uses `return`, not `exit`, for early-exit paths.** The script is intended to be run via `irm | iex`, which evaluates it in the current PowerShell session. `exit` would close the user's PowerShell window; `return` exits only the iex'd code.
-
-**Invocation.** Primary path is the GitHub raw `irm | iex` one-liner (see README); the script runs fine without a local checkout because it references no template files. A local checkout still works — `bootstrap.ps1` is self-contained.
-
-**Hard split, by design:**
-- `bootstrap.ps1` only does things that **cannot** be done from inside WSL (winget, WSL distro install, Windows-side configs). Anything that *can* be done from inside WSL stays in `install.sh` / `dot`. Don't let bootstrap.ps1 grow tendrils into the Linux side.
-
-**Dual Alacritty configs.** `windows/alacritty.toml` and `alacritty/.config/alacritty/alacritty.toml` are two separate files and will drift. The Linux one has a `general.import` line for an Omarchy theme path that doesn't resolve on Windows; the Windows one has a `[terminal.shell]` block pointing at `wsl.exe -d Ubuntu-26.04`. Mirror font/padding/key changes manually. Because `bootstrap.ps1` fetches `windows/alacritty.toml` from GitHub at runtime (not from a local checkout), config changes must be pushed to `main` before they take effect on a re-run.
-
-**Currently out of scope** (was considered, explicitly deferred — may be added later):
-- **Windows Terminal install + settings.json** — settings.json is handled by `scripts/tools/install-windows-terminal.sh` from inside WSL after first WT launch (it needs the WSL profile GUID that WT auto-generates). Installing WT itself is also deferred.
-- **1Password install + SSH agent → WSL forwarding** — agent forwarding needs an `npiperelay` shim + `socat` listener in WSL. Whole pipeline deferred.
-- **`%USERPROFILE%\.wslconfig`** — memory/cpu caps for the WSL VM. Deferred; rely on WSL defaults.
-- **Auto-cloning the repo inside WSL** — first-time user creation + private-submodule auth make this brittle. One paste inside Ubuntu is simpler.
-
-**Ubuntu version is hard-coded to Ubuntu-26.04** in `bootstrap.ps1`. Single source of truth for now.
-
-### Git Submodules
-
-| Submodule | Path | Branch | Purpose |
-|-----------|------|--------|---------|
-| tpm | `.tmux/plugins/tpm` | default | Tmux plugin manager |
-| ssh-config | `.ssh` | main | Shared SSH host entries |
-| omarchy themes | `omarchy/.config/omarchy/themes/*` | default | Omarchy theme submodules |
-| agent-files | `agent-files` | main | Per-project & per-env AGENTS.md overlays — lazy-init via `dot agent` |
-
-Submodules are initialized by `install_git_submodules()` during core config. `dot update` runs `git submodule update --remote --init` to pull latest from all remotes.
-
-`agent-files` is intentionally not initialized by the installer or by `dot update --init` — it's lazy-initialized the first time a `dot agent` subcommand needs it, and `dot update` only refreshes it if it's already initialized. This keeps locked-down machines (no SSH access to the private repo) working without errors.
-
-### Agent Files (`dot agent`)
-
-`dot agent` manages two kinds of overlay agent files sourced from the private `agent-files` submodule. The submodule is namespaced:
-
-```
-agent-files/
-  projects/<project-name>/AGENTS.md   # per-project (symlinked into project worktrees)
-  env/<env-name>/AGENTS.md            # per-env global (symlinked into AI tool config paths)
-```
-
-Commits inside the submodule are made automatically with a generated message; **push is always manual** (`cd ~/.dotfiles/agent-files && git push`) so remote sync stays an explicit decision.
-
-#### Per-project — `dot agent link`
-
-For projects where `AGENTS.md` / `CLAUDE.md` cannot be committed to the project repo and `.gitignore` cannot be modified. The actual content lives in `agent-files/projects/<project>/AGENTS.md`; the project gets symlinks excluded via `.git/info/exclude`. There are no modes — this single flow is the only flow.
-
-`dot agent link` ensures every worktree of the project has:
-- `AGENTS.md` → `~/.dotfiles/agent-files/projects/<project>/AGENTS.md` (canonical source)
-- `CLAUDE.md` → `AGENTS.md` (relative)
-
-**Pre-flight:**
-
-1. If `agent-files/projects/<name>/AGENTS.md` already exists, use it.
-2. Else if `agent-files/projects/<name>/CLAUDE.md` exists alone, rename it to `AGENTS.md` inside the submodule (canonicalize) and commit.
-3. Else if the cwd's worktree has an untracked `AGENTS.md` (or `CLAUDE.md`), migrate it into the submodule (renaming `CLAUDE.md` → `AGENTS.md` as needed) and commit. This is the "I just placed the file in the project; please move it where it belongs" path.
-4. Else: implicit call → silent-skip; explicit `dot agent link <name>` → error.
-
-**Both names are written into the shared `.git/info/exclude`** inside a `# >>> dot-agent-files >>>` / `# <<< dot-agent-files <<<` sentinel block. The exclude lives in the common git dir, so one write covers every worktree.
-
-**Tracked-file refusal** — `agent_check_safe` will not overwrite a tracked file. If a project commits its own agent files, this tool isn't for that project — implicit calls silent-skip; explicit calls error. (We don't auto-create `CLAUDE.md` symlinks against committed `AGENTS.md` files; `dot agent` is only for the no-commit use case.)
-
-**Project name resolution** — `[name]` defaults to the basename of the *project root* (parent of the common git dir), so it works correctly inside a worktrunk worktree where the cwd basename is the branch name. The exclude file itself is the shared one in the common git dir.
-
-**Worktrunk integration** — the user config (`worktrunk/.config/worktrunk/config.toml`) defines `[post-start] agent-files = "dot agent link"` so every newly created worktree is set up automatically. It also ships `[step.copy-ignored] exclude = ["AGENTS.md", "CLAUDE.md"]` defensively so a project using `wt step copy-ignored` never dereferences our symlinks into a frozen file.
-
-**Worktree removal** — no cleanup needed. Symlinks live inside the worktree dir, so `wt remove` / `git worktree remove` takes them with the directory. The sentinel block in the shared `.git/info/exclude` is harmless (patterns just don't match anything in the gone worktree). Adding a `pre-remove` hook for `dot agent unlink` would be wrong because `unlink` operates on every worktree.
-
-#### Per-env — `dot agent env link`
-
-For environment-scoped context that isn't tied to a single project — e.g. "this machine is a locked-down WSL VM behind a corp proxy, network egress is restricted, X tool is unavailable." Content lives in `agent-files/env/<env-name>/AGENTS.md` and is symlinked into the global config paths of each AI tool on the current machine. Current targets (`AGENT_ENV_TARGETS` in `scripts/dot/agent.sh`):
-
-- `~/.claude/CLAUDE.md` (Claude Code)
-- `~/.config/opencode/AGENTS.md` (OpenCode)
-
-`dot agent env link <name>` flow:
-
-1. Lazy-init submodule.
-2. If `env/<name>/AGENTS.md` doesn't exist: migrate the first existing target file we find (the "I already wrote it into `~/.claude/CLAUDE.md` — please move it where it belongs" path), else create an empty stub with a header comment. Either way, commit in the submodule.
-3. Refuse to clobber any unmanaged regular file at a target path.
-4. Drop symlinks at every target → `agent-files/env/<name>/AGENTS.md` (one source, N symlinks).
-
-`dot agent env link` (no arg) re-links the currently linked env — derives the name from the existing symlink, so it's a safe no-op refresh.
-
-**The symlinks themselves are the state.** No `.localrc` flag, no marker file — `dot agent env status` resolves the symlinks to report which env is active on this machine. To opt out: `dot agent env unlink`.
-
-**Persistence across machines** — content lives in the private repo, so it's synced. To activate on a new machine: `dot agent env link <name>` once.
-
-**Adding more AI tools** — just append to `AGENT_ENV_TARGETS` in `scripts/dot/agent.sh`. Existing linked machines will pick up the new target on next `dot agent env link` (with no arg).
-
-The implementation for both scopes lives in `scripts/dot/agent.sh` (`manage_agent_files`, `agent_*`, `agent_env_*` helpers) — sourced by `dot.sh`.
-
-### SSH Config
-
-- `.ssh/` is a git submodule containing shared host entries (no OS-specific settings)
-- `~/.ssh/config` is NOT a symlink — it's a generated file created by `install.sh` that:
-  1. Sets the correct `IdentityAgent` for the current OS (1Password socket path)
-  2. `Include`s the shared submodule config
-- Never put OS-specific paths (like `IdentityAgent`) in the submodule config
-
-### Package Management (`packages.yaml` + `scripts/`)
-
-Every installable item — tool binaries, stow configs, special handlers — is declared in `manifest.yaml`. Profiles in `profiles/*.yaml` curate which items run on which machine context. See [docs/manifest.md](docs/manifest.md) and [docs/profiles.md](docs/profiles.md) for full schema reference.
-
-The shared library `scripts/lib.sh` provides (yq-backed):
-- `detect_pkg_manager()` — returns `arch`, `apt`, or `brew`
-- `ensure_yq` — bootstraps yq if missing (brew on Darwin, `install-yq.sh` on Linux)
-- `manifest_list_all` — list every item key
-- `manifest_resolve_alias <name>` — resolve `op` → `1password-cli`, `nvim` → `neovim`, etc.
-- `manifest_kind <item>` — returns `tool` / `config` / `bundle`
-- `manifest_field <item> <yq-path>` — generic field read
-- `manifest_post_install <item>` — list post_install hook names
-- `manifest_requires_met <item>` — check `requires:` predicates against the host
-- `manifest_label <item>` — picker label with `(+ config)` suffix for bundles
-- `install_tool <item>` / `install_tools <item ...>` — binary installer (manifest-driven)
-- `update_source_tools` — rebuild items flagged with `install.update: true`
-- `ensure_gum()` — bootstraps gum if not installed
-
-Custom config handlers live in `scripts/handlers/*.sh` (ai.sh, tmux.sh, linux.sh, windows.sh, alacritty.sh, neovim.sh) and are referenced by name from `manifest.yaml`. Tool install scripts in `scripts/tools/install-*.sh` are referenced via `install.script` in manifest entries.
-
-## Build/Test/Run Commands
-
-### Testing & Validation
-
-```bash
-# Test single shell script syntax
-bash -n .functions
-
-# Debug single script
-bash -x install.sh
-
-# Test single function
-source .functions && kcs
-
-# Syntax-check all tool install scripts
-for f in scripts/*.sh; do bash -n "$f"; done
-
-# Test all shell files
-for f in .[a-z]*; do [[ -f "$f" ]] && bash -n "$f" 2>&1 | grep -v "cannot execute" || true; done
-```
-
-### Installation & Management
-
-```bash
-./install.sh                          # Interactive: pick a profile or items manually
-./install.sh --help                   # Show core extras, profiles, manifest items
-dot edit                              # Open dotfiles in editor ($EDITOR)
-dot update                            # Update OS packages + pull dotfiles + reconcile active profile
-dot install                           # Interactive picker (profile or manual)
-dot install <name> [<name>...]        # Install one or more items directly (e.g. dot install alacritty neovim docker)
-dot profile list | show | use <name>  # Manage the active profile
-dot agent link [name]                 # Symlink per-project AGENTS.md / CLAUDE.md from agent-files submodule
-dot agent unlink                      # Remove the symlinks and clean .git/info/exclude
-dot agent list | status | update      # List projects, show cwd state, pull latest from agent-files
-```
-
-### Homebrew (macOS only)
-
-```bash
-dot brew install          # Install Homebrew
-dot brew bundle <profile> # Install from profile (home, work)
-dot brew save <profile>   # Save current packages to profile
-```
-
-### Omadot (Omarchy only)
-
-```bash
-omadot get <pkg>          # Capture config from ~/.config/ into ~/.dotfiles/
-omadot put <pkg>          # Stow config back (create symlink)
-omadot list               # List managed packages
-```
-
-## Code Style Guidelines
-
-### Shell Script Standards
-
-**Output:** Use `printf '%b\n'` instead of `echo -e` for escape sequence interpretation (portability).
-
-**File Structure:**
-
-```bash
-#!/bin/bash
-# Optional description
-
-set -e  # Exit on error for critical scripts
-
-# Document functions with comments
-# Description of what the function does
-function my_function() {
-    local arg="$1"
-    # Implementation
-}
-```
-
-**Variables:**
-
-- UPPERCASE for environment variables/constants: `DOTFILES_DIR`, `KUBECONFIG`
-- lowercase for local variables: `local file`, `local namespace`
-- Always quote: `"$variable"` not `$variable`
-- Use `local` keyword in functions
-
-**Conditionals:**
-
-- Use `[[ ]]` not `[ ]`: `if [[ -f "$file" ]]; then`
-- Pattern matching: `if [[ "$var" =~ ^pattern ]]; then`
-- Command checks: `if command -v cmd &>/dev/null; then`
-
-**OS Detection:**
-
-```bash
-# Prefer $OSTYPE for OS detection
-if [[ "$OSTYPE" == darwin* ]]; then
-    # macOS
-else
-    # Linux
-fi
-
-# Check for Omarchy
-if [[ -d "$HOME/.local/share/omarchy" ]]; then
-    # Omarchy-specific
-fi
-```
-
-**Error Handling:**
-
-```bash
-# Exit on error for critical scripts
-set -e
-
-# Check required arguments
-if [[ -z "$1" ]]; then
-    echo "Error: Missing required argument"
-    return 1
-fi
-```
-
-### Naming Conventions
-
-**Files:**
-
-- Dotfiles: `.filename` (`.commonrc`, `.aliases`, `.functions`)
-- Scripts: `lowercase-with-hyphens.sh` (`install.sh`)
-- Install scripts: `scripts/tools/install-<tool>.sh` (referenced as `install-<tool>.sh` in packages.yaml)
-- Brewfiles: `Brewfile-profile` (`Brewfile-home`)
-
-**Functions:**
-
-- Descriptive names: `update_system()`, `install_tool()`
-- Kubernetes prefix: `k*` (`kcs`, `kn`, `kl`, `ke`, `kdp`)
-- Git prefix: `g*` (`gc`, `gcb`)
-- Many support fzf when called without arguments
-
-**Aliases:**
-
-- Short: `k` (kubectl), `tf` (terraform), `dc` (docker compose)
-- Consistent prefixes: `kp*` (pods), `kd*` (deployments), `f*` (flux)
-
-### YAML (manifest.yaml + profiles/*.yaml)
-
-Full schemas live in [docs/manifest.md](docs/manifest.md) and [docs/profiles.md](docs/profiles.md). Do not re-document them here.
-
-**Indentation:** 2 spaces (YAML), 4 spaces (Shell)
-
-## Documentation Requirements
-
-**Always update when making changes:**
-
-1. **README.md** - configurations, tools, structure, features
-2. **docs/functions.md** - new/modified functions with examples
-3. **docs/aliases.md** - new/modified aliases
-4. **AGENTS.md** - if architecture, file structure, or conventions change
-
-**Standards:**
-
-- Clear headings and structure
-- Practical examples for complex functions
-- Simple, direct language
-- Document macOS vs Linux differences
-- Update Quick Start if installation changes
-
-**File-level comments:**
-
-```bash
-# Description of function purpose (can span multiple lines)
-function my_function() {
-    local arg="$1"
-    # Implementation
-}
-```
-
-## Project-Specific Notes
-
-### System Detection & Packages
-
-- Auto-detect OS: `$OSTYPE` (macOS vs Linux)
-- Detect Omarchy: `[[ -d "$HOME/.local/share/omarchy" ]]`
-- Detect package manager: `detect_pkg_manager()` in `scripts/lib.sh`
-- macOS: Homebrew for packages (auto-installed by `install.sh` if missing)
-- Arch Linux: pacman/yay for packages
-- Debian/Ubuntu: apt + script fallbacks for missing tools
-
-### Files Symlinked to $HOME
+**Location:** `~/.dotfiles/`. **Primary languages:** Bash, YAML (`manifest.yaml`, `profiles/*.yaml`), configuration files.
+
+**Key components:**
+- Shell configs: `.commonrc` (cross-platform), `.zshrc` (macOS), `.bashrc` (reference only — never symlinked)
+- Omarchy desktop configs: hypr, waybar, alacritty, mako, walker, btop, fastfetch, lazygit, omarchy, opencode, starship (via GNU Stow + omadot)
+- AI config: `ai/` (agents, commands, skills, rules); MCP template at `ai/mcp-servers.json.tpl`
+- Package + config management: `manifest.yaml` + `profiles/*.yaml` + `scripts/lib.sh` + `scripts/handlers/*.sh`
+- Windows bootstrap: `windows/bootstrap.ps1`
+
+## Core principles (read first)
+
+1. **Source into, never replace.** `~/.bashrc` is system-owned (Omarchy/Ubuntu/etc.). `install.sh` injects `source ~/.commonrc`; we never symlink `.bashrc`. Machine-specific config goes in untracked `~/.localrc`.
+2. **All `~/.config/<tool>/` is managed via omadot/Stow.** Never write to `~/.config/` directly — see "CRITICAL" section below.
+3. **Idempotent.** Every install module must be safe to re-run. Use `ln -snf`, check before stowing, clean stale symlinks.
+4. **OS-aware.** Detect with `$OSTYPE` and `requires:` predicates. Supports macOS, Omarchy/Arch, Ubuntu/Pop!_OS, Debian. Omarchy is documented heavily because of its unique integration points — that does **not** mean the user is on Omarchy. Always check the actual environment.
+5. **Privacy.** Never commit secrets, tokens, or credentials.
+
+## Files symlinked to $HOME
 
 | File | Notes |
 |------|-------|
 | `.commonrc` | Core config — sourced by both bash and zsh |
 | `.aliases` | Personal aliases |
 | `.functions` | Personal functions (fzf-powered kubectl, git worktrees) |
-| `.zshrc` | macOS zsh config (Oh My Zsh + Powerlevel10k) |
-| `.p10k.zsh` | Powerlevel10k prompt config (macOS) |
-| `.tmux.conf` | Tmux configuration |
-| `.gitconfig.dotfiles` -> `~/.gitconfig` | Shared git config |
+| `.zshrc`, `.p10k.zsh` | macOS only |
+| `.tmux.conf` + `.tmux/` | Tmux configuration |
+| `.gitconfig.dotfiles` → `~/.gitconfig` | Shared git config |
 
-### Omadot Stow Packages
+Not symlinked: `~/.bashrc` (system-owned), `~/.ssh/config` (generated by `install.sh`).
+Not tracked (machine-specific): `~/.localrc`, `~/.gitconfig.local`.
 
-| Package | Config location | Notes |
-|---------|----------------|-------|
-| `alacritty` | `~/.config/alacritty/` | GPU-accelerated cross-platform terminal |
-| `btop` | `~/.config/btop/` | System monitor |
-| `fastfetch` | `~/.config/fastfetch/` | System info display |
-| `hypr` | `~/.config/hypr/` | Hyprland WM (bindings, monitors, look-n-feel) |
-| `lazygit` | `~/.config/lazygit/` | Lazygit TUI |
-| `makima` | `~/.config/makima/` | Key remapping daemon (Copilot key) |
-| `mako` | `~/.config/mako/` | Notifications |
-| `nvim` | `~/.config/nvim/` | Neovim (LazyVim) with Copilot AI autocomplete |
-| `omarchy` | `~/.config/omarchy/` | Themes, hooks, extensions |
-| `opencode` | `~/.config/opencode/` | OpenCode AI agent config (ai/ merge + MCP generation post-hook) |
-| `starship` | `~/.config/starship.toml` | Cross-shell prompt (single-file stow package) |
-| `walker` | `~/.config/walker/` | App launcher |
-| `waybar` | `~/.config/waybar/` | Status bar layout and styling |
+## Omadot stow packages
 
-### Files NOT Symlinked (reference or generated)
+| Package | Path in dotfiles |
+|---------|------------------|
+| `alacritty`, `btop`, `fastfetch`, `hypr`, `k9s`, `lazygit`, `makima`, `mako`, `nvim`, `omarchy`, `opencode`, `walker`, `waybar`, `worktrunk` | `<pkg>/.config/<pkg>/` |
+| `starship` | `starship/.config/starship.toml` (single-file package) |
 
-| File | Notes |
-|------|-------|
-| `.bashrc` | Reference for non-managed systems — never symlinked |
-| `~/.ssh/config` | Generated by `install.sh` — not a symlink |
+## Build / Test / Run
 
-### AI Config (`ai/`)
+```bash
+# Syntax check
+bash -n .functions
+for f in scripts/*.sh; do bash -n "$f"; done
+bash scripts/check-descriptions.sh   # function/alias descriptions ≤60 chars, single line
 
-Shared AI agent configuration owned by this dotfiles repo at `~/.dotfiles/ai/`. Replaces the former ECC submodule.
+# Install / manage
+./install.sh                          # Interactive: pick profile or items manually
+dot install [<name>...]               # Picker, or install specific items
+dot update                            # Update OS packages + pull + reconcile active profile
+dot profile list | show | use <name>
+dot agent link [name]                 # See docs/agent-files.md
+omadot put <pkg>                      # Stow a config (never `--all`)
+```
 
-**What `install_ai_claude()` does:**
+## Documentation requirements
 
-- Cleans stale symlinks (both `ai/` and legacy `ecc/` paths) via `clean_ai_symlinks()`
-- Symlinks agents, commands, skills, rules from `ai/` into `~/.claude/` via `link_directory_contents`
+When you change behavior, also update: `README.md` (high-level), `docs/functions.md`, `docs/aliases.md`, this file if architecture/conventions change. Keep docs concise and use practical examples for complex functions.
 
-**What `install_ai_opencode()` does:**
-
-- Symlinks commands and skills from `ai/` into `~/.config/opencode/`
-- Runs `ai/scripts/generate-opencode-config.sh` to convert agent markdown to OpenCode JSON
-
-**Shared MCP:** `generate_mcp_configs()` reads `~/.dotfiles/ai/mcp-servers.json.tpl` (Claude Desktop format with `op://` refs), resolves secrets via 1Password, and writes to both `~/.claude.json` (mcpServers) and `~/.config/opencode/opencode.json` (mcp)
-
-**Idempotency:** `clean_ai_symlinks()` runs before every install, removing any symlinks in the target directory that point into `~/.dotfiles/ai/` (or legacy `ecc/`).
-
-**1Password:** `op_inject_multi()` resolves `op://` secret references across multiple 1Password accounts by building a vault-to-account map and using `op read` per-secret (standard `op inject` only supports one account per call).
-
-See [docs/ai.md](docs/ai.md) for how to add agents, commands, skills, and rules.
-
-### Directories (contents symlinked one level deep)
-
-| Dir | Notes |
-|-----|-------|
-| `.tmux/` | tpm plugin manager (git submodule) |
-
-### Not Tracked (machine-specific)
-
-| File | Purpose |
-|------|---------|
-| `~/.localrc` | Machine-specific config (EDITOR, secrets, env vars) |
-| `~/.gitconfig.local` | Personal git identity (name, email, signing key) |
-
-### Shell Loading Order
-
-**On Omarchy/Linux (bash):**
-
-1. Omarchy's `~/.bashrc` -> sources Omarchy defaults (starship, mise, zoxide, etc.)
-2. `~/.bashrc` -> sources `~/.commonrc` (injected by install.sh)
-3. `.commonrc` -> sources `.aliases`, `.functions`, `.localrc`
-
-**On macOS (zsh):**
-
-1. `.zshrc` -> Homebrew, Oh My Zsh, Powerlevel10k, zsh plugins
-2. `.zshrc` -> sources `.commonrc`
-3. `.commonrc` -> sources `.aliases`, `.functions`, `.localrc`
-4. `.zshrc` -> fzf, `.p10k.zsh`
-
-### Tool-Specific
-
-- Kubernetes: configs in `~/.kube/`, use `kcs` (select config), `kca` (load all)
-- fzf: Many functions (`kcs`, `kn`, `kc`, `kl`, `ke`, etc.) use fzf when no args provided
-- 1Password: `opl` function for CLI login, SSH agent for git signing
-
-## Dotfiles Methodologies
-
-### Symlink Strategy: Merge vs Replace
-
-Use `link_file` (symlinks the entire directory) when the directory is exclusively owned by one source. Use `link_directory_contents` (symlinks each item inside) when personal files need to coexist alongside sourced files. Example: `~/.claude/commands/` uses `link_directory_contents` so personal commands coexist with `ai/` commands.
-
-### Dynamic Config Merging
-
-When two sources contribute to a single config file (e.g., generated AI agents + personal config in `opencode.json`), merge at install time using `jq -s '.[0] * .[1]'` rather than maintaining a combined copy. The base config comes first, personal overrides second (wins on conflicts). This eliminates duplication and keeps each source independently maintainable.
-
-### Shared MCP Configuration
-
-MCP servers are defined once in `~/.dotfiles/ai/mcp-servers.json.tpl` (Claude Desktop format with `op://` secret references) and generated into tool-specific formats at install time:
-- **Claude Code**: merged into `~/.claude.json` as `mcpServers`
-- **OpenCode**: converted to OpenCode format and merged into `~/.config/opencode/opencode.json` as `mcp`
-
-Secrets are resolved via `op_inject_multi()` during generation. Add/remove servers by editing `ai/mcp-servers.json.tpl` and running `dot update` or `./install.sh`.
-
-### Gitignore for Generated Symlinks in Stowed Dirs
-
-When creating symlinks inside a stowed directory (e.g., `~/.config/opencode/commands/`), those symlinks resolve through the stow symlink into the dotfiles git tree and show as unstaged changes. Add them to the package's `.gitignore` to prevent this.
-
-## Common Operations
-
-### Adding New Aliases
-
-1. Add to `.aliases` file, group with related (Kubernetes, Git, Docker)
-2. Use consistent prefixing (e.g., `k*` for kubectl, `f*` for flux)
-3. Check for conflicts with functions in `.functions` (e.g., don't alias `sk` if `sk()` function exists)
-4. Update `docs/aliases.md`
-5. Update README.md if significant
-
-### Adding New Functions
-
-1. Add to `.functions` with comment above
-2. Group by category (General, Kubernetes, Git, etc.)
-3. Consider fzf integration for interactive selection
-4. Run `bash scripts/check-descriptions.sh` — description must be single-line, ≤60 chars
-5. Update `docs/functions.md` with examples
-6. `dot` CLI auto-parses documented functions
-7. Update README.md for major utilities
-
-### Adding a New Item
-
-Full walkthrough in [docs/manifest.md](docs/manifest.md). Short version:
-
-1. Add an entry to `manifest.yaml` with `description`, optional `install:` block, optional `config:` block, optional `requires:` predicates.
-2. For `config.type: stow`: create the stow package at `<item>/.config/<item>/`. For `config.type: handler`: add the function to the appropriate file in `scripts/handlers/`.
-3. If a binary install script is needed, drop it at `scripts/tools/install-<item>.sh` and reference via `install.script`.
-4. Test: `dot install <item>`.
-5. Update README.md tool list if appropriate.
-
-### Adding a New App Config to omadot
-
-> **STOP — read this before touching `~/.config/` directly.**
-> All configs are managed via omadot. Create files in the dotfiles repo first, then stow.
-
-**For a brand-new tool config (most common case):**
-
-1. **Create files in the dotfiles repo:**
-   ```bash
-   mkdir -p ~/.dotfiles/<pkg>/.config/<pkg>/
-   # Write config files there, e.g.:
-   # ~/.dotfiles/<pkg>/.config/<pkg>/config.toml
-   ```
-2. **Add a manifest entry** with `config.type: stow` (and `description:` plus any `requires:` predicates). See [docs/manifest.md](docs/manifest.md).
-3. **Stow it** — creates the `~/.config/<pkg>` symlink:
-   ```bash
-   omadot put <pkg>
-   ```
-4. **Add to profiles** that should include the new config (`profiles/<name>.yaml` → `items:` list).
-5. **Commit:**
-   ```bash
-   git add ~/.dotfiles/<pkg>/ manifest.yaml profiles/
-   git commit
-   ```
-
-**To import an existing `~/.config/<pkg>/` into the dotfiles repo** (only if it already exists and isn't stowed):
-
-1. `omadot get <pkg>` — captures from `~/.config/` into `~/.dotfiles/<pkg>/`
-2. Follow steps 2–5 above
-
-**Do NOT:**
-- Write files directly to `~/.config/<pkg>/` — they won't be tracked by git
-- Use `omadot get` for a brand-new config that doesn't exist in `~/.config/` yet
-- Use `omadot put --all`
-
-### Modifying install.sh
-
-1. **Interactive only** — no profiles or flags as CLI args. Homebrew auto-installs on macOS.
-2. **Core config**: `run_core_config()` always runs — only shell config + dot CLI. Don't add anything here that depends on external services or could fail on a restricted machine.
-3. **Core extras**: `get_core_extra_label()` / `install_core_extra()` define the items. Profiles list them via their `core_extras:` field; manual mode shows `run_core_extras_picker()` with host-appropriate defaults pre-selected. Adding a new extra: a new case branch in both functions + a one-line mention in `list_all_core_extras()`.
-4. **Items**: declared in `manifest.yaml` (see [docs/manifest.md](docs/manifest.md)). `install_item` dispatches based on `config.type` (stow → `install_stow_config`, handler → `install_handler_config`). `run_post_install` runs the deduped union of `post_install:` hooks across selected items.
-5. **Profile flow**: `select_profile` → `install_from_profile <name>` → writes `~/.dotfiles/.active-profile`. Manual flow: `install_manual` → no profile state written.
-6. **Handlers** live in `scripts/handlers/*.sh` and are sourced automatically at install.sh startup. Handler functions are referenced from manifest by name; the dispatcher uses `declare -F` to verify existence before invocation.
-7. **Prerequisites**: `ensure_homebrew()`, `ensure_yq()`, `ensure_stow()`, `ensure_omadot()`, `ensure_jq()`, `ensure_gum()` auto-install if missing.
-8. **Idempotency**: All modules must be safe to re-run. Use `ln -snf` for symlinks, check before stowing, skip if already done. AI handlers use `clean_ai_symlinks()` to remove stale links before re-linking.
-9. **1Password**: `op_inject_multi()` handles multi-account secret resolution. When `op` is missing or fails, `generate_mcp_configs` calls a local `drop_op_servers` jq filter to strip MCP entries containing `op://` rather than writing unresolved placeholders.
-10. **Sourceable**: `main()` is guarded with `BASH_SOURCE` check so `dot.sh` can source `install.sh` for its functions.
-11. OS-specific paths must use `$OSTYPE` detection (or a `host_has` predicate).
-12. Never replace `~/.bashrc` — only inject source line.
-13. SSH config is generated (not symlinked) with OS-appropriate `IdentityAgent`. Only generated if `ssh-config` is in the active profile's `core_extras:` (or the manual picker selection).
-14. Test with `bash -n install.sh` and `./install.sh --help`.
-
-### Modifying dot.sh
-
-1. Sources `scripts/lib.sh` for manifest accessors and predicates.
-2. `dot install` (no args) sources `install.sh` and calls `select_profile` then `install_from_profile`/`install_manual` — same flow as `./install.sh`.
-3. `dot install <name> [<name>...]` calls `install_item` for each — manifest-driven, resolves aliases like `op` → `1password-cli`, `nvim` → `neovim`.
-4. `dot profile {list,show,use}` — `manage_profile` dispatcher. State lives in `~/.dotfiles/.active-profile`; `read_active_profile` prefers the `$DOTFILES_PROFILE` env override (set in `.localrc` to force).
-5. `dot update` updates OS packages, pulls dotfiles, refreshes AI symlinks, runs `update_source_tools`, then calls `reconcile_profile` (add-only: install missing items, never remove).
-6. Keep brew commands as-is (macOS only).
-
-### Modifying .commonrc
-
-1. Keep it thin — only cross-platform config belongs here
-2. Guard all sources: `[[ -f "$file" ]] && source "$file"`
-3. Use shell detection for completions: `[[ -n "$BASH_VERSION" ]]` / `[[ -n "$ZSH_VERSION" ]]`
-4. Don't duplicate what Omarchy already provides (starship, mise, zoxide, history, bash-completion)
-5. Don't duplicate what `.zshrc` already provides (Homebrew, Oh My Zsh, p10k)
-
-## Testing Checklist
+## Testing checklist
 
 Before committing:
 
-- [ ] `bash -n <script>` - shell syntax check
-- [ ] `for f in scripts/*.sh; do bash -n "$f"; done` - check all install scripts
-- [ ] `bash scripts/check-descriptions.sh` - validate function/alias descriptions
-- [ ] `source .functions && <function-name>` - test functions work
-- [ ] Aliases work in new shell session
-- [ ] Documentation updated (`README.md`, `docs/functions.md`, `docs/aliases.md`)
+- [ ] `bash -n <script>` and `for f in scripts/*.sh; do bash -n "$f"; done`
+- [ ] `bash scripts/check-descriptions.sh`
+- [ ] `source .functions && <function-name>` works; aliases work in new shell
+- [ ] `yq '.' manifest.yaml` parses; every `config.handler` references a function in `scripts/handlers/*.sh`
+- [ ] `yq '.' profiles/<name>.yaml` parses for any modified profile
+- [ ] New stow packages are declared in `manifest.yaml` (`config.type: stow`) AND follow `<dir>/.config/<dir>/` layout
 - [ ] No hardcoded personal info (use `.gitconfig.local`, `.localrc`)
 - [ ] No hardcoded OS-specific paths (use `$OSTYPE` detection)
-- [ ] Works on target system (macOS/Linux/Omarchy)
-- [ ] `install.sh` modules work correctly
-- [ ] New stow packages: declared in `manifest.yaml` (`config.type: stow`) AND directory follows `<dir>/.config/<dir>/` structure
-- [ ] New profile YAMLs parse with `yq '.' profiles/<name>.yaml`
-- [ ] `yq '.' manifest.yaml` parses; every `config.handler` references a function in `scripts/handlers/*.sh`
+- [ ] Documentation updated
 
-## Important Reminders
+## Docs index — load when relevant
 
-- **Personal repo** - changes reflect personal preferences
-- **Source into, never replace** - never symlink `.bashrc`; inject `source ~/.commonrc`
-- **Backup first** - `install.sh` auto-backs up to `~/dotfiles_backup`
-- **Test before push** - validate in safe environment
-- **Document everything** - keep docs comprehensive and current
-- **OS-aware** - use `$OSTYPE` for macOS vs Linux paths (1Password, Homebrew, etc.). This repo supports multiple platforms (macOS, Omarchy/Arch, Ubuntu/Pop!_OS, Debian). Never assume the user is on a specific OS — check the actual environment when it matters. Omarchy is documented heavily here because it has unique integration points, but that does not mean the user is running Omarchy.
-- **Omarchy-aware** - when working on Omarchy-specific code, don't duplicate or conflict with Omarchy's shell defaults
-- **Stow-aware** - never use `omadot put --all`; always use the explicit package list
-- **Idempotent** - all install modules must be safe to re-run
-- **Privacy** - never commit secrets, tokens, credentials
-- **fzf integration** - many kubectl/git functions support interactive mode
+- [docs/architecture.md](docs/architecture.md) — installer flow, omadot mechanics, Omarchy specifics, SSH, submodules, AI config plumbing, methodologies. **Load when changing how the installer or config plumbing works.**
+- [docs/common-operations.md](docs/common-operations.md) — step-by-step for adding aliases / functions / manifest items / app configs and for modifying `install.sh` / `dot.sh` / `.commonrc`. **Load when doing any of those.**
+- [docs/shell-style.md](docs/shell-style.md) — shell script standards and naming conventions. **Load when writing shell.**
+- [docs/windows-bootstrap.md](docs/windows-bootstrap.md) — `windows/bootstrap.ps1` internals. **Load only when editing the Windows bootstrap.**
+- [docs/agent-files.md](docs/agent-files.md) — `dot agent` (per-project and per-env AGENTS.md overlays). **Load only when editing `scripts/dot/agent.sh` or related.**
+- [docs/manifest.md](docs/manifest.md) — `manifest.yaml` schema reference
+- [docs/profiles.md](docs/profiles.md) — `profiles/*.yaml` schema reference
+- [docs/ai.md](docs/ai.md) — how to add agents, commands, skills, rules
+- [docs/functions.md](docs/functions.md), [docs/aliases.md](docs/aliases.md) — full reference for shell functions and aliases
 
-## CRITICAL: How App Configs Are Managed
+## Important reminders
+
+- **Personal repo** — changes reflect personal preferences
+- **Backup first** — `install.sh` auto-backs up to `~/dotfiles_backup`
+- **Test before push** — validate in safe environment
+- **Stow-aware** — never use `omadot put --all` (would try to stow `brew/`, `scripts/`, `docs/`, etc.)
+
+## CRITICAL: How app configs are managed
 
 **ALL `~/.config/<tool>/` configs are managed via omadot (GNU Stow). Never create or edit files directly in `~/.config/`.**
 
-When a user asks you to add, create, or update a config for any tool:
+When asked to add or update a config for any tool:
 
 1. **Create the file in the dotfiles repo** at `~/.dotfiles/<tool>/.config/<tool>/<file>`
 2. **Add a manifest entry** to `manifest.yaml` with `config.type: stow` (see [docs/manifest.md](docs/manifest.md))
 3. **Stow it** with `omadot put <tool>` to create the symlink `~/.config/<tool>` → `~/.dotfiles/<tool>/.config/<tool>/`
 4. **Add to relevant profiles** (`profiles/*.yaml` → `items:` list) for machines that should install it
-5. **Commit** the new/updated files: `~/.dotfiles/<tool>/`, `manifest.yaml`, any modified profiles
+5. **Commit** the new/updated files: `~/.dotfiles/<tool>/`, `manifest.yaml`, modified profiles
 
-The structure is always:
+Structure is always:
 ```
 ~/.dotfiles/<tool>/.config/<tool>/   ← files live here (tracked by git)
 ~/.config/<tool>                     ← symlink created by omadot put
@@ -682,31 +118,8 @@ profiles/*.yaml                      ← profiles that include the item
 
 **Do NOT:**
 - Write files directly to `~/.config/<tool>/` — they won't be tracked
-- Use `omadot get` for new configs — that captures from `~/.config/` into dotfiles; only use it if the config already exists there and you want to import it
-- Use `omadot put --all` — it will try to stow non-package directories
+- Use `omadot get` for a brand-new config that doesn't yet exist in `~/.config/`; only use it to *import* an existing config
+- Use `omadot put --all`
 - Skip the manifest entry — the installer no longer auto-discovers stow packages from the filesystem
 
-**Stale-symlink cleanup (`clean_stale_dotfile_symlinks`):** when a stow package is removed from the repo, the `~/.config/<pkg>` symlink on each machine becomes a dangling pointer into `$DOTFILES_DIR/<pkg>/`. `clean_stale_dotfile_symlinks()` in `install.sh` scans `~/.config/` (depth 1), removes any symlink that resolves into `$DOTFILES_DIR/` and whose target no longer exists. It runs at the top of `run_core_config()` (every `./install.sh` and `dot install`) and from `dot.sh:update_system()` after the AI reinstall (every `dot update`). One function, two call sites — generalization of `clean_ai_symlinks()`.
-
-**Currently managed packages:**
-| Package | Config path in dotfiles |
-|---------|------------------------|
-| `alacritty` | `alacritty/.config/alacritty/` |
-| `btop` | `btop/.config/btop/` |
-| `fastfetch` | `fastfetch/.config/fastfetch/` |
-| `hypr` | `hypr/.config/hypr/` |
-| `k9s` | `k9s/.config/k9s/` |
-| `lazygit` | `lazygit/.config/lazygit/` |
-| `makima` | `makima/.config/makima/` |
-| `mako` | `mako/.config/mako/` |
-| `nvim` | `nvim/.config/nvim/` |
-| `omarchy` | `omarchy/.config/omarchy/` |
-| `opencode` | `opencode/.config/opencode/` |
-| `starship` | `starship/.config/starship.toml` (single-file package) |
-| `walker` | `walker/.config/walker/` |
-| `waybar` | `waybar/.config/waybar/` |
-| `worktrunk` | `worktrunk/.config/worktrunk/` |
-
----
-
-For details: [README.md](README.md) | [docs/functions.md](docs/functions.md) | [docs/aliases.md](docs/aliases.md)
+For mechanics of how stowing, stale-symlink cleanup, and special-handler configs work, see [docs/architecture.md](docs/architecture.md).

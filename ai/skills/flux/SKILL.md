@@ -1,6 +1,6 @@
 ---
 name: flux
-description: Modern Flux CD (v2) GitOps authoring for Kubernetes. Activate when working in a directory containing flux/, clusters/, or YAML files referencing toolkit.fluxcd.io APIs (GitRepository, OCIRepository, HelmRepository, HelmRelease, Kustomization), or when the user mentions Flux, GitOps reconciliation, `flux bootstrap`, or the `flux` CLI. Enforces current API versions, the source/reconciler split, a four-layer reconcile chain, and the preferred secrets pattern (1Password Operator + Reflector, not SOPS/ESO).
+description: Flux CD v2 GitOps for Kubernetes. ALWAYS use when editing YAML under `flux/`/`clusters/` that references `toolkit.fluxcd.io` APIs (GitRepository, OCIRepository, HelmRepository, HelmRelease, Kustomization, ResourceSet), or for prompts mentioning Flux, GitOps reconciliation, `flux bootstrap`, the `flux` CLI, or 'add a HelmRelease', 'fix the Kustomization', 'reconcile this', 'sync from git'. Enforces v2 API versions, source/reconciler split, a four-layer reconcile chain, and the preferred secrets pattern (1Password Operator + Reflector, NOT SOPS/ESO).
 compatibility: opencode
 ---
 

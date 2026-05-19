@@ -1,6 +1,6 @@
 ---
 name: ansible
-description: Modern Ansible playbook, role, and inventory authoring. Activate when working in a directory containing ansible.cfg, playbooks/, roles/, inventories/, requirements.yml, or when editing YAML that is clearly Ansible (plays, tasks, handlers, role vars). Enforces current syntax (FQCN, loop, true/false), prefers modules over command/shell, and follows the standard role layout.
+description: Modern Ansible playbook, role, and inventory authoring. ALWAYS use when editing `ansible.cfg`, files under `playbooks/`/`roles/`/`inventories/`, `requirements.yml`, or YAML that is clearly Ansible (plays, tasks, handlers, role vars, group_vars, host_vars), or for prompts mentioning Ansible, playbooks, roles, ad-hoc commands, `ansible-playbook`, or 'add a task', 'fix this play', 'write a role', 'lint this playbook'. Enforces current syntax (FQCN, `loop`, true/false), prefers modules over command/shell, follows the standard role layout, must pass `ansible-lint` production profile.
 compatibility: opencode
 ---
 

@@ -1,10 +1,6 @@
 ---
 name: commit
-description: >
-  Create git commits following the Conventional Commits specification.
-  Analyzes staged and unstaged changes, groups them into logical atomic commits,
-  and drafts messages using conventional commit types, scopes, and descriptions.
-  Activate when the user asks to commit, create commits, or save their work.
+description: Create git commits following the Conventional Commits specification. ALWAYS use when the user asks to commit, create commits, save work/progress, write a commit message, or 'wrap this up', 'finalize this', 'check this in', 'stage and commit'. Analyzes staged and unstaged changes, groups them into logical atomic commits, drafts messages using conventional commit types, scopes, and descriptions.
 compatibility: opencode
 ---
 

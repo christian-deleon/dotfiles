@@ -1,6 +1,6 @@
 ---
 name: obsidian
-description: Write and organize notes in the user's Obsidian vault following best practices: atomic notes, fleeting vs permanent notes, splitting large docs, MOCs, and wikilinks. Only activate when the user explicitly mentions Obsidian or their vault.
+description: Write and organize notes in the user's Obsidian vault at `/home/cdeleon/Documents/Obsidian Main`. Use ONLY when the user explicitly mentions Obsidian, their vault, an MOC, or notes in that path — do NOT activate for general note-taking or markdown files outside that vault. Covers atomic notes, fleeting vs permanent notes, splitting large docs, MOCs, and wikilinks.
 compatibility: opencode
 ---
 
