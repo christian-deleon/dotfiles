@@ -1,6 +1,6 @@
 ---
 name: terraform
-description: Modern Terraform / OpenTofu authoring. Activate when working in a directory containing *.tf or *.tofu files, terraform.tfvars, .terraform.lock.hcl, a terraform/ or environments/ tree, or when the user mentions HCL, Terraform, OpenTofu, or `tofu`/`terraform` CLI usage. Default to `tofu` in examples (the user's primary tool); call out features that exist only in Terraform or only in OpenTofu.
+description: Modern Terraform / OpenTofu authoring (HCL). ALWAYS use when editing `*.tf`, `*.tofu`, `terraform.tfvars`, `.terraform.lock.hcl`, files under `terraform/` or `environments/` trees, or for prompts mentioning Terraform, OpenTofu, HCL, providers, modules, state, `terraform apply`/`plan`, `tofu` CLI, or 'add a resource', 'fix the variable', 'update the module', 'plan this'. Default to `tofu` in examples (the user's primary tool); call out features that exist only in Terraform or only in OpenTofu.
 compatibility: opencode
 ---
 

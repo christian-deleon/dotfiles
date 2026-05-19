@@ -1,6 +1,6 @@
 ---
 name: just
-description: Authoring justfiles with the `just` command runner. Activate when working in a directory containing a `justfile` / `Justfile` / `*.just` / `.justfile`, when the user mentions `just`, "justfile", or task/command runners, or when adding/refactoring repo automation. Use modern features (modules, attributes, settings, shebang recipes) — never write make-style targets in disguise.
+description: Authoring justfiles for the `just` command runner. ALWAYS use when editing `justfile`/`Justfile`/`*.just`/`.justfile`, when the user mentions `just`, recipes, targets, tasks, or task/command runners, or for prompts like 'add a build task', 'fix the deploy recipe', 'run the lint task', 'what does this justfile do', 'refactor this Makefile to just'. Use modern features (modules, attributes, settings, shebang recipes) — never write Make-style targets in disguise.
 compatibility: opencode
 ---
 

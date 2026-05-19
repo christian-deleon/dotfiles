@@ -1,11 +1,6 @@
 ---
 name: contribute
-description: >
-  Guide contributions to upstream open-source GitHub projects. Reads project
-  guidelines (CONTRIBUTING.md, PR templates, git log), adapts to the project's
-  conventions, and creates well-formed pull requests using gh CLI. Activate when
-  the user mentions contributing to a public GitHub project, submitting upstream,
-  or opening a PR.
+description: Guide contributions to upstream open-source GitHub projects. ALWAYS use when the user mentions contributing to a public/upstream GitHub project, submitting upstream, opening a PR against an external repo, or following project guidelines for an open-source contribution — 'contribute to', 'open a PR upstream', 'submit a patch to', 'send this upstream'. Reads project guidelines (CONTRIBUTING.md, PR templates, git log), adapts to the project's conventions, and creates well-formed pull requests using the `gh` CLI.
 compatibility: opencode
 ---
 

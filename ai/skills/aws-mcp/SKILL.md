@@ -1,11 +1,6 @@
 ---
 name: aws-mcp
-description: >
-  AWS API access via the aws-api MCP server. Activate when the user asks
-  about AWS, requests AWS CLI commands, or any task requires reading from
-  AWS (S3, EC2, IAM, Lambda, CloudFormation, CloudWatch, etc.). Routes all
-  AWS API access through the MCP server, enforces read-only operations by
-  default, and asks the user to enable the server if it is not available.
+description: AWS API access via the `aws-api` MCP server. ALWAYS use whenever a task requires reading current AWS state (S3, EC2, IAM, Lambda, CloudFormation, CloudWatch, RDS, VPC, EKS, etc.) or when the user asks for AWS CLI commands or describes a state-of-the-cloud question — 'what's in this bucket', 'who has access to', 'what's the latest log', 'list my instances', 'show me the policy'. Routes all AWS API access through the MCP server, enforces read-only operations by default, and asks the user to enable the server if it is not available.
 compatibility: opencode
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: aws
-description: Christian's AWS conventions — naming and tagging today, more workflow preferences over time. Activate when the user mentions AWS or any AWS service (S3, EC2, RDS, IAM, VPC, Lambda, etc.), works with `aws_*` resources in HCL, edits files referencing AWS ARNs/account IDs, or designs/reviews AWS infrastructure. Most commonly applies alongside the `terraform` skill (OpenTofu by default). Defer HCL mechanics to the `terraform` skill and AWS API reads to the `aws-mcp` skill.
+description: Christian's AWS conventions — naming and tagging today, more workflow preferences over time. ALWAYS use when the user mentions AWS or any AWS service (S3, EC2, RDS, IAM, VPC, Lambda, etc.), works with `aws_*` HCL resources, edits files referencing AWS ARNs/account IDs, or designs/reviews AWS infrastructure — 'create a bucket', 'add an IAM role', 'tag these resources', 'name this Lambda'. Most commonly fires alongside the `terraform` skill (OpenTofu by default). Defer HCL mechanics to `terraform` and AWS API reads to `aws-mcp`.
 compatibility: opencode
 ---
 
