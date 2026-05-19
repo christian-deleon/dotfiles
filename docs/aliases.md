@@ -110,6 +110,15 @@ GitOps toolkit shortcuts for managing Flux resources.
 
 ---
 
+## AWS
+
+- `assume` - Granted: assume AWS profile and export creds into shell (`source assume`)
+- `ssmls` - List SSM-managed instances (id, name, platform, IP)
+
+See [functions.md](functions.md) for SSM session and port-forward functions (`ssm`, `ssmpf`, `ssmpfh`, `ssmrun`).
+
+---
+
 ## Terraform
 
 - `tf` - Terraform command shortcut
