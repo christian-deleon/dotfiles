@@ -1,0 +1,39 @@
+{
+  "_comment": "Claude Code hook example. Place inside ~/.claude/settings.json under top-level 'hooks' key. Matchers: omit/empty/'*' = all tools; exact name = 'Bash'; pipe-alt = 'Edit|Write'; regex auto-detected when matcher contains non-alphanumeric chars.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/cdeleon/.dotfiles/ai/hooks/pre_tool_use_bash_safety.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/cdeleon/.dotfiles/ai/hooks/post_tool_use_format.sh",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/cdeleon/.dotfiles/ai/hooks/session_start_inject_context.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
