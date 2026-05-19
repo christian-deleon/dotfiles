@@ -28,58 +28,55 @@ dothelp() {
         entries+=("$(printf '%s\t%s\t%s\t%s\t%s\t%s' "$display" "$category" "$desc" "$type" "$name" "$body")")
     }
 
-    # Parse .functions: #####\n# Category\n##### sets category; first comment above a
-    # function is its description. Function source is accumulated between the
-    # `function NAME()` header and the closing `}` to form the searchable body.
-    local fn_category="General"
-    local fn_comment=""
-    local fn_next_is_cat=false
-    local fn_comment_set=false
-    local fn_in_body=false
-    local fn_name=""
-    local fn_desc=""
-    local fn_body=""
-    while IFS= read -r line; do
-        if [[ "$fn_in_body" == true ]]; then
-            if [[ "$line" == "}" ]]; then
-                _emit "func" "$fn_name" "$fn_category" "$fn_desc" "$fn_body"
-                fn_in_body=false
+    # Parse functions.d/*.sh: each fragment is one category. A `# Category: X`
+    # line near the top sets the category (falls back to the filename). The
+    # first comment above a function is its description; the function source is
+    # accumulated between the `function NAME()` header and the closing `}` to
+    # form the searchable body.
+    local fn_file
+    for fn_file in "$df"/functions.d/*.sh; do
+        [[ -f "$fn_file" ]] || continue
+        local fn_category
+        fn_category="$(basename "$fn_file" .sh)"
+        local fn_comment=""
+        local fn_comment_set=false
+        local fn_in_body=false
+        local fn_name=""
+        local fn_desc=""
+        local fn_body=""
+        while IFS= read -r line; do
+            if [[ "$fn_in_body" == true ]]; then
+                if [[ "$line" == "}" ]]; then
+                    _emit "func" "$fn_name" "$fn_category" "$fn_desc" "$fn_body"
+                    fn_in_body=false
+                    fn_body=""
+                else
+                    fn_body+=" $line"
+                fi
+                continue
+            fi
+            if [[ "$line" =~ ^#[[:space:]]*Category:[[:space:]]*(.+) ]]; then
+                fn_category="${BASH_REMATCH[1]}"
+                fn_comment=""
+                fn_comment_set=false
+            elif [[ "$line" =~ ^#[[:space:]]*(.+) ]]; then
+                if [[ "$fn_comment_set" == false ]]; then
+                    fn_comment="${BASH_REMATCH[1]}"
+                    fn_comment_set=true
+                fi
+            elif [[ "$line" =~ ^function[[:space:]]+([a-zA-Z_][a-zA-Z0-9_-]*)\(\) ]]; then
+                fn_name="${BASH_REMATCH[1]}"
+                fn_desc="${fn_comment:-}"
                 fn_body=""
-            else
-                fn_body+=" $line"
+                fn_in_body=true
+                fn_comment=""
+                fn_comment_set=false
+            elif [[ -z "$line" ]]; then
+                fn_comment=""
+                fn_comment_set=false
             fi
-            continue
-        fi
-        if [[ "$line" =~ ^#{5,}$ ]]; then
-            if [[ "$fn_next_is_cat" == true ]]; then
-                fn_next_is_cat=false
-            else
-                fn_next_is_cat=true
-            fi
-            fn_comment=""
-            fn_comment_set=false
-        elif [[ "$fn_next_is_cat" == true && "$line" =~ ^#[[:space:]]*(.+) ]]; then
-            fn_category="${BASH_REMATCH[1]}"
-        elif [[ "$line" =~ ^#[[:space:]]*(.+) ]]; then
-            if [[ "$fn_comment_set" == false ]]; then
-                fn_comment="${BASH_REMATCH[1]}"
-                fn_comment_set=true
-            fi
-            fn_next_is_cat=false
-        elif [[ "$line" =~ ^function[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)\(\) ]]; then
-            fn_name="${BASH_REMATCH[1]}"
-            fn_desc="${fn_comment:-}"
-            fn_body=""
-            fn_in_body=true
-            fn_comment=""
-            fn_comment_set=false
-            fn_next_is_cat=false
-        elif [[ -z "$line" ]]; then
-            fn_comment=""
-            fn_comment_set=false
-            fn_next_is_cat=false
-        fi
-    done < "$df/.functions"
+        done < "$fn_file"
+    done
 
     # Parse .aliases: first comment in a consecutive block sets the category; the
     # trailing `  # ...` on an alias line is the per-alias description. The alias
@@ -121,7 +118,8 @@ dothelp() {
     printf '%s\n' "${entries[@]}" > "$tmpfile"
 
     # Preview: description header, "Category · type" subtitle, divider, body.
-    # Body = the alias line from .aliases, or the function source from .functions.
+    # Body = the alias line from .aliases, or the function source from
+    # functions.d/*.sh (search across all fragments).
     local preview
     preview="
         line={}
@@ -135,7 +133,7 @@ dothelp() {
         if [[ \"\$type\" == \"alias\" ]]; then
             grep -m1 \"^alias \${name}=\" \"$df/.aliases\"
         else
-            awk \"/^function[[:space:]]+\${name}[(]/,/^}\$/{print}\" \"$df/.functions\"
+            awk \"/^function[[:space:]]+\${name}[(]/,/^}\$/{print}\" \"$df\"/functions.d/*.sh
         fi
     "
 

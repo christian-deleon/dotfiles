@@ -6,7 +6,7 @@
 set -euo pipefail
 
 DOTFILES_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-FUNCTIONS_FILE="$DOTFILES_DIR/.functions"
+FUNCTIONS_DIR="$DOTFILES_DIR/functions.d"
 ALIASES_FILE="$DOTFILES_DIR/.aliases"
 
 MAX_LEN=60
@@ -23,79 +23,71 @@ ok() {
     printf '  \033[32m ok \033[0m  %s\n' "$1"
 }
 
-# ── check .functions ─────────────────────────────────────────────────────────
+# ── check functions.d/*.sh ───────────────────────────────────────────────────
 
-echo
-echo ".functions"
-echo "──────────────────────────────────────────────────"
+for fn_file in "$FUNCTIONS_DIR"/*.sh; do
+    [[ -f "$fn_file" ]] || continue
 
-prev_comment=""
-prev_line_was_comment=false
-in_section_header=false
+    echo
+    echo "functions.d/$(basename "$fn_file")"
+    echo "──────────────────────────────────────────────────"
 
-while IFS= read -r line; do
-    # Section header delimiters (##### lines)
-    if [[ "$line" =~ ^#{5,}$ ]]; then
-        in_section_header=true
-        prev_comment=""
-        prev_line_was_comment=false
-        continue
-    fi
+    prev_comment=""
+    prev_line_was_comment=false
 
-    # Section title line (# Kubernetes etc.) — not a description
-    if [[ "$in_section_header" == true && "$line" =~ ^#[[:space:]] ]]; then
-        in_section_header=false
-        prev_comment=""
-        prev_line_was_comment=false
-        continue
-    fi
-
-    in_section_header=false
-
-    if [[ "$line" =~ ^#[[:space:]]*(.+) ]]; then
-        desc="${BASH_REMATCH[1]}"
-
-        if [[ "$prev_line_was_comment" == true ]]; then
-            # Second (or more) consecutive comment line before a function — multiline description
-            # We'll flag it when we hit the function declaration
-            prev_comment="MULTILINE"
-        else
-            prev_comment="$desc"
-        fi
-        prev_line_was_comment=true
-        continue
-    fi
-
-    if [[ "$line" =~ ^function[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)\(\) ]]; then
-        name="${BASH_REMATCH[1]}"
-
-        if [[ "$prev_comment" == internal:* ]]; then
-            : # skip internal helpers
-        elif [[ "$prev_comment" == "MULTILINE" ]]; then
-            fail "$name — multiline description"
-        elif [[ -z "$prev_comment" ]]; then
-            fail "$name — missing description"
-        elif (( ${#prev_comment} > MAX_LEN )); then
-            fail "$name — description too long (${#prev_comment} chars > $MAX_LEN): $prev_comment"
-        else
-            ok "$name — $prev_comment"
+    while IFS= read -r line; do
+        # Skip the `# Category: X` header — it's metadata, not a description
+        if [[ "$line" =~ ^#[[:space:]]*Category: ]]; then
+            prev_comment=""
+            prev_line_was_comment=false
+            continue
         fi
 
-        prev_comment=""
-        prev_line_was_comment=false
-        continue
-    fi
+        if [[ "$line" =~ ^#[[:space:]]*(.+) ]]; then
+            desc="${BASH_REMATCH[1]}"
 
-    # Any non-comment, non-function line resets comment state
-    if [[ ! "$line" =~ ^[[:space:]]*$ ]]; then
-        prev_comment=""
-        prev_line_was_comment=false
-    elif [[ -z "$line" ]]; then
-        prev_comment=""
-        prev_line_was_comment=false
-    fi
+            if [[ "$prev_line_was_comment" == true ]]; then
+                # Second (or more) consecutive comment line before a function — multiline description
+                # We'll flag it when we hit the function declaration
+                prev_comment="MULTILINE"
+            else
+                prev_comment="$desc"
+            fi
+            prev_line_was_comment=true
+            continue
+        fi
 
-done < "$FUNCTIONS_FILE"
+        if [[ "$line" =~ ^function[[:space:]]+([a-zA-Z_][a-zA-Z0-9_-]*)\(\) ]]; then
+            name="${BASH_REMATCH[1]}"
+
+            if [[ "$prev_comment" == internal:* ]]; then
+                : # skip internal helpers
+            elif [[ "$prev_comment" == "MULTILINE" ]]; then
+                fail "$name — multiline description"
+            elif [[ -z "$prev_comment" ]]; then
+                fail "$name — missing description"
+            elif (( ${#prev_comment} > MAX_LEN )); then
+                fail "$name — description too long (${#prev_comment} chars > $MAX_LEN): $prev_comment"
+            else
+                ok "$name — $prev_comment"
+            fi
+
+            prev_comment=""
+            prev_line_was_comment=false
+            continue
+        fi
+
+        # Any non-comment, non-function line resets comment state
+        if [[ ! "$line" =~ ^[[:space:]]*$ ]]; then
+            prev_comment=""
+            prev_line_was_comment=false
+        elif [[ -z "$line" ]]; then
+            prev_comment=""
+            prev_line_was_comment=false
+        fi
+
+    done < "$fn_file"
+done
 
 # ── check .aliases ────────────────────────────────────────────────────────────
 
