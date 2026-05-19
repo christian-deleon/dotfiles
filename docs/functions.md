@@ -182,15 +182,49 @@ fpush -u origin feat   # arguments forward to git push
 
 ## AWS
 
-### `ssm [-p profile] [-r region] <instance-id>`
+All `ssm*` functions auto-pick an instance via fzf when the first positional argument isn't an instance ID (matched against `^i-[0-9a-f]+$`). `-p` overrides `AWS_PROFILE`; `-r` overrides `AWS_REGION`. Instances need the SSM agent running and an IAM role with `AmazonSSMManagedInstanceCore`. Requires the `aws` CLI plus the Session Manager plugin.
 
-Open an SSM Session Manager shell on an EC2 instance by ID. Uses IAM auth (no SSH key, no public IP, no open port 22 required). `-p` overrides `AWS_PROFILE`; `-r` overrides `AWS_REGION`. The instance needs the SSM agent running and an IAM role with `AmazonSSMManagedInstanceCore`. Requires the `aws` CLI plus the Session Manager plugin.
+### `ssm [-p profile] [-r region] [instance-id]`
+
+Open an SSM Session Manager shell on an EC2 instance. Uses IAM auth (no SSH key, no public IP, no open port 22 required).
 
 ```bash
-ssm i-0abc123def456789a                              # default profile/region
-ssm -p myprofile i-0abc123def456789a                 # explicit profile
-ssm -p myprofile -r us-west-2 i-0abc123def456789a    # profile + region
-AWS_PROFILE=myprofile ssm i-0abc123def456789a        # env var instead of flag
+ssm                                              # fzf-pick → session
+ssm i-0abc123def456789a                          # explicit instance
+ssm -p myprofile -r us-west-2                    # fzf-pick in a specific profile/region
+AWS_PROFILE=myprofile ssm                        # env var instead of flag
+```
+
+### `ssmpf [-p profile] [-r region] [instance-id] <local-port> [remote-port]`
+
+Forward `localhost:<local-port>` to a port *on the SSM instance itself*. Use this when something is listening on the EC2 (e.g. a process bound to `127.0.0.1:8080` on the instance). If `<remote-port>` is omitted, it defaults to `<local-port>`.
+
+```bash
+ssmpf 80                                        # fzf-pick → localhost:80 → instance:80
+ssmpf 9000 3000                                 # fzf-pick → localhost:9000 → instance:3000
+ssmpf i-0abc123def456789a 80                    # explicit
+```
+
+### `ssmpfh [-p profile] [-r region] [instance-id] <remote-host> <remote-port> [local-port]`
+
+Forward through the SSM instance to a *different* host the instance can reach (private RDS, internal ALB, etc.). The EC2 acts as a jump box but no SSH is required. If `<local-port>` is omitted, it defaults to `<remote-port>`.
+
+```bash
+# fzf-pick a bastion instance, then localhost:5432 → RDS endpoint:5432
+ssmpfh mydb.cluster-xyz.us-east-1.rds.amazonaws.com 5432
+# then: psql -h localhost -p 5432 ...
+
+# explicit instance
+ssmpfh i-0abc123def456789a mydb.cluster-xyz.us-east-1.rds.amazonaws.com 5432
+```
+
+### `ssmrun [-p profile] [-r region] [instance-id] '<command>'`
+
+Run a shell command on an EC2 instance via SSM Run Command and print its stdout. Waits for completion before returning. Useful when you want a one-off command output without opening an interactive session.
+
+```bash
+ssmrun 'systemctl status nginx'                  # fzf-pick → run
+ssmrun i-0abc123def456789a 'df -h'               # explicit
 ```
 
 ---

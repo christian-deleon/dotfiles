@@ -64,6 +64,7 @@ alias fs='flux stats'                                            # Show Flux sta
 
 # AWS
 alias assume='source assume'             # granted: assume AWS profile (exports creds into shell)
+alias ssmls='aws ssm describe-instance-information --query "InstanceInformationList[].[InstanceId,ComputerName,PlatformName,IPAddress]" --output table'  # List SSM-managed instances
 
 # Terraform
 alias tf='terraform'                     # Terraform command shortcut
