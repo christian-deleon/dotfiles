@@ -123,6 +123,16 @@ GitOps toolkit shortcuts for managing Flux resources.
 
 ---
 
+## Netcat
+
+Port connectivity checks. `nc` flags differ between BSD (macOS) and GNU/ncat builds, but `-z`, `-v`, `-u`, and `-w` are portable across all three.
+
+- `ncz` - Quick TCP port check, verbose (`nc -zv`) — e.g. `ncz host 443`
+- `ncscan` - TCP port scan with 1s timeout, supports ranges (`nc -zv -w 1`) — e.g. `ncscan host 20-25`
+- `ncudp` - Quick UDP port check, verbose (`nc -zvu`)
+
+---
+
 ## Poetry
 
 Python dependency management shortcuts.
