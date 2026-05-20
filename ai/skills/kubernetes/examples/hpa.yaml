@@ -1,0 +1,75 @@
+# Standard HPA — CPU + memory targets, explicit behavior.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: checkout
+  namespace: checkout
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: checkout
+  minReplicas: 3
+  maxReplicas: 30
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - { type: Percent, value: 100, periodSeconds: 30 }
+        - { type: Pods, value: 4, periodSeconds: 30 }
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - { type: Percent, value: 25, periodSeconds: 60 }
+      selectPolicy: Max
+---
+# KEDA ScaledObject — event-driven autoscaling on Kafka consumer lag.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: checkout-worker
+  namespace: checkout
+spec:
+  scaleTargetRef:
+    name: checkout-worker
+  minReplicaCount: 0                       # scale-to-zero when queue is empty
+  maxReplicaCount: 50
+  pollingInterval: 15
+  cooldownPeriod: 300
+  idleReplicaCount: 0
+  fallback:
+    failureThreshold: 5
+    replicas: 1
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka.kafka.svc:9092
+        consumerGroup: checkout-workers
+        topic: orders
+        lagThreshold: "100"
+    - type: prometheus
+      metadata:
+        serverAddress: http://mimir-querier.observability.svc:8080/prometheus
+        query: sum(rate(orders_pending[2m]))
+        threshold: "10"
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+        scaleDown:
+          stabilizationWindowSeconds: 300

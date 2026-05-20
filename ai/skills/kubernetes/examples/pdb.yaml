@@ -1,0 +1,44 @@
+# Stateless service — minAvailable as a percentage so it scales with the workload.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: checkout
+  namespace: checkout
+  labels:
+    app.kubernetes.io/name: checkout
+    app.kubernetes.io/instance: checkout-prod
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: checkout
+      app.kubernetes.io/instance: checkout-prod
+  unhealthyPodEvictionPolicy: AlwaysAllow
+---
+# Stateful service — minAvailable as a count; never less than quorum.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: kafka
+  namespace: kafka
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kafka
+      app.kubernetes.io/instance: kafka-prod
+  unhealthyPodEvictionPolicy: AlwaysAllow
+---
+# Background workload — maxUnavailable instead, since slow rollout is acceptable.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: checkout-worker
+  namespace: checkout
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: checkout-worker
+      app.kubernetes.io/instance: checkout-worker-prod
+  unhealthyPodEvictionPolicy: AlwaysAllow

@@ -1,0 +1,138 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  namespace: kafka
+  labels:
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/instance: kafka-prod
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/instance: kafka-prod
+  ports:
+    - name: broker
+      port: 9092
+      targetPort: broker
+    - name: controller
+      port: 9093
+      targetPort: controller
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+  namespace: kafka
+  labels:
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/instance: kafka-prod
+    app.kubernetes.io/version: "3.8.0"
+    app.kubernetes.io/component: broker
+    app.kubernetes.io/managed-by: Helm
+spec:
+  serviceName: kafka
+  replicas: 3
+  revisionHistoryLimit: 5
+  podManagementPolicy: OrderedReady
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      partition: 0
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kafka
+      app.kubernetes.io/instance: kafka-prod
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kafka
+        app.kubernetes.io/instance: kafka-prod
+        app.kubernetes.io/version: "3.8.0"
+    spec:
+      serviceAccountName: kafka
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 120
+
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: { type: RuntimeDefault }
+
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: kafka
+              app.kubernetes.io/instance: kafka-prod
+
+      containers:
+        - name: kafka
+          image: ghcr.io/example/kafka@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          ports:
+            - name: broker
+              containerPort: 9092
+            - name: controller
+              containerPort: 9093
+            - name: metrics
+              containerPort: 9404
+
+          env:
+            - name: POD_NAME
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+            - name: POD_ORDINAL
+              value: "$(POD_NAME##*-)"
+            - name: KAFKA_BROKER_ID
+              value: "$(POD_ORDINAL)"
+
+          resources:
+            requests:
+              cpu: 1
+              memory: 4Gi
+            limits:
+              memory: 4Gi
+
+          startupProbe:
+            tcpSocket: { port: broker }
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            tcpSocket: { port: broker }
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket: { port: broker }
+            periodSeconds: 30
+            failureThreshold: 3
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/kafka
+            - name: tmp
+              mountPath: /tmp
+
+      volumes:
+        - name: tmp
+          emptyDir: {}
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: fast-ssd
+        resources:
+          requests:
+            storage: 100Gi

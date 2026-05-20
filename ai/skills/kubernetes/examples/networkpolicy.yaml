@@ -1,0 +1,115 @@
+# 1. Default-deny — every namespace gets one of these before any allow rules.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: checkout
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+# 2. Allow DNS egress (UDP + TCP 53 to kube-system). Required for almost everything.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: checkout
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+---
+# 3. Allow Traefik ingress controller to reach checkout pods.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-traefik-to-checkout
+  namespace: checkout
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: checkout
+      app.kubernetes.io/instance: checkout-prod
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - { protocol: TCP, port: 8080 }
+---
+# 4. Allow checkout pods to talk to the postgres namespace on port 5432.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-checkout-to-postgres
+  namespace: checkout
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: checkout
+      app.kubernetes.io/instance: checkout-prod
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: postgres
+      ports:
+        - { protocol: TCP, port: 5432 }
+---
+# 5. Allow scrape from observability namespace (Alloy / kube-state-metrics).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-observability-scrape
+  namespace: checkout
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+      ports:
+        - { protocol: TCP, port: 9090 }
+---
+# 6. CiliumNetworkPolicy — L7 example: allow checkout to GET /v1/charges from stripe-proxy only.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: checkout-egress-stripe
+  namespace: checkout
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: checkout
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: stripe-proxy
+            io.kubernetes.pod.namespace: stripe
+      toPorts:
+        - ports:
+            - { port: "8080", protocol: TCP }
+          rules:
+            http:
+              - method: "GET"
+                path: "/v1/charges.*"
+              - method: "POST"
+                path: "/v1/charges"
