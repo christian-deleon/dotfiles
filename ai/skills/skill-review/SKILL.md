@@ -1,6 +1,6 @@
 ---
 name: skill-review
-description: Review and refine an EXISTING skill in ~/.dotfiles/ai/skills/ after the user noticed friction, a wrong recommendation, or a missing edge case in the current session. ALWAYS use when the user invokes /skill-review, says 'that skill was wrong', 'the X skill should have said Y', 'update the X skill', 'this skill needs to mention', 'add this to the X skill', 'I keep having to tell you', or 'this should be in a skill'. Reads the recent transcript and the target skill, diagnoses the gap (wrong fact, missing edge case, weak trigger description, content in the wrong skill, bloat, stale convention), proposes a concrete minimal edit, then writes after confirmation. For brand-new skills, use the `agent-files` skill instead.
+description: Review and refine an EXISTING skill in ~/.dotfiles/ai/skills/ after the user noticed friction or a wrong recommendation. Use when the user invokes /skill-review, says 'that skill was wrong', 'update the X skill', 'this skill needs to mention', 'I keep having to tell you', or 'this should be in a skill'. For brand-new skills, use `agent-files` instead.
 compatibility: opencode
 argument-hint: "[what felt wrong]"
 ---

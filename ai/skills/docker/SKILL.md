@@ -1,6 +1,6 @@
 ---
 name: docker
-description: Modern Docker for building and running containers — Dockerfile authoring, image building with BuildKit/buildx/bake, Docker Compose v2, base-image strategy, and the image supply chain (signing, SBOM, provenance, scanning). ALWAYS use when editing `Dockerfile`, `Containerfile`, `.dockerignore`, `compose.yaml`/`compose.yml`/`docker-compose.{yaml,yml}`, `docker-bake.{hcl,json}`, `.devcontainer/devcontainer.json`, or for prompts mentioning Docker, container, OCI image, Dockerfile, BuildKit, buildx, bake, multi-stage, multi-arch, distroless, Chainguard, Wolfi, scratch, Compose, `docker compose`, watch mode, profiles, healthcheck, cosign, Sigstore, SBOM, SLSA, provenance, Trivy, Grype, Docker Scout, Kyverno verifyImages, Podman, Quadlets, OrbStack, Rancher Desktop, or 'write a Dockerfile', 'containerize this', 'add a compose service', 'fix this Dockerfile', 'build multi-arch', 'sign this image', 'scan for CVEs', 'switch to distroless', 'add a healthcheck'. Defers Kubernetes workloads to `kubernetes`, Helm charts to `helm`, inner-loop dev in cluster to `skaffold`, GitOps to `flux`, EKS specifics to `aws`.
+description: Modern Docker — Dockerfile authoring, BuildKit/buildx/bake, Compose v2, base-image strategy, and the image supply chain (signing, SBOM, scanning). Use when editing `Dockerfile`, `compose.yaml`, `docker-bake.hcl`, or for prompts about containers, multi-arch, distroless, Chainguard, cosign, Trivy, Compose. Defers k8s workloads to `kubernetes`, Helm to `helm`, inner-loop dev to `skaffold`.
 compatibility: opencode
 ---
 

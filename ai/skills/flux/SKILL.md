@@ -1,6 +1,6 @@
 ---
 name: flux
-description: Flux CD v2 GitOps for Kubernetes. ALWAYS use when editing YAML under `flux/`/`clusters/` that references `toolkit.fluxcd.io` APIs (GitRepository, OCIRepository, HelmRepository, HelmRelease, Kustomization, ResourceSet), or for prompts mentioning Flux, GitOps reconciliation, `flux bootstrap`, the `flux` CLI, or 'add a HelmRelease', 'fix the Kustomization', 'reconcile this', 'sync from git'. Enforces v2 API versions, source/reconciler split, a four-layer reconcile chain, and the preferred secrets pattern (1Password Operator + Reflector, NOT SOPS/ESO).
+description: Flux CD v2 GitOps for Kubernetes. Use when editing YAML under `flux/`/`clusters/` referencing `toolkit.fluxcd.io` APIs (GitRepository, HelmRelease, Kustomization, ResourceSet), or for prompts about Flux, GitOps reconciliation, `flux bootstrap`, 'add a HelmRelease', 'fix the Kustomization', 'reconcile this'. Preferred secrets: 1Password Operator + Reflector.
 compatibility: opencode
 ---
 

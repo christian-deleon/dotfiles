@@ -1,6 +1,6 @@
 ---
 name: rust
-description: Modern Rust (edition 2024) for both small CLIs and real applications — language idioms, packaging, ownership/lifetimes, traits, async, error handling, web services, testing. ALWAYS use when editing `*.rs`/`Cargo.toml`/`Cargo.lock`/`rust-toolchain.toml`/`clippy.toml`/`rustfmt.toml`/`build.rs`, files under `src/`/`tests/`/`benches/`/`examples/` in a Rust crate, or for prompts mentioning Rust, cargo, rustup, clippy, rustfmt, tokio, axum, reqwest, clap, serde, sqlx, tracing, thiserror, anyhow, async/await, ownership, lifetimes, traits, or 'write a CLI', 'add an endpoint', 'fix this borrow checker error', 'add a test', 'derive serde'. Opinionated stack — cargo + rustup for build/toolchain, clippy + rustfmt for lint/format, cargo-nextest for tests, thiserror for library errors, anyhow for application errors, tokio for async, axum for new HTTP APIs, reqwest for HTTP clients, clap (derive) for CLIs, tracing for logs/spans, serde for serialization. Examples target edition 2024 on a recent stable toolchain.
+description: Modern Rust (edition 2024) for CLIs, services, and libraries — idioms, packaging, async, errors, web, testing. Use when editing `*.rs`/`Cargo.toml`, or for prompts about cargo, clippy, tokio, axum, reqwest, clap, serde, sqlx, thiserror, anyhow, tracing. Stack: clippy + rustfmt, cargo-nextest, tokio, axum, clap (derive), tracing.
 compatibility: opencode
 ---
 

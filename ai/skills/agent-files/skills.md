@@ -60,18 +60,16 @@ Grok Build accepts the Claude-Code frontmatter via its compat layer.
 
 ### The description field is the trigger
 
-Anthropic's official phrasing is **"Use when…"**. The "**ALWAYS use when…**" idiom is community convention used throughout this repo — it reads as a stronger trigger to the model. Either form works. Pick the one that matches the style of nearby skills.
+Anthropic's official phrasing is **"Use when…"**. Lead with one sentence stating what the skill is for, then the strongest 2-3 triggers (key file types, the most common user phrases), and optionally a one-clause stack/defer note. Pick a tight handful of triggers — not an exhaustive keyword dump.
 
-A good description:
+**Per-skill budget: aim for ~250-350 chars.** The per-field cap is generous (Claude Code: 1,536 chars `description` + `when_to_use` combined; OpenCode: 1,024 chars `description`), but that's not the binding constraint. Claude Code packs **all installed skill descriptions** into a single "skill listing budget" — default `skillListingBudgetFraction` is **1% of the context window** (~8,000 chars for a 200K window). When the listing overflows, Claude Code drops descriptions for less-used skills and `/doctor` flags it. With ~20 skills installed, that means each one realistically gets ~300-400 chars. A 1,000-char description is the loudest one in the room — and pushes someone else out of the listing.
 
-1. Leads with **one sentence** stating what the skill is for.
-2. Lists the **file types / paths** that should fire it: `editing *.tf`, `files under playbooks/`, `~/.config/worktrunk/config.toml`.
-3. Lists the **exact phrases** users would type: `'add a task'`, `'fix this play'`, `'create a worktree'`.
-4. Optionally closes with what the skill **enforces** or **does**.
+Anti-patterns that bloat descriptions:
+- Listing every file extension (`*.yaml`/`*.yml` referencing `apps/v1`, `networking.k8s.io`, `traefik.io`, …). One representative path is enough.
+- Listing every user phrase variant. Pick the 3-4 most distinctive ones.
+- Restating the full opinionated stack. That belongs in the body.
 
-Hard cap: Claude Code truncates `description` + `when_to_use` at **1,536 chars combined**. OpenCode caps `description` at **1,024 chars**. Stay under 1,000 to be safe everywhere.
-
-Look at `~/.dotfiles/ai/skills/bash/SKILL.md` or `~/.dotfiles/ai/skills/worktrunk/SKILL.md` for canonical examples.
+Look at `~/.dotfiles/ai/skills/bash/SKILL.md` or `~/.dotfiles/ai/skills/worktrunk/SKILL.md` for tight examples.
 
 ### What NOT to put in frontmatter
 

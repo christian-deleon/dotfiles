@@ -1,6 +1,6 @@
 ---
 name: helm
-description: Modern Helm v3 for Kubernetes chart authoring and chart consumption. ALWAYS use when editing `Chart.yaml`, `Chart.lock`, `values.yaml`, `values.schema.json`, `_helpers.tpl`, `NOTES.txt`, anything under `templates/`/`charts/`/`crds/` in a chart, `helmfile.yaml`, or for prompts mentioning Helm, charts, `helm install`/`upgrade`/`template`/`lint`/`diff`/`package`/`push`/`pull`, `helm dep update`, OCI charts/registries, named templates, sprig, library charts, subcharts, helmfile, helm-secrets, helm-unittest, chart-testing, chart-releaser, or 'add a chart', 'fix this template', 'render with helm', 'add a values schema', 'package and push', 'rollback', 'bump chart version'. Enforces Chart v2, OCI as default distribution, `app.kubernetes.io/*` labels, immutable image tags (digest > semver), `--atomic --wait` for direct installs, `helm diff upgrade` before changes. Helm 2 / Tiller is dead. Defers to the `flux` skill for `HelmRelease` mechanics in GitOps repos.
+description: Helm v3 chart authoring and chart consumption. Use when editing `Chart.yaml`, `values.yaml`, `templates/`, `helmfile.yaml`, or for prompts about helm install/upgrade/template/diff/package, OCI charts, helmfile, chart-testing. Enforces Chart v2, OCI distribution, immutable image tags, `--atomic --wait`, `helm diff upgrade` before changes. Defers `HelmRelease` mechanics to `flux`.
 compatibility: opencode
 ---
 

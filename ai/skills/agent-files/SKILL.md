@@ -1,6 +1,6 @@
 ---
 name: agent-files
-description: Authoring AI agent files (skills, agents, slash commands, hooks, rules, MCP server entries) for Claude Code, OpenCode, and Grok Build. ALWAYS use when adding or updating anything under `~/.dotfiles/ai/` or its consumers (`~/.claude/`, `~/.config/opencode/`, `~/.grok/`), or for prompts like 'add a skill', 'new subagent', 'create a slash command', 'wire up a PreToolUse hook', 'add a rule', 'add an MCP server', 'update the bash skill', 'split this skill into reference files'. Source of truth is always `~/.dotfiles/ai/` — never edit the symlinked targets directly.
+description: Authoring AI agent files (skills, agents, slash commands, hooks, rules, MCP entries) for Claude Code, OpenCode, and Grok. Use when adding or updating anything under `~/.dotfiles/ai/`, or for prompts like 'add a skill', 'new subagent', 'create a slash command', 'add a rule', 'add an MCP server', 'update the bash skill'. Source of truth is `~/.dotfiles/ai/`.
 compatibility: opencode
 ---
 
@@ -51,7 +51,7 @@ Templates live in [`examples/`](examples/) — copy and edit, don't write from s
    - **Claude Code merged slash commands into skills.** `ai/commands/<name>.md` still works there but skills are preferred. OpenCode keeps `commands/` separate; Grok has no native commands dir (author as skills).
    - **AGENTS.md is NOT auto-loaded by Claude Code.** Use a `CLAUDE.md` that does `@AGENTS.md` if you want both tools to read the same file. OpenCode and Grok do auto-load `AGENTS.md`.
 
-5. **Descriptions are triggers, not documentation.** A skill/agent description is what the model uses to decide whether to fire. Lead with the strongest use case, list the exact phrases users would type, and pack in keywords from the relevant file types. Claude Code truncates `description` + `when_to_use` at 1,536 chars combined. See [skills.md](skills.md) for the full pattern.
+5. **Descriptions are triggers, not documentation.** A skill/agent description is what the model uses to decide whether to fire. Lead with the strongest use case, then 2-3 distinctive trigger phrases — not every variant. Aim for ~250-350 chars per skill: Claude Code packs all installed skill descriptions into one listing budget (default 1% of context, ~8,000 chars) and drops the long ones when it overflows. See [skills.md](skills.md) for the full pattern and anti-patterns.
 
 6. **Don't invent fields.** Each tool has a strict frontmatter schema — fields not in the reference file will be silently ignored (or, in OpenCode's case, fail Zod validation). When in doubt, check the topic file before adding a new key.
 
