@@ -460,6 +460,117 @@ That's it. **Commit `Cargo.lock` for both binaries and libraries.** The Cargo te
 - One name per concept. `my-tool-cli` for the binary if there's also `my-tool` the library.
 - Reserved namespaces (`std`, `core`, `alloc`, `proc_macro`, `test`) — don't shadow them.
 
+## Containers — distroless with cargo cache mounts
+
+For services that ship as container images, the 2026 standard is a multi-stage build with cargo's registry and target dirs mounted as caches, cross-compiled to the target arch, and a distroless final stage. Two flavours: **glibc** (`gcr.io/distroless/cc-debian12:nonroot` with the default `gnu` target) or **fully static** (`gcr.io/distroless/static-debian12:nonroot` or `scratch` with the `musl` target).
+
+Glibc / `cc-debian12` — the default; works with `openssl`, `reqwest` rustls fallbacks, and most ecosystem crates without surprises:
+
+```dockerfile
+# syntax=docker/dockerfile:1
+ARG RUST_VERSION=1.89
+ARG BASE=gcr.io/distroless/cc-debian12:nonroot
+
+FROM --platform=$BUILDPLATFORM rust:${RUST_VERSION}-bookworm-slim AS build
+ARG TARGETARCH
+WORKDIR /src
+
+# Map TARGETARCH → Rust target triple
+RUN case "$TARGETARCH" in \
+      amd64) echo x86_64-unknown-linux-gnu  > /target.txt ;; \
+      arm64) echo aarch64-unknown-linux-gnu > /target.txt ;; \
+      *) echo "unsupported $TARGETARCH" >&2; exit 1 ;; \
+    esac && \
+    rustup target add "$(cat /target.txt)"
+
+# Cross-arch toolchain (arm64 builds on amd64 hosts need gcc-aarch64)
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+
+# Build — cache cargo registry and the target dir
+RUN --mount=type=cache,target=/usr/local/cargo/registry,id=cargo-registry \
+    --mount=type=cache,target=/usr/local/cargo/git,id=cargo-git \
+    --mount=type=cache,target=/src/target,id=cargo-target-${TARGETARCH} \
+    --mount=type=bind,source=.,target=/src,rw \
+    TARGET="$(cat /target.txt)" && \
+    cargo build --release --locked --target "$TARGET" && \
+    cp "/src/target/${TARGET}/release/my-svc" /out/svc
+
+FROM ${BASE}
+COPY --link --from=build /out/svc /svc
+USER 65532:65532
+EXPOSE 8080
+ENTRYPOINT ["/svc"]
+```
+
+Why each piece:
+
+- **`# syntax=docker/dockerfile:1`** — pins the BuildKit frontend independent of the Docker engine.
+- **`--platform=$BUILDPLATFORM`** — build on the host's native arch and cross-compile. 5-10x faster than QEMU.
+- **`rustup target add`** — install the std libs for the target triple.
+- **`CARGO_TARGET_<TRIPLE>_LINKER`** — point cargo at the cross-linker. Required for arm64-on-amd64.
+- **`--mount=type=cache,target=/usr/local/cargo/registry`** + **`/git`** — persist the cargo registry across builds.
+- **`--mount=type=cache,target=/src/target,id=cargo-target-${TARGETARCH}`** — per-arch target dir cache. Critical: scope by arch (`id=...-${TARGETARCH}`) or two-platform builds fight over the same cache and rebuild everything.
+- **`--mount=type=bind,source=.,target=/src,rw`** — read source without copying it into a layer. `rw` lets cargo scratch into the source dir.
+- **`--release --locked`** — release optimisations; `--locked` enforces the committed `Cargo.lock`.
+- **`COPY --link --from=build`** — independent layer that survives base-image rebases.
+- **`gcr.io/distroless/cc-debian12:nonroot`** — glibc + libgcc + libstdc++, no shell, no package manager, runs as UID 65532.
+
+Fully static / `static-debian12` — for the smallest possible image; requires the `musl` target and pure-Rust dependencies (rustls, no openssl-sys with native bindings):
+
+```dockerfile
+# syntax=docker/dockerfile:1
+FROM --platform=$BUILDPLATFORM rust:1.89-bookworm-slim AS build
+ARG TARGETARCH
+WORKDIR /src
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        musl-tools gcc-aarch64-linux-gnu
+
+RUN case "$TARGETARCH" in \
+      amd64) rustup target add x86_64-unknown-linux-musl ;; \
+      arm64) rustup target add aarch64-unknown-linux-musl ;; \
+    esac
+
+RUN --mount=type=cache,target=/usr/local/cargo/registry,id=cargo-registry \
+    --mount=type=cache,target=/src/target,id=cargo-target-${TARGETARCH} \
+    --mount=type=bind,source=.,target=/src,rw \
+    case "$TARGETARCH" in \
+      amd64) T=x86_64-unknown-linux-musl ;; \
+      arm64) T=aarch64-unknown-linux-musl ;; \
+    esac && \
+    cargo build --release --locked --target "$T" && \
+    cp "/src/target/${T}/release/my-svc" /out/svc
+
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --link --from=build /out/svc /svc
+USER 65532:65532
+ENTRYPOINT ["/svc"]
+```
+
+Pick `cc` over `static`/`musl` unless you genuinely need the smaller image — musl swaps can break `getaddrinfo` behaviour, DNS resolution under heavy load, and any crate that links a C library expecting glibc. For most services, `cc-debian12` is the right call.
+
+For build performance on iterative rebuilds, consider [`cargo-chef`](https://github.com/LukeMathWalker/cargo-chef) — it computes a dependency-only build plan that lets BuildKit cache the deps stage even when source changes. Worth it for monolithic crates; cache mounts alone are enough for most workspaces.
+
+Build it multi-platform:
+
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 \
+  --tag ghcr.io/acme/svc:v1.2.3 --push .
+```
+
+For Compose, multi-target builds via `bake`, image signing (cosign), SBOM/provenance attestations, and admission verification (Kyverno `verifyImages`) — see the [`docker`](../docker/SKILL.md) skill.
+
 ## Common Cargo.toml mistakes
 
 | Mistake | Fix |
