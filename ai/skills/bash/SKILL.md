@@ -1,6 +1,6 @@
 ---
 name: bash
-description: Modern Bash scripting — safe, idiomatic, lint-clean. ALWAYS use when editing `*.sh`, `*.bash`, files with a `#!/usr/bin/env bash` or `#!/bin/bash` shebang, anything under `bin/`/`scripts/`, `.bashrc`/`.bash_profile`/`.zshrc` fragments that share shell idioms, or for prompts mentioning bash, shell scripting, `set -e`, shebang, shellcheck, shfmt, bats, or 'write a script', 'fix this script', 'add a function', 'parse these args', 'why is my bash broken'. Defaults to bash 4+; calls out POSIX `sh` only when the target is `/bin/sh` (Alpine, dash, init). Enforces shellcheck-clean output, shfmt formatting, and the modern strict-mode synthesis (turn on `set -Eeuo pipefail` AND write code that's correct without it).
+description: Modern Bash scripting — safe, idiomatic, lint-clean. Use when editing `*.sh`/`*.bash`, files with a bash shebang, scripts under `bin/` or `scripts/`, or for prompts about shellcheck, shfmt, bats, strict mode. Bash 4+ default; POSIX `sh` only when target is `/bin/sh`. Enforces shellcheck-clean output and shfmt formatting.
 compatibility: opencode
 ---
 

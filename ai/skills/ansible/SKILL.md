@@ -1,6 +1,6 @@
 ---
 name: ansible
-description: Modern Ansible (ansible-core 2.20+) playbook, role, collection, and inventory authoring — task patterns, role layout, variable precedence, secrets, linting, and Molecule testing. ALWAYS use when editing `ansible.cfg`, `requirements.yml`, `meta/argument_specs.yml`, files under `playbooks/`/`roles/`/`inventories/`/`group_vars/`/`host_vars/`/`molecule/`, `.ansible-lint`, or YAML that is clearly Ansible (plays, tasks, handlers, role vars), or for prompts mentioning Ansible, playbooks, roles, collections, ad-hoc commands, `ansible-playbook`, `ansible-galaxy`, `ansible-vault`, `ansible-lint`, `ansible-navigator`, `ansible-builder`, execution environments, Molecule, or 'add a task', 'fix this play', 'write a role', 'lint this playbook', 'add a handler', 'inventory for', 'vault this secret', 'argument spec'. Enforces current syntax (FQCN, `loop`, lowercase `true`/`false`, boolean-typed `when`), prefers modules over `command`/`shell`, follows the standard role layout, and must pass `ansible-lint` `production` profile.
+description: Ansible (ansible-core 2.20+) playbook, role, collection, and inventory authoring. Use when editing files under `playbooks/`, `roles/`, `inventories/`, `group_vars/`, `molecule/`, `ansible.cfg`, or for prompts about `ansible-playbook`, `ansible-vault`, `ansible-lint`, Molecule. Enforces FQCN, modern syntax, and the `ansible-lint` production profile.
 compatibility: opencode
 ---
 

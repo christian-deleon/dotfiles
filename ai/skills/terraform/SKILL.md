@@ -1,6 +1,6 @@
 ---
 name: terraform
-description: Modern Terraform / OpenTofu authoring (HCL). ALWAYS use when editing `*.tf`, `*.tofu`, `terraform.tfvars`, `.terraform.lock.hcl`, files under `terraform/` or `environments/` trees, or for prompts mentioning Terraform, OpenTofu, HCL, providers, modules, state, `terraform apply`/`plan`, `tofu` CLI, or 'add a resource', 'fix the variable', 'update the module', 'plan this', 'write a test'. Default to `tofu` in examples (the user's primary tool); call out features that exist only in Terraform or only in OpenTofu. Opinionated stack — `tofu` for everything new, S3 backend with native locking, `for_each` over `count`, `moved`/`import`/`removed` blocks over CLI state surgery, OpenTofu state encryption (or Terraform ephemeral + write-only) for secrets, `tofu test` for module verification, `tflint` + `trivy config` in CI.
+description: Terraform / OpenTofu authoring (HCL). Use when editing `*.tf`/`*.tofu`/`terraform.tfvars`, files under `terraform/` or `environments/`, or for prompts about providers, modules, state, plan/apply, `tofu` CLI. Defaults to `tofu`; calls out Terraform-only or OpenTofu-only features. S3 backend with native locking, `for_each` over `count`, `moved`/`import`/`removed` over state surgery.
 compatibility: opencode
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: skaffold
-description: Skaffold v2 for the Kubernetes inner-loop dev workflow — build, push, deploy, sync, log-tail, port-forward, debug — driven by a single `skaffold.yaml`. ALWAYS use when editing `skaffold.yaml`/`skaffold.yml`, files referencing `apiVersion: skaffold/v4beta*`, or for prompts mentioning Skaffold, `skaffold dev`/`debug`/`run`/`build`/`render`/`apply`/`init`/`diagnose`/`verify`/`inspect`, file sync, hot reload, dev loop, inner loop, profiles, taggers, monorepo with `requires:`, cross-arch builds, or 'rebuild on file change', 'port-forward this', 'debug in-cluster', 'wire up skaffold', 'add a profile', 'why is my image not updating', 'add a verify test'. Treats Skaffold as a **dev/CI build orchestrator**, NOT a production deployer — production is GitOps (see `flux` skill). Enforces v2 schema, render/apply split, file sync over rebuilds, inputDigest/gitCommit taggers, profile-based env variation, and `skaffold debug` for breakpoints.
+description: Skaffold v2 for the Kubernetes inner-loop — build, sync, debug, port-forward via `skaffold.yaml`. Use when editing `skaffold.yaml` or for prompts about `skaffold dev/debug/run`, file sync, hot reload, profiles, taggers. Dev/CI build orchestrator, NOT a production deployer — production deploys are GitOps (see `flux`).
 compatibility: opencode
 ---
 

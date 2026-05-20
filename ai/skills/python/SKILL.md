@@ -1,6 +1,6 @@
 ---
 name: python
-description: Modern Python (3.12+) for both small scripts and real applications — language idioms, packaging, type hints, async, web services, data models, testing. ALWAYS use when editing `*.py`/`*.pyi`/`pyproject.toml`/`uv.lock`/`requirements*.txt`/`Pipfile`/`setup.cfg`/`tox.ini`, files under `src/` or `tests/` in a Python project, or for prompts mentioning Python, scripts, FastAPI, Django, Starlette, asyncio, type hints, dataclass, Pydantic, msgspec, ruff, mypy, pyright, pytest, uv, `pip install`, `pyproject`, or 'write a script', 'add an endpoint', 'fix this type error', 'parse these args', 'add a test'. Opinionated stack — uv for env/deps, ruff for lint/format, pyright as primary type checker (mypy for libraries), pytest, FastAPI for new APIs, httpx, pydantic-settings, structlog. Examples target Python 3.12+.
+description: Modern Python (3.12+) for scripts and apps — idioms, packaging, types, async, web, testing. Use when editing `*.py`/`pyproject.toml`/`uv.lock` or for prompts about FastAPI, Django, asyncio, Pydantic, ruff, pyright, pytest, uv. Stack: uv, ruff, pyright (mypy for libraries), pytest, FastAPI, httpx, pydantic-settings, structlog.
 compatibility: opencode
 ---
 

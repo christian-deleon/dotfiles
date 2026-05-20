@@ -1,6 +1,6 @@
 ---
 name: go
-description: Modern Go (1.25+) for services, CLIs, and libraries — language idioms, project layout, error handling, concurrency, generics, web services, testing. ALWAYS use when editing `*.go`/`go.mod`/`go.sum`/`go.work`, files under `cmd/`/`internal/`, or for prompts mentioning Go, golang, goroutines, channels, context, slog, generics, `errors.Is`/`errors.As`, gin, chi, pgx, sqlc, GORM, cobra, kong, gopls, gofumpt, golangci-lint, govulncheck, goreleaser, `testing/synctest`, or 'add a handler', 'write a goroutine', 'fix this test', 'parse flags', 'add a migration', 'wrap this error'. Opinionated stack — Go 1.26 default (1.25 floor), gofumpt + golangci-lint v2 + govulncheck, stdlib `net/http` with 1.22+ pattern routing, `log/slog`, `pgx/v5` + `sqlc` for Postgres, cobra (distributed) or kong (internal) for CLIs, `errgroup` for fan-out, `testing/synctest` for time-dependent tests, distroless/static containers, goreleaser v2.
+description: Modern Go (1.25+) for services, CLIs, libraries — idioms, layout, concurrency, generics, testing. Use when editing `*.go`/`go.mod`, files under `cmd/` or `internal/`, or for prompts about goroutines, context, slog, errors.Is/As, gin, chi, pgx, sqlc, cobra, kong. Stack: gofumpt + golangci-lint v2 + govulncheck, stdlib `net/http`, `pgx/v5` + `sqlc`.
 compatibility: opencode
 ---
 

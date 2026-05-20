@@ -1,6 +1,6 @@
 ---
 name: kubernetes
-description: Modern Kubernetes for DevOps work — manifest authoring, workloads, networking, security, observability, cluster ops, debugging. ALWAYS use when editing `*.yaml`/`*.yml` referencing `apps/v1`, `networking.k8s.io`, `traefik.io`, `gateway.networking.k8s.io`, `rbac.authorization.k8s.io`, `policy/v1`, `autoscaling/v2`, files under `manifests/`/`k8s/`/`charts/*/templates/`/`kustomize/`, or for prompts mentioning Kubernetes, kubectl, k8s, RKE2, K3s, k3d, kind, EKS, Pod/Deployment/StatefulSet/DaemonSet/Service/Ingress/IngressRoute/NetworkPolicy/HPA/PDB/RBAC/CRD, probes, securityContext, Cilium, Traefik, Kyverno, KEDA, cert-manager, Grafana LGTM, Loki, Tempo, Mimir, Alloy, Karpenter, k9s, stern, or 'write a deployment', 'add a probe', 'debug this pod', 'set up RBAC', 'add a network policy', 'configure HPA', 'upgrade the cluster', 'drain a node'. Defers Helm to `helm`, IaC to `terraform`, GitOps to `flux`, inner-loop to `skaffold`, EKS to `aws`. Routes cluster reads via `kubernetes-mcp`.
+description: Modern Kubernetes — manifest authoring, workloads, networking, security, debugging. Use when editing YAML under `manifests/`, `k8s/`, `kustomize/`, or for prompts about kubectl, RKE2, EKS, Deployment/Service/Ingress/HPA/RBAC/NetworkPolicy, Cilium, Traefik, Kyverno, cert-manager. Defers Helm to `helm`, IaC to `terraform`, GitOps to `flux`, inner-loop to `skaffold`. Routes cluster reads via `kubernetes-mcp`.
 compatibility: opencode
 ---
 

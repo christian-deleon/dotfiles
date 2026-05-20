@@ -1,6 +1,6 @@
 ---
 name: worktrunk
-description: Authoring and using `worktrunk` (the `wt` CLI) for git worktree management. ALWAYS use when editing `~/.config/worktrunk/config.toml`, anything under `worktrunk/.config/worktrunk/` in this dotfiles repo, in repos with `.config/wt.toml`, or for prompts mentioning `wt`, `worktrunk`, worktree workflows, parallel agents, or 'add a hook', 'create a worktree', 'set up wt aliases', 'configure post-start'. Covers commands, hooks (post-start, pre-remove, etc.), templates, aliases, state, and Christian's existing dotfiles config.
+description: Authoring and using `worktrunk` (the `wt` CLI) for git worktree management. Use when editing `~/.config/worktrunk/config.toml`, in repos with `.config/wt.toml`, or for prompts about `wt`, worktree workflows, parallel agents, 'add a hook', 'create a worktree', 'configure post-start'. Covers commands, hooks, templates, aliases, state.
 compatibility: opencode
 ---
 
