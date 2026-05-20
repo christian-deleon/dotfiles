@@ -1,0 +1,89 @@
+# cert-manager Certificate — produces a kubernetes.io/tls Secret named 'checkout-tls'
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: checkout-tls
+  namespace: checkout
+spec:
+  secretName: checkout-tls
+  dnsNames:
+    - checkout.example.com
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+---
+# Per-route middleware — rate limit, header rewrite, etc.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: rate-limit
+  namespace: checkout
+spec:
+  rateLimit:
+    average: 100
+    burst: 200
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: security-headers
+  namespace: checkout
+spec:
+  headers:
+    stsSeconds: 31536000
+    stsIncludeSubdomains: true
+    stsPreload: true
+    contentTypeNosniff: true
+    browserXssFilter: true
+    referrerPolicy: strict-origin-when-cross-origin
+    frameDeny: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: checkout
+  namespace: checkout
+  labels:
+    app.kubernetes.io/name: checkout
+    app.kubernetes.io/instance: checkout-prod
+spec:
+  entryPoints: [websecure]
+  routes:
+    - kind: Rule
+      match: Host(`checkout.example.com`) && PathPrefix(`/api`)
+      priority: 100
+      middlewares:
+        - name: rate-limit
+        - name: security-headers
+      services:
+        - name: checkout
+          port: http
+  tls:
+    secretName: checkout-tls
+---
+# HTTP -> HTTPS redirect
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: checkout-redirect
+  namespace: checkout
+spec:
+  entryPoints: [web]
+  routes:
+    - kind: Rule
+      match: Host(`checkout.example.com`)
+      middlewares:
+        - name: https-redirect
+      services:
+        - name: checkout
+          port: http
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: https-redirect
+  namespace: checkout
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
