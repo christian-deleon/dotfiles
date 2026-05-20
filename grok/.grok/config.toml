@@ -80,7 +80,6 @@ respect_gitignore = true
 #
 # The following are commonly noisy or not needed in most dev environments:
 disabled_mcp_servers = [
-    "magic",
     "memory",               # enable explicitly with GROK_MEMORY=1 when desired
     "playwright",
 ]
