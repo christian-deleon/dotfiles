@@ -13,11 +13,6 @@
     },
     "description": "Grafana dashboards and observability"
   },
-  "time": {
-    "command": "npx",
-    "args": ["-y", "time-mcp"],
-    "description": "Current time and timezone utilities"
-  },
   "docker": {
     "command": "/home/cdeleon/.local/share/mise/shims/uvx",
     "args": ["mcp-server-docker"],
@@ -71,24 +66,9 @@
     "args": ["-y", "@modelcontextprotocol/server-memory"],
     "description": "Persistent memory across sessions"
   },
-  "sequential-thinking": {
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
-    "description": "Chain-of-thought reasoning"
-  },
   "magic": {
     "command": "npx",
     "args": ["-y", "@magicuidesign/mcp@latest"],
     "description": "Magic UI components"
-  },
-  "filesystem": {
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-filesystem", "~/projects/"],
-    "description": "Filesystem operations"
-  },
-  "cloudflare-docs": {
-    "type": "http",
-    "url": "https://docs.mcp.cloudflare.com/mcp",
-    "description": "Cloudflare documentation search"
   }
 }
