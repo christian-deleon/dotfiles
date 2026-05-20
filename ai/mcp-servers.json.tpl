@@ -65,10 +65,5 @@
     "command": "npx",
     "args": ["-y", "@modelcontextprotocol/server-memory"],
     "description": "Persistent memory across sessions"
-  },
-  "magic": {
-    "command": "npx",
-    "args": ["-y", "@magicuidesign/mcp@latest"],
-    "description": "Magic UI components"
   }
 }
