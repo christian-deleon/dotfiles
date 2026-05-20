@@ -20,6 +20,7 @@ The most common AI failure mode here is writing 2015-era Python: `setup.py`, `re
 | Pick between `dataclass`, `attrs`, Pydantic, `msgspec`, `TypedDict` | [data-models.md](data-models.md) |
 | Write `async` code, use `TaskGroup`, choose threads vs processes vs async | [concurrency.md](concurrency.md) |
 | Build an API, pick a web framework, configure logging, make HTTP calls | [web.md](web.md) |
+| Containerize as a distroless image — `uv sync`, multi-stage, cache mounts, signing | [packaging.md](packaging.md) → "Containers" section. Universal Dockerfile/Compose/build/supply-chain patterns live in the [`docker`](../docker/SKILL.md) skill |
 
 For one-off edits, the cheat sheets below are usually enough. Reach for the reference files when the task warrants depth.
 

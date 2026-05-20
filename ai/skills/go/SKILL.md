@@ -20,6 +20,7 @@ The most common AI failure mode here is writing 2018-era Go: `interface{}` inste
 | Wrap, inspect, aggregate, or recover from errors | [errors.md](errors.md) |
 | Write goroutines, use `errgroup`, `context`, `sync.WaitGroup.Go` | [concurrency.md](concurrency.md) |
 | Build an HTTP service, route, log, connect to Postgres | [web.md](web.md) |
+| Containerize as a distroless image — multi-stage, cache mounts, multi-arch, signing | [project-layout.md](project-layout.md) → "Containers" section. Universal Dockerfile/Compose/build/supply-chain patterns live in the [`docker`](../docker/SKILL.md) skill |
 
 For one-off edits, the cheat sheets below are usually enough. Reach for the reference files when the task warrants depth.
 

@@ -234,6 +234,85 @@ If you're shipping a library to PyPI:
 - **CalVer** for apps and tools (e.g. `2026.5.19`). Don't bother with SemVer for an internal service.
 - **Read the version from package metadata**, not a hardcoded string in `setup.py`-style. `importlib.metadata.version(__package__)` works at runtime; `[tool.hatch.version.path]` works at build time.
 
+## Containers — distroless with `uv`
+
+For services that ship as container images, the 2026 standard is **`gcr.io/distroless/python3-debian12:nonroot`** with the venv populated by `uv` in a builder stage and copied across with `COPY --link`. Modern BuildKit shape — cache mounts, multi-platform-friendly, no shell in the runtime:
+
+```dockerfile
+# syntax=docker/dockerfile:1
+ARG PYTHON_VERSION=3.13
+ARG BASE=gcr.io/distroless/python3-debian12:nonroot
+
+FROM ghcr.io/astral-sh/uv:0.5-python${PYTHON_VERSION}-bookworm-slim AS build
+ENV UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    UV_PYTHON_DOWNLOADS=never \
+    UV_PROJECT_ENVIRONMENT=/venv
+WORKDIR /src
+
+# Resolve deps only — cached against uv.lock + pyproject.toml
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev
+
+# Install the project itself
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=.,target=/src \
+    uv sync --frozen --no-dev --no-editable
+
+FROM ${BASE}
+COPY --link --from=build /venv /venv
+ENV PATH=/venv/bin:$PATH \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+USER 65532:65532
+EXPOSE 8000
+ENTRYPOINT ["/venv/bin/python", "-m", "my_pkg"]
+```
+
+Why each piece:
+
+- **`# syntax=docker/dockerfile:1`** — pins the BuildKit frontend independent of the Docker engine.
+- **`ghcr.io/astral-sh/uv:0.5-python<X>-bookworm-slim`** — official `uv` image with the matching Python; saves an `apt install python3` round-trip.
+- **`UV_LINK_MODE=copy`** — copy files into the venv rather than hardlinking; required when the cache mount and venv are on different filesystems.
+- **`UV_COMPILE_BYTECODE=1`** — precompile `.pyc` at install time; eliminates the cold-start cost of first import.
+- **`UV_PYTHON_DOWNLOADS=never`** — never let uv silently pull a different Python at runtime; the base image's Python is authoritative.
+- **Two-step `uv sync`** — deps first (cached against `uv.lock` only), project second. Changes to `pyproject.toml` extras don't rebust the deps cache.
+- **`--no-dev --no-editable`** — production install: no dev deps, no editable installs.
+- **`--mount=type=cache,target=/root/.cache/uv`** — uv's content-addressed cache persists across builds.
+- **`--mount=type=bind,source=uv.lock,target=uv.lock`** — read the lockfile without copying it into a layer.
+- **`COPY --link --from=build /venv /venv`** — independent layer that survives base-image rebases. Runtime python finds the venv via `PATH=/venv/bin:$PATH`.
+- **`gcr.io/distroless/python3-debian12:nonroot`** — Python runtime, no shell, no pip, runs as UID 65532. Drastically smaller attack surface.
+
+For C-extension wheels that need glibc (numpy, pandas, scipy, cryptography) — distroless `python3` is glibc-based, so `pip install pandas` works. If you reach for Alpine instead, pip will silently rebuild wheels from source for hours; **stay on distroless or debian-slim.**
+
+If the app shells out to system tools (`git`, `ffmpeg`) or needs a healthcheck binary like `wget`/`curl`, switch the final stage to `python:3.13-slim` and create a non-root user explicitly:
+
+```dockerfile
+FROM python:3.13-slim AS runtime
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends ffmpeg && \
+    groupadd -r -g 65532 nonroot && \
+    useradd -r -u 65532 -g 65532 -s /sbin/nologin nonroot
+COPY --link --from=build /venv /venv
+ENV PATH=/venv/bin:$PATH PYTHONUNBUFFERED=1
+USER 65532:65532
+ENTRYPOINT ["python", "-m", "my_pkg"]
+```
+
+Build it multi-platform via QEMU (Python doesn't cross-compile cleanly — wheels are arch-specific):
+
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 \
+  --tag ghcr.io/acme/api:v1.2.3 --push .
+```
+
+For Compose, multi-target builds via `bake`, image signing (cosign), SBOM/provenance attestations, and admission verification (Kyverno `verifyImages`) — see the [`docker`](../docker/SKILL.md) skill.
+
 ## What not to do
 
 - **No `setup.py`** in new projects. `pyproject.toml` does everything `setup.py` did.

@@ -309,39 +309,71 @@ The `kos:` block invokes `ko` (CNCF, Go-native container builder) to produce sma
 
 ## Containers — `distroless/static`
 
-The 2026 standard:
+The 2026 standard, modern BuildKit shape — cross-compiled, multi-platform, with cache mounts and `COPY --link`:
 
 ```dockerfile
-# Stage 1: build
-FROM golang:1.26 AS build
-WORKDIR /src
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-RUN CGO_ENABLED=0 go build \
-    -trimpath \
-    -ldflags="-s -w" \
-    -tags="osusergo,netgo" \
-    -o /out/svc ./cmd/svc
+# syntax=docker/dockerfile:1
+ARG GO_VERSION=1.26
+ARG BASE=gcr.io/distroless/static-debian12:nonroot
 
-# Stage 2: minimal runtime
-FROM gcr.io/distroless/static-debian12:nonroot
-COPY --from=build /out/svc /svc
-USER nonroot:nonroot
+FROM --platform=$BUILDPLATFORM golang:${GO_VERSION} AS build
+ARG TARGETOS TARGETARCH
+WORKDIR /src
+
+# Fetch modules — bind-mount source, cache the module dir
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=bind,source=go.sum,target=go.sum \
+    --mount=type=bind,source=go.mod,target=go.mod \
+    go mod download -x
+
+# Compile — cache build output AND modules; emit target arch
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=bind,source=.,target=/src \
+    GOOS=$TARGETOS GOARCH=$TARGETARCH CGO_ENABLED=0 \
+    go build \
+        -trimpath \
+        -ldflags="-s -w" \
+        -tags="osusergo,netgo" \
+        -o /out/svc ./cmd/svc
+
+FROM ${BASE}
+COPY --link --from=build /out/svc /svc
+USER 65532:65532
 EXPOSE 8080
 ENTRYPOINT ["/svc"]
 ```
 
-Why distroless:
+Why each piece:
 
-- Includes CA certs, tzdata, `/etc/passwd`.
-- Runs as non-root by default (`:nonroot` tag).
-- No shell, no package manager — drastically smaller attack surface.
-- Reproducible: Google ships signed images.
+- **`# syntax=docker/dockerfile:1`** — pins the BuildKit frontend independent of the Docker engine.
+- **`--platform=$BUILDPLATFORM`** + `GOOS/GOARCH` — cross-compile on the builder's native arch (5-10x faster than QEMU for multi-arch builds).
+- **`RUN --mount=type=cache,target=/root/.cache/go-build`** + **`/go/pkg/mod`** — persist Go's build and module caches across builds. Replaces the "copy go.mod/go.sum, `RUN go mod download`, then copy source" trick.
+- **`--mount=type=bind`** — read the source without copying it into a layer. The final image only has the binary copied via `COPY --from`.
+- **`-trimpath -ldflags="-s -w"`** — strip paths and debug symbols for a reproducible, smaller binary.
+- **`-tags="osusergo,netgo"`** — pure-Go `os/user` and DNS resolvers; no glibc deps.
+- **`COPY --link`** — independent layer that survives base-image rebases without invalidating downstream cache.
+- **`USER 65532:65532`** — distroless `:nonroot` already sets this; explicit is fine.
 
-Avoid `alpine` unless you need a shell — musl differences cause DNS/CGO bugs that don't show up in dev. Avoid `scratch` unless you also pull in `ca-certificates`.
+Build it multi-platform:
 
-If you're using `goreleaser` with the `kos` block above, you don't need a Dockerfile at all.
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 \
+  --tag ghcr.io/acme/svc:v1.2.3 --push .
+```
+
+Why `gcr.io/distroless/static-debian12:nonroot`:
+
+- CA certs, tzdata, `/etc/passwd` included
+- Runs as non-root by default (UID 65532)
+- No shell, no package manager — minimal attack surface
+- Signed and SBOM-attested by Google
+
+Avoid `alpine` unless you need a shell — musl libc differences cause DNS/CGO bugs that don't show up in dev. Avoid `scratch` unless you also pull in `ca-certificates` and `tzdata`.
+
+If you're using `goreleaser` with the `kos:` block above, you don't need a Dockerfile at all — `ko` produces a smaller, signed, multi-arch image straight from `go.mod`. Reach for the Dockerfile when you need OS packages, init wrappers, or custom file layout.
+
+For Compose, multi-target builds via `bake`, image signing (cosign), SBOM/provenance attestations, and admission verification (Kyverno `verifyImages`) — see the [`docker`](../docker/SKILL.md) skill.
 
 ## CI for a Go project
 

@@ -20,6 +20,7 @@ The most common AI failure mode here is writing 2018-era Rust: `unwrap()` everyw
 | Design error types, use `?`, pick between `thiserror` and `anyhow` | [errors.md](errors.md) |
 | Write `async` code, structure concurrent tasks, pick between async/threads/rayon | [async.md](async.md) |
 | Build a CLI or web service — axum, reqwest, clap, tracing, serde, sqlx | [apps.md](apps.md) |
+| Containerize as a distroless image — cargo cache mounts, cross-compile, multi-arch, signing | [packaging.md](packaging.md) → "Containers" section. Universal Dockerfile/Compose/build/supply-chain patterns live in the [`docker`](../docker/SKILL.md) skill |
 
 For one-off edits, the cheat sheets below are usually enough. Reach for the reference files when the task warrants depth.
 
