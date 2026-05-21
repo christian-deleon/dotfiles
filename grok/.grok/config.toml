@@ -16,7 +16,7 @@ web_search = "grok-4.20-multi-agent"
 
 [ui]
 # Tokyo Night inspired theme (excellent contrast on dark terminals)
-theme = "groknight"
+theme = "tokyonight"
 
 # Width for reasoning/thinking blocks
 max_thoughts_width = 120
