@@ -25,13 +25,16 @@ agent_ensure_submodule() {
     fi
 
     _info "Initializing agent-files submodule..."
-    if git -C "$DOTFILES_DIR" submodule update --init agent-files 2>&1; then
-        return 0
+    if ! git -C "$DOTFILES_DIR" submodule update --init agent-files 2>&1; then
+        _error "Could not initialize agent-files submodule"
+        _info "Requires SSH access to ${_BOLD}git@github.com:christian-deleon/agent-files.git${_RESET}"
+        return 1
     fi
 
-    _error "Could not initialize agent-files submodule"
-    _info "Requires SSH access to ${_BOLD}git@github.com:christian-deleon/agent-files.git${_RESET}"
-    return 1
+    # `submodule update --init` leaves the submodule in detached HEAD;
+    # put it on its configured branch so future commits land cleanly.
+    _submodule_checkout_branch agent-files || _warn "Could not check out branch in agent-files"
+    return 0
 }
 
 # Path to .git/info/exclude (shared across worktrees via the common git dir)

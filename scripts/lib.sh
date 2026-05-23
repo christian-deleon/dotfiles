@@ -51,6 +51,64 @@ if [[ -f "$DOTFILES_DIR/scripts/predicates.sh" ]]; then
     source "$DOTFILES_DIR/scripts/predicates.sh"
 fi
 
+# ─── Submodule helpers ────────────────────────────────────────────────────────
+# Avoid the detached-HEAD state that `git submodule update --remote` leaves
+# behind in submodules where we make local commits (e.g. agent-files, .ssh).
+# Submodules without a `branch =` entry in .gitmodules (tpm, themes) are
+# intentionally pinned and should keep using `submodule update --remote`.
+
+# Read submodule.<path>.branch from .gitmodules. Empty if unset.
+_submodule_configured_branch() {
+    git -C "$DOTFILES_DIR" config --file .gitmodules --get "submodule.$1.branch" 2>/dev/null
+}
+
+# Fast-forward a branch-tracking submodule to origin/<branch>, staying on
+# the branch (no detached HEAD). Returns 1 if the submodule isn't
+# initialized or has no `branch =` configured.
+# Usage: _submodule_pull_branch <path-relative-to-dotfiles>
+_submodule_pull_branch() {
+    local path="$1"
+    local sub_dir="$DOTFILES_DIR/$path"
+
+    if [[ ! -e "$sub_dir/.git" ]]; then
+        _error "Submodule not initialized: $path"
+        return 1
+    fi
+
+    local branch
+    branch="$(_submodule_configured_branch "$path")"
+    if [[ -z "$branch" ]]; then
+        _error "No branch configured for submodule $path in .gitmodules"
+        return 1
+    fi
+
+    git -C "$sub_dir" fetch origin "$branch" 2>&1 || return 1
+    git -C "$sub_dir" checkout "$branch" 2>&1 || return 1
+    git -C "$sub_dir" pull --ff-only origin "$branch" 2>&1 || return 1
+    return 0
+}
+
+# Put a freshly-initialized submodule on its configured branch instead of
+# the detached HEAD that `submodule update --init` leaves behind. No-op
+# when the submodule is already on the branch or has no `branch =` set.
+# Usage: _submodule_checkout_branch <path-relative-to-dotfiles>
+_submodule_checkout_branch() {
+    local path="$1"
+    local sub_dir="$DOTFILES_DIR/$path"
+
+    [[ -e "$sub_dir/.git" ]] || return 0
+
+    local branch
+    branch="$(_submodule_configured_branch "$path")"
+    [[ -z "$branch" ]] && return 0
+
+    local current
+    current="$(git -C "$sub_dir" symbolic-ref --short HEAD 2>/dev/null)"
+    [[ "$current" == "$branch" ]] && return 0
+
+    git -C "$sub_dir" checkout "$branch" 2>&1 || return 1
+}
+
 # ─── yq bootstrap ─────────────────────────────────────────────────────────────
 
 ensure_yq() {

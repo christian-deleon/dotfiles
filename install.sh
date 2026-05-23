@@ -348,6 +348,11 @@ install_git_submodules() {
     git -C "$DOTFILES_DIR" submodule sync --recursive .ssh .tmux/plugins/tpm
     if git -C "$DOTFILES_DIR" submodule update --init --recursive .ssh .tmux/plugins/tpm; then
         success "Git submodules initialized"
+        # `submodule update --init` leaves the submodule in detached HEAD.
+        # For branch-tracking submodules (.ssh), put it on its configured
+        # branch so updates and local commits land cleanly. tpm has no
+        # `branch =` set so this is a no-op there.
+        _submodule_checkout_branch .ssh || warn "Could not check out branch in .ssh"
     else
         warn "Some submodules failed to fetch (SSH auth may not be configured yet)"
         warn "Run ${BOLD}git -C $DOTFILES_DIR submodule update --init --recursive${RESET} after setting up SSH"
