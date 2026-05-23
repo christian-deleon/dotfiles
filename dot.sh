@@ -193,24 +193,32 @@ update_system() {
         fi
 
         # Update critical submodules — only those already initialized.
-        local submodules_to_update=()
-        [[ -e "$DOTFILES_DIR/.ssh/.git" ]] && submodules_to_update+=(.ssh)
-        [[ -e "$DOTFILES_DIR/.tmux/plugins/tpm/.git" ]] && submodules_to_update+=(.tmux/plugins/tpm)
-
-        if [[ ${#submodules_to_update[@]} -gt 0 ]]; then
-            _info "Updating submodules (${submodules_to_update[*]})..."
-            if ! git -C "$DOTFILES_DIR" submodule update --remote "${submodules_to_update[@]}" 2>&1; then
-                _error "Could not update submodules"
+        # Branch-tracking submodules (we commit into these) are pulled via
+        # _submodule_pull_branch so they stay on their branch instead of
+        # being checked out in detached HEAD.
+        if [[ -e "$DOTFILES_DIR/.ssh/.git" ]]; then
+            _info "Updating .ssh submodule..."
+            if ! _submodule_pull_branch .ssh; then
+                _error "Could not update .ssh"
                 echo
                 _info "This may be due to SSH authentication failure (requires 1Password)"
                 return 1
             fi
         fi
 
+        # tpm has no `branch =` in .gitmodules — it's pinned and advanced
+        # via `submodule update --remote`; detached HEAD is fine there.
+        if [[ -e "$DOTFILES_DIR/.tmux/plugins/tpm/.git" ]]; then
+            _info "Updating tpm submodule..."
+            if ! git -C "$DOTFILES_DIR" submodule update --remote .tmux/plugins/tpm 2>&1; then
+                _warn "tpm failed to update"
+            fi
+        fi
+
         # Update agent-files submodule if initialized
         if [[ -e "$DOTFILES_DIR/agent-files/.git" ]]; then
             _info "Updating agent-files submodule..."
-            if git -C "$DOTFILES_DIR" submodule update --remote agent-files 2>&1; then
+            if _submodule_pull_branch agent-files; then
                 _success "agent-files updated"
             else
                 _warn "agent-files failed to update"
