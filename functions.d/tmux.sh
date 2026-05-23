@@ -17,7 +17,8 @@ function tav() {
     # Horizontal divider at ~30% from bottom in the left column only
     tmux split-window -v -p 30 -t "$top_left" -c "$current_dir"
 
-    tmux send-keys -t "$top_left" "cld" C-m
+    # `clear &&` hides the prompt + the tav invocation before cld takes over
+    tmux send-keys -t "$top_left" "clear && cld" C-m
     tmux send-keys -t "$top_right" "nvim ." C-m
 
     tmux select-pane -t "$top_left"
@@ -41,7 +42,8 @@ function tavk() {
     tmux split-window -v -p 30 -t "$top_left" -c "$current_dir"
     bottom_right=$(tmux split-window -v -p 30 -t "$top_right" -c "$current_dir" -P -F '#{pane_id}')
 
-    tmux send-keys -t "$top_left" "cld" C-m
+    # `clear &&` hides the prompt + the tavk invocation before cld takes over
+    tmux send-keys -t "$top_left" "clear && cld" C-m
     tmux send-keys -t "$top_right" "nvim ." C-m
     tmux send-keys -t "$bottom_right" "k9s" C-m
 
