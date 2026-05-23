@@ -5,16 +5,16 @@
     "description": "Live documentation lookup"
   },
   "grafana": {
-    "command": "/home/cdeleon/.local/share/mise/shims/uvx",
+    "command": "uvx",
     "args": ["mcp-grafana"],
     "env": {
-      "GRAFANA_URL": "https://grafana.athenis.io",
-      "GRAFANA_SERVICE_ACCOUNT_TOKEN": "op://ct4j6x7pd22bppwmdzx73gyfna/fu2r7xspuv22dgqst5yk7aaucu/credential"
+      "GRAFANA_URL": "op://ujvoilqaehz2gozzpp2jqyhxsu/en2zsdbtnbi6rml6kpfklzdbva/url",
+      "GRAFANA_SERVICE_ACCOUNT_TOKEN": "op://ujvoilqaehz2gozzpp2jqyhxsu/en2zsdbtnbi6rml6kpfklzdbva/credential"
     },
     "description": "Grafana dashboards and observability"
   },
   "docker": {
-    "command": "/home/cdeleon/.local/share/mise/shims/uvx",
+    "command": "uvx",
     "args": ["mcp-server-docker"],
     "description": "Docker container management"
   },
