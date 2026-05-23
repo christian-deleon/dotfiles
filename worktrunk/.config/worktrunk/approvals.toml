@@ -2,6 +2,7 @@
 approved-commands = [
     "just platform check",
     "just platform verify",
+    "just platform verify && just console check",
 ]
 
 [projects."github.com/christian-deleon/athenis"]
