@@ -139,3 +139,4 @@ alias wxprd='wt step prune --dry-run'    # Preview stale worktrees to prune
 alias stk='starship toggle kubernetes'   # Toggle Kubernetes module in prompt
 alias sta='starship toggle aws'          # Toggle AWS module in prompt
 alias stj='starship toggle jobs'         # Toggle Jobs module in prompt
+alias stn='starship toggle nodejs'       # Toggle Node.js module in prompt
