@@ -20,7 +20,7 @@ function tav() {
     tmux send-keys -t "$top_left" "cld" C-m
     tmux send-keys -t "$top_right" "nvim ." C-m
 
-    tmux select-pane -t "$top_right"
+    tmux select-pane -t "$top_left"
 }
 
 # Open tmux 4-pane layout with cld, LazyVim, and k9s
@@ -45,7 +45,7 @@ function tavk() {
     tmux send-keys -t "$top_right" "nvim ." C-m
     tmux send-keys -t "$bottom_right" "k9s" C-m
 
-    tmux select-pane -t "$top_right"
+    tmux select-pane -t "$top_left"
 }
 
 # Switch tmux session with fzf (live pane preview)

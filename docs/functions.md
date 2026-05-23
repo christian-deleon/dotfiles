@@ -324,7 +324,7 @@ sudo-revoke
 
 ### `tav`
 
-Open a 3-pane tmux layout in the current window: `cld` in the top-left (70% tall), bash in the bottom-left (30% tall), and `nvim` (LazyVim) on the right (full height, 70% wide). Must be run from inside tmux.
+Open a 3-pane tmux layout in the current window: `cld` in the top-left (70% tall, focused), bash in the bottom-left (30% tall), and `nvim` (LazyVim) on the right (full height, 70% wide). Must be run from inside tmux.
 
 ```bash
 tav    # build the 3-pane AI + editor layout in the current window
