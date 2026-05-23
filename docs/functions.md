@@ -322,6 +322,26 @@ sudo-revoke
 
 ## Tmux
 
+### `tav`
+
+Open a 3-pane tmux layout in the current window: `cld` in the top-left (70% tall), bash in the bottom-left (30% tall), and `nvim` (LazyVim) on the right (full height, 70% wide). Must be run from inside tmux.
+
+```bash
+tav    # build the 3-pane AI + editor layout in the current window
+```
+
+---
+
+### `tavk`
+
+Same as [`tav`](#tav) but with a 4th pane: bottom-right (30% tall, 70% wide) runs `k9s`. Must be run from inside tmux.
+
+```bash
+tavk   # 4-pane variant with k9s in the bottom-right
+```
+
+---
+
 ### `ts` \*
 
 Interactive tmux session switcher with fzf preview. Shows a live snapshot of each session's active pane as you navigate. Switches client if already inside tmux, otherwise attaches.

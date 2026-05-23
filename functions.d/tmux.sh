@@ -1,5 +1,53 @@
 # Category: Tmux
 
+# Open tmux 3-pane layout with cld and LazyVim
+function tav() {
+    [[ -z "$TMUX" ]] && { echo "You must start tmux to use tav."; return 1; }
+
+    local current_dir="${PWD}"
+    local top_left top_right
+
+    top_left="$TMUX_PANE"
+
+    tmux rename-window -t "$top_left" "$(basename "$current_dir")"
+
+    # Vertical divider at ~30%: new right pane takes 70%, full height
+    top_right=$(tmux split-window -h -p 70 -t "$top_left" -c "$current_dir" -P -F '#{pane_id}')
+
+    # Horizontal divider at ~30% from bottom in the left column only
+    tmux split-window -v -p 30 -t "$top_left" -c "$current_dir"
+
+    tmux send-keys -t "$top_left" "cld" C-m
+    tmux send-keys -t "$top_right" "nvim ." C-m
+
+    tmux select-pane -t "$top_right"
+}
+
+# Open tmux 4-pane layout with cld, LazyVim, and k9s
+function tavk() {
+    [[ -z "$TMUX" ]] && { echo "You must start tmux to use tavk."; return 1; }
+
+    local current_dir="${PWD}"
+    local top_left top_right bottom_right
+
+    top_left="$TMUX_PANE"
+
+    tmux rename-window -t "$top_left" "$(basename "$current_dir")"
+
+    # Vertical divider at ~30%: new right pane takes 70%
+    top_right=$(tmux split-window -h -p 70 -t "$top_left" -c "$current_dir" -P -F '#{pane_id}')
+
+    # Horizontal divider at ~30% from bottom in both columns
+    tmux split-window -v -p 30 -t "$top_left" -c "$current_dir"
+    bottom_right=$(tmux split-window -v -p 30 -t "$top_right" -c "$current_dir" -P -F '#{pane_id}')
+
+    tmux send-keys -t "$top_left" "cld" C-m
+    tmux send-keys -t "$top_right" "nvim ." C-m
+    tmux send-keys -t "$bottom_right" "k9s" C-m
+
+    tmux select-pane -t "$top_right"
+}
+
 # Switch tmux session with fzf (live pane preview)
 function ts() {
     if ! command -v tmux &>/dev/null; then
