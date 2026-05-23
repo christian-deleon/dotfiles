@@ -62,6 +62,7 @@ format = '[🐍 $version]($style) '
 style = 'bold yellow'
 
 [nodejs]
+disabled = true
 format = '[⬢ $version]($style) '
 style = 'bold green'
 

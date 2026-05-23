@@ -244,6 +244,7 @@ Naming scheme: top-level `wt` commands use `w<letter>` (with a trailing modifier
 - `stk` - Toggle Kubernetes module in prompt (`starship toggle kubernetes`)
 - `sta` - Toggle AWS module in prompt (`starship toggle aws`)
 - `stj` - Toggle Jobs module in prompt (`starship toggle jobs`)
+- `stn` - Toggle Node.js module in prompt (`starship toggle nodejs`)
 
 ---
 
