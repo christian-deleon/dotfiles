@@ -1,6 +1,7 @@
 [projects."git-codecommit.us-east-1.amazonaws.com/v1/repos/athenis"]
 approved-commands = [
     "just platform check",
+    "just platform verify",
 ]
 
 [projects."github.com/christian-deleon/athenis"]
