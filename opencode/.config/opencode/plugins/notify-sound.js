@@ -1,8 +1,13 @@
-export const NotifySound = async ({ $ }) => {
+import { $ } from "bun"
+
+const HOOKS_DIR = `${process.env.HOME}/.dotfiles/ai/hooks`
+
+export const NotifySound = async () => {
   return {
     event: async ({ event }) => {
       if (event.type === "session.idle") {
-        await $`paplay /usr/share/sounds/freedesktop/stereo/message-new-instant.oga`.quiet()
+        const payload = JSON.stringify({ cwd: process.cwd() })
+        await $`echo ${payload} | ${HOOKS_DIR}/notification_notify.sh`.quiet()
       }
     },
   }
