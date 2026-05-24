@@ -198,6 +198,13 @@ mako:
     type: stow
   requires: [hyprland]
 
+mold:
+  description: Fast linker — accelerates Rust/C/C++ link step (Linux only)
+  install:
+    arch: mold
+    apt: mold
+  requires: [linux]
+
 mise:
   description: Dev tool version manager
   install:
