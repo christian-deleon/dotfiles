@@ -11,11 +11,11 @@ function tav() {
 
     tmux rename-window -t "$top_left" "$(basename "$current_dir")"
 
-    # Vertical divider at ~30%: new right pane takes 70%, full height
-    top_right=$(tmux split-window -h -p 70 -t "$top_left" -c "$current_dir" -P -F '#{pane_id}')
+    # Vertical divider at ~35%: new right pane takes 65%, full height
+    top_right=$(tmux split-window -h -p 65 -t "$top_left" -c "$current_dir" -P -F '#{pane_id}')
 
-    # Horizontal divider at ~30% from bottom in the left column only
-    tmux split-window -v -p 30 -t "$top_left" -c "$current_dir"
+    # Horizontal divider at ~32% from bottom in the left column only
+    tmux split-window -v -p 32 -t "$top_left" -c "$current_dir"
 
     # `clear &&` hides the prompt + the tav invocation before cld takes over
     tmux send-keys -t "$top_left" "clear && cld" C-m
@@ -35,12 +35,12 @@ function tavk() {
 
     tmux rename-window -t "$top_left" "$(basename "$current_dir")"
 
-    # Vertical divider at ~30%: new right pane takes 70%
-    top_right=$(tmux split-window -h -p 70 -t "$top_left" -c "$current_dir" -P -F '#{pane_id}')
+    # Vertical divider at ~35%: new right pane takes 65%
+    top_right=$(tmux split-window -h -p 65 -t "$top_left" -c "$current_dir" -P -F '#{pane_id}')
 
-    # Horizontal divider at ~30% from bottom in both columns
-    tmux split-window -v -p 30 -t "$top_left" -c "$current_dir"
-    bottom_right=$(tmux split-window -v -p 30 -t "$top_right" -c "$current_dir" -P -F '#{pane_id}')
+    # Horizontal divider at ~32% from bottom in both columns
+    tmux split-window -v -p 32 -t "$top_left" -c "$current_dir"
+    bottom_right=$(tmux split-window -v -p 32 -t "$top_right" -c "$current_dir" -P -F '#{pane_id}')
 
     # `clear &&` hides the prompt + the tavk invocation before cld takes over
     tmux send-keys -t "$top_left" "clear && cld" C-m
