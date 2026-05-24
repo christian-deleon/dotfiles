@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "notify-send -a 'Claude Code' -i dialog-information -u low -t 3000 'Turn complete'",
+            "command": "$HOME/.dotfiles/ai/hooks/stop_notify.sh",
             "async": true
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "notify-send -a 'Claude Code' -i dialog-information -u normal -t 6000 'Waiting for input' ; paplay --volume=42598 /usr/share/sounds/freedesktop/stereo/message.oga 2>/dev/null || true",
+            "command": "$HOME/.dotfiles/ai/hooks/notification_notify.sh",
             "async": true
           }
         ]
