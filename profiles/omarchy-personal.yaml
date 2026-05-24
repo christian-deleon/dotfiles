@@ -19,6 +19,7 @@ items:
   - alacritty
   - bat
   - btop
+  - cargo
   - claude
   - cloc
   - delta
@@ -47,6 +48,7 @@ items:
   - opencode
   - poetry
   - ripgrep
+  - sccache
   - skaffold
   - starship
   - terraform

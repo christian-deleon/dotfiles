@@ -40,6 +40,12 @@ btop:
   config:
     type: stow
 
+cargo:
+  description: Cargo config — wires sccache as the Rust compiler wrapper
+  config:
+    type: handler
+    handler: install_cargo_config
+
 claude:
   description: Claude Code AI config (agents, skills, commands, rules)
   config:
@@ -244,6 +250,13 @@ ripgrep:
     apt: ripgrep
     brew: ripgrep
     command: rg
+
+sccache:
+  description: Shared compilation cache (Rust/C/C++) — paired with the cargo config
+  install:
+    arch: sccache
+    brew: sccache
+    command: sccache
 
 skaffold:
   description: Kubernetes dev workflow
