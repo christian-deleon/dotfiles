@@ -7,7 +7,7 @@ export const NotifySound = async () => {
     event: async ({ event }) => {
       if (event.type === "session.idle") {
         const payload = JSON.stringify({ cwd: process.cwd() })
-        await $`echo ${payload} | ${HOOKS_DIR}/notification_notify.sh`.quiet()
+        await $`echo ${payload} | ${HOOKS_DIR}/stop_notify.sh`.quiet()
       }
     },
   }
