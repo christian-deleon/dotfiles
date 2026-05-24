@@ -24,3 +24,4 @@ done
 
 notify-send -a "$tool" -i dialog-information -u low -t 3000 \
     "${tool} · ${dir}" "Turn complete"
+paplay --volume=55706 /usr/share/sounds/freedesktop/stereo/message.oga 2>/dev/null || true

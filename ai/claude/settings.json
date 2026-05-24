@@ -10,17 +10,6 @@
           }
         ]
       }
-    ],
-    "Notification": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$HOME/.dotfiles/ai/hooks/notification_notify.sh",
-            "async": true
-          }
-        ]
-      }
     ]
   }
 }

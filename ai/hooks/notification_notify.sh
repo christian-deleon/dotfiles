@@ -33,4 +33,4 @@ done
 
 notify-send -a "$tool" -i dialog-information -u normal -t 6000 \
     "${tool} · ${dir}" "Waiting for input"
-paplay --volume=42598 /usr/share/sounds/freedesktop/stereo/message.oga 2>/dev/null || true
+paplay --volume=55706 /usr/share/sounds/freedesktop/stereo/message.oga 2>/dev/null || true
