@@ -85,7 +85,7 @@ The handlers that fire (in `~/.dotfiles/scripts/handlers/ai.sh`):
 
 | Handler | Does |
 |---|---|
-| `install_ai_claude` | Symlinks `ai/{agents,commands,skills,rules}/*` → `~/.claude/*` |
+| `install_ai_claude` | Symlinks `ai/{agents,commands,skills,rules}/*` → `~/.claude/*`; deep-merges `ai/claude/settings.json` fragment into `~/.claude/settings.json` |
 | `install_ai_opencode` | Symlinks `ai/{commands,skills}/*` → `~/.config/opencode/*`, runs `generate-opencode-config.sh` to merge agents and rules into `opencode.json` |
 | `install_ai_grok` | Symlinks `ai/{skills,agents,hooks}/*` → `~/.grok/*`, links `grok/.grok/{config,pager}.toml` |
 | `generate_mcp_configs` | Resolves 1Password refs, writes `~/.claude.json` `mcpServers` and `~/.config/opencode/opencode.json` `mcp` |
@@ -143,11 +143,9 @@ If the symlink is missing, the installer didn't run for that component — re-ru
 
 ### Add a new Claude Code hook
 
-The dotfiles repo doesn't currently sync Claude Code hooks. Two paths:
+Edit `~/.dotfiles/ai/claude/settings.json` and add the hook under the `hooks` key (see [hooks.md](hooks.md) for schema). On `dot install`, `install_ai_claude` deep-merges the fragment into `~/.claude/settings.json` — the fragment wins on key conflicts, and arrays-per-event are replaced (not concatenated).
 
-1. **Quick / personal**: edit `~/.claude/settings.json` directly. Loses portability across machines.
-2. **Portable**: place the handler script in `~/.dotfiles/ai/hooks/` (or `~/.dotfiles/scripts/`) and reference it by absolute path from `~/.claude/settings.json`. The script is dotfiles-managed; the settings.json entry isn't (yet).
-3. **Future**: extend `install_ai_claude` in `~/.dotfiles/scripts/handlers/ai.sh` to merge a settings fragment from `~/.dotfiles/ai/claude/settings.json` into `~/.claude/settings.json`. Mention this option to the user if they're authoring multiple Claude hooks — it's a worthwhile small addition.
+For handler scripts of any non-trivial size, drop them in `~/.dotfiles/ai/hooks/` or `~/.dotfiles/ai/scripts/` and reference them by absolute path from the fragment. Machine-specific keys you don't want to track (e.g., `theme`, `effortLevel`) should stay in `~/.claude/settings.json` directly — the merge preserves any keys the fragment doesn't touch.
 
 ## Committing changes
 
