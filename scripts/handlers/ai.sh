@@ -25,6 +25,28 @@ install_ai_claude() {
     link_directory_contents "$ai_dir/skills" "$HOME/.claude/skills"
     link_directory_contents "$ai_dir/rules" "$HOME/.claude/rules"
 
+    # Merge ai/claude/settings.json fragment into ~/.claude/settings.json.
+    # Deep-merge: fragment wins on key conflicts. Arrays (e.g. hooks per event)
+    # are replaced, not concatenated — keep machine-specific overrides in
+    # untracked ~/.claude/settings.local.json or directly in user keys we don't
+    # touch (theme, effortLevel, etc.).
+    local settings_fragment="$ai_dir/claude/settings.json"
+    local claude_settings="$HOME/.claude/settings.json"
+    if [[ -f "$settings_fragment" ]]; then
+        ensure_jq || return
+        if ! jq -e . "$settings_fragment" >/dev/null 2>&1; then
+            warn "Invalid JSON in $settings_fragment — skipping merge"
+        elif [[ -f "$claude_settings" ]]; then
+            jq -s '.[0] * .[1]' "$claude_settings" "$settings_fragment" > "$claude_settings.tmp" \
+                && mv "$claude_settings.tmp" "$claude_settings" \
+                && success "Merged Claude settings fragment into $claude_settings"
+        else
+            mkdir -p "$(dirname "$claude_settings")"
+            cp "$settings_fragment" "$claude_settings"
+            success "Installed Claude settings from fragment to $claude_settings"
+        fi
+    fi
+
     success "Installed AI config for Claude Code"
 }
 

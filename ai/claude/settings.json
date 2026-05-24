@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "paplay --volume=32768 /usr/share/sounds/freedesktop/stereo/service-login.oga 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "paplay --volume=42598 /usr/share/sounds/freedesktop/stereo/message.oga 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}

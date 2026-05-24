@@ -6,7 +6,7 @@ The most common AI failure mode is treating hooks as one cross-tool concept. The
 
 | Tool | Hook mechanism | Stored in |
 |---|---|---|
-| **Claude Code** | JSON in `settings.json`, command-script handlers | `~/.claude/settings.json` or `.claude/settings.json` |
+| **Claude Code** | JSON in `settings.json`, command-script handlers | `~/.claude/settings.json` or `.claude/settings.json` (dotfiles-tracked via `ai/claude/settings.json` fragment) |
 | **OpenCode** | **No hooks** — TypeScript plugin modules instead | `~/.config/opencode/plugins/*.ts` |
 | **Grok Build** | Codex-style TOML hook tables (also JSON `hooks.json`) | `~/.grok/hooks/` directory + inline in `~/.grok/config.toml` |
 
@@ -44,10 +44,9 @@ Hooks go in JSON config under the top-level `"hooks"` key:
 - `.claude/settings.local.json` (project, gitignored)
 - Managed (enterprise) settings
 
-The dotfiles repo **does not currently sync** Claude Code hooks. If you want a hook in dotfiles, the cleanest options are:
+The dotfiles repo syncs Claude Code hooks via a settings fragment at `~/.dotfiles/ai/claude/settings.json`. On `dot install`, `install_ai_claude` deep-merges the fragment into `~/.claude/settings.json` — fragment keys win, but arrays per event are replaced (not concatenated), so a Stop hook in the fragment overrides any local Stop hooks.
 
-1. Write the handler script under `~/.dotfiles/ai/hooks/<name>.sh` (the directory already exists in the installer; you'd need to add a Claude install step or have the user reference it by absolute path from their personal `settings.json`).
-2. Add a `settings.json` fragment under `~/.dotfiles/ai/claude/settings.json` and extend `install_ai_claude` to merge it (not currently implemented — flag this to the user before doing it).
+For handler scripts of any size, drop them under `~/.dotfiles/ai/hooks/<name>.sh` and reference them by absolute path from the fragment. Keys outside the fragment (theme, effortLevel, machine-specific overrides) survive the merge untouched.
 
 ### Event types (late 2025)
 
@@ -252,7 +251,7 @@ This repo does **not** currently sync OpenCode plugins from dotfiles. If you wan
 If you need the same behavior in all three tools:
 
 1. Write the **logic** as a standalone script under `~/.dotfiles/scripts/` or `~/.dotfiles/ai/hooks/` (POSIX shell or Python — something portable).
-2. For **Claude**: reference the script by absolute path from `~/.claude/settings.json`.
+2. For **Claude**: reference the script by absolute path from the `~/.dotfiles/ai/claude/settings.json` fragment (merged into `~/.claude/settings.json` on `dot install`).
 3. For **Grok**: drop the script (or a symlink to it) in `~/.dotfiles/ai/hooks/` with an event-prefixed filename.
 4. For **OpenCode**: write a thin TypeScript plugin that shells out to the same script via `$`.
 
@@ -298,6 +297,6 @@ exit 0
 
 ## After authoring
 
-1. **Claude Code hooks**: tell the user to edit `~/.claude/settings.json` themselves (or, if you've extended the installer, run `dot install`). Restart Claude Code so it re-reads settings.
+1. **Claude Code hooks**: edit `~/.dotfiles/ai/claude/settings.json` and run `dot install` to merge into `~/.claude/settings.json`. Restart Claude Code so it re-reads settings.
 2. **Grok hooks**: `dot install` symlinks them in. Verify with `grok inspect`.
 3. **OpenCode plugins**: tell the user to drop the `.ts` file in `~/.config/opencode/plugins/` and restart OpenCode.
