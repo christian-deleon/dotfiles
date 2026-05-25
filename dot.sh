@@ -35,6 +35,7 @@ EOF
     echo "  install               - Interactive: pick a profile or items manually"
     echo "  install <name>...     - Install one or more items by name (binary + config for bundles)"
     echo "  profile <subcommand>  - Manage active profile (list/show/use)"
+    echo "  ai-tool [name]        - Set preferred AI CLI (interactive picker, or name: cld/oc/gra)"
     echo "  mcp-regen             - Force regenerate MCP configs (re-injects 1Password secrets)"
     echo "  agent <subcommand>    - Manage per-project & per-env AGENTS.md/CLAUDE.md"
     echo "  theme <subcommand>    - Manage Omarchy theme submodules (add/update/list)"
@@ -424,6 +425,11 @@ case "$1" in
     profile)
         shift
         manage_profile "$@"
+        ;;
+    ai-tool)
+        shift
+        source "$DOTFILES_DIR/install.sh" 2>/dev/null
+        install_ai_tool "$@"
         ;;
     mcp-regen)
         source "$DOTFILES_DIR/install.sh"

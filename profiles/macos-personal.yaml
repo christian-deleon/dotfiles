@@ -13,6 +13,7 @@ core_extras:
   - git-config
   - ssh-config
   - zsh-config
+  - ai-tool
 
 items:
   - 1password-cli

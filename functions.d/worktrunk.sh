@@ -141,6 +141,83 @@ function woc() {
     fi
 }
 
+# Open all worktrees as tmux sessions with tav + AI resume
+function wta() {
+    if ! command -v tmux &>/dev/null; then
+        echo "Error: tmux is not installed"
+        return 1
+    fi
+    if ! command -v jq &>/dev/null; then
+        echo "Error: jq is not installed"
+        return 1
+    fi
+    if [[ -z "$AI_TOOL" || -z "$AI_TOOL_RESUME" ]]; then
+        echo "Error: AI_TOOL / AI_TOOL_RESUME unset. Run 'dot ai-tool' to configure."
+        return 1
+    fi
+
+    local worktrees_json
+    worktrees_json=$(wt list --format json 2>/dev/null)
+    if [[ -z "$worktrees_json" || "$worktrees_json" == "null" || "$worktrees_json" == "[]" ]]; then
+        echo "Error: no worktrees found (run from inside a worktrunk project)"
+        return 1
+    fi
+
+    local session="" first_window="" created=0 skipped=0
+
+    while IFS=$'\t' read -r branch wt_path; do
+        [[ -z "$branch" || -z "$wt_path" ]] && continue
+
+        # All worktrees share a parent dir (the project); session name = project
+        [[ -z "$session" ]] && session=$(basename "$(dirname "$wt_path")")
+
+        local window="${branch//\//-}"
+
+        # Resume if Claude has prior history for this path, else launch fresh.
+        # Claude stores per-project sessions under ~/.claude/projects/<slug>/
+        # where the slug is the absolute path with `/` replaced by `-`. The
+        # detection is Claude-specific; non-Claude tools always launch fresh.
+        local claude_key="${wt_path//\//-}"
+        local cmd
+        if compgen -G "$HOME/.claude/projects/$claude_key/*.jsonl" >/dev/null 2>&1; then
+            cmd="$AI_TOOL_RESUME"
+        else
+            cmd="$AI_TOOL"
+        fi
+
+        if ! tmux has-session -t "$session" 2>/dev/null; then
+            tmux new-session -d -s "$session" -n "$window" -c "$wt_path" -x 220 -y 50
+            tmux set-window-option -t "$session:$window" allow-rename off 2>/dev/null || true
+            tmux send-keys -t "$session:$window" "tav \"$cmd\"" C-m
+            echo "  create  $session:$window  ($cmd)"
+            ((created++))
+            [[ -z "$first_window" ]] && first_window="$window"
+        elif ! tmux list-windows -t "$session" -F "#{window_name}" 2>/dev/null | grep -qx "$window"; then
+            tmux new-window -t "$session" -n "$window" -c "$wt_path"
+            tmux set-window-option -t "$session:$window" allow-rename off 2>/dev/null || true
+            tmux send-keys -t "$session:$window" "tav \"$cmd\"" C-m
+            echo "  create  $session:$window  ($cmd)"
+            ((created++))
+            [[ -z "$first_window" ]] && first_window="$window"
+        else
+            echo "  skip    $session:$window (already exists)"
+            ((skipped++))
+            [[ -z "$first_window" ]] && first_window="$window"
+        fi
+    done < <(echo "$worktrees_json" | jq -r 'sort_by(.is_main | not) | .[] | "\(.branch)\t\(.path)"')
+
+    echo
+    echo "Session $session: $created windows created, $skipped existing"
+
+    if [[ -n "$first_window" ]]; then
+        if [[ -n "$TMUX" ]]; then
+            tmux switch-client -t "$session:$first_window"
+        else
+            tmux attach -t "$session:$first_window"
+        fi
+    fi
+}
+
 # Remove worktrees with fzf multi-select (dirty/clean status)
 function wclean() {
     if ! command -v fzf &>/dev/null; then

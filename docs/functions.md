@@ -322,22 +322,27 @@ sudo-revoke
 
 ## Tmux
 
-### `tav`
+### `tav [ai-cmd]`
 
-Open a 3-pane tmux layout in the current window: `cld` in the top-left (70% tall, focused), bash in the bottom-left (30% tall), and `nvim` (LazyVim) on the right (full height, 70% wide). Must be run from inside tmux.
+Open a 3-pane tmux layout in the current window: AI tool in the top-left (70% tall, focused), bash in the bottom-left (30% tall), and `nvim` (LazyVim) on the right (full height, 70% wide). Must be run from inside tmux.
+
+The top-left command defaults to `$AI_TOOL` (set in `.commonrc`, default `cld`). Pass a full command — including flags — to override.
 
 ```bash
-tav    # build the 3-pane AI + editor layout in the current window
+tav                  # uses $AI_TOOL (default: cld)
+tav "claude -c"      # resume most recent Claude session
+tav "opencode"       # different AI tool
 ```
 
 ---
 
-### `tavk`
+### `tavk [ai-cmd]`
 
-Same as [`tav`](#tav) but with a 4th pane: bottom-right (30% tall, 70% wide) runs `k9s`. Must be run from inside tmux.
+Same as [`tav`](#tav-ai-cmd) but with a 4th pane: bottom-right (30% tall, 70% wide) runs `k9s`. Takes the same optional command argument.
 
 ```bash
-tavk   # 4-pane variant with k9s in the bottom-right
+tavk                 # 4-pane variant with k9s in the bottom-right
+tavk "claude -c"     # 4-pane variant resuming Claude
 ```
 
 ---
@@ -399,6 +404,18 @@ Attach to a worktree's tmux session and launch OpenCode. Creates the worktree if
 woc feature/auth                   # Launch opencode in worktree
 woc feature/auth "fix login bug"   # Launch opencode with a starting prompt
 ```
+
+### `wta`
+
+Open one tmux session for the current project with one window per worktree, each running a `tav` layout. The session is named after the project (parent dir of the worktrees); windows are named after the sanitized branch. Main is added first, then the other worktrees. For windows where Claude has prior history on disk (`~/.claude/projects/<slug>/*.jsonl`), the top-left pane launches `$AI_TOOL_RESUME` to auto-resume; otherwise it launches `$AI_TOOL`. Existing windows are left alone. After looping, switches/attaches to the session's first window.
+
+Requires `$AI_TOOL` and `$AI_TOOL_RESUME` to be set — run `dot ai-tool` first.
+
+```bash
+wta              # restore the full project after a reboot
+```
+
+---
 
 ### `wclean` \*
 
