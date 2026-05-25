@@ -359,70 +359,37 @@ ts    # fzf picker with live pane preview
 
 ## Worktrunk
 
-Functions for git worktree management with fzf interactive selection and tmux integration.
-
-### `wf [query]` \*
-
-Interactive worktree switcher using fzf. Filters out the main worktree.
-
-```bash
-wf               # fzf picker from all worktrees
-wf auth          # pre-filter fzf for "auth"
-```
+Functions for git worktree management with fzf interactive selection and tmux integration. (For the bare `wt switch` picker, use the `ws` alias.)
 
 ### `wrf` \*
 
-Interactive multi-select worktree remover using fzf. Select multiple worktrees with Tab, confirm with Enter.
+Interactive multi-select worktree remover using fzf. Each row shows `clean`/`dirty` (modified, staged, or untracked files) so you don't nuke in-progress work by accident. Tab to multi-select, Enter to remove.
 
 ```bash
 wrf              # fzf multi-select, removes selected worktrees and their branches
 ```
 
-### `wts [branch] [cmd...]` \*
+---
 
-Attach to a worktree's tmux session. Sessions are created automatically by worktrunk's `post-create` hook; this function creates one on-the-fly for worktrees that predate the hook. Optionally sends a command to the session.
+### `wta [branch]` \*
 
-```bash
-wts              # fzf picker, attach to selected worktree's tmux session
-wts feature/auth # Attach to feature/auth's tmux session
-```
+Open a single worktree in tmux with the `tav` layout. fzf picker if no branch is passed. Creates the project's tmux session if it doesn't exist (named after the worktrees' parent dir), then adds a window named after the sanitized branch and sends `tav "$cmd"`. If the window already exists, just attaches. Claude-aware resume: launches `$AI_TOOL_RESUME` when prior history exists at `~/.claude/projects/<slug>/*.jsonl`, otherwise `$AI_TOOL`.
 
-### `wcl <branch> [prompt]`
-
-Attach to a worktree's tmux session and launch Claude Code. Creates the worktree if it doesn't exist (the `post-create` hook auto-creates the tmux session).
+Requires `$AI_TOOL` / `$AI_TOOL_RESUME` — run `dot ai-tool` first.
 
 ```bash
-wcl feature/auth                   # Launch claude in worktree
-wcl feature/auth "fix login bug"   # Launch claude with a starting prompt
-```
-
-### `woc <branch> [prompt]`
-
-Attach to a worktree's tmux session and launch OpenCode. Creates the worktree if it doesn't exist (the `post-create` hook auto-creates the tmux session).
-
-```bash
-woc feature/auth                   # Launch opencode in worktree
-woc feature/auth "fix login bug"   # Launch opencode with a starting prompt
-```
-
-### `wta`
-
-Open one tmux session for the current project with one window per worktree, each running a `tav` layout. The session is named after the project (parent dir of the worktrees); windows are named after the sanitized branch. Main is added first, then the other worktrees. For windows where Claude has prior history on disk (`~/.claude/projects/<slug>/*.jsonl`), the top-left pane launches `$AI_TOOL_RESUME` to auto-resume; otherwise it launches `$AI_TOOL`. Existing windows are left alone. After looping, switches/attaches to the session's first window.
-
-Requires `$AI_TOOL` and `$AI_TOOL_RESUME` to be set — run `dot ai-tool` first.
-
-```bash
-wta              # restore the full project after a reboot
+wta              # fzf picker
+wta feature/auth # attach to (or create) feature/auth's window
 ```
 
 ---
 
-### `wclean` \*
+### `wtaa`
 
-Interactive multi-select worktree cleanup using fzf. Shows merged/stale worktrees and removes selected ones along with their branches.
+Same per-worktree logic as [`wta`](#wta-branch--), but loops every worktree in the project (main first). Use to restore the full project as a single tmux session after a reboot.
 
 ```bash
-wclean           # fzf multi-select merged/stale worktrees for removal
+wtaa             # one session, one window per worktree
 ```
 
 ---
@@ -453,4 +420,4 @@ dh git           # Pre-filter to git shortcuts
 - Most Kubernetes functions respect the current namespace context
 - Many functions provide both interactive (fzf) and direct argument modes
 - Worktrunk functions require a bare repo clone (use `gcb` to set up)
-- `wcl` and `woc` create tmux sessions — use `tls` to list and `tka` to kill all
+- `wta` / `wtaa` create tmux sessions — use `tl` to list and `tka` to kill all
