@@ -30,7 +30,7 @@ requires: []
 
 # Core extras to run as part of this profile. The installer runs each via
 # install_core_extra. Available names:
-#   git-submodules, git-config, ssh-config, zsh-config,
+#   git-submodules, git-config, ssh-config, zsh-config, ai-tool,
 #   omarchy-themes, default-terminal
 core_extras:
   - git-submodules

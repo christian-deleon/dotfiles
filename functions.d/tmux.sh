@@ -1,9 +1,14 @@
 # Category: Tmux
 
-# Open tmux 3-pane layout with cld and LazyVim
+# Open tmux 3-pane layout with an AI tool and LazyVim
 function tav() {
     [[ -z "$TMUX" ]] && { echo "You must start tmux to use tav."; return 1; }
 
+    local ai_cmd="${1:-${AI_TOOL:-}}"
+    if [[ -z "$ai_cmd" ]]; then
+        echo "Error: no AI tool set. Run 'dot ai-tool' or pass one explicitly: tav 'cld'" >&2
+        return 1
+    fi
     local current_dir="${PWD}"
     local top_left top_right
 
@@ -17,17 +22,22 @@ function tav() {
     # Horizontal divider at ~32% from bottom in the left column only
     tmux split-window -v -p 32 -t "$top_left" -c "$current_dir"
 
-    # `clear &&` hides the prompt + the tav invocation before cld takes over
-    tmux send-keys -t "$top_left" "clear && cld" C-m
+    # `clear &&` hides the prompt + the tav invocation before the AI tool takes over
+    tmux send-keys -t "$top_left" "clear && $ai_cmd" C-m
     tmux send-keys -t "$top_right" "nvim ." C-m
 
     tmux select-pane -t "$top_left"
 }
 
-# Open tmux 4-pane layout with cld, LazyVim, and k9s
+# Open tmux 4-pane layout with an AI tool, LazyVim, and k9s
 function tavk() {
     [[ -z "$TMUX" ]] && { echo "You must start tmux to use tavk."; return 1; }
 
+    local ai_cmd="${1:-${AI_TOOL:-}}"
+    if [[ -z "$ai_cmd" ]]; then
+        echo "Error: no AI tool set. Run 'dot ai-tool' or pass one explicitly: tavk 'cld'" >&2
+        return 1
+    fi
     local current_dir="${PWD}"
     local top_left top_right bottom_right
 
@@ -42,8 +52,8 @@ function tavk() {
     tmux split-window -v -p 32 -t "$top_left" -c "$current_dir"
     bottom_right=$(tmux split-window -v -p 32 -t "$top_right" -c "$current_dir" -P -F '#{pane_id}')
 
-    # `clear &&` hides the prompt + the tavk invocation before cld takes over
-    tmux send-keys -t "$top_left" "clear && cld" C-m
+    # `clear &&` hides the prompt + the tavk invocation before the AI tool takes over
+    tmux send-keys -t "$top_left" "clear && $ai_cmd" C-m
     tmux send-keys -t "$top_right" "nvim ." C-m
     tmux send-keys -t "$bottom_right" "k9s" C-m
 

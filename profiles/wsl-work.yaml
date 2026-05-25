@@ -10,6 +10,7 @@ requires: [wsl]
 
 core_extras:
   - git-config
+  - ai-tool
 
 # Bare-bones CLI essentials. No Docker, no kubernetes, no Terraform/IaC,
 # no granted/AWS SSO — add back any of these as your work environment allows.

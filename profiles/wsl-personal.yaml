@@ -12,6 +12,7 @@ core_extras:
   - git-submodules
   - git-config
   - ssh-config
+  - ai-tool
 
 items:
   - 1password-cli

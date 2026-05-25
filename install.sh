@@ -547,6 +547,74 @@ EOF
     fi
 }
 
+install_ai_tool() {
+    local localrc="$HOME/.localrc"
+    local arg="${1:-}"
+    local ai_tool ai_resume
+
+    if [[ -n "$arg" ]]; then
+        case "$arg" in
+            cld|claude)   ai_tool="cld"; ai_resume="cld -c" ;;
+            oc|opencode)  ai_tool="oc";  ai_resume="oc -c" ;;
+            gra|grok)     ai_tool="gra"; ai_resume="gra -c" ;;
+            *)            error "Unknown AI tool: $arg (choose: cld, oc, gra)"; return 1 ;;
+        esac
+    else
+        if [[ -f "$localrc" ]] && grep -qE '^export AI_TOOL=' "$localrc" 2>/dev/null; then
+            local current
+            current="$(grep -E '^export AI_TOOL=' "$localrc" | head -1 | sed -E 's/^export AI_TOOL=//; s/^"(.*)"$/\1/')"
+            info "AI tool already set in ${DIM}~/.localrc${RESET}: ${BOLD}$current${RESET}"
+            read -rp "Reconfigure? (y/N): " reconfigure
+            if [[ ! "$reconfigure" =~ ^[Yy]$ ]]; then
+                return
+            fi
+        fi
+
+        if ! command -v gum &>/dev/null; then
+            warn "gum not available — pass a tool name directly: dot ai-tool {cld|oc|gra}"
+            return 0
+        fi
+
+        echo
+        info "Select your preferred AI CLI (used by tav, wta):"
+        echo
+
+        local choice
+        choice="$(printf '%s\n' \
+            "Claude — cld (skip permissions), resume: cld -c" \
+            "OpenCode — oc, resume: oc -c" \
+            "Grok — gra (auto-approve), resume: gra -c" \
+            | gum choose --height=6)" || { info "No selection — leaving AI_TOOL unchanged"; return 0; }
+
+        case "$choice" in
+            Claude*)   ai_tool="cld"; ai_resume="cld -c" ;;
+            OpenCode*) ai_tool="oc";  ai_resume="oc -c" ;;
+            Grok*)     ai_tool="gra"; ai_resume="gra -c" ;;
+            *)         info "No selection — leaving AI_TOOL unchanged"; return 0 ;;
+        esac
+    fi
+
+    if [[ -f "$localrc" ]] && grep -qE '^export AI_TOOL(_RESUME)?=' "$localrc" 2>/dev/null; then
+        backup_item "$localrc"
+        local tmp
+        tmp="$(mktemp)"
+        grep -vE '^export AI_TOOL(_RESUME)?=' "$localrc" > "$tmp" || true
+        # Drop the trailing "AI CLI tool" comment if we added one previously
+        sed -i '/^# AI CLI tool/d' "$tmp" 2>/dev/null || true
+        mv "$tmp" "$localrc"
+    fi
+
+    {
+        [[ -s "$localrc" ]] && echo ""
+        echo "# AI CLI tool (used by tav, wta)"
+        echo "export AI_TOOL=\"$ai_tool\""
+        echo "export AI_TOOL_RESUME=\"$ai_resume\""
+    } >> "$localrc"
+
+    success "Set AI_TOOL=$ai_tool, AI_TOOL_RESUME=\"$ai_resume\" in ${DIM}~/.localrc${RESET}"
+    info "Reload current shell: ${BOLD}source ~/.localrc${RESET}  (or open a new shell)"
+}
+
 install_dot_cli() {
     local dot_script="$DOTFILES_DIR/dot.sh"
 
@@ -583,6 +651,7 @@ get_core_extra_label() {
         git-config)        echo "git-config — Symlink .gitconfig and set name/email/signing" ;;
         ssh-config)        echo "ssh-config — Generate ~/.ssh/config (1Password SSH agent)" ;;
         zsh-config)        echo "zsh-config — Oh My Zsh + Powerlevel10k + plugins + .zshrc" ;;
+        ai-tool)           echo "ai-tool — Choose preferred AI CLI (Claude/OpenCode/Grok)" ;;
         omarchy-themes)    echo "omarchy-themes — Choose Omarchy theme submodules to install" ;;
         default-terminal)  echo "default-terminal — Set Alacritty as the Omarchy default terminal" ;;
         *)                 echo "$1" ;;
@@ -596,6 +665,7 @@ install_core_extra() {
         git-config)        install_git_config ;;
         ssh-config)        install_ssh_config ;;
         zsh-config)        install_zsh_config ;;
+        ai-tool)           install_ai_tool ;;
         omarchy-themes)    install_themes ;;
         default-terminal)  install_default_terminal ;;
         *)                 warn "Unknown core extra: $1" ;;
@@ -609,6 +679,7 @@ list_all_core_extras() {
     echo "git-config"
     echo "ssh-config"
     echo "zsh-config"
+    echo "ai-tool"
     echo "omarchy-themes"
     echo "default-terminal"
 }

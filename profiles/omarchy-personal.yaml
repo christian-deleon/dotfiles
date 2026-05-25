@@ -11,6 +11,7 @@ core_extras:
   - git-submodules
   - git-config
   - ssh-config
+  - ai-tool
   - omarchy-themes
   - default-terminal
 
