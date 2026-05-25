@@ -89,7 +89,7 @@ function wta() {
             return 1
         fi
         branch=$(echo "$worktrees_json" | \
-                 jq -r 'sort_by(.is_main | not) | .[] | .branch' | \
+                 jq -r 'sort_by([(.is_main | not), .branch]) | .[] | .branch' | \
                  fzf --prompt="Worktree: " --height=40% --reverse)
         [[ -z "$branch" ]] && return 0
     fi
@@ -137,7 +137,7 @@ function wtaa() {
         [[ -z "$session" ]] && session=$(basename "$(dirname "$wt_path")")
         [[ -z "$first_window" ]] && first_window="${branch//\//-}"
         _wta_ensure_window "$branch" "$wt_path"
-    done < <(echo "$worktrees_json" | jq -r 'sort_by(.is_main | not) | .[] | "\(.branch)\t\(.path)"')
+    done < <(echo "$worktrees_json" | jq -r 'sort_by([(.is_main | not), .branch]) | .[] | "\(.branch)\t\(.path)"')
 
     if [[ -n "$first_window" ]]; then
         if [[ -n "$TMUX" ]]; then
