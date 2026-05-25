@@ -10,11 +10,17 @@
 # here because they leak across shells if you launched one agent from
 # another's session.
 notify::collect_context() {
-    local payload cwd dir pid tmux_session=""
+    local payload cwd dir pid toplevel tmux_session=""
 
     payload="$(cat 2>/dev/null || printf '{}')"
     cwd="$(jq -r '.cwd // ""' <<<"$payload" 2>/dev/null)"
-    dir="$(basename "${cwd:-?}" 2>/dev/null || printf '?')"
+    # Prefer the git worktree root so the basename reflects the worktree
+    # (e.g. branch-named wt dir) rather than a deeper subdirectory.
+    if [[ -n "$cwd" ]] && toplevel="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)"; then
+        dir="$(basename "$toplevel")"
+    else
+        dir="$(basename "${cwd:-?}" 2>/dev/null || printf '?')"
+    fi
 
     tool="Agent"
     pid="$PPID"
@@ -45,4 +51,18 @@ notify::collect_context() {
 notify::play_sound() {
     paplay --volume=55706 /usr/share/sounds/freedesktop/stereo/message.oga 2>/dev/null \
         || true
+}
+
+# Mark the current pane's tmux window as awaiting user input. Rendered via
+# window-status-format in .tmux.conf; window-status-current-format omits the
+# flag so the active window stays clean.
+notify::tmux_set_waiting() {
+    [[ -n "${TMUX_PANE-}" ]] || return 0
+    tmux set-option -wt "$TMUX_PANE" @ai_waiting 1 2>/dev/null || true
+}
+
+# Clear the waiting flag on the current pane's tmux window.
+notify::tmux_clear_waiting() {
+    [[ -n "${TMUX_PANE-}" ]] || return 0
+    tmux set-option -wut "$TMUX_PANE" @ai_waiting 2>/dev/null || true
 }

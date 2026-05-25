@@ -344,14 +344,13 @@ install_zsh_config() {
 }
 
 install_git_submodules() {
-    info "Initializing critical submodules (ssh, tpm)..."
-    git -C "$DOTFILES_DIR" submodule sync --recursive .ssh .tmux/plugins/tpm
-    if git -C "$DOTFILES_DIR" submodule update --init --recursive .ssh .tmux/plugins/tpm; then
+    info "Initializing critical submodules (ssh)..."
+    git -C "$DOTFILES_DIR" submodule sync --recursive .ssh
+    if git -C "$DOTFILES_DIR" submodule update --init --recursive .ssh; then
         success "Git submodules initialized"
         # `submodule update --init` leaves the submodule in detached HEAD.
         # For branch-tracking submodules (.ssh), put it on its configured
-        # branch so updates and local commits land cleanly. tpm has no
-        # `branch =` set so this is a no-op there.
+        # branch so updates and local commits land cleanly.
         _submodule_checkout_branch .ssh || warn "Could not check out branch in .ssh"
     else
         warn "Some submodules failed to fetch (SSH auth may not be configured yet)"
@@ -359,7 +358,7 @@ install_git_submodules() {
     fi
 
     local submodule_path
-    for submodule_path in .ssh .tmux/plugins/tpm; do
+    for submodule_path in .ssh; do
         local full_path="$DOTFILES_DIR/$submodule_path"
         if [[ -f "$full_path/.git" ]] && git -C "$full_path" diff-index --quiet HEAD -- 2>/dev/null; then
             continue

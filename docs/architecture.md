@@ -65,7 +65,6 @@ App configs in `~/.config/` are managed via [GNU Stow](https://www.gnu.org/softw
 **Special configs** (manifest `config.type: handler`, dispatched to functions in `scripts/handlers/*.sh`):
 - `claude` — Claude Code AI config from `ai/` directory (`install_ai_claude`)
 - `grok` — Grok Build TUI native config from `ai/` + `grok/.grok/` (`install_ai_grok`)
-- `tmux` — direct symlinks for `.tmux.conf` and `.tmux/` (`install_tmux_config`)
 - `lid-check` — Linux+fprintd PAM patch (`install_lid_check`)
 - `windows-terminal` — WSL-side script wrapper (`install_windows_terminal_config`)
 

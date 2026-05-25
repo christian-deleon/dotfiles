@@ -54,7 +54,6 @@ Handlers live in `scripts/handlers/*.sh`, organized by domain:
 |---|---|
 | `scripts/handlers/ai.sh` | `install_ai_claude`, `install_ai_grok`, `install_ai_opencode`, `generate_mcp_configs` |
 | `scripts/handlers/cargo.sh` | `install_cargo_config` |
-| `scripts/handlers/tmux.sh` | `install_tmux_config` |
 | `scripts/handlers/linux.sh` | `install_lid_check` |
 | `scripts/handlers/windows.sh` | `install_windows_terminal_config` |
 | `scripts/handlers/alacritty.sh` | `alacritty_theme_shim` |
