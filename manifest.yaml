@@ -295,8 +295,7 @@ tmux:
     apt: tmux
     brew: tmux
   config:
-    type: handler
-    handler: install_tmux_config
+    type: stow
 
 uv:
   description: Fast Python package installer (provides uv + uvx)

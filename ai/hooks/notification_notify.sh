@@ -16,3 +16,4 @@ notify::collect_context
 notify-send -a "$tool" -i dialog-information -u normal -t 6000 \
     "${tool} · ${project}${worktree:+ · $worktree}" "Waiting for input"
 notify::play_sound
+notify::tmux_set_waiting

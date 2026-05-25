@@ -10,6 +10,28 @@
           }
         ]
       }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.dotfiles/ai/hooks/notification_notify.sh",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.dotfiles/ai/hooks/user_prompt_submit_clear.sh",
+            "async": true
+          }
+        ]
+      }
     ]
   }
 }
