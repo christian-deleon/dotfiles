@@ -14,5 +14,5 @@ notify::collect_context
 [[ "$tool" == "Grok" ]] && exit 0
 
 notify-send -a "$tool" -i dialog-information -u normal -t 6000 \
-    "${tool} · ${dir}${session:+ · $session}" "Waiting for input"
+    "${tool} · ${project}${worktree:+ · $worktree}" "Waiting for input"
 notify::play_sound

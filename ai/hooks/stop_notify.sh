@@ -9,5 +9,5 @@
 notify::collect_context
 
 notify-send -a "$tool" -i dialog-information -u low -t 3000 \
-    "${tool} · ${dir}${session:+ · $session}" "Turn complete"
+    "${tool} · ${project}${worktree:+ · $worktree}" "Turn complete"
 notify::play_sound
