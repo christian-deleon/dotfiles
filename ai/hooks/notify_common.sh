@@ -2,15 +2,15 @@
 # No shebang, no strict-mode (callers control their own shell options).
 
 # Populate context globals from hook stdin + surrounding env:
-#   tool     invoking agent: Claude / Grok / OpenCode / Agent (default)
-#   dir      basename of payload .cwd, or "?"
-#   session  tmux session name if launched under tmux, else empty
+#   tool      invoking agent: Claude / Grok / OpenCode / Agent (default)
+#   project   tmux session name in tmux, else basename of payload .cwd
+#   worktree  cwd basename when in tmux AND it differs from session; else empty
 #
 # Walks the process tree to find the agent — env vars are unreliable
 # here because they leak across shells if you launched one agent from
 # another's session.
 notify::collect_context() {
-    local payload cwd pid
+    local payload cwd dir pid tmux_session=""
 
     payload="$(cat 2>/dev/null || printf '{}')"
     cwd="$(jq -r '.cwd // ""' <<<"$payload" 2>/dev/null)"
@@ -28,9 +28,17 @@ notify::collect_context() {
         pid="$(ps -p "$pid" -o ppid= 2>/dev/null | tr -d '[:space:]')"
     done
 
-    session=""
     [[ -n "${TMUX_PANE-}" ]] \
-        && session="$(tmux display-message -p -t "$TMUX_PANE" '#S' 2>/dev/null)"
+        && tmux_session="$(tmux display-message -p -t "$TMUX_PANE" '#S' 2>/dev/null)"
+
+    if [[ -n "$tmux_session" ]]; then
+        project="$tmux_session"
+        worktree=""
+        [[ "$dir" != "$tmux_session" ]] && worktree="$dir"
+    else
+        project="$dir"
+        worktree=""
+    fi
 }
 
 # Play the standard notification sound (best-effort, no error on failure).
