@@ -48,7 +48,9 @@ notify::collect_context() {
 }
 
 # Play the standard notification sound (best-effort, no error on failure).
+# Disabled: paplay was interfering with the Linux sound driver.
 notify::play_sound() {
+    return 0
     paplay --volume=55706 /usr/share/sounds/freedesktop/stereo/message.oga 2>/dev/null \
         || true
 }
