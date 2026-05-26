@@ -31,9 +31,11 @@ AI_PIPE_RETRIES="${AI_PIPE_RETRIES:-1}"
 
 # Conventional Commits 1.0.0 subject-line check. Type list mirrors the
 # [commit.generation] template in worktrunk's config.toml — keep them in sync.
-# Scope: lowercase alphanumeric plus -/_/ (matches what this repo uses). `!`
+# Scope is intentionally permissive (anything but `)` or `:`) so multi-scope
+# forms like `(broker, engine)` or `(broker,engine)` pass — the model emits
+# these when a change spans subsystems, and they're valid in practice. `!`
 # marks a breaking change. Description ≤ 72 chars per the spec.
-CC_REGEX='^(feat|fix|refactor|perf|test|docs|chore|ci|style|revert)(\([a-z0-9_/-]+\))?!?: .{1,72}$'
+CC_REGEX='^(feat|fix|refactor|perf|test|docs|chore|ci|style|revert)(\([^):]+\))?!?: .{1,72}$'
 
 # Normalize $AI_TOOL_PIPE; tolerate the short forms used by AI_TOOL (cld/oc/gra).
 normalize_tool() {
