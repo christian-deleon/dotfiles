@@ -13,7 +13,10 @@ agent-files = "dot agent link"
 exclude = ["AGENTS.md", "CLAUDE.md"]
 
 [commit.generation]
-command = "opencode run --model opencode/claude-haiku-4-5 \"$(cat)\" | sed 's/```//g; /^[[:space:]]*$/d'"
+# Dispatcher script that picks the AI CLI from $AI_TOOL_PIPE (claude|opencode|grok),
+# auto-detecting if unset. Switch tools with `dot ai-tool` or
+# `AI_TOOL_PIPE=claude wt step commit` for a one-off.
+command = "$HOME/.dotfiles/scripts/worktrunk-commit-gen.sh"
 template = """
 OUTPUT ONLY THE RAW COMMIT MESSAGE. No markdown, no code fences, no backticks, no preamble, no explanation. Your entire response must be the commit message and nothing else.
 

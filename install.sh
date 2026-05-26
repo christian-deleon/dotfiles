@@ -548,15 +548,17 @@ EOF
 
 install_ai_tool() {
     local localrc="$HOME/.localrc"
-    local arg="${1:-}"
-    local ai_tool ai_resume
+    local interactive_arg="${1:-}"
+    local pipe_arg="${2:-}"
+    local ai_tool ai_resume ai_pipe
 
-    if [[ -n "$arg" ]]; then
-        case "$arg" in
+    # Resolve interactive tool (AI_TOOL / AI_TOOL_RESUME).
+    if [[ -n "$interactive_arg" ]]; then
+        case "$interactive_arg" in
             cld|claude)   ai_tool="cld"; ai_resume="cld -c" ;;
             oc|opencode)  ai_tool="oc";  ai_resume="oc -c" ;;
             gra|grok)     ai_tool="gra"; ai_resume="gra -c" ;;
-            *)            error "Unknown AI tool: $arg (choose: cld, oc, gra)"; return 1 ;;
+            *)            error "Unknown AI tool: $interactive_arg (choose: cld, oc, gra)"; return 1 ;;
         esac
     else
         if [[ -f "$localrc" ]] && grep -qE '^export AI_TOOL=' "$localrc" 2>/dev/null; then
@@ -570,12 +572,12 @@ install_ai_tool() {
         fi
 
         if ! command -v gum &>/dev/null; then
-            warn "gum not available — pass a tool name directly: dot ai-tool {cld|oc|gra}"
+            warn "gum not available — pass tool names directly: dot ai-tool {cld|oc|gra} {claude|opencode|grok}"
             return 0
         fi
 
         echo
-        info "Select your preferred AI CLI (used by tav, wta):"
+        info "Select your preferred interactive AI CLI (used by tav, wta):"
         echo
 
         local choice
@@ -593,11 +595,53 @@ install_ai_tool() {
         esac
     fi
 
-    if [[ -f "$localrc" ]] && grep -qE '^export AI_TOOL(_RESUME)?=' "$localrc" 2>/dev/null; then
+    # Resolve pipe tool (AI_TOOL_PIPE). If arg2 omitted, fall through to the
+    # interactive picker (or default to the long form of arg1 when no gum).
+    if [[ -n "$pipe_arg" ]]; then
+        case "$pipe_arg" in
+            cld|claude)   ai_pipe="claude" ;;
+            oc|opencode)  ai_pipe="opencode" ;;
+            gra|grok)     ai_pipe="grok" ;;
+            *)            error "Unknown pipe tool: $pipe_arg (choose: claude, opencode, grok)"; return 1 ;;
+        esac
+    elif [[ -n "$interactive_arg" ]] || ! command -v gum &>/dev/null; then
+        case "$ai_tool" in
+            cld) ai_pipe="claude" ;;
+            oc)  ai_pipe="opencode" ;;
+            gra) ai_pipe="grok" ;;
+        esac
+        info "Pipe tool defaulted to ${BOLD}$ai_pipe${RESET} (matches interactive). Pass arg2 to override."
+    else
+        echo
+        info "Select your preferred headless AI CLI (used for commit-message generation):"
+        echo
+
+        local pipe_choice
+        pipe_choice="$(printf '%s\n' \
+            "Claude (claude -p --bare)" \
+            "OpenCode (opencode run)" \
+            "Grok (grok -p)" \
+            | gum choose --height=6)" || { info "No selection — defaulting pipe tool to interactive choice"; pipe_choice=""; }
+
+        case "$pipe_choice" in
+            Claude*)   ai_pipe="claude" ;;
+            OpenCode*) ai_pipe="opencode" ;;
+            Grok*)     ai_pipe="grok" ;;
+            *)
+                case "$ai_tool" in
+                    cld) ai_pipe="claude" ;;
+                    oc)  ai_pipe="opencode" ;;
+                    gra) ai_pipe="grok" ;;
+                esac
+                ;;
+        esac
+    fi
+
+    if [[ -f "$localrc" ]] && grep -qE '^export AI_TOOL(_RESUME|_PIPE)?=' "$localrc" 2>/dev/null; then
         backup_item "$localrc"
         local tmp
         tmp="$(mktemp)"
-        grep -vE '^export AI_TOOL(_RESUME)?=' "$localrc" > "$tmp" || true
+        grep -vE '^export AI_TOOL(_RESUME|_PIPE)?=' "$localrc" > "$tmp" || true
         # Drop the trailing "AI CLI tool" comment if we added one previously
         sed -i '/^# AI CLI tool/d' "$tmp" 2>/dev/null || true
         mv "$tmp" "$localrc"
@@ -605,12 +649,13 @@ install_ai_tool() {
 
     {
         [[ -s "$localrc" ]] && echo ""
-        echo "# AI CLI tool (used by tav, wta)"
+        echo "# AI CLI tool (AI_TOOL/AI_TOOL_RESUME: tav, wta · AI_TOOL_PIPE: wt commit-gen)"
         echo "export AI_TOOL=\"$ai_tool\""
         echo "export AI_TOOL_RESUME=\"$ai_resume\""
+        echo "export AI_TOOL_PIPE=\"$ai_pipe\""
     } >> "$localrc"
 
-    success "Set AI_TOOL=$ai_tool, AI_TOOL_RESUME=\"$ai_resume\" in ${DIM}~/.localrc${RESET}"
+    success "Set AI_TOOL=$ai_tool, AI_TOOL_RESUME=\"$ai_resume\", AI_TOOL_PIPE=$ai_pipe in ${DIM}~/.localrc${RESET}"
     info "Reload current shell: ${BOLD}source ~/.localrc${RESET}  (or open a new shell)"
 }
 
