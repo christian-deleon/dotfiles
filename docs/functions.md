@@ -208,7 +208,9 @@ fpush -u origin feat   # arguments forward to git push
 
 ### `sk` \*
 
-Profile picker for the `skaffold.yaml` in the current directory, with a preview of what each profile patches (or the base config for `(no profile)`). One picker, five actions via keybinds:
+Picker over **every** Skaffold config reachable from cwd, paired with each config's profiles (plus a `(no profile)` row per config). Discovery is content-based — any YAML containing `apiVersion: skaffold/` qualifies, so it catches configs that aren't literally named `skaffold.yaml` (e.g. `infra/skaffold/athenis-engine.yaml`). Uses `git ls-files` inside a repo (fast + gitignore-aware), falls back to `find` otherwise. Preview shows the selected profile's patch — or the base config with `.profiles` stripped for `(no profile)`.
+
+One picker, five actions via keybinds:
 
 - **`ENTER`** — `skaffold dev` (main inner loop)
 - **`Ctrl-D`** — `skaffold debug`
@@ -216,13 +218,11 @@ Profile picker for the `skaffold.yaml` in the current directory, with a preview 
 - **`Ctrl-B`** — `skaffold build`
 - **`Ctrl-X`** — `skaffold delete`
 
-If you pick `(no profile)`, the action runs without `-p`. Otherwise the selected profile is passed via `-p <name>`.
+Selection runs `skaffold <verb> -f <path> [-p <profile>]`, so it works from anywhere within the project. Configs imported by another via `requires:` still appear in the picker — target them when you want to iterate on a single module standalone.
 
 ```bash
-sk    # picker — ENTER dev / Ctrl-D debug / Ctrl-R run / Ctrl-B build / Ctrl-X delete
+sk    # picker — fuzzy-search by path or profile
 ```
-
-Multi-module skaffold configs aren't handled yet — every profile across modules is listed and `-m` is not passed. Open an issue (or extend it) if you hit that case.
 
 ---
 
