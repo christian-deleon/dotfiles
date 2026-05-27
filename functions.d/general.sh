@@ -41,7 +41,7 @@ function fkill() {
             --prompt="kill: " \
             --height=60% \
             --reverse \
-            --header='ENTER: SIGTERM  |  Ctrl-K: SIGKILL  |  TAB to multi' \
+            --header=$'ENTER: SIGTERM  |  Ctrl-K: SIGKILL\nTAB to multi-select' \
             --expect=ctrl-k)
     [[ -z "$out" ]] && return 0
 

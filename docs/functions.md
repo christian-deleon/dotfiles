@@ -180,6 +180,19 @@ Internal helper function to filter kubectl output by pattern.
 
 ## Flux
 
+### `fx` \*
+
+Unified picker over every reconcilable Flux resource in the cluster — Kustomizations, HelmReleases, and Sources (Git, Helm, OCI, Bucket) — with `kubectl describe` preview. One picker, four actions via keybinds:
+
+- **`ENTER`** — `flux reconcile` the highlighted resource
+- **`Ctrl-S`** — `flux suspend` (pause reconciliation)
+- **`Ctrl-R`** — `flux resume`
+- **`Ctrl-E`** — `flux events --for=Kind/name` (recent events for the resource)
+
+```bash
+fx    # picker — ENTER reconcile / Ctrl-S suspend / Ctrl-R resume / Ctrl-E events
+```
+
 ### `fpush [git-push-args...]`
 
 Push the current branch, then reconcile any Flux `GitRepository` whose `.spec.url` matches the local repo's `origin`, and cascade to every Kustomization that references that source. Matches by normalized URL (strips scheme, user, `.git`, trailing `/`; converts `git@host:owner/repo` ↔ `https://host/owner/repo`); falls back to repo basename when no exact URL match. Operates against the current kubeconfig context. Requires `kubectl`, `flux`, and `jq`.
@@ -188,6 +201,28 @@ Push the current branch, then reconcile any Flux `GitRepository` whose `.spec.ur
 fpush                  # git push, then source + kustomization reconcile
 fpush -u origin feat   # arguments forward to git push
 ```
+
+---
+
+## Skaffold
+
+### `sk` \*
+
+Profile picker for the `skaffold.yaml` in the current directory, with a preview of what each profile patches (or the base config for `(no profile)`). One picker, five actions via keybinds:
+
+- **`ENTER`** — `skaffold dev` (main inner loop)
+- **`Ctrl-D`** — `skaffold debug`
+- **`Ctrl-R`** — `skaffold run` (one-shot build + deploy)
+- **`Ctrl-B`** — `skaffold build`
+- **`Ctrl-X`** — `skaffold delete`
+
+If you pick `(no profile)`, the action runs without `-p`. Otherwise the selected profile is passed via `-p <name>`.
+
+```bash
+sk    # picker — ENTER dev / Ctrl-D debug / Ctrl-R run / Ctrl-B build / Ctrl-X delete
+```
+
+Multi-module skaffold configs aren't handled yet — every profile across modules is listed and `-m` is not passed. Open an issue (or extend it) if you hit that case.
 
 ---
 
