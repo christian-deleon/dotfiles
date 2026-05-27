@@ -120,11 +120,11 @@ function kc() {
     kubectl config use-context "$context"
 }
 
-# Stream pod logs (fzf to select pod and container)
+# Stream pod logs (pod/container args optional, else fzf)
 function kl() {
     local namespace="${1}"
-    local pod_name
-    local container_name
+    local pod_name="${2}"
+    local container_name="${3}"
 
     # If namespace provided, use it; otherwise use current context namespace
     local ns_flag=""
@@ -132,42 +132,42 @@ function kl() {
         ns_flag="-n $namespace"
     fi
 
-    # Select pod with fzf
-    pod_name=$(kubectl get pods $ns_flag -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | \
-              fzf --prompt="Select pod: " --height=40% --reverse)
-
     if [[ -z "$pod_name" ]]; then
-        echo "No pod selected"
-        return 1
-    fi
-
-    # Check if pod has multiple containers
-    local container_count
-    container_count=$(kubectl get pod "$pod_name" $ns_flag -o jsonpath='{.spec.containers[*].name}' | wc -w | tr -d ' ')
-
-    if [[ "$container_count" -gt 1 ]]; then
-        # Multiple containers, let user select
-        container_name=$(kubectl get pod "$pod_name" $ns_flag -o jsonpath='{.spec.containers[*].name}' | \
-                        tr ' ' '\n' | \
-                        fzf --prompt="Select container: " --height=40% --reverse)
-
-        if [[ -z "$container_name" ]]; then
-            echo "No container selected"
+        pod_name=$(kubectl get pods $ns_flag -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | \
+                   fzf --prompt="Select pod: " --height=40% --reverse)
+        if [[ -z "$pod_name" ]]; then
+            echo "No pod selected"
             return 1
         fi
+    fi
 
+    if [[ -z "$container_name" ]]; then
+        local container_count
+        container_count=$(kubectl get pod "$pod_name" $ns_flag -o jsonpath='{.spec.containers[*].name}' | wc -w | tr -d ' ')
+
+        if [[ "$container_count" -gt 1 ]]; then
+            container_name=$(kubectl get pod "$pod_name" $ns_flag -o jsonpath='{.spec.containers[*].name}' | \
+                            tr ' ' '\n' | \
+                            fzf --prompt="Select container: " --height=40% --reverse)
+            if [[ -z "$container_name" ]]; then
+                echo "No container selected"
+                return 1
+            fi
+        fi
+    fi
+
+    if [[ -n "$container_name" ]]; then
         kubectl logs "$pod_name" $ns_flag -c "$container_name"
     else
-        # Single container
         kubectl logs "$pod_name" $ns_flag
     fi
 }
 
-# Exec into a pod (fzf to select pod and container)
+# Exec into a pod (pod/container args optional, else fzf)
 function ke() {
     local namespace="${1}"
-    local pod_name
-    local container_name
+    local pod_name="${2}"
+    local container_name="${3}"
 
     # If namespace provided, use it; otherwise use current context namespace
     local ns_flag=""
@@ -175,33 +175,33 @@ function ke() {
         ns_flag="-n $namespace"
     fi
 
-    # Select pod with fzf
-    pod_name=$(kubectl get pods $ns_flag -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | \
-              fzf --prompt="Select pod: " --height=40% --reverse)
-
     if [[ -z "$pod_name" ]]; then
-        echo "No pod selected"
-        return 1
-    fi
-
-    # Check if pod has multiple containers
-    local container_count
-    container_count=$(kubectl get pod "$pod_name" $ns_flag -o jsonpath='{.spec.containers[*].name}' | wc -w | tr -d ' ')
-
-    if [[ "$container_count" -gt 1 ]]; then
-        # Multiple containers, let user select
-        container_name=$(kubectl get pod "$pod_name" $ns_flag -o jsonpath='{.spec.containers[*].name}' | \
-                        tr ' ' '\n' | \
-                        fzf --prompt="Select container: " --height=40% --reverse)
-
-        if [[ -z "$container_name" ]]; then
-            echo "No container selected"
+        pod_name=$(kubectl get pods $ns_flag -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | \
+                   fzf --prompt="Select pod: " --height=40% --reverse)
+        if [[ -z "$pod_name" ]]; then
+            echo "No pod selected"
             return 1
         fi
+    fi
 
+    if [[ -z "$container_name" ]]; then
+        local container_count
+        container_count=$(kubectl get pod "$pod_name" $ns_flag -o jsonpath='{.spec.containers[*].name}' | wc -w | tr -d ' ')
+
+        if [[ "$container_count" -gt 1 ]]; then
+            container_name=$(kubectl get pod "$pod_name" $ns_flag -o jsonpath='{.spec.containers[*].name}' | \
+                            tr ' ' '\n' | \
+                            fzf --prompt="Select container: " --height=40% --reverse)
+            if [[ -z "$container_name" ]]; then
+                echo "No container selected"
+                return 1
+            fi
+        fi
+    fi
+
+    if [[ -n "$container_name" ]]; then
         kubectl exec -it "$pod_name" $ns_flag -c "$container_name" -- /bin/sh
     else
-        # Single container
         kubectl exec -it "$pod_name" $ns_flag -- /bin/sh
     fi
 }
