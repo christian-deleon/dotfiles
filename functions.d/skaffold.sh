@@ -1,6 +1,6 @@
 # Category: Skaffold
 
-# Skaffold profile picker (dev/debug/run/build/delete)
+# Skaffold picker over all configs+profiles in tree
 function sk() {
     if ! command -v skaffold &>/dev/null; then
         echo "Error: skaffold is not installed"
@@ -17,36 +17,66 @@ function sk() {
         return 1
     fi
 
-    local config="" f
-    for f in skaffold.yaml skaffold.yml; do
-        [[ -f "$f" ]] && { config="$f"; break; }
-    done
-    if [[ -z "$config" ]]; then
-        echo "No skaffold.yaml in current directory"
+    # Discover every Skaffold Config reachable from cwd by content match
+    # (`apiVersion: skaffold/`) so we catch configs that aren't literally
+    # named skaffold.yaml (e.g. modules under infra/skaffold/*.yaml).
+    # `git ls-files` inside a repo is fast + gitignore-aware; otherwise find.
+    local -a configs=()
+    if git rev-parse --git-dir &>/dev/null; then
+        mapfile -t configs < <(
+            git ls-files '*.yaml' '*.yml' 2>/dev/null \
+                | xargs grep -l 'apiVersion: skaffold/' 2>/dev/null
+        )
+    else
+        mapfile -t configs < <(
+            find . -type f \( -name '*.yaml' -o -name '*.yml' \) \
+                -not -path '*/node_modules/*' \
+                -not -path '*/.git/*' 2>/dev/null \
+                | xargs grep -l 'apiVersion: skaffold/' 2>/dev/null
+        )
+    fi
+
+    if (( ${#configs[@]} == 0 )); then
+        echo "No Skaffold configs found under $(pwd)"
         return 1
     fi
 
-    local profiles list
-    profiles=$(yq ea '.profiles[]?.name // ""' "$config" 2>/dev/null | grep -v '^$' | sort -u)
-    list=$(printf '(no profile)\n%s\n' "$profiles" | grep -v '^$')
+    # One row per (config, profile) pair, with "(no profile)" as the
+    # default per-config row.
+    local list cfg
+    list=$(
+        for cfg in "${configs[@]}"; do
+            printf '%s :: (no profile)\n' "$cfg"
+            yq ea '.profiles[]?.name // ""' "$cfg" 2>/dev/null \
+                | grep -v '^$' \
+                | sort -u \
+                | while IFS= read -r prof; do
+                      printf '%s :: %s\n' "$cfg" "$prof"
+                  done
+        done
+    )
 
     local out key
     out=$(echo "$list" | fzf \
         --prompt="skaffold: " \
-        --height=60% \
+        --height=70% \
         --reverse \
         --header=$'ENTER: dev      |  Ctrl-D: debug\nCtrl-R: run     |  Ctrl-B: build\nCtrl-X: delete' \
         --expect=ctrl-d,ctrl-r,ctrl-b,ctrl-x \
-        --preview="if [[ {} == '(no profile)' ]]; then yq 'del(.profiles)' '$config'; else yq '.profiles[] | select(.name == \"{}\")' '$config'; fi" \
+        --preview='line={}; path=${line% :: *}; prof=${line##* :: }; if [[ "$prof" == "(no profile)" ]]; then yq "del(.profiles)" "$path"; else yq ".profiles[] | select(.name == \"$prof\")" "$path"; fi' \
         --preview-window=right:60%:wrap)
     [[ -z "$out" ]] && return 0
 
     key=$(head -n1 <<< "$out")
-    local profile
-    profile=$(tail -n +2 <<< "$out" | head -n1)
-    [[ -z "$profile" ]] && return 0
+    local line
+    line=$(tail -n +2 <<< "$out" | head -n1)
+    [[ -z "$line" ]] && return 0
 
-    local -a args=()
+    local path profile
+    path="${line% :: *}"
+    profile="${line##* :: }"
+
+    local -a args=(-f "$path")
     [[ "$profile" != "(no profile)" ]] && args+=(-p "$profile")
 
     case "$key" in
