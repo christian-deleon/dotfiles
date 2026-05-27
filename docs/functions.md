@@ -31,6 +31,14 @@ clocg --exclude-dir=vendor # Additional options still work
 clocg src/                 # Count specific directory
 ```
 
+### `fkill` \*
+
+Pick processes from `ps` with fzf and kill them. Sorted by PID; type to fuzzy-match any column (user, %cpu, command, …). `TAB` to multi-select. `ENTER` sends `SIGTERM`; `Ctrl-K` sends `SIGKILL` for unresponsive processes.
+
+```bash
+fkill    # picker — ENTER for TERM, Ctrl-K for KILL
+```
+
 ---
 
 ## Kubernetes
@@ -106,22 +114,25 @@ Get CPU and Memory usage for all namespaces.
 ktnsa
 ```
 
-### `kl [namespace]` \*
+### `kl [namespace] [pod] [container]` \*
 
-Get logs from a pod. Uses fzf to select pod. If pod has multiple containers, prompts for container selection.
+Get logs from a pod. Any positional you omit is picked via fzf; any you pass skips its picker. Pass `""` to skip namespace (use current context) while still specifying pod/container.
 
 ```bash
-kl               # Current namespace, select pod interactively
-kl production    # Specific namespace, select pod interactively
+kl                          # fzf everything in current namespace
+kl production               # fzf pod + container in 'production'
+kl production api-7d9c      # that pod, fzf container if multi
+kl production api-7d9c app  # fully specified, no picker
+kl "" api-7d9c              # current ns, that pod
 ```
 
-### `ke [namespace]` \*
+### `ke [namespace] [pod] [container]` \*
 
-Execute command in a pod (opens /bin/sh). Uses fzf to select pod and container if needed.
+Exec into a pod (opens `/bin/sh`). Same positional/fzf semantics as [`kl`](#kl-namespace-pod-container-).
 
 ```bash
-ke               # Current namespace, select pod interactively
-ke production    # Specific namespace, select pod interactively
+ke                          # fzf everything in current namespace
+ke production api-7d9c app  # fully specified, no picker
 ```
 
 ### `kdp [namespace]` \*
@@ -349,20 +360,24 @@ tavk "claude -c"     # 4-pane variant resuming Claude
 
 ### `ts` \*
 
-Interactive tmux session switcher with fzf preview. Shows a live snapshot of each session's active pane as you navigate. Switches client if already inside tmux, otherwise attaches.
+Unified tmux session picker with fzf preview. One picker, three actions via keybinds:
+
+- **`ENTER`** — switch to the highlighted session (switches client inside tmux, attaches otherwise)
+- **`Ctrl-X`** — kill selected sessions (use `TAB` to multi-select). If your current attached session is among them, the client is auto-switched to a surviving session first so you're never detached. If the current session is the *only* one left, it's skipped with a warning.
+- **`Ctrl-R`** — rename the highlighted session (prompts for the new name)
 
 ```bash
-ts    # fzf picker with live pane preview
+ts    # picker — pick an action with ENTER / Ctrl-X / Ctrl-R
 ```
 
 ---
 
-### `tsk` \*
+### `tw` \*
 
-Interactive tmux session killer with fzf multi-select and live pane preview. `TAB` to mark sessions, `ENTER` to kill them. If you select the session you're currently attached to, the client is auto-switched to a surviving session before that session is killed, so you're never detached. If the current session is the *only* one left, it's skipped with a warning.
+Switch to any tmux window across **all** sessions with fzf and a live preview of the highlighted window's active pane. Useful after `wtaa` restores 10+ windows and you want to jump straight to one without first picking a session.
 
 ```bash
-tsk    # fzf multi-select: TAB to mark, ENTER to kill
+tw    # fzf picker over every window in every session
 ```
 
 ---
