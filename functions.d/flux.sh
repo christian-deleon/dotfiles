@@ -1,5 +1,78 @@
 # Category: Flux
 
+# Flux resource picker (reconcile/suspend/resume/events)
+function fx() {
+    if ! command -v flux &>/dev/null; then
+        echo "Error: flux is not installed"
+        return 1
+    fi
+
+    if ! command -v fzf &>/dev/null; then
+        echo "Error: fzf is not installed"
+        return 1
+    fi
+
+    local list
+    list=$(
+        flux get kustomization -A --no-header 2>/dev/null \
+            | awk 'NF{printf "%-15s %s/%s\n", "Kustomization", $1, $2}'
+        flux get helmrelease -A --no-header 2>/dev/null \
+            | awk 'NF{printf "%-15s %s/%s\n", "HelmRelease", $1, $2}'
+        flux get source git -A --no-header 2>/dev/null \
+            | awk 'NF{printf "%-15s %s/%s\n", "GitRepository", $1, $2}'
+        flux get source helm -A --no-header 2>/dev/null \
+            | awk 'NF{printf "%-15s %s/%s\n", "HelmRepository", $1, $2}'
+        flux get source oci -A --no-header 2>/dev/null \
+            | awk 'NF{printf "%-15s %s/%s\n", "OCIRepository", $1, $2}'
+        flux get source bucket -A --no-header 2>/dev/null \
+            | awk 'NF{printf "%-15s %s/%s\n", "Bucket", $1, $2}'
+    )
+    if [[ -z "$list" ]]; then
+        echo "No Flux resources found (context: $(kubectl config current-context 2>/dev/null))"
+        return 1
+    fi
+
+    local out key
+    out=$(echo "$list" | fzf \
+        --prompt="flux: " \
+        --height=70% \
+        --reverse \
+        --header=$'ENTER: reconcile  |  Ctrl-S: suspend\nCtrl-R: resume    |  Ctrl-E: events' \
+        --expect=ctrl-s,ctrl-r,ctrl-e \
+        --preview='kubectl describe -n $(echo {2} | cut -d/ -f1) {1}/$(echo {2} | cut -d/ -f2) 2>/dev/null | head -80' \
+        --preview-window=right:60%:wrap)
+    [[ -z "$out" ]] && return 0
+
+    key=$(head -n1 <<< "$out")
+    local line
+    line=$(tail -n +2 <<< "$out" | head -n1)
+    [[ -z "$line" ]] && return 0
+
+    local kind ns_name namespace name cli_kind
+    kind=$(awk '{print $1}' <<< "$line")
+    ns_name=$(awk '{print $2}' <<< "$line")
+    namespace="${ns_name%%/*}"
+    name="${ns_name#*/}"
+
+    case "$kind" in
+        Kustomization)  cli_kind="kustomization" ;;
+        HelmRelease)    cli_kind="helmrelease" ;;
+        GitRepository)  cli_kind="source git" ;;
+        HelmRepository) cli_kind="source helm" ;;
+        OCIRepository)  cli_kind="source oci" ;;
+        Bucket)         cli_kind="source bucket" ;;
+        *) echo "unknown kind: $kind" >&2; return 1 ;;
+    esac
+
+    # $cli_kind intentionally unquoted: "source git" must word-split into two args.
+    case "$key" in
+        ctrl-s) flux suspend $cli_kind "$name" -n "$namespace" ;;
+        ctrl-r) flux resume $cli_kind "$name" -n "$namespace" ;;
+        ctrl-e) flux events --for "$kind/$name" -n "$namespace" ;;
+        "")     flux reconcile $cli_kind "$name" -n "$namespace" ;;
+    esac
+}
+
 # Push and reconcile matching Flux source + kustomizations
 function fpush() {
     git rev-parse --git-dir &>/dev/null || { echo "Error: not in a git repo" >&2; return 1; }

@@ -83,7 +83,7 @@ function ts() {
             --prompt="tmux session: " \
             --height=60% \
             --reverse \
-            --header='ENTER: switch  |  Ctrl-X: kill (TAB to multi)  |  Ctrl-R: rename' \
+            --header=$'ENTER: switch  |  Ctrl-X: kill (TAB to multi)\nCtrl-R: rename' \
             --expect=ctrl-x,ctrl-r \
             --preview='tmux capture-pane -ep -t {1}' \
             --preview-window=right:60%:wrap)
