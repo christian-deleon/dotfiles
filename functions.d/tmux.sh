@@ -94,3 +94,68 @@ function ts() {
         tmux attach -t "$session"
     fi
 }
+
+# Kill one or more tmux sessions with fzf (multi-select)
+function tsk() {
+    if ! command -v tmux &>/dev/null; then
+        echo "Error: tmux is not installed"
+        return 1
+    fi
+
+    if ! command -v fzf &>/dev/null; then
+        echo "Error: fzf is not installed"
+        return 1
+    fi
+
+    if ! tmux list-sessions &>/dev/null; then
+        echo "No tmux sessions found"
+        return 1
+    fi
+
+    local picks
+    picks=$(tmux list-sessions -F "#{session_name}: #{session_windows} windows (created #{t:session_created})" \
+        | fzf --multi \
+            --prompt="kill tmux session(s): " \
+            --height=60% \
+            --reverse \
+            --header='TAB to select, ENTER to kill' \
+            --preview='tmux capture-pane -ep -t {1}' \
+            --preview-window=right:60%:wrap \
+        | cut -d: -f1)
+    [[ -z "$picks" ]] && return 0
+
+    local -a targets=()
+    local s
+    while IFS= read -r s; do
+        [[ -n "$s" ]] && targets+=("$s")
+    done <<< "$picks"
+
+    local current=""
+    [[ -n "$TMUX" ]] && current=$(tmux display-message -p '#S')
+
+    local kill_current=0
+    local t
+    for t in "${targets[@]}"; do
+        if [[ "$t" == "$current" ]]; then
+            kill_current=1
+            continue
+        fi
+        tmux kill-session -t "$t" && echo "killed: $t"
+    done
+
+    (( kill_current )) || return 0
+
+    # Switch the attached client to any surviving session before killing current,
+    # so the user isn't detached.
+    local survivor
+    survivor=$(tmux list-sessions -F '#{session_name}' 2>/dev/null \
+        | grep -vxF "$current" | head -n1)
+    if [[ -z "$survivor" ]]; then
+        echo "warning: '$current' is the only remaining session; skipping to avoid detach" >&2
+        echo "         run 'tmux kill-session -t $current' from outside tmux to remove it" >&2
+        return 1
+    fi
+
+    tmux switch-client -t "$survivor"
+    tmux kill-session -t "$current" && echo "killed: $current (switched to $survivor)"
+}

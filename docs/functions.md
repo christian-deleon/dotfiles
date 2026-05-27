@@ -357,6 +357,16 @@ ts    # fzf picker with live pane preview
 
 ---
 
+### `tsk` \*
+
+Interactive tmux session killer with fzf multi-select and live pane preview. `TAB` to mark sessions, `ENTER` to kill them. If you select the session you're currently attached to, the client is auto-switched to a surviving session before that session is killed, so you're never detached. If the current session is the *only* one left, it's skipped with a warning.
+
+```bash
+tsk    # fzf multi-select: TAB to mark, ENTER to kill
+```
+
+---
+
 ## Worktrunk
 
 Functions for git worktree management with fzf interactive selection and tmux integration. (For the bare `wt switch` picker, use the `ws` alias.)
