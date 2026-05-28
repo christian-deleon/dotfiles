@@ -22,6 +22,15 @@ OUTPUT ONLY THE RAW COMMIT MESSAGE. No markdown, no code fences, no backticks, n
 
 You are a senior engineer writing a git commit message. Analyze the diff carefully and produce a single Conventional Commits 1.0.0 message.
 
+## Hard requirements — your message is AUTO-VALIDATED and REJECTED if any fail
+
+1. The first line MUST be: <type>(<optional scope>): <description>
+2. <type> MUST be one of: feat, fix, refactor, perf, test, docs, chore, ci, style, revert
+3. <description> — everything after the ": " — MUST be 72 characters or fewer. A regex counts this and there is NO leniency. If the change is too big to summarize in 72 chars, summarize at a higher level and push the detail into the body.
+4. No trailing period on the description.
+
+If your message is rejected, it is regenerated with the failure reason fed back to you — so keep the subject short the first time.
+
 ## Format
 
 <type>(<scope>): <description>
@@ -54,7 +63,7 @@ Use a short lowercase noun identifying the subsystem or crate changed (e.g. engi
 - Imperative mood, present tense: "add" not "adds" or "added"
 - Lowercase first letter
 - No period at the end
-- Max 72 characters
+- Max 72 characters, counted from the first character after ": " (NOT the whole line). Enforced by an automated validator — over-length subjects are rejected. Put extra detail in the body, never the subject.
 - Describe WHAT changed and WHY, not HOW
 
 ## Body (include when helpful)

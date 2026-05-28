@@ -10,8 +10,10 @@
 #   - Tool exits non-zero (auth, subscription, network): surface and exit 1
 #     immediately. Retrying won't fix a billing problem.
 #   - Tool exits zero but output isn't valid Conventional Commits (model got
-#     confused, refused, wrapped in chatter): retry up to $AI_PIPE_RETRIES
-#     times. Default 1 (so 2 total attempts).
+#     confused, refused, wrapped in chatter, or wrote an over-length subject):
+#     retry up to $AI_PIPE_RETRIES times, appending the exact rejection reason
+#     to the prompt so the model corrects that attempt instead of blindly
+#     regenerating a similarly-invalid message. Default 2 (so 3 total attempts).
 #
 # Each tool gets its native stdin path — Claude and Grok read directly from
 # stdin (no $(cat) round-trip), OpenCode takes the prompt as a positional arg
@@ -27,7 +29,7 @@ AI_PIPE_OPENCODE_MODEL="${AI_PIPE_OPENCODE_MODEL:-opencode/claude-haiku-4-5}"
 AI_PIPE_GROK_MODEL="${AI_PIPE_GROK_MODEL:-}"
 
 # Total attempts = AI_PIPE_RETRIES + 1. Set 0 to disable retry entirely.
-AI_PIPE_RETRIES="${AI_PIPE_RETRIES:-1}"
+AI_PIPE_RETRIES="${AI_PIPE_RETRIES:-2}"
 
 # Conventional Commits 1.0.0 subject-line check. Type list mirrors the
 # [commit.generation] template in worktrunk's config.toml — keep them in sync.
@@ -36,6 +38,11 @@ AI_PIPE_RETRIES="${AI_PIPE_RETRIES:-1}"
 # these when a change spans subsystems, and they're valid in practice. `!`
 # marks a breaking change. Description ≤ 72 chars per the spec.
 CC_REGEX='^(feat|fix|refactor|perf|test|docs|chore|ci|style|revert)(\([^):]+\))?!?: .{1,72}$'
+
+# Prefix-only form (no description-length check). Used on a validation failure
+# to tell a malformed type/structure apart from a description that is merely too
+# long, so the retry feedback can name the exact problem rather than guess.
+CC_PREFIX_REGEX='^(feat|fix|refactor|perf|test|docs|chore|ci|style|revert)(\([^):]+\))?!?: '
 
 # Normalize $AI_TOOL_PIPE; tolerate the short forms used by AI_TOOL (cld/oc/gra).
 normalize_tool() {
@@ -72,11 +79,27 @@ clean_output() {
     sed 's/```//g; /^[[:space:]]*$/d'
 }
 
-# Returns 0 if $1 looks like a valid Conventional Commits subject on line 1.
-validate_cc() {
-    local first_line
+# Echoes a human-readable reason the message fails Conventional Commits
+# validation on line 1, or nothing if it is valid. The reason is fed back to the
+# model on retry, so it must name the exact problem (bad type vs. over-length)
+# and quote what the model wrote.
+cc_violation_reason() {
+    local first_line desc
     first_line="$(printf '%s\n' "$1" | head -1)"
-    [[ "$first_line" =~ $CC_REGEX ]]
+
+    [[ "$first_line" =~ $CC_REGEX ]] && return 0
+
+    if [[ ! "$first_line" =~ $CC_PREFIX_REGEX ]]; then
+        printf 'the subject must start with a valid type (%s), an optional (scope), an optional "!", then ": ". You wrote: "%s"' \
+            'feat|fix|refactor|perf|test|docs|chore|ci|style|revert' "$first_line"
+        return 0
+    fi
+
+    # Prefix is well-formed, so the description (text after the first ": ") is
+    # the wrong length — almost always over the 72-char cap.
+    desc="${first_line#*: }"
+    printf 'the description after "%s: " is %d characters; the hard limit is 72. Keep the subject terse and move detail into the body. You wrote: "%s"' \
+        "${first_line%%: *}" "${#desc}" "$first_line"
 }
 
 # Run the selected tool with $prompt on stdin (where applicable). Stdout of
@@ -127,6 +150,7 @@ fi
 prompt="$(cat)"
 max_attempts=$((AI_PIPE_RETRIES + 1))
 output=""
+reason=""
 
 # Capture stderr to a temp file each attempt so we can surface it on failure.
 # Some tools (notably claude) write auth/login errors to STDOUT, so we have to
@@ -135,9 +159,22 @@ err_file="$(mktemp)"
 trap 'rm -f "$err_file"' EXIT
 
 for (( attempt = 1; attempt <= max_attempts; attempt++ )); do
+    # On a retry, append the previous attempt's exact rejection reason so the
+    # model corrects that specific problem instead of regenerating another
+    # similar (still-invalid) message. The first attempt sends the prompt as-is.
+    attempt_prompt="$prompt"
+    if [[ -n "$reason" ]]; then
+        attempt_prompt="$prompt
+
+## Your previous attempt was REJECTED by an automated validator
+Reason: $reason
+
+Fix exactly this and output ONLY the corrected raw commit message — no explanation, no other changes."
+    fi
+
     rc=0
     : > "$err_file"
-    output="$(invoke_tool "$tool" "$prompt" 2>"$err_file")" || rc=$?
+    output="$(invoke_tool "$tool" "$attempt_prompt" 2>"$err_file")" || rc=$?
     if (( rc != 0 )); then
         {
             echo "worktrunk-commit-gen: $tool exited $rc (attempt $attempt/$max_attempts)"
@@ -155,20 +192,23 @@ for (( attempt = 1; attempt <= max_attempts; attempt++ )); do
         exit 1
     fi
 
-    if validate_cc "$output"; then
+    reason="$(cc_violation_reason "$output")"
+    if [[ -z "$reason" ]]; then
         printf '%s\n' "$output"
         exit 0
     fi
 
     {
         echo "worktrunk-commit-gen: $tool output is not valid Conventional Commits (attempt $attempt/$max_attempts)"
-        echo "  first line: $(printf '%s' "$output" | head -1 | head -c 200)"
-        (( attempt < max_attempts )) && echo "  retrying..."
+        echo "  reason: $(printf '%s' "$reason" | head -c 400)"
+        (( attempt < max_attempts )) && echo "  retrying with corrective feedback..."
     } >&2
 done
 
 {
-    echo "worktrunk-commit-gen: giving up after $max_attempts attempts — last output:"
+    echo "worktrunk-commit-gen: giving up after $max_attempts attempts."
+    [[ -n "$reason" ]] && echo "  last rejection: $(printf '%s' "$reason" | head -c 400)"
+    echo "  last output:"
     printf '%s\n' "$output" | sed 's/^/    /'
 } >&2
 exit 1
