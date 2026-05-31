@@ -34,7 +34,10 @@ function wrf() {
 
 # Ensure a tav window exists for one worktree (wta helper)
 function _wta_ensure_window() {
-    local branch="$1" wt_path="$2"
+    # Optional 3rd arg adopt_pane: a pane id to adopt as this worktree's window
+    # (instead of creating a new one) — used by wtaa when the launcher window
+    # isn't inside a worktree.
+    local branch="$1" wt_path="$2" adopt_pane="${3:-}"
     local session window cmd claude_key
 
     session=$(basename "$(dirname "$wt_path")")
@@ -49,6 +52,17 @@ function _wta_ensure_window() {
         cmd="$AI_TOOL_RESUME"
     else
         cmd="$AI_TOOL"
+    fi
+
+    # Adopt the launcher window: rename it now (so name-based targets resolve
+    # immediately), then cd into the worktree and lay out tav. The cd+tav runs
+    # once wtaa returns control to this pane's shell.
+    if [[ -n "$adopt_pane" ]]; then
+        tmux rename-window -t "$adopt_pane" "$window"
+        tmux set-window-option -t "$adopt_pane" allow-rename off 2>/dev/null || true
+        tmux send-keys -t "$adopt_pane" "cd $wt_path && clear && tav \"$cmd\"" C-m
+        echo "  adopt   $session:$window  ($cmd)"
+        return
     fi
 
     if ! tmux has-session -t "$session" 2>/dev/null; then
@@ -133,14 +147,45 @@ function wtaa() {
         return 1
     fi
 
-    local session="" first_window=""
-
-    while IFS=$'\t' read -r branch wt_path; do
+    # Read worktrees into parallel arrays (main worktree sorts first).
+    local -a w_branch=() w_path=() w_main=()
+    local branch wt_path is_main
+    while IFS=$'\t' read -r branch wt_path is_main; do
         [[ -z "$branch" || -z "$wt_path" ]] && continue
-        [[ -z "$session" ]] && session=$(basename "$(dirname "$wt_path")")
-        [[ -z "$first_window" ]] && first_window="${branch//\//-}"
-        _wta_ensure_window "$branch" "$wt_path"
-    done < <(echo "$worktrees_json" | jq -r 'sort_by([(.is_main | not), .branch]) | .[] | "\(.branch)\t\(.path)"')
+        w_branch+=("$branch"); w_path+=("$wt_path"); w_main+=("$is_main")
+    done < <(echo "$worktrees_json" | jq -r 'sort_by([(.is_main | not), .branch]) | .[] | "\(.branch)\t\(.path)\t\(.is_main)"')
+    [[ ${#w_branch[@]} -eq 0 ]] && { echo "Error: no worktrees found"; return 1; }
+
+    local session first_window
+    session=$(basename "$(dirname "${w_path[0]}")")
+    first_window="${w_branch[0]//\//-}"
+
+    # If we're launched from a window in this session that isn't inside any
+    # worktree (e.g. the project root), adopt it as the main worktree's window
+    # instead of spawning a separate one and leaving a stray launcher window.
+    local adopt_pane="" cur_session cur_path wp inside=0
+    if [[ -n "$TMUX" ]]; then
+        cur_session=$(tmux display-message -t "$TMUX_PANE" -p '#{session_name}' 2>/dev/null)
+        cur_path=$(tmux display-message -t "$TMUX_PANE" -p '#{pane_current_path}' 2>/dev/null)
+        if [[ "$cur_session" == "$session" ]]; then
+            for wp in "${w_path[@]}"; do
+                if [[ "$cur_path" == "$wp" || "$cur_path" == "$wp"/* ]]; then inside=1; break; fi
+            done
+            if [[ $inside -eq 0 ]] \
+               && ! tmux list-windows -t "$session:" -F '#{window_name}' 2>/dev/null | grep -qx "$first_window"; then
+                adopt_pane="$TMUX_PANE"
+            fi
+        fi
+    fi
+
+    local i
+    for i in "${!w_branch[@]}"; do
+        if [[ -n "$adopt_pane" && "${w_main[$i]}" == "true" ]]; then
+            _wta_ensure_window "${w_branch[$i]}" "${w_path[$i]}" "$adopt_pane"
+        else
+            _wta_ensure_window "${w_branch[$i]}" "${w_path[$i]}"
+        fi
+    done
 
     if [[ -n "$first_window" ]]; then
         if [[ -n "$TMUX" ]]; then

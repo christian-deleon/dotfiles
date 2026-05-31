@@ -448,6 +448,8 @@ wta feature/auth # attach to (or create) feature/auth's window
 
 Same per-worktree logic as [`wta`](#wta-branch--), but loops every worktree in the project (main first). Use to restore the full project as a single tmux session after a reboot.
 
+If you run it from **outside** tmux, it builds the session detached and `attach`es at the end — so it starts tmux for you. If you run it from **inside** tmux in a window that isn't in any worktree (e.g. the project root), that launcher window is **adopted** as the main worktree's window (`cd` + `tav`) instead of spawning a separate `main` window and leaving a stray. Launch from inside a worktree and the current window is left as-is.
+
 ```bash
 wtaa             # one session, one window per worktree
 ```
