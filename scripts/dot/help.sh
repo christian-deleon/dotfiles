@@ -47,7 +47,8 @@ dothelp() {
         while IFS= read -r line; do
             if [[ "$fn_in_body" == true ]]; then
                 if [[ "$line" == "}" ]]; then
-                    _emit "func" "$fn_name" "$fn_category" "$fn_desc" "$fn_body"
+                    # Skip internal helpers (leading underscore) — not user-facing.
+                    [[ "$fn_name" != _* ]] && _emit "func" "$fn_name" "$fn_category" "$fn_desc" "$fn_body"
                     fn_in_body=false
                     fn_body=""
                 else
