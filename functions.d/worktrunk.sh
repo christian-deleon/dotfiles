@@ -117,15 +117,15 @@ function wtc() {
     if [[ -z "$branch" ]]; then echo "Usage: wtc <branch> [base]"; return 1; fi
     local base="$2"
 
-    # Create the worktree+branch up front. `-x true` switches in and execs
-    # /bin/true, so wt exits cleanly without dropping into a subshell (the
-    # default `wt switch` behaviour) and without printing a path we'd have to
-    # parse. wt is a separate binary and can't change our cwd anyway, so this
-    # leaves the calling shell where it is. Project is resolved from cwd, so
-    # run this from somewhere inside the worktrunk project.
-    local -a create=(switch --create "$branch")
+    # Create the worktree+branch up front. --no-cd is the key: worktrunk's shell
+    # integration wraps `wt` in a function that cd's the *calling* shell into the
+    # new worktree (via a directive file). Without --no-cd, running wtc from a
+    # window would yank that window into the worktree instead of leaving it free.
+    # --no-cd skips that directive (hooks still run) — it's the documented flag
+    # for tmux workflows where we handle navigation ourselves. Project is
+    # resolved from cwd, so run this from somewhere inside the worktrunk project.
+    local -a create=(switch --create "$branch" --no-cd)
     [[ -n "$base" ]] && create+=(--base "$base")
-    create+=(-x true)
     if ! wt "${create[@]}"; then
         echo "Error: failed to create worktree for '$branch'"
         return 1
