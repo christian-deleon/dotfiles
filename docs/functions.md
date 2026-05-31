@@ -444,6 +444,19 @@ wta feature/auth # attach to (or create) feature/auth's window
 
 ---
 
+### `wtc <branch> [base]`
+
+Create a **new** worktree (and branch) and open it in a tmux window with the `tav` layout — the create-first counterpart to [`wta`](#wta-branch--). Runs `wt switch --create <branch> [--base <base>] -x true` to materialize the worktree without dropping into a subshell, resolves its path, then hands off to the same window/layout helper `wta` uses (so it lands in the project's session as a window named after the sanitized branch, with a fresh `$AI_TOOL` launch). Finally jumps to that window. Run it from anywhere inside the worktrunk project — the project is resolved from your current directory, and the new window is built separately so your current window stays free.
+
+Requires `$AI_TOOL` / `$AI_TOOL_RESUME` — run `dot ai-tool` first.
+
+```bash
+wtc feature/auth          # create feature/auth off the default branch, open + tav
+wtc hotfix/login main     # create off an explicit base branch
+```
+
+---
+
 ### `wtaa`
 
 Same per-worktree logic as [`wta`](#wta-branch--), but loops every worktree in the project (main first). Use to restore the full project as a single tmux session after a reboot.

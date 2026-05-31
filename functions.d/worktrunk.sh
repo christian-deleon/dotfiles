@@ -103,6 +103,56 @@ function _wta_ensure_window() {
     fi
 }
 
+# Create a worktree in a tmux window with tav layout
+function wtc() {
+    if ! command -v tmux &>/dev/null; then echo "Error: tmux is not installed"; return 1; fi
+    if ! command -v wt   &>/dev/null; then echo "Error: worktrunk (wt) is not installed"; return 1; fi
+    if ! command -v jq   &>/dev/null; then echo "Error: jq is not installed";   return 1; fi
+    if [[ -z "$AI_TOOL" || -z "$AI_TOOL_RESUME" ]]; then
+        echo "Error: AI_TOOL / AI_TOOL_RESUME unset. Run 'dot ai-tool' to configure."
+        return 1
+    fi
+
+    local branch="$1"
+    if [[ -z "$branch" ]]; then echo "Usage: wtc <branch> [base]"; return 1; fi
+    local base="$2"
+
+    # Create the worktree+branch up front. `-x true` switches in and execs
+    # /bin/true, so wt exits cleanly without dropping into a subshell (the
+    # default `wt switch` behaviour) and without printing a path we'd have to
+    # parse. wt is a separate binary and can't change our cwd anyway, so this
+    # leaves the calling shell where it is. Project is resolved from cwd, so
+    # run this from somewhere inside the worktrunk project.
+    local -a create=(switch --create "$branch")
+    [[ -n "$base" ]] && create+=(--base "$base")
+    create+=(-x true)
+    if ! wt "${create[@]}"; then
+        echo "Error: failed to create worktree for '$branch'"
+        return 1
+    fi
+
+    # Resolve the new worktree's path (same query wta uses).
+    local wt_path
+    wt_path=$(wt list --format json 2>/dev/null | jq -r --arg b "$branch" '.[] | select(.branch == $b) | .path')
+    if [[ -z "$wt_path" || "$wt_path" == "null" ]]; then
+        echo "Error: worktree for '$branch' not found after create"
+        return 1
+    fi
+
+    # Reuse wta's helper to build the window + tav layout (fresh AI launch,
+    # since a brand-new worktree has no Claude history), then jump to it.
+    _wta_ensure_window "$branch" "$wt_path"
+
+    local session window
+    session=$(basename "$(dirname "$wt_path")")
+    window="${branch//\//-}"
+    if [[ -n "$TMUX" ]]; then
+        tmux switch-client -t "$session:$window"
+    else
+        tmux attach -t "$session:$window"
+    fi
+}
+
 # Attach to a worktree in tmux with tav layout (fzf if no arg)
 function wta() {
     if ! command -v tmux &>/dev/null; then echo "Error: tmux is not installed"; return 1; fi
