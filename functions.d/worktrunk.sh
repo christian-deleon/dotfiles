@@ -57,7 +57,10 @@ function _wta_ensure_window() {
         tmux send-keys -t "$session:$window" "tav \"$cmd\"" C-m
         echo "  create  $session:$window  ($cmd)"
     elif ! tmux list-windows -t "$session" -F "#{window_name}" 2>/dev/null | grep -qx "$window"; then
-        tmux new-window -t "$session" -n "$window" -c "$wt_path"
+        # Trailing colon forces a session target: a bare "$session" is ambiguous
+        # when a window shares the session's name (automatic-rename can do this),
+        # and tmux would try to create at that window's index ("index N in use").
+        tmux new-window -t "$session:" -n "$window" -c "$wt_path"
         tmux set-window-option -t "$session:$window" allow-rename off 2>/dev/null || true
         tmux send-keys -t "$session:$window" "tav \"$cmd\"" C-m
         echo "  create  $session:$window  ($cmd)"
