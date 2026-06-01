@@ -82,7 +82,7 @@ format = '[⬢ $version]($style) '
 style = 'bold green'
 
 [terraform]
-disabled = false
+disabled = true
 format = '[▲ $workspace]($style) '
 style = 'bold purple'
 

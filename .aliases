@@ -141,3 +141,4 @@ alias stk='starship toggle kubernetes'   # Toggle Kubernetes module in prompt
 alias sta='starship toggle aws'          # Toggle AWS module in prompt
 alias stj='starship toggle jobs'         # Toggle Jobs module in prompt
 alias stn='starship toggle nodejs'       # Toggle Node.js module in prompt
+alias stt='starship toggle terraform'    # Toggle Terraform module in prompt
