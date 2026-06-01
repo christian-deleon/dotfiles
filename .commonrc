@@ -82,10 +82,14 @@ elif [[ -n "$ZSH_VERSION" ]]; then
 fi
 
 # ─── Prompt (starship, bash only for now) ────────────────────────────────────
-# Skip when already initialized (Omarchy's system bashrc inits starship before
-# sourcing this file). Bash-only until the macOS p10k retirement PR adds zsh.
+# Guard on the presence of the starship_precmd function rather than $STARSHIP_SHELL.
+# $STARSHIP_SHELL can be inherited from a parent process (stale env var) without
+# the shell functions being defined, which caused the prompt to silently break.
+# Omarchy double-init is still prevented: if system bashrc already ran
+# `starship init bash`, starship_precmd will be defined and we skip cleanly.
+# Bash-only until the macOS p10k retirement PR adds zsh.
 
-if [[ -z "$STARSHIP_SHELL" ]] && command -v starship &>/dev/null; then
+if ! type starship_precmd &>/dev/null && command -v starship &>/dev/null; then
     if [[ -n "$BASH_VERSION" ]]; then
         eval "$(starship init bash)"
     fi
