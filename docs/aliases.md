@@ -225,6 +225,7 @@ Naming scheme: top-level `wt` commands use `w<letter>` (with a trailing modifier
 
 - `wm` - Merge current worktree into default branch (`wt merge`)
 - `wmn` - Merge current worktree but keep it (`wt merge --no-remove`)
+- `wms` - Merge only staged changes, keep worktree (`wt merge --no-remove --stage none`)
 - `wr` - Remove current worktree (`wt remove`)
 
 ### `wt step` subcommands (`wx*`)

@@ -118,22 +118,23 @@ alias olp='ollama pull'                  # Pull an Ollama model
 
 # Worktrunk
 # Top-level commands use w<letter>; `wt step` subcommands use wx<letter>.
-alias wl='wt list'                       # List all worktrees
-alias wlf='wt list --full'               # List worktrees with full details
-alias wj='wt list --format json'         # List worktrees as JSON
-alias ws='wt switch'                     # Switch to a worktree
-alias wsc='wt switch --create'           # Create and switch to a new worktree
-alias wsr='wt switch --remotes'          # Switch, picker includes remote branches
-alias wm='wt merge'                      # Merge current worktree into default branch
-alias wmn='wt merge --no-remove'         # Merge current worktree but keep it
-alias wr='wt remove'                     # Remove current worktree
-alias wxc='wt step commit'               # Stage & AI-commit current worktree
-alias wxs='wt step squash'               # Squash branch commits with AI-gen message
-alias wxr='wt step rebase'               # Rebase current worktree onto default branch
-alias wxp='wt step push'                 # Fast-forward default branch to current
-alias wxf='wt step for-each --'          # Run a command in all worktrees
-alias wxpr='wt step prune'               # Prune stale worktrees
-alias wxprd='wt step prune --dry-run'    # Preview stale worktrees to prune
+alias wl='wt list'                             # List all worktrees
+alias wlf='wt list --full'                     # List worktrees with full details
+alias wj='wt list --format json'               # List worktrees as JSON
+alias ws='wt switch'                           # Switch to a worktree
+alias wsc='wt switch --create'                 # Create and switch to a new worktree
+alias wsr='wt switch --remotes'                # Switch, picker includes remote branches
+alias wm='wt merge'                            # Merge current worktree into default branch
+alias wmn='wt merge --no-remove'               # Merge current worktree but keep it
+alias wms='wt merge --no-remove --stage none'  # Merge only staged changes, keep worktree
+alias wr='wt remove'                           # Remove current worktree
+alias wxc='wt step commit'                     # Stage & AI-commit current worktree
+alias wxs='wt step squash'                     # Squash branch commits with AI-gen message
+alias wxr='wt step rebase'                     # Rebase current worktree onto default branch
+alias wxp='wt step push'                       # Fast-forward default branch to current
+alias wxf='wt step for-each --'                # Run a command in all worktrees
+alias wxpr='wt step prune'                     # Prune stale worktrees
+alias wxprd='wt step prune --dry-run'          # Preview stale worktrees to prune
 
 # Starship
 alias stk='starship toggle kubernetes'   # Toggle Kubernetes module in prompt
