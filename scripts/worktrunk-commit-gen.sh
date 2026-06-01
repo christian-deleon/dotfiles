@@ -72,11 +72,21 @@ detect_tool() {
     return 1
 }
 
-# Strip markdown code fences and blank-only lines from the model's output.
-# Matches the cleanup the inline pre-script command used; preserved verbatim
-# so commit messages render identically to before.
+# Strip markdown code fences, leaked LLM wrapper tags, and blank-only lines
+# from the model's output. Some tools (opencode and grok especially) leak a
+# stray wrapper tag around their answer — e.g. a trailing </spoiler>, or a
+# <thinking>/<answer> open/close — which otherwise rides straight into the
+# commit body because validation only inspects the subject line. We remove
+# only this known wrapper set (case-insensitive, attributes tolerated), never
+# arbitrary <...>, so legitimate angle-bracket content in a body (generics
+# like <T>, placeholders like <branch>) survives untouched. Substitution runs
+# before the blank-line delete so a now-empty tag line is dropped in one pass.
 clean_output() {
-    sed 's/```//g; /^[[:space:]]*$/d'
+    sed -E '
+        s/```//g
+        s#</?(spoiler|thinking|think|reasoning|reason|answer|response|output|result|commit(_?message)?|message)[^>]*>##gI
+        /^[[:space:]]*$/d
+    '
 }
 
 # Echoes a human-readable reason the message fails Conventional Commits
