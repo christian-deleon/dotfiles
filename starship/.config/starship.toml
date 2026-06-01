@@ -1,11 +1,26 @@
 add_newline = true
 command_timeout = 200
-format = "$username$hostname[$directory$git_branch$git_status]($style)$python$nodejs$terraform$kubernetes$aws$cmd_duration$jobs$character"
+format = "$username$hostname[${custom.path}$git_branch$git_status]($style)$python$nodejs$terraform$kubernetes$aws$cmd_duration$jobs$character"
 
 [character]
 error_symbol = "[✗](bold cyan)"
 success_symbol = "[❯](bold cyan)"
 
+# Path segment. Replaces the built-in [directory] module (kept below for
+# reference / easy revert, but no longer referenced in `format`). The helper
+# anchors the display on the PROJECT name instead of the worktree's own
+# directory, so worktree-per-branch layouts don't repeat the branch name that
+# [git_branch] already shows. Layout-agnostic: nested, sibling, and bare-repo
+# worktrees all resolve to the project name. See scripts/starship-path.sh.
+[custom.path]
+description = "Worktree-aware path anchored on the project name"
+command = "$HOME/.dotfiles/scripts/starship-path.sh"
+when = true
+shell = ["bash", "--noprofile", "--norc"]
+format = "[$output]($style) "
+style = "bold cyan"
+
+# Superseded by [custom.path]; not referenced in `format`. Left for reference.
 [directory]
 truncation_length = 2
 truncation_symbol = "…/"
