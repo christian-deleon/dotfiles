@@ -66,8 +66,10 @@ Use a short lowercase noun identifying the subsystem or crate changed (e.g. engi
 - Max 72 characters, counted from the first character after ": " (NOT the whole line). Enforced by an automated validator — over-length subjects are rejected. Put extra detail in the body, never the subject.
 - Describe WHAT changed and WHY, not HOW
 
-## Body (include when helpful)
+## Body
 
+- A body is REQUIRED for any non-trivial change — multiple files, more than a handful of changed lines, new logic, or any change whose motivation is not self-evident from the subject alone. A large diff with only a one-line subject is almost always wrong; do not skip the body to save effort.
+- A body may be OMITTED only when the change is genuinely trivial and fully self-explanatory from the subject (e.g. a typo fix, a one-line dependency bump, renaming a single variable). When in doubt, write a body.
 - Separate from description with one blank line
 - Explain motivation, context, or trade-offs that are not obvious from the diff
 - Wrap at 100 characters per line

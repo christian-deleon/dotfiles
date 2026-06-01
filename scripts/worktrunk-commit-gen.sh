@@ -23,9 +23,10 @@
 set -euo pipefail
 
 # Model defaults per tool. Override via env if you want a different model for a
-# specific tool without touching this script (e.g. AI_PIPE_CLAUDE_MODEL=sonnet).
-AI_PIPE_CLAUDE_MODEL="${AI_PIPE_CLAUDE_MODEL:-haiku}"
-AI_PIPE_OPENCODE_MODEL="${AI_PIPE_OPENCODE_MODEL:-amazon-bedrock/anthropic.claude-haiku-4-5-20251001-v1:0}"
+# specific tool without touching this script (e.g. AI_PIPE_CLAUDE_MODEL=haiku to
+# trade quality for speed/cost on a single tool).
+AI_PIPE_CLAUDE_MODEL="${AI_PIPE_CLAUDE_MODEL:-sonnet}"
+AI_PIPE_OPENCODE_MODEL="${AI_PIPE_OPENCODE_MODEL:-amazon-bedrock/anthropic.claude-sonnet-4-6}"
 AI_PIPE_GROK_MODEL="${AI_PIPE_GROK_MODEL:-}"
 
 # Total attempts = AI_PIPE_RETRIES + 1. Set 0 to disable retry entirely.
