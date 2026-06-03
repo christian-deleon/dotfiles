@@ -120,6 +120,75 @@ function kc() {
     kubectl config use-context "$context"
 }
 
+# Delete kubectl contexts + orphaned clusters/users (fzf)
+function kcd() {
+    local selected
+
+    # Multi-select contexts with fzf (TAB to mark, ENTER to confirm)
+    selected=$(kubectl config get-contexts -o name | \
+              fzf --multi --prompt="Select contexts to DELETE (TAB to mark): " --height=40% --reverse)
+
+    # Exit if no selection made
+    if [[ -z "$selected" ]]; then
+        echo "No context selected"
+        return 1
+    fi
+
+    # Confirmation prompt
+    echo "Contexts to delete:"
+    echo "$selected" | sed 's/^/  - /'
+    echo -n "Delete these contexts and their orphaned clusters/users? (y/n): "
+    read -r response
+    if [[ ! "$response" =~ ^[Yy]$ ]]; then
+        echo "Cancelled"
+        return 1
+    fi
+
+    # Snapshot the full context -> cluster/user mapping before deleting anything
+    local config_json
+    config_json=$(kubectl config view -o json)
+
+    # Clusters/users referenced by the contexts being deleted (candidates for removal)
+    local del_clusters del_users
+    del_clusters=$(echo "$config_json" | jq -r --arg sel "$selected" \
+        '($sel | split("\n")) as $s | .contexts[] | select(.name as $n | $s | index($n)) | .context.cluster' | sort -u)
+    del_users=$(echo "$config_json" | jq -r --arg sel "$selected" \
+        '($sel | split("\n")) as $s | .contexts[] | select(.name as $n | $s | index($n)) | .context.user' | sort -u)
+
+    # Clusters/users still referenced by contexts we are keeping (must NOT be removed)
+    local keep_clusters keep_users
+    keep_clusters=$(echo "$config_json" | jq -r --arg sel "$selected" \
+        '($sel | split("\n")) as $s | .contexts[] | select(.name as $n | ($s | index($n)) | not) | .context.cluster' | sort -u)
+    keep_users=$(echo "$config_json" | jq -r --arg sel "$selected" \
+        '($sel | split("\n")) as $s | .contexts[] | select(.name as $n | ($s | index($n)) | not) | .context.user' | sort -u)
+
+    # Delete the selected contexts
+    while IFS= read -r context; do
+        [[ -z "$context" ]] && continue
+        kubectl config delete-context "$context"
+    done <<< "$selected"
+
+    # Delete clusters no longer referenced by any remaining context
+    while IFS= read -r cluster; do
+        [[ -z "$cluster" ]] && continue
+        if grep -qxF "$cluster" <<< "$keep_clusters"; then
+            echo "Keeping cluster '$cluster' (still used by another context)"
+        else
+            kubectl config delete-cluster "$cluster"
+        fi
+    done <<< "$del_clusters"
+
+    # Delete users no longer referenced by any remaining context
+    while IFS= read -r user; do
+        [[ -z "$user" ]] && continue
+        if grep -qxF "$user" <<< "$keep_users"; then
+            echo "Keeping user '$user' (still used by another context)"
+        else
+            kubectl config delete-user "$user"
+        fi
+    done <<< "$del_users"
+}
+
 # Stream pod logs (pod/container args optional, else fzf)
 function kl() {
     local namespace="${1}"

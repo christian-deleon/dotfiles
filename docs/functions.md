@@ -88,6 +88,14 @@ kc               # Interactive selection
 kc prod-cluster  # Direct selection
 ```
 
+### `kcd` \*
+
+Delete one or more kubectl contexts and their now-orphaned cluster/user entries. Opens fzf in multi-select mode (TAB to mark, ENTER to confirm), then prompts before deleting. After removing the selected contexts, it deletes each associated cluster and user **only if no remaining context still references it** (shared entries are kept). Requires `jq`.
+
+```bash
+kcd              # Mark contexts with TAB, confirm, delete contexts + orphans
+```
+
 ### `kpa [pattern]`
 
 Get all pods in all namespaces except kube-system, flux-system, and metallb-system. Optionally filter by pattern.
