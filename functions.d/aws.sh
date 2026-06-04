@@ -112,6 +112,52 @@ function ssmpfh() {
         --parameters "{\"host\":[\"$remote_host\"],\"portNumber\":[\"$remote_port\"],\"localPortNumber\":[\"$local_port\"]}"
 }
 
+# internal: pick an EKS cluster name via fzf
+function _eks_pick() {
+    local profile="$1" region="$2"
+    aws ${profile:+--profile "$profile"} \
+        ${region:+--region "$region"} \
+        eks list-clusters --query 'clusters[]' --output text \
+        | tr '\t' '\n' \
+        | fzf --header="Pick EKS cluster" --height=40% --reverse
+}
+
+# EKS: update kubeconfig & set context alias (fzf pick)
+function eksc() {
+    # --profile is only sent when -p is passed; see _ssm_resolve for why
+    # inheriting AWS_PROFILE as --profile breaks env-credential sessions.
+    local profile="" region="${AWS_REGION:-}" ctx_alias=""
+    local OPTIND opt
+    while getopts ":p:r:a:" opt; do
+        case "$opt" in
+            p) profile="$OPTARG" ;;
+            r) region="$OPTARG" ;;
+            a) ctx_alias="$OPTARG" ;;
+            \?) echo "eksc: unknown option -$OPTARG" >&2; return 1 ;;
+            :)  echo "eksc: -$OPTARG requires an argument" >&2; return 1 ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    # Cluster name from arg, else fzf-pick
+    local cluster="${1:-}"
+    if [[ -z "$cluster" ]]; then
+        cluster=$(_eks_pick "$profile" "$region")
+        [[ -z "$cluster" ]] && { echo "No cluster selected"; return 1; }
+    fi
+
+    # Default the context alias to the cluster name; prompt if -a not given
+    if [[ -z "$ctx_alias" ]]; then
+        echo -n "Context alias [$cluster]: "
+        read -r ctx_alias
+        ctx_alias="${ctx_alias:-$cluster}"
+    fi
+
+    aws ${profile:+--profile "$profile"} \
+        ${region:+--region "$region"} \
+        eks update-kubeconfig --name "$cluster" --alias "$ctx_alias"
+}
+
 # Run a shell command on an EC2 instance via SSM
 function ssmrun() {
     local profile region instance
