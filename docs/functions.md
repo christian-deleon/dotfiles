@@ -281,6 +281,17 @@ ssmrun 'systemctl status nginx'                  # fzf-pick → run
 ssmrun i-0abc123def456789a 'df -h'               # explicit
 ```
 
+### `eksc [-p profile] [-r region] [-a alias] [cluster-name]` \*
+
+Update your kubeconfig for an EKS cluster (`aws eks update-kubeconfig`). If no cluster name is given, fzf-picks from `aws eks list-clusters`. The config is merged into your default `~/.kube/config`; `--alias` sets the context name (switch to it later with `kc`). If `-a` isn't passed, you're prompted for an alias defaulting to the cluster name. `-p` overrides `AWS_PROFILE` (only sent when passed); `-r` overrides `AWS_REGION`.
+
+```bash
+eksc                                             # fzf-pick → prompt alias → merge
+eksc -a prod                                     # fzf-pick, context alias "prod"
+eksc -p myprofile -r us-west-2 my-cluster        # explicit cluster + profile/region
+kc prod                                          # switch to it afterwards
+```
+
 ---
 
 ## Git
