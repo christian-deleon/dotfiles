@@ -9,9 +9,13 @@
 # duplication. Derived from `git rev-parse --git-common-dir`, so it is identical
 # for every worktrunk layout:
 #
-#   nested   project/<branch>            -> project
-#   sibling  ../<branch> (main: project) -> project
-#   bare     project/.bare + project/wt  -> project
+#   nested   project/<branch>                 -> project
+#   sibling  ../<branch> (main: project)      -> project
+#   bare     project/.git|.bare + project/wt  -> project
+#
+# In a bare-repo layout the project root itself has no work tree, so
+# `--show-toplevel` fails there; we anchor on the project dir in that case so it
+# still resolves to the project name instead of doubling it.
 #
 # Outside a repo it falls back to a ~-relative path showing the last two
 # components, mirroring the previous [directory] truncation feel.
@@ -21,9 +25,15 @@ set -o pipefail
 common=$(git rev-parse --git-common-dir 2>/dev/null) || common=
 if [[ -n $common ]]; then
     common=$(cd "$common" 2>/dev/null && pwd) || common=
-    project=$(basename "$(dirname "$common")")
+    projdir=$(dirname "$common") # dir holding the shared .git/.bare
+    project=$(basename "$projdir")
+    # Anchor on the worktree root, or fall back to the project dir when there is
+    # no work tree — e.g. standing at the bare project root in a bare-repo
+    # worktree layout, where `--show-toplevel` fails. Without the fallback `top`
+    # is empty and the whole PWD leaks into `rel`, doubling the project name.
     top=$(git rev-parse --show-toplevel 2>/dev/null)
-    rel=${PWD#"$top"} # subpath within the worktree, e.g. /docs (empty at root)
+    base=${top:-$projdir}
+    rel=${PWD#"$base"} # subpath within the worktree, e.g. /docs (empty at root)
     rel=${rel#/}
     if [[ -z $rel ]]; then
         printf '%s' "$project"
