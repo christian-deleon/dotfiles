@@ -231,6 +231,7 @@ Naming scheme: top-level `wt` commands use `w<letter>` (with a trailing modifier
 ### `wt step` subcommands (`wx*`)
 
 - `wxc` - Stage and commit current worktree with LLM-generated message (`wt step commit`)
+- `wxcs` - Commit only already-staged changes with LLM-generated message, nothing else staged (`wt step commit --stage none`)
 - `wxs` - Squash current worktree's commits with LLM-generated message (`wt step squash`)
 - `wxr` - Rebase current worktree onto default branch (`wt step rebase`)
 - `wxp` - Fast-forward default branch to current worktree (`wt step push`)
