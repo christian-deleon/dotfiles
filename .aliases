@@ -129,6 +129,7 @@ alias wmn='wt merge --no-remove'               # Merge current worktree but keep
 alias wms='wt merge --no-remove --stage none'  # Merge only staged changes, keep worktree
 alias wr='wt remove'                           # Remove current worktree
 alias wxc='wt step commit'                     # Stage & AI-commit current worktree
+alias wxcs='wt step commit --stage none'       # AI-commit only already-staged changes
 alias wxs='wt step squash'                     # Squash branch commits with AI-gen message
 alias wxr='wt step rebase'                     # Rebase current worktree onto default branch
 alias wxp='wt step push'                       # Fast-forward default branch to current
