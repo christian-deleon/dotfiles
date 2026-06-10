@@ -120,6 +120,42 @@ function kc() {
     kubectl config use-context "$context"
 }
 
+# Launch k9s (-c context, -n namespace; fzf if omitted)
+function k9() {
+    local context="" namespace=""
+    local OPTIND opt
+    while getopts ":c:n:" opt; do
+        case "$opt" in
+            c) context="$OPTARG" ;;
+            n) namespace="$OPTARG" ;;
+            \?) echo "k9: unknown option -$OPTARG" >&2; return 1 ;;
+            :)  echo "k9: -$OPTARG requires an argument" >&2; return 1 ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    # If no context provided, use fzf to select
+    if [[ -z "$context" ]]; then
+        context=$(kubectl config get-contexts -o name | \
+                 fzf --prompt="Select context: " --height=40% --reverse)
+
+        # Exit if no selection made
+        if [[ -z "$context" ]]; then
+            echo "No context selected"
+            return 1
+        fi
+    fi
+
+    # If no namespace provided, fzf to select (ESC to skip / all namespaces)
+    if [[ -z "$namespace" ]]; then
+        namespace=$(kubectl --context "$context" get namespaces -o jsonpath='{.items[*].metadata.name}' | \
+                   tr ' ' '\n' | \
+                   fzf --prompt="Select namespace (ESC for all): " --height=40% --reverse)
+    fi
+
+    k9s --context "$context" ${namespace:+-n "$namespace"}
+}
+
 # Delete kubectl contexts + orphaned clusters/users (fzf)
 function kcd() {
     local selected
