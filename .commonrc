@@ -45,30 +45,12 @@ fi
 
 # ─── Tool completions (shell-aware) ──────────────────────────────────────────
 
+# Vendor completions differ per shell. Our custom completions (completions.d/)
+# are written once in bash style and shared with zsh via bashcompinit below.
 if [[ -n "$BASH_VERSION" ]]; then
     if command -v kubectl &>/dev/null; then
         source <(kubectl completion bash)
         complete -o default -F __start_kubectl k
-        # k9: complete contexts after -c, namespaces after -n
-        _k9_completions() {
-            local cur prev
-            cur="${COMP_WORDS[COMP_CWORD]}"
-            prev="${COMP_WORDS[COMP_CWORD-1]}"
-            case "$prev" in
-                -c)
-                    COMPREPLY=($(compgen -W "$(kubectl config get-contexts -o name 2>/dev/null)" -- "$cur"))
-                    return ;;
-                -n)
-                    local ctx="" i
-                    for ((i=1; i<COMP_CWORD; i++)); do
-                        [[ "${COMP_WORDS[i]}" == "-c" ]] && ctx="${COMP_WORDS[i+1]}"
-                    done
-                    COMPREPLY=($(compgen -W "all $(kubectl ${ctx:+--context "$ctx"} get namespaces -o jsonpath='{.items[*].metadata.name}' 2>/dev/null)" -- "$cur"))
-                    return ;;
-            esac
-            COMPREPLY=($(compgen -W "-c -n" -- "$cur"))
-        }
-        complete -F _k9_completions k9
     fi
     if command -v skaffold &>/dev/null; then
         source <(skaffold completion bash)
@@ -76,31 +58,9 @@ if [[ -n "$BASH_VERSION" ]]; then
     if command -v just &>/dev/null && [[ -f "$HOME/.just_completion_bash" ]]; then
         source "$HOME/.just_completion_bash"
     fi
-    _dot_completions() {
-        local cur="${COMP_WORDS[COMP_CWORD]}"
-        local subcommands
-        subcommands=$(grep -oP '^\s+\K[a-z][a-z0-9-]+(?=\))' "$HOME/.dotfiles/dot.sh")
-        COMPREPLY=($(compgen -W "$subcommands" -- "$cur"))
-    }
-    complete -F _dot_completions dot
 elif [[ -n "$ZSH_VERSION" ]]; then
     if command -v kubectl &>/dev/null; then
-        source <(kubectl completion zsh)
-        # k9: complete contexts after -c, namespaces after -n
-        _k9_completions() {
-            if [[ "${words[CURRENT-1]}" == "-c" ]]; then
-                compadd -- ${(f)"$(kubectl config get-contexts -o name 2>/dev/null)"}
-            elif [[ "${words[CURRENT-1]}" == "-n" ]]; then
-                local ctx="" i
-                for ((i=1; i<CURRENT; i++)); do
-                    [[ "${words[i]}" == "-c" ]] && ctx="${words[i+1]}"
-                done
-                compadd all ${(f)"$(kubectl ${ctx:+--context $ctx} get namespaces -o jsonpath='{.items[*].metadata.name}' 2>/dev/null | tr ' ' '\n')"}
-            else
-                compadd -- -c -n
-            fi
-        }
-        compdef _k9_completions k9
+        source <(kubectl completion zsh)   # `k` inherits via alias expansion
     fi
     if command -v skaffold &>/dev/null; then
         source <(skaffold completion zsh)
@@ -108,12 +68,19 @@ elif [[ -n "$ZSH_VERSION" ]]; then
     if [[ -d "$HOME/.docker/completions" ]]; then
         fpath=("$HOME/.docker/completions" $fpath)
     fi
-    _dot_completions() {
-        local subcommands
-        subcommands=(${(f)"$(grep -oP '^\s+\K[a-z][a-z0-9-]+(?=\))' "$HOME/.dotfiles/dot.sh")"})
-        _describe 'subcommand' subcommands
-    }
-    compdef _dot_completions dot
+    # Enable bash-style complete/compgen so the shared fragments below work.
+    # Requires compinit (run by Oh My Zsh before .commonrc is sourced).
+    autoload -U +X bashcompinit && bashcompinit
+fi
+
+# Custom completions: written once in bash style, shared with zsh via
+# bashcompinit. Alias-name registrations (ta/tk/frk/ws/...) are effectively
+# bash-only; on zsh those complete via alias expansion + native completions.
+if [[ -d "$HOME/.dotfiles/completions.d" ]]; then
+    for _f in "$HOME/.dotfiles/completions.d"/*.sh; do
+        [[ -r "$_f" ]] && source "$_f"
+    done
+    unset _f
 fi
 
 # ─── Prompt (starship, bash only for now) ────────────────────────────────────

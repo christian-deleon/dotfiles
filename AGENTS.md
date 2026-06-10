@@ -29,6 +29,7 @@ Guidelines for AI coding agents working in this personal dotfiles repo. Manages 
 | `.aliases` | Personal aliases |
 | `.functions` | Loader that sources `~/.dotfiles/functions.d/*.sh` |
 | `functions.d/*.sh` | Topic fragments (general, kubernetes, flux, aws, git, sudo, tmux, worktrunk, …) — not symlinked, sourced from the repo by the loader |
+| `completions.d/*.sh` | Tab-completion fragments — not symlinked, sourced from the repo by a loop in `.commonrc` (bash + zsh via bashcompinit). See [docs/common-operations.md](docs/common-operations.md) |
 | `.zshrc`, `.p10k.zsh` | macOS only |
 | `.gitconfig.dotfiles` → `~/.gitconfig` | Shared git config |
 
@@ -48,6 +49,7 @@ Not tracked (machine-specific): `~/.localrc`, `~/.gitconfig.local`.
 # Syntax check
 bash -n .functions
 for f in functions.d/*.sh; do bash -n "$f"; done
+for f in completions.d/*.sh; do bash -n "$f"; done
 for f in scripts/*.sh; do bash -n "$f"; done
 bash scripts/check-descriptions.sh   # function/alias descriptions ≤60 chars, single line
 
@@ -68,7 +70,7 @@ When you change behavior, also update: `README.md` (high-level), `docs/functions
 
 Before committing:
 
-- [ ] `bash -n <script>`, `for f in scripts/*.sh; do bash -n "$f"; done`, and `for f in functions.d/*.sh; do bash -n "$f"; done`
+- [ ] `bash -n <script>`, `for f in scripts/*.sh; do bash -n "$f"; done`, `for f in functions.d/*.sh; do bash -n "$f"; done`, and `for f in completions.d/*.sh; do bash -n "$f"; done`
 - [ ] `bash scripts/check-descriptions.sh`
 - [ ] `source .functions && <function-name>` works; aliases work in new shell
 - [ ] `yq '.' manifest.yaml` parses; every `config.handler` references a function in `scripts/handlers/*.sh`

@@ -7,6 +7,7 @@ set -euo pipefail
 
 DOTFILES_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 FUNCTIONS_DIR="$DOTFILES_DIR/functions.d"
+COMPLETIONS_DIR="$DOTFILES_DIR/completions.d"
 ALIASES_FILE="$DOTFILES_DIR/.aliases"
 
 MAX_LEN=60
@@ -23,13 +24,13 @@ ok() {
     printf '  \033[32m ok \033[0m  %s\n' "$1"
 }
 
-# ── check functions.d/*.sh ───────────────────────────────────────────────────
+# ── check functions.d/*.sh and completions.d/*.sh ────────────────────────────
 
-for fn_file in "$FUNCTIONS_DIR"/*.sh; do
+for fn_file in "$FUNCTIONS_DIR"/*.sh "$COMPLETIONS_DIR"/*.sh; do
     [[ -f "$fn_file" ]] || continue
 
     echo
-    echo "functions.d/$(basename "$fn_file")"
+    echo "$(basename "$(dirname "$fn_file")")/$(basename "$fn_file")"
     echo "──────────────────────────────────────────────────"
 
     prev_comment=""
