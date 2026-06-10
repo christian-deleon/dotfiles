@@ -146,14 +146,16 @@ function k9() {
         fi
     fi
 
-    # If no namespace provided, fzf to select (ESC to skip / all namespaces)
+    # If no namespace provided, fzf to select (ESC = all namespaces)
     if [[ -z "$namespace" ]]; then
         namespace=$(kubectl --context "$context" get namespaces -o jsonpath='{.items[*].metadata.name}' | \
                    tr ' ' '\n' | \
                    fzf --prompt="Select namespace (ESC for all): " --height=40% --reverse)
+        # ESC/no selection -> k9s "all namespaces" view
+        namespace="${namespace:-all}"
     fi
 
-    k9s --context "$context" ${namespace:+-n "$namespace"}
+    k9s --context "$context" -n "$namespace"
 }
 
 # Delete kubectl contexts + orphaned clusters/users (fzf)
