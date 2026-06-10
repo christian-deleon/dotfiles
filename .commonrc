@@ -49,6 +49,26 @@ if [[ -n "$BASH_VERSION" ]]; then
     if command -v kubectl &>/dev/null; then
         source <(kubectl completion bash)
         complete -o default -F __start_kubectl k
+        # k9: complete contexts after -c, namespaces after -n
+        _k9_completions() {
+            local cur prev
+            cur="${COMP_WORDS[COMP_CWORD]}"
+            prev="${COMP_WORDS[COMP_CWORD-1]}"
+            case "$prev" in
+                -c)
+                    COMPREPLY=($(compgen -W "$(kubectl config get-contexts -o name 2>/dev/null)" -- "$cur"))
+                    return ;;
+                -n)
+                    local ctx="" i
+                    for ((i=1; i<COMP_CWORD; i++)); do
+                        [[ "${COMP_WORDS[i]}" == "-c" ]] && ctx="${COMP_WORDS[i+1]}"
+                    done
+                    COMPREPLY=($(compgen -W "all $(kubectl ${ctx:+--context "$ctx"} get namespaces -o jsonpath='{.items[*].metadata.name}' 2>/dev/null)" -- "$cur"))
+                    return ;;
+            esac
+            COMPREPLY=($(compgen -W "-c -n" -- "$cur"))
+        }
+        complete -F _k9_completions k9
     fi
     if command -v skaffold &>/dev/null; then
         source <(skaffold completion bash)
@@ -66,6 +86,21 @@ if [[ -n "$BASH_VERSION" ]]; then
 elif [[ -n "$ZSH_VERSION" ]]; then
     if command -v kubectl &>/dev/null; then
         source <(kubectl completion zsh)
+        # k9: complete contexts after -c, namespaces after -n
+        _k9_completions() {
+            if [[ "${words[CURRENT-1]}" == "-c" ]]; then
+                compadd -- ${(f)"$(kubectl config get-contexts -o name 2>/dev/null)"}
+            elif [[ "${words[CURRENT-1]}" == "-n" ]]; then
+                local ctx="" i
+                for ((i=1; i<CURRENT; i++)); do
+                    [[ "${words[i]}" == "-c" ]] && ctx="${words[i+1]}"
+                done
+                compadd all ${(f)"$(kubectl ${ctx:+--context $ctx} get namespaces -o jsonpath='{.items[*].metadata.name}' 2>/dev/null | tr ' ' '\n')"}
+            else
+                compadd -- -c -n
+            fi
+        }
+        compdef _k9_completions k9
     fi
     if command -v skaffold &>/dev/null; then
         source <(skaffold completion zsh)
