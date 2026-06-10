@@ -98,6 +98,8 @@ k9 -c prod-cluster          # Direct context, pick namespace (ESC for all)
 k9 -c prod-cluster -n kube-system  # Direct context and namespace
 ```
 
+Tab completion (bash/zsh) completes context names after `-c` and namespaces after `-n` (scoped to the `-c` context if present, plus `all`).
+
 ### `kcd` \*
 
 Delete one or more kubectl contexts and their now-orphaned cluster/user entries. Opens fzf in multi-select mode (TAB to mark, ENTER to confirm), then prompts before deleting. After removing the selected contexts, it deletes each associated cluster and user **only if no remaining context still references it** (shared entries are kept). Requires `jq`.
