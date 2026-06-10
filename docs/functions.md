@@ -88,6 +88,16 @@ kc               # Interactive selection
 kc prod-cluster  # Direct selection
 ```
 
+### `k9 [-c context] [-n namespace]` \*
+
+Launch k9s against a context. Without `-c`, uses fzf to select a context. Without `-n`, uses fzf to select a namespace against the chosen context (ESC to skip / all namespaces). Runs `k9s --context <name> [-n <namespace>]`.
+
+```bash
+k9                          # Pick context, then namespace
+k9 -c prod-cluster          # Direct context, pick namespace (ESC for all)
+k9 -c prod-cluster -n kube-system  # Direct context and namespace
+```
+
 ### `kcd` \*
 
 Delete one or more kubectl contexts and their now-orphaned cluster/user entries. Opens fzf in multi-select mode (TAB to mark, ENTER to confirm), then prompts before deleting. After removing the selected contexts, it deletes each associated cluster and user **only if no remaining context still references it** (shared entries are kept). Requires `jq`.
