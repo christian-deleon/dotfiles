@@ -21,6 +21,18 @@ Functions live in topic fragments under `functions.d/`. The `.functions` file is
 5. `dot` CLI auto-parses every fragment in `functions.d/`.
 6. Update `README.md` for major utilities.
 
+## Adding a tab completion
+
+Completions live in topic fragments under `completions.d/` (mirroring `functions.d/`). A loop in `.commonrc` sources every `*.sh` for both bash and zsh — no symlink or manifest entry needed. They are written **once** in bash style and shared with zsh via `bashcompinit`.
+
+1. Pick the right fragment (`completions.d/kubernetes.sh`, `aws.sh`, etc.) or create a new `completions.d/<topic>.sh` starting with `# Category: <Name>`.
+2. Add a `_comp_<name>()` function and register it with `complete -F _comp_<name> <cmd> [<cmd>...]`. Tag the function with a `# internal:` comment (≤60 chars) so `check-descriptions.sh` skips it. Reuse the shared helpers in `completions.d/00-helpers.sh` (`_comp_reply`, `_comp_kctx`, `_comp_kns`, `_comp_aws_profiles`, …).
+3. **Stay in the portable subset** (see the header in `00-helpers.sh`): only `COMP_WORDS` / `COMP_CWORD` / `compgen -W` / `complete -F`. No `compopt`, no `complete -o default`, no `_init_completion` — they break under zsh's bashcompinit.
+4. Bound any remote source (`--request-timeout=2s`) and redirect `2>/dev/null` so a dead cluster degrades to an empty (silent) completion.
+5. Aliases (not functions) only complete under bash; zsh covers them via alias expansion + the tool's native completion. Don't `setopt complete_aliases`.
+6. Verify: `bash -n completions.d/<file>.sh`, `bash scripts/check-descriptions.sh`, then test in a fresh shell (or simulate by setting `COMP_WORDS`/`COMP_CWORD` and calling the `_comp_*` function).
+7. Update the Tab completion table in `docs/functions.md`.
+
 ## Adding a new manifest item
 
 Full walkthrough in [manifest.md](manifest.md). Short version:

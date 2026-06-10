@@ -98,7 +98,7 @@ k9 -c prod-cluster          # Direct context, pick namespace (ESC for all)
 k9 -c prod-cluster -n kube-system  # Direct context and namespace
 ```
 
-Tab completion (bash/zsh) completes context names after `-c` and namespaces after `-n` (scoped to the `-c` context if present, plus `all`).
+Tab completion: see [Tab completion](#tab-completion).
 
 ### `kcd` \*
 
@@ -517,6 +517,31 @@ dh git           # Pre-filter to git shortcuts
 - Type to fuzzy-search across name, category, and description
 - `ENTER` — print the selected name to stdout
 - `Ctrl-H` — toggle the preview pane
+
+---
+
+## Tab completion
+
+Many of these commands tab-complete their arguments from a live source. Completions live in `completions.d/*.sh` (one topic fragment per file, mirroring `functions.d/`), written once in bash style and shared with zsh via `bashcompinit`.
+
+| Command(s) | Completes |
+|---|---|
+| `kc` | kubectl context names |
+| `kn` `ktns` `kdp` `kdd` `kdelp` `ks` | namespaces (current context) |
+| `kcs` | kubeconfig files in `~/.kube` |
+| `kl` `ke` | namespace → pod → container (positional) |
+| `k9` | `-c` contexts, `-n` namespaces (+ `all`, scoped to `-c`) |
+| `eksc` `ssm` `ssmpf` `ssmpfh` `ssmrun` | `-p` AWS profiles, `-r` regions |
+| `ta` `tk` | tmux session names |
+| `frk` `fkr` `fks` | Flux Kustomization names |
+| `frh` | Flux HelmRelease names |
+| `wta` `ws` `wsr` | worktree branch names |
+| `dot` | subcommands; `dot install <item>`; `dot profile use <name>` |
+
+Notes:
+- Remote sources are bounded (`--request-timeout=2s`) and fail silent — if the cluster is unreachable, completion just returns nothing and the function's fzf fallback still works.
+- Slow AWS API lookups (SSM instance IDs, EKS cluster names) are intentionally **not** completed; use the function's fzf picker instead.
+- Alias completions (`ta` `tk` `frk` `fkr` `fks` `frh` `ws` `wsr`) are bash-only. On zsh the alias expands first, so the underlying tool's native completion (e.g. `_tmux`, `flux`) takes over.
 
 ---
 
