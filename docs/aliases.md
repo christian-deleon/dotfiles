@@ -236,6 +236,7 @@ Naming scheme: top-level `wt` commands use `w<letter>` (with a trailing modifier
 - `wxr` - Rebase current worktree onto default branch (`wt step rebase`)
 - `wxp` - Fast-forward default branch to current worktree (`wt step push`)
 - `wxf` - Run a command in all worktrees (`wt step for-each --`)
+- `wxfr` - Rebase all worktrees onto default branch (`wt step for-each -- wt step rebase`)
 - `wxpr` - Prune stale worktrees (`wt step prune`)
 - `wxprd` - Preview stale worktrees to prune (`wt step prune --dry-run`)
 

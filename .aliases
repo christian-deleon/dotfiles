@@ -134,6 +134,7 @@ alias wxs='wt step squash'                     # Squash branch commits with AI-g
 alias wxr='wt step rebase'                     # Rebase current worktree onto default branch
 alias wxp='wt step push'                       # Fast-forward default branch to current
 alias wxf='wt step for-each --'                # Run a command in all worktrees
+alias wxfr='wt step for-each -- wt step rebase' # Rebase all worktrees onto default branch
 alias wxpr='wt step prune'                     # Prune stale worktrees
 alias wxprd='wt step prune --dry-run'          # Preview stale worktrees to prune
 
