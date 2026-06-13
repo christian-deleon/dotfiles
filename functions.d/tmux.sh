@@ -4,11 +4,36 @@
 function tav() {
     [[ -z "$TMUX" ]] && { echo "You must start tmux to use tav."; return 1; }
 
-    local ai_cmd="${1:-${AI_TOOL:-}}"
+    # Usage: tav [-t|--tool <ai_cmd>] [prompt...]
+    #   bare positional args are the initial prompt (e.g. tav "add a contact page");
+    #   -t/--tool overrides $AI_TOOL for this call (e.g. tav -t oc "...").
+    #   Use `--` to force a prompt that begins with a dash.
+    local ai_cmd=""
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -t|--tool) ai_cmd="$2"; shift 2 ;;
+            --)        shift; break ;;
+            -*)        echo "tav: unknown option '$1'" >&2; return 1 ;;
+            *)         break ;;
+        esac
+    done
+    local prompt="$*"
+
+    ai_cmd="${ai_cmd:-${AI_TOOL:-}}"
     if [[ -z "$ai_cmd" ]]; then
-        echo "Error: no AI tool set. Run 'dot ai-tool' or pass one explicitly: tav 'cld'" >&2
+        echo "Error: no AI tool set. Run 'dot ai-tool' or pass one explicitly: tav -t cld" >&2
         return 1
     fi
+
+    # Append the prompt (if any) as a single shell-quoted arg so the AI tool
+    # launches straight into it. printf %q keeps it safe from the shell that
+    # send-keys feeds the line into.
+    local launch="$ai_cmd"
+    if [[ -n "$prompt" ]]; then
+        local q; q=$(printf '%q' "$prompt")
+        launch="$ai_cmd $q"
+    fi
+
     local current_dir="${PWD}"
     local top_left top_right
 
@@ -23,7 +48,7 @@ function tav() {
     tmux split-window -v -p 32 -t "$top_left" -c "$current_dir"
 
     # `clear &&` hides the prompt + the tav invocation before the AI tool takes over
-    tmux send-keys -t "$top_left" "clear && $ai_cmd" C-m
+    tmux send-keys -t "$top_left" "clear && $launch" C-m
     tmux send-keys -t "$top_right" "nvim ." C-m
 
     tmux select-pane -t "$top_left"
@@ -33,11 +58,30 @@ function tav() {
 function tavk() {
     [[ -z "$TMUX" ]] && { echo "You must start tmux to use tavk."; return 1; }
 
-    local ai_cmd="${1:-${AI_TOOL:-}}"
+    # Usage: tavk [-t|--tool <ai_cmd>] [prompt...] — see tav for flag details.
+    local ai_cmd=""
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -t|--tool) ai_cmd="$2"; shift 2 ;;
+            --)        shift; break ;;
+            -*)        echo "tavk: unknown option '$1'" >&2; return 1 ;;
+            *)         break ;;
+        esac
+    done
+    local prompt="$*"
+
+    ai_cmd="${ai_cmd:-${AI_TOOL:-}}"
     if [[ -z "$ai_cmd" ]]; then
-        echo "Error: no AI tool set. Run 'dot ai-tool' or pass one explicitly: tavk 'cld'" >&2
+        echo "Error: no AI tool set. Run 'dot ai-tool' or pass one explicitly: tavk -t cld" >&2
         return 1
     fi
+
+    local launch="$ai_cmd"
+    if [[ -n "$prompt" ]]; then
+        local q; q=$(printf '%q' "$prompt")
+        launch="$ai_cmd $q"
+    fi
+
     local current_dir="${PWD}"
     local top_left top_right bottom_right
 
@@ -53,7 +97,7 @@ function tavk() {
     bottom_right=$(tmux split-window -v -p 32 -t "$top_right" -c "$current_dir" -P -F '#{pane_id}')
 
     # `clear &&` hides the prompt + the tavk invocation before the AI tool takes over
-    tmux send-keys -t "$top_left" "clear && $ai_cmd" C-m
+    tmux send-keys -t "$top_left" "clear && $launch" C-m
     tmux send-keys -t "$top_right" "nvim ." C-m
     tmux send-keys -t "$bottom_right" "k9s" C-m
 
