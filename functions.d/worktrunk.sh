@@ -38,7 +38,7 @@ function _wta_ensure_window() {
     # (instead of creating a new one) — used by wtaa when the launcher window
     # isn't inside a worktree.
     local branch="$1" wt_path="$2" adopt_pane="${3:-}"
-    local session window cmd claude_key geo_x geo_y
+    local session window cmd claude_key geo_x geo_y status_lines
 
     session=$(basename "$(dirname "$wt_path")")
     window="${branch//\//-}"
@@ -50,15 +50,28 @@ function _wta_ensure_window() {
     # at the 80x24 default and later attached to a 50-row client ends up with a
     # ~40% bottom pane instead of 32%. Sizing up front means the eventual attach
     # is a no-op and the split stays exact.
+    # A status bar consumes rows OUTSIDE the window area: tmux fits windows to
+    # (client_height - status_lines), not the full client height. Sizing to the
+    # full height makes every window one row too tall, and `resize-window` below
+    # then pins the session to `window-size manual` — freezing it that way. An
+    # oversized window renders a sliding, cursor-following clipped view (the top
+    # row vanishes when the bottom pane is active). So subtract the status height.
     if [[ -n "$TMUX" ]]; then
         geo_x=$(tmux display-message -p '#{client_width}' 2>/dev/null)
         geo_y=$(tmux display-message -p '#{client_height}' 2>/dev/null)
+        case "$(tmux display-message -p '#{status}' 2>/dev/null)" in
+            off)         status_lines=0 ;;
+            ''|*[!0-9]*) status_lines=1 ;;  # "on"/unknown → default 1-line bar
+            *)           status_lines=$(tmux display-message -p '#{status}') ;;
+        esac
     else
         geo_x=$(tput cols 2>/dev/null)
         geo_y=$(tput lines 2>/dev/null)
+        status_lines=1  # assume tmux's default 1-line status once attached
     fi
     [[ "$geo_x" =~ ^[0-9]+$ ]] || geo_x=220
     [[ "$geo_y" =~ ^[0-9]+$ ]] || geo_y=50
+    [[ "$geo_y" =~ ^[0-9]+$ ]] && geo_y=$((geo_y - status_lines))
 
     # Resume if Claude has prior history for this path, else launch fresh.
     # Claude stores per-project sessions under ~/.claude/projects/<slug>/
@@ -95,6 +108,12 @@ function _wta_ensure_window() {
         # Size to the target geometry before tav lays it out (see above), since
         # new-window inherits the 80x24 default when no client is attached.
         tmux resize-window -t "$session:$window" -x "$geo_x" -y "$geo_y" 2>/dev/null || true
+        # resize-window flips the session into `window-size manual`, freezing all
+        # its windows at the size above. Restore the inherited default so tmux
+        # keeps refitting windows to whatever client views them — geo_y already
+        # equals the window area, so the next attach is a no-op (split stays
+        # exact) while still self-correcting if a differently-sized client attaches.
+        tmux set-option -u -t "$session" window-size 2>/dev/null || true
         tmux set-window-option -t "$session:$window" allow-rename off 2>/dev/null || true
         tmux send-keys -t "$session:$window" "tav \"$cmd\"" C-m
         echo "  create  $session:$window  ($cmd)"
