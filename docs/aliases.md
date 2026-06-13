@@ -25,6 +25,14 @@ This document provides a reference for all custom shell aliases available in thi
 
 ---
 
+## Neovim
+
+- `v`, `n`, `nv` - Launch Neovim (`nvim`)
+- `vim` - Redirect `vim` to Neovim
+- `nvg` - Launch Neovim straight into the LazyGit view (same as `<leader>gg`, via `Snacks.lazygit()`)
+
+---
+
 ## Kubernetes
 
 Basic kubectl shortcuts and resource viewing. See [functions.md](functions.md) for interactive fzf-enabled functions.
