@@ -138,7 +138,18 @@ invoke_tool() {
                     --system-prompt='' | clean_output
             ;;
         opencode)
-            opencode run --model "$AI_PIPE_OPENCODE_MODEL" "$prompt" | clean_output
+            # opencode run does not accept prompt on stdin; the positional-arg
+            # form triggers ARG_MAX on large diffs. Write the prompt to a temp
+            # file and attach it with -f so the full prompt is never an arg.
+            local oc_tmp
+            oc_tmp="$(mktemp /tmp/wt-commit-gen-XXXXXX.md)"
+            # shellcheck disable=SC2064
+            trap "rm -f '$oc_tmp'; rm -f '$err_file'" EXIT
+            printf '%s' "$prompt" > "$oc_tmp"
+            opencode run --model "$AI_PIPE_OPENCODE_MODEL" \
+                --file "$oc_tmp" \
+                -- "Follow the instructions in the attached file exactly. Output only the raw commit message." \
+                | clean_output
             ;;
         grok)
             local model_args=()
