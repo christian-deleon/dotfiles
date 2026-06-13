@@ -49,7 +49,10 @@ function tav() {
 
     # `clear &&` hides the prompt + the tav invocation before the AI tool takes over
     tmux send-keys -t "$top_left" "clear && $launch" C-m
-    tmux send-keys -t "$top_right" "nvim ." C-m
+    # Open Neovim on the project dir and drop straight into the LazyGit view
+    # (same as <leader>gg / the `nvg` alias). vim.schedule defers until Snacks
+    # is set up; quitting LazyGit leaves you in the project explorer.
+    tmux send-keys -t "$top_right" 'nvim . -c "lua vim.schedule(function() Snacks.lazygit() end)"' C-m
 
     tmux select-pane -t "$top_left"
 }
@@ -98,7 +101,9 @@ function tavk() {
 
     # `clear &&` hides the prompt + the tavk invocation before the AI tool takes over
     tmux send-keys -t "$top_left" "clear && $launch" C-m
-    tmux send-keys -t "$top_right" "nvim ." C-m
+    # Open Neovim on the project dir and drop straight into the LazyGit view
+    # (same as <leader>gg / the `nvg` alias). See tav for the rationale.
+    tmux send-keys -t "$top_right" 'nvim . -c "lua vim.schedule(function() Snacks.lazygit() end)"' C-m
     tmux send-keys -t "$bottom_right" "k9s" C-m
 
     tmux select-pane -t "$top_left"

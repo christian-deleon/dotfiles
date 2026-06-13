@@ -401,7 +401,7 @@ sudo-revoke
 
 ### `tav [-t|--tool <ai-cmd>] [prompt...]`
 
-Open a 3-pane tmux layout in the current window: AI tool in the top-left (70% tall, focused), bash in the bottom-left (30% tall), and `nvim` (LazyVim) on the right (full height, 70% wide). Must be run from inside tmux.
+Open a 3-pane tmux layout in the current window: AI tool in the top-left (70% tall, focused), bash in the bottom-left (30% tall), and `nvim` (LazyVim) on the right (full height, 70% wide). The Neovim pane opens on the project dir and drops straight into the LazyGit view (same as `<leader>gg` / the `nvg` alias); quitting LazyGit leaves you in the project explorer. Must be run from inside tmux.
 
 Bare positional arguments are the **initial prompt** — the AI tool launches straight into it (joined into a single argument, so quoting is optional). The tool defaults to `$AI_TOOL` (set via `dot ai-tool`, default `cld`); use `-t`/`--tool` to override it for one call. The override accepts a full command including flags (e.g. `-t "cld -c"`). Use `--` before a prompt that begins with a dash.
 
