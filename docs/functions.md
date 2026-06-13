@@ -399,27 +399,29 @@ sudo-revoke
 
 ## Tmux
 
-### `tav [ai-cmd]`
+### `tav [-t|--tool <ai-cmd>] [prompt...]`
 
 Open a 3-pane tmux layout in the current window: AI tool in the top-left (70% tall, focused), bash in the bottom-left (30% tall), and `nvim` (LazyVim) on the right (full height, 70% wide). Must be run from inside tmux.
 
-The top-left command defaults to `$AI_TOOL` (set in `.commonrc`, default `cld`). Pass a full command — including flags — to override.
+Bare positional arguments are the **initial prompt** — the AI tool launches straight into it (joined into a single argument, so quoting is optional). The tool defaults to `$AI_TOOL` (set via `dot ai-tool`, default `cld`); use `-t`/`--tool` to override it for one call. The override accepts a full command including flags (e.g. `-t "cld -c"`). Use `--` before a prompt that begins with a dash.
 
 ```bash
-tav                  # uses $AI_TOOL (default: cld)
-tav "claude -c"      # resume most recent Claude session
-tav "opencode"       # different AI tool
+tav                            # just the layout, uses $AI_TOOL
+tav "add a contact me page"    # launch $AI_TOOL with that prompt
+tav -t "cld -c" "fix the bug"  # resume Claude, with a prompt
+tav -t oc "make it blue"       # override the AI tool for this call
 ```
 
 ---
 
-### `tavk [ai-cmd]`
+### `tavk [-t|--tool <ai-cmd>] [prompt...]`
 
-Same as [`tav`](#tav-ai-cmd) but with a 4th pane: bottom-right (30% tall, 70% wide) runs `k9s`. Takes the same optional command argument.
+Same as [`tav`](#tav--t--tool-ai-cmd-prompt) but with a 4th pane: bottom-right (30% tall, 70% wide) runs `k9s`. Takes the same `-t`/`--tool` flag and prompt arguments.
 
 ```bash
-tavk                 # 4-pane variant with k9s in the bottom-right
-tavk "claude -c"     # 4-pane variant resuming Claude
+tavk                            # 4-pane variant with k9s in the bottom-right
+tavk "fix the k8s deploy"       # 4-pane variant with an initial prompt
+tavk -t "cld -c" "..."          # 4-pane variant resuming Claude
 ```
 
 ---
@@ -462,35 +464,41 @@ wrf              # fzf multi-select, removes selected worktrees and their branch
 
 ---
 
-### `wta [branch]` \*
+### `wta [-p|--prompt <text>] [branch]` \*
 
-Open a single worktree in tmux with the `tav` layout. fzf picker if no branch is passed. Creates the project's tmux session if it doesn't exist (named after the worktrees' parent dir), then adds a window named after the sanitized branch and sends `tav "$cmd"`. If the window already exists, just attaches. Claude-aware resume: launches `$AI_TOOL_RESUME` when prior history exists at `~/.claude/projects/<slug>/*.jsonl`, otherwise `$AI_TOOL`.
+Open a single worktree in tmux with the `tav` layout. fzf picker if no branch is passed. Creates the project's tmux session if it doesn't exist (named after the worktrees' parent dir), then adds a window named after the sanitized branch and sends a `tav` invocation into it. If the window already exists, just attaches. Claude-aware resume: launches `$AI_TOOL_RESUME` when prior history exists at `~/.claude/projects/<slug>/*.jsonl`, otherwise `$AI_TOOL`.
+
+Pass `-p`/`--prompt` to forward an initial prompt into the session's AI tool (see [`tav`](#tav--t--tool-ai-cmd-prompt)). It works with both the picker and an explicit branch.
 
 Requires `$AI_TOOL` / `$AI_TOOL_RESUME` — run `dot ai-tool` first.
 
 ```bash
-wta              # fzf picker
-wta feature/auth # attach to (or create) feature/auth's window
+wta                                   # fzf picker
+wta feature/auth                      # attach to (or create) feature/auth's window
+wta feature/auth -p "add a contact page"   # ...and start the AI tool on that prompt
 ```
 
 ---
 
-### `wtc <branch> [base]`
+### `wtc [-p|--prompt <text>] <branch> [base]`
 
-Create a **new** worktree (and branch) and open it in a tmux window with the `tav` layout — the create-first counterpart to [`wta`](#wta-branch--). Runs `wt switch --create <branch> [--base <base>] -x true` to materialize the worktree without dropping into a subshell, resolves its path, then hands off to the same window/layout helper `wta` uses (so it lands in the project's session as a window named after the sanitized branch, with a fresh `$AI_TOOL` launch). Finally jumps to that window. Run it from anywhere inside the worktrunk project — the project is resolved from your current directory, and the new window is built separately so your current window stays free.
+Create a **new** worktree (and branch) and open it in a tmux window with the `tav` layout — the create-first counterpart to [`wta`](#wta--p--prompt-text-branch-). Runs `wt switch --create <branch> [--base <base>] -x true` to materialize the worktree without dropping into a subshell, resolves its path, then hands off to the same window/layout helper `wta` uses (so it lands in the project's session as a window named after the sanitized branch, with a fresh `$AI_TOOL` launch). Finally jumps to that window. Run it from anywhere inside the worktrunk project — the project is resolved from your current directory, and the new window is built separately so your current window stays free.
+
+Pass `-p`/`--prompt` to forward an initial prompt into the new session's AI tool (see [`tav`](#tav--t--tool-ai-cmd-prompt)).
 
 Requires `$AI_TOOL` / `$AI_TOOL_RESUME` — run `dot ai-tool` first.
 
 ```bash
-wtc feature/auth          # create feature/auth off the default branch, open + tav
-wtc hotfix/login main     # create off an explicit base branch
+wtc feature/auth                          # create feature/auth off the default branch, open + tav
+wtc hotfix/login main                     # create off an explicit base branch
+wtc feature/auth -p "add a contact page"  # create + launch the AI tool on that prompt
 ```
 
 ---
 
 ### `wtaa`
 
-Same per-worktree logic as [`wta`](#wta-branch--), but loops every worktree in the project (main first). Use to restore the full project as a single tmux session after a reboot.
+Same per-worktree logic as [`wta`](#wta--p--prompt-text-branch-), but loops every worktree in the project (main first). Use to restore the full project as a single tmux session after a reboot.
 
 If you run it from **outside** tmux, it builds the session detached and `attach`es at the end — so it starts tmux for you. If you run it from **inside** tmux in a window that isn't in any worktree (e.g. the project root), that launcher window is **adopted** as the main worktree's window (`cd` + `tav`) instead of spawning a separate `main` window and leaving a stray. Launch from inside a worktree and the current window is left as-is.
 

@@ -37,7 +37,8 @@ function _wta_ensure_window() {
     # Optional 3rd arg adopt_pane: a pane id to adopt as this worktree's window
     # (instead of creating a new one) — used by wtaa when the launcher window
     # isn't inside a worktree.
-    local branch="$1" wt_path="$2" adopt_pane="${3:-}"
+    # Optional 4th arg prompt: an initial prompt forwarded to tav (wta/wtc).
+    local branch="$1" wt_path="$2" adopt_pane="${3:-}" prompt="${4:-}"
     local session window cmd claude_key geo_x geo_y status_lines
 
     session=$(basename "$(dirname "$wt_path")")
@@ -84,13 +85,22 @@ function _wta_ensure_window() {
         cmd="$AI_TOOL"
     fi
 
+    # Build the tav invocation: pass the resolved tool via -t (it may carry a
+    # flag like `cld -c`, so it must stay one quoted token), then the optional
+    # prompt as a shell-quoted trailing arg. tav re-parses both in the pane.
+    local tav_cmd="tav -t \"$cmd\""
+    if [[ -n "$prompt" ]]; then
+        local pq; pq=$(printf '%q' "$prompt")
+        tav_cmd="$tav_cmd $pq"
+    fi
+
     # Adopt the launcher window: rename it now (so name-based targets resolve
     # immediately), then cd into the worktree and lay out tav. The cd+tav runs
     # once wtaa returns control to this pane's shell.
     if [[ -n "$adopt_pane" ]]; then
         tmux rename-window -t "$adopt_pane" "$window"
         tmux set-window-option -t "$adopt_pane" allow-rename off 2>/dev/null || true
-        tmux send-keys -t "$adopt_pane" "cd $wt_path && clear && tav \"$cmd\"" C-m
+        tmux send-keys -t "$adopt_pane" "cd $wt_path && clear && $tav_cmd" C-m
         echo "  adopt   $session:$window  ($cmd)"
         return
     fi
@@ -98,7 +108,7 @@ function _wta_ensure_window() {
     if ! tmux has-session -t "$session" 2>/dev/null; then
         tmux new-session -d -s "$session" -n "$window" -c "$wt_path" -x "$geo_x" -y "$geo_y"
         tmux set-window-option -t "$session:$window" allow-rename off 2>/dev/null || true
-        tmux send-keys -t "$session:$window" "tav \"$cmd\"" C-m
+        tmux send-keys -t "$session:$window" "$tav_cmd" C-m
         echo "  create  $session:$window  ($cmd)"
     elif ! tmux list-windows -t "$session" -F "#{window_name}" 2>/dev/null | grep -qx "$window"; then
         # Trailing colon forces a session target: a bare "$session" is ambiguous
@@ -115,7 +125,7 @@ function _wta_ensure_window() {
         # exact) while still self-correcting if a differently-sized client attaches.
         tmux set-option -u -t "$session" window-size 2>/dev/null || true
         tmux set-window-option -t "$session:$window" allow-rename off 2>/dev/null || true
-        tmux send-keys -t "$session:$window" "tav \"$cmd\"" C-m
+        tmux send-keys -t "$session:$window" "$tav_cmd" C-m
         echo "  create  $session:$window  ($cmd)"
     else
         echo "  skip    $session:$window (already exists)"
@@ -132,9 +142,21 @@ function wtc() {
         return 1
     fi
 
-    local branch="$1"
-    if [[ -z "$branch" ]]; then echo "Usage: wtc <branch> [base]"; return 1; fi
-    local base="$2"
+    # Usage: wtc [-p|--prompt <text>] <branch> [base]
+    #   -p/--prompt is forwarded to tav as the session's initial prompt.
+    local branch="" base="" prompt="" pos=0
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -p|--prompt) prompt="$2"; shift 2 ;;
+            -*)          echo "wtc: unknown option '$1'" >&2; return 1 ;;
+            *)
+                if   [[ $pos -eq 0 ]]; then branch="$1"; pos=1
+                elif [[ $pos -eq 1 ]]; then base="$1";   pos=2
+                fi
+                shift ;;
+        esac
+    done
+    if [[ -z "$branch" ]]; then echo "Usage: wtc [-p <prompt>] <branch> [base]"; return 1; fi
 
     # Create the worktree+branch up front. --no-cd is the key: worktrunk's shell
     # integration wraps `wt` in a function that cd's the *calling* shell into the
@@ -160,7 +182,7 @@ function wtc() {
 
     # Reuse wta's helper to build the window + tav layout (fresh AI launch,
     # since a brand-new worktree has no Claude history), then jump to it.
-    _wta_ensure_window "$branch" "$wt_path"
+    _wta_ensure_window "$branch" "$wt_path" "" "$prompt"
 
     local session window
     session=$(basename "$(dirname "$wt_path")")
@@ -188,10 +210,21 @@ function wta() {
         return 1
     fi
 
-    local branch="$1"
+    # Usage: wta [-p|--prompt <text>] [branch]
+    #   -p/--prompt is forwarded to tav as the session's initial prompt.
+    local branch="" prompt=""
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -p|--prompt) prompt="$2"; shift 2 ;;
+            --)          shift; [[ -z "$branch" && $# -gt 0 ]] && { branch="$1"; shift; } ;;
+            -*)          echo "wta: unknown option '$1'" >&2; return 1 ;;
+            *)           [[ -z "$branch" ]] && branch="$1"; shift ;;
+        esac
+    done
+
     if [[ -z "$branch" ]]; then
         if ! command -v fzf &>/dev/null; then
-            echo "Usage: wta <branch>   (or install fzf for picker)"
+            echo "Usage: wta [-p <prompt>] <branch>   (or install fzf for picker)"
             return 1
         fi
         branch=$(echo "$worktrees_json" | \
@@ -207,7 +240,7 @@ function wta() {
         return 1
     fi
 
-    _wta_ensure_window "$branch" "$wt_path"
+    _wta_ensure_window "$branch" "$wt_path" "" "$prompt"
 
     local session window
     session=$(basename "$(dirname "$wt_path")")
