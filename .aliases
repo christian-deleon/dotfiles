@@ -20,6 +20,7 @@ alias v='nvim'                           # Launch Neovim
 alias n='nvim'                           # Launch Neovim
 alias nv='nvim'                          # Launch Neovim
 alias vim='nvim'                         # Redirect vim to Neovim
+alias nvg='nvim -c "lua vim.schedule(function() Snacks.lazygit() end)"'  # Neovim into LazyGit
 
 # Dropbox
 alias db='dropbox-cli'                   # Dropbox CLI
