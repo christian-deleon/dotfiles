@@ -28,7 +28,7 @@ function clocg() {
 }
 
 # Kill processes with fzf (Ctrl-K for SIGKILL)
-function fkill() {
+function pk() {
     if ! command -v fzf &>/dev/null; then
         echo "Error: fzf is not installed"
         return 1
@@ -66,4 +66,44 @@ function fkill() {
             echo "failed: $p" >&2
         fi
     done
+}
+
+# Delete shell history entries with fzf (TAB multi-select)
+function hdf() {
+    if ! command -v fzf &>/dev/null; then
+        echo "Error: fzf is not installed"
+        return 1
+    fi
+    if [[ -z "$BASH_VERSION" ]]; then
+        echo "hdf: only supported on bash (needs 'history -d')" >&2
+        return 1
+    fi
+
+    local out
+    out=$(history \
+        | fzf --multi \
+            --tac \
+            --prompt="forget: " \
+            --height=60% \
+            --reverse \
+            --header=$'ENTER: delete selected from history\nTAB to multi-select' \
+            --tiebreak=index)
+    [[ -z "$out" ]] && return 0
+
+    # Collect offsets (first column of each selected line)
+    local -a offsets=()
+    local line off
+    while IFS= read -r line; do
+        off=$(awk '{print $1}' <<< "$line")
+        [[ "$off" =~ ^[0-9]+$ ]] && offsets+=("$off")
+    done <<< "$out"
+
+    (( ${#offsets[@]} )) || return 0
+
+    # Delete high-to-low so earlier deletions don't renumber later offsets.
+    local o
+    for o in $(printf '%s\n' "${offsets[@]}" | sort -rn); do
+        history -d "$o" && echo "forgot [$o]"
+    done
+    history -w
 }

@@ -31,12 +31,20 @@ clocg --exclude-dir=vendor # Additional options still work
 clocg src/                 # Count specific directory
 ```
 
-### `fkill` \*
+### `pk` \*
 
 Pick processes from `ps` with fzf and kill them. Sorted by PID; type to fuzzy-match any column (user, %cpu, command, …). `TAB` to multi-select. `ENTER` sends `SIGTERM`; `Ctrl-K` sends `SIGKILL` for unresponsive processes.
 
 ```bash
-fkill    # picker — ENTER for TERM, Ctrl-K for KILL
+pk       # picker — ENTER for TERM, Ctrl-K for KILL
+```
+
+### `hdf` \*
+
+Delete entries from your shell history with fzf. Lists `history` (most recent first); type to fuzzy-match, `TAB` to multi-select, `ENTER` to forget the selected lines. Deletes highest-offset-first so removals don't renumber pending ones, then persists with `history -w`. bash only (uses `history -d`). For *searching* history, use fzf's `Ctrl-R`.
+
+```bash
+hdf      # picker — TAB to mark lines, ENTER to delete them
 ```
 
 ---

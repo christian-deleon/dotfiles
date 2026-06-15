@@ -29,6 +29,36 @@ if [[ -z "$DOTFILES_PROFILE" && -f "$HOME/.dotfiles/.active-profile" ]]; then
     export DOTFILES_PROFILE="$(cat "$HOME/.dotfiles/.active-profile")"
 fi
 
+# ─── History ──────────────────────────────────────────────────────────────────
+
+# Two layers: an in-memory list (what ↑ recalls) and the on-disk history file.
+# By default bash only writes memory→file on exit, so parallel terminals don't
+# see each other and edits get clobbered. These make history big, de-duplicated,
+# timestamped, and shared across sessions in near-real-time.
+if [[ -n "$BASH_VERSION" ]]; then
+    export HISTSIZE=100000                    # in-memory entries
+    export HISTFILESIZE=200000                # entries kept on disk
+    export HISTCONTROL=ignoreboth:erasedups   # drop space-prefixed, dup, older-dup lines
+    export HISTIGNORE='ls:ls *:ll:ll *:la:la *:cd:up:up2:up3:up4:cdr:pwd:gs:tl:wl:wlf:wj:stk:sta:stj:stn:stt:kcg:kapi:kns:clear:history:bg:fg:exit:&'
+    export HISTTIMEFORMAT='%F %T  '           # record + show timestamps
+    shopt -s histappend                       # append on exit instead of overwriting
+    shopt -s cmdhist                          # multi-line command → one entry
+    shopt -s lithist                          # ...preserving the embedded newlines
+    # Append this shell's new lines and read in others' on every prompt, so all
+    # terminals converge on one shared history. Set before starship init, which
+    # preserves any existing PROMPT_COMMAND.
+    PROMPT_COMMAND="history -a; history -n; ${PROMPT_COMMAND:+$PROMPT_COMMAND}"
+elif [[ -n "$ZSH_VERSION" ]]; then
+    HISTSIZE=100000
+    SAVEHIST=200000
+    setopt HIST_IGNORE_SPACE        # leading-space commands aren't recorded
+    setopt HIST_IGNORE_ALL_DUPS     # keep only the most recent copy of a command
+    setopt HIST_REDUCE_BLANKS       # trim superfluous whitespace
+    setopt EXTENDED_HISTORY         # record timestamps
+    setopt SHARE_HISTORY            # append + reload across sessions
+    HISTORY_IGNORE='(ls|ll|cd|pwd|exit|clear|history|bg|fg)'
+fi
+
 # ─── Aliases & Functions ──────────────────────────────────────────────────────
 
 [[ -f "$HOME/.aliases" ]]   && source "$HOME/.aliases"
@@ -41,6 +71,12 @@ export FZF_COMPLETION_TRIGGER='~~'
 if command -v fd &>/dev/null; then
     export FZF_DEFAULT_COMMAND='fd --type f --strip-cwd-prefix --hidden --follow --exclude .git'
     export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+fi
+
+# Key bindings + completion (Ctrl-R fuzzy history, Ctrl-T files, Alt-C cd).
+# bash only here — zsh loads `fzf --zsh` from .zshrc after this file is sourced.
+if [[ -n "$BASH_VERSION" ]] && command -v fzf &>/dev/null; then
+    eval "$(fzf --bash)"
 fi
 
 # ─── Tool completions (shell-aware) ──────────────────────────────────────────
