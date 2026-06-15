@@ -39,7 +39,7 @@ if [[ -n "$BASH_VERSION" ]]; then
     export HISTSIZE=100000                    # in-memory entries
     export HISTFILESIZE=200000                # entries kept on disk
     export HISTCONTROL=ignoreboth:erasedups   # drop space-prefixed, dup, older-dup lines
-    export HISTIGNORE='ls:ll:la:cd:up:up2:up3:up4:cdr:pwd:gs:tl:wl:wlf:wj:ws:wsc:wsr:wm:wmn:wms:wr:wrf:wxc:wxcs:wxs:wxr:wxp:wxf:wxfr:wxpr:wxprd:wtc:wtc *:wta:wtaa:stk:sta:stj:stn:stt:kcg:kapi:kns:cld:clear \&\& cld:clear:history:bg:fg:exit:&'
+    export HISTIGNORE='ls:ll:la:cd:..:up:up2:up3:up4:cdr:pwd:gs:tl:wl:wlf:wj:ws:wsc:wsr:wm:wmn:wms:wr:wrf:wxc:wxcs:wxs:wxr:wxp:wxf:wxfr:wxpr:wxprd:wtc:wtc *:wta:wtaa:stk:sta:stj:stn:stt:kcg:kapi:kns:k9:k9s:clocg:nvim .:n .:tav:tav *:oc:gra:cld:cld -c:clear \&\& cld:clear \&\& cld -c:clear:history:bg:fg:exit:&'
     export HISTTIMEFORMAT='%F %T  '           # record + show timestamps
     shopt -s histappend                       # append on exit instead of overwriting
     shopt -s cmdhist                          # multi-line command → one entry
