@@ -16,6 +16,7 @@ core_extras:
 # no granted/AWS SSO — add back any of these as your work environment allows.
 items:
   - bat
+  - blesh
   - delta
   - fd
   - fzf
