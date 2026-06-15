@@ -29,6 +29,18 @@ if [[ -z "$DOTFILES_PROFILE" && -f "$HOME/.dotfiles/.active-profile" ]]; then
     export DOTFILES_PROFILE="$(cat "$HOME/.dotfiles/.active-profile")"
 fi
 
+# ─── ble.sh (Bash Line Editor) ──────────────────────────────────────────────
+# Fish/zsh-style autosuggestions + syntax highlighting for interactive bash.
+# Two-step load (the ble.sh-recommended pattern): source with --noattach here,
+# then `ble-attach` at the very end of this file — after history, fzf, starship,
+# and PROMPT_COMMAND are set — so ble.sh wraps the finished config. Bash +
+# interactive only; zsh has its own autosuggestions via .zshrc. Installed by
+# scripts/tools/install-blesh.sh into ~/.local/share/blesh.
+_blesh="${XDG_DATA_HOME:-$HOME/.local/share}/blesh/ble.sh"
+if [[ -n "$BASH_VERSION" && $- == *i* && -r "$_blesh" ]]; then
+    source "$_blesh" --noattach
+fi
+
 # ─── History ──────────────────────────────────────────────────────────────────
 
 # Two layers: an in-memory list (what ↑ recalls) and the on-disk history file.
@@ -132,3 +144,9 @@ if ! type starship_precmd &>/dev/null && command -v starship &>/dev/null; then
         eval "$(starship init bash)"
     fi
 fi
+
+# ─── ble.sh attach (must stay last) ──────────────────────────────────────────
+# Attach now that prompt, completions, fzf, and PROMPT_COMMAND are configured.
+# No-op unless ble.sh was sourced above (sets BLE_VERSION); skipped on zsh.
+[[ -n "${BLE_VERSION-}" ]] && ble-attach
+unset _blesh
