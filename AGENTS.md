@@ -73,6 +73,7 @@ Before committing:
 - [ ] `bash -n <script>`, `for f in scripts/*.sh; do bash -n "$f"; done`, `for f in functions.d/*.sh; do bash -n "$f"; done`, and `for f in completions.d/*.sh; do bash -n "$f"; done`
 - [ ] `bash scripts/check-descriptions.sh`
 - [ ] `source .functions && <function-name>` works; aliases work in new shell
+- [ ] New aliases/functions evaluated for `HISTIGNORE` in `.commonrc` — add high-frequency, low-recall-value ones (navigation, list/status, fire-and-forget toggles, picker/AI launchers). A **bare** pattern (`name`) only filters the no-arg form and keeps `name <args>` recallable; use `name *` (or escaped `\&\&` for compounds) only when the args themselves are noise. Don't add mutating commands you'd want for audit/repeat.
 - [ ] `yq '.' manifest.yaml` parses; every `config.handler` references a function in `scripts/handlers/*.sh`
 - [ ] `yq '.' profiles/<name>.yaml` parses for any modified profile
 - [ ] New stow packages are declared in `manifest.yaml` (`config.type: stow`) AND follow `<dir>/.config/<dir>/` layout
