@@ -56,10 +56,19 @@ if [[ -n "$BASH_VERSION" ]]; then
     shopt -s histappend                       # append on exit instead of overwriting
     shopt -s cmdhist                          # multi-line command → one entry
     shopt -s lithist                          # ...preserving the embedded newlines
-    # Append this shell's new lines and read in others' on every prompt, so all
-    # terminals converge on one shared history. Set before starship init, which
-    # preserves any existing PROMPT_COMMAND.
-    PROMPT_COMMAND="history -a; history -n; ${PROMPT_COMMAND:+$PROMPT_COMMAND}"
+    # Converge all terminals on one shared history. ble.sh reimplements the
+    # `history` builtin and shares per-command itself, so the manual PROMPT_COMMAND
+    # dance double-loads entries (`history -a` writes the command, `history -n`
+    # reads it straight back past erasedups → consecutive dups show twice on ↑).
+    # Under ble.sh use its dedup-aware history_share; otherwise drive it by hand.
+    # BLE_VERSION is already set here: ble.sh was sourced (--noattach) above.
+    if [[ -n "${BLE_VERSION-}" ]]; then
+        bleopt history_share=1
+    else
+        # Append this shell's new lines and read in others' on every prompt. Set
+        # before starship init, which preserves any existing PROMPT_COMMAND.
+        PROMPT_COMMAND="history -a; history -n; ${PROMPT_COMMAND:+$PROMPT_COMMAND}"
+    fi
 elif [[ -n "$ZSH_VERSION" ]]; then
     HISTSIZE=100000
     SAVEHIST=200000
