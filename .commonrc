@@ -54,8 +54,12 @@ if [[ -n "$BASH_VERSION" ]]; then
     export HISTIGNORE='ls:ll:la:cd:..:up:up2:up3:up4:cdr:pwd:gs:tl:wl:wlf:wj:ws:wsc:wsr:wm:wmn:wms:wr:wrf:wxc:wxcs:wxs:wxr:wxp:wxf:wxfr:wxpr:wxprd:wtc:wtc *:wta:wtaa:stk:sta:stj:stn:stt:kcg:kapi:kns:k9:k9s:clocg:nvim .:n .:nvim *Snacks.lazygit*:tav:tav *:oc:gra:just:cld:cld -c:clear \&\& cld:clear \&\& cld -c:clear:history:bg:fg:exit:&'
     export HISTTIMEFORMAT='%F %T  '           # record + show timestamps
     shopt -s histappend                       # append on exit instead of overwriting
-    shopt -s cmdhist                          # multi-line command → one entry
-    shopt -s lithist                          # ...preserving the embedded newlines
+    shopt -s cmdhist                          # multi-line command → one entry (joined with ;)
+    # NOTE: `lithist` is deliberately OFF. It stores multi-line commands with
+    # literal embedded newlines, which is exactly what lets entry boundaries blur
+    # and merge on reload (a multi-line entry can swallow following commands into
+    # one giant blob). Without it, cmdhist joins multi-line commands with `;` —
+    # less pretty on recall, but no literal newlines means entries can never merge.
     # Converge all terminals on one shared history. ble.sh reimplements the
     # `history` builtin and shares per-command itself, so the manual PROMPT_COMMAND
     # dance double-loads entries (`history -a` writes the command, `history -n`
@@ -65,9 +69,13 @@ if [[ -n "$BASH_VERSION" ]]; then
     if [[ -n "${BLE_VERSION-}" ]]; then
         bleopt history_share=1
     else
-        # Append this shell's new lines and read in others' on every prompt. Set
-        # before starship init, which preserves any existing PROMPT_COMMAND.
-        PROMPT_COMMAND="history -a; history -n; ${PROMPT_COMMAND:+$PROMPT_COMMAND}"
+        # Append this shell's new lines, then fully rebuild the in-memory list
+        # from the file each prompt (`-c; -r`) instead of the incremental `-n`.
+        # `-n` tracks a file offset and re-reads only "new" lines, which loses
+        # entry boundaries when multi-line entries shift the offsets — the merge
+        # bug. A full reload re-parses every `#<epoch>`-delimited entry cleanly.
+        # Set before starship init, which preserves any existing PROMPT_COMMAND.
+        PROMPT_COMMAND="history -a; history -c; history -r; ${PROMPT_COMMAND:+$PROMPT_COMMAND}"
     fi
 elif [[ -n "$ZSH_VERSION" ]]; then
     HISTSIZE=100000
