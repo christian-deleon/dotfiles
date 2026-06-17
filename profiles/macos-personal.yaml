@@ -1,6 +1,6 @@
 # profiles/macos-personal.yaml
 # Personal macOS dev machine. Full dev stack via Homebrew. Linux-specific
-# items (hypr, mako, walker, waybar, makima, lid-check, waycal) are excluded
+# items (hypr, mako, walker, waybar, makima, lid-check) are excluded
 # since they don't apply to Darwin. Adjust to taste.
 
 name: macos-personal

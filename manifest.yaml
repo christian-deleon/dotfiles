@@ -324,13 +324,6 @@ waybar:
     type: stow
   requires: [hyprland]
 
-waycal:
-  description: Tiny calendar popup for waybar (Christian's fork — system colors)
-  install:
-    script: install-waycal.sh
-    update: true
-  requires: [omarchy]
-
 windows-terminal:
   description: Windows Terminal theme + font config (WSL only)
   config:
