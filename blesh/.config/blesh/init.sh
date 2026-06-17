@@ -20,7 +20,12 @@ ble-bind -f 'M-DEL' 'kill-backward-cword'
 ble-bind -f 'M-C-h' 'kill-backward-cword'
 ble-bind -f 'M-BS'  'kill-backward-cword'
 
-# Suppress the `[ble: elapsed 16.808s (CPU 223.8%)]` line ble.sh prints after a
-# command crosses its CPU/wall-clock threshold. The timing report is noise here;
-# emptying `exec_elapsed_enabled` clears every trigger so the line never shows.
+# Suppress ble.sh's post-command status lines:
+#   `[ble: elapsed 16.808s (CPU 223.8%)]` — printed when a command crosses its
+#      CPU/wall-clock threshold; emptying `exec_elapsed_enabled` clears every
+#      trigger so the line never shows.
+#   `[ble: exit 127]` — printed after any nonzero exit; emptying its mark
+#      (`exec_errexit_mark`, default `exit %d`) suppresses it. The exit code is
+#      already visible via the prompt, so the extra line is noise.
 bleopt exec_elapsed_enabled=
+bleopt exec_errexit_mark=
