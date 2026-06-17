@@ -1,4 +1,8 @@
 [build]
+# Cap parallel compiler jobs so a build doesn't saturate all 16 logical CPUs.
+# Cargo defaults to one job per core; sccache is a compile *cache* and has no
+# effect on parallelism, so this cap is the only thing holding CPU load down.
+jobs = 8
 rustc-wrapper = "sccache"
 
 [target.'cfg(target_os = "linux")']
