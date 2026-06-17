@@ -19,3 +19,8 @@ ble-bind -f 'M-C-?' 'kill-backward-cword'
 ble-bind -f 'M-DEL' 'kill-backward-cword'
 ble-bind -f 'M-C-h' 'kill-backward-cword'
 ble-bind -f 'M-BS'  'kill-backward-cword'
+
+# Suppress the `[ble: elapsed 16.808s (CPU 223.8%)]` line ble.sh prints after a
+# command crosses its CPU/wall-clock threshold. The timing report is noise here;
+# emptying `exec_elapsed_enabled` clears every trigger so the line never shows.
+bleopt exec_elapsed_enabled=
