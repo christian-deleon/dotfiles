@@ -79,6 +79,9 @@ alias ncz='nc -zv'                       # Quick TCP port check (verbose)
 alias ncscan='nc -zv -w 1'               # TCP port scan with 1s timeout
 alias ncudp='nc -zvu'                    # Quick UDP port check (verbose)
 
+# DNS
+alias nsl='nslookup'                     # DNS lookup via nslookup
+
 # Poetry
 alias pl='poetry lock'                   # Run poetry lock
 alias pu='poetry update'                 # Run poetry update

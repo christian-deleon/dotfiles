@@ -150,6 +150,14 @@ Port connectivity checks. `nc` flags differ between BSD (macOS) and GNU/ncat bui
 
 ---
 
+## DNS
+
+DNS resolution lookups.
+
+- `nsl` - DNS lookup via `nslookup` — e.g. `nsl example.com`
+
+---
+
 ## Poetry
 
 Python dependency management shortcuts.
