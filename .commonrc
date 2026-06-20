@@ -41,6 +41,17 @@ if [[ -n "$BASH_VERSION" && $- == *i* && -r "$_blesh" ]]; then
     source "$_blesh" --noattach
 fi
 
+# Filename highlighting: ble.sh's default filename_* faces are blue + underline,
+# which makes completion candidates and on-line paths hard to read. Drive its
+# colors from LS_COLORS instead (so paths match `ls`/eza) and clear the extra
+# underline. Populate LS_COLORS from dircolors' default palette if nothing set
+# it yet — without it filename_ls_colors is empty and ble.sh keeps its defaults.
+if [[ -n "${BLE_VERSION-}" ]]; then
+    [[ -z "$LS_COLORS" ]] && command -v dircolors &>/dev/null && eval "$(dircolors -b)"
+    bleopt filename_ls_colors="$LS_COLORS"
+    ble-face filename_ls_colors=none
+fi
+
 # ─── History ──────────────────────────────────────────────────────────────────
 
 # Two layers: an in-memory list (what ↑ recalls) and the on-disk history file.
