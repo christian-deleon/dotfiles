@@ -474,7 +474,7 @@ wrf              # fzf multi-select, removes selected worktrees and their branch
 
 ### `wta [-p|--prompt <text>] [branch]` \*
 
-Open a single worktree in tmux with the `tav` layout. fzf picker if no branch is passed. Creates the project's tmux session if it doesn't exist (named after the worktrees' parent dir), then adds a window named after the sanitized branch and sends a `tav` invocation into it. If the window already exists, just attaches. Claude-aware resume: launches `$AI_TOOL_RESUME` when prior history exists at `~/.claude/projects/<slug>/*.jsonl`, otherwise `$AI_TOOL`.
+Open a single worktree in tmux with the `tav` layout. fzf picker if no branch is passed. The target session is the one you're already in when your current pane sits anywhere inside the project; otherwise it falls back to a session named after the worktrees' parent dir, creating it if needed. (This means launching from a session you named yourself — e.g. `tn ngc` — adds the window to *that* session instead of forking a separate one and orphaning your current window.) It then adds a window named after the sanitized branch and sends a `tav` invocation into it. If the window already exists, just attaches. Claude-aware resume: launches `$AI_TOOL_RESUME` when prior history exists at `~/.claude/projects/<slug>/*.jsonl`, otherwise `$AI_TOOL`.
 
 Pass `-p`/`--prompt` to forward an initial prompt into the session's AI tool (see [`tav`](#tav--t--tool-ai-cmd-prompt)). It works with both the picker and an explicit branch.
 
