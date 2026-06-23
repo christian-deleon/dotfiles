@@ -542,6 +542,7 @@ Many of these commands tab-complete their arguments from a live source. Completi
 
 | Command(s) | Completes |
 |---|---|
+| `cdr` | directories relative to the git repo root |
 | `kc` | kubectl context names |
 | `kn` `ktns` `kdp` `kdd` `kdelp` `ks` | namespaces (current context) |
 | `kcs` | kubeconfig files in `~/.kube` |
