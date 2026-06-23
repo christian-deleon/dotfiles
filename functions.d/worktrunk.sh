@@ -32,6 +32,27 @@ function wrf() {
     echo "Done."
 }
 
+# Resolve the tmux session that hosts a worktree's window
+function _wt_session_for() {
+    # Worktrees of a project share a parent dir, so the session normally takes
+    # that dir's name. But if the current tmux client is already sitting inside
+    # this project (e.g. a session opened with `tn <name>` from the project
+    # root), reuse THAT session instead — otherwise wta/wtaa/wtc target a
+    # differently-named session, forking a separate one and orphaning your
+    # current window rather than adding a sibling window next to it.
+    local wt_path="$1" root cur_session cur_path
+    root=$(dirname "$wt_path")
+    if [[ -n "$TMUX" ]]; then
+        cur_session=$(tmux display-message -t "$TMUX_PANE" -p '#{session_name}' 2>/dev/null)
+        cur_path=$(tmux display-message -t "$TMUX_PANE" -p '#{pane_current_path}' 2>/dev/null)
+        if [[ -n "$cur_session" && ( "$cur_path" == "$root" || "$cur_path" == "$root"/* ) ]]; then
+            printf '%s\n' "$cur_session"
+            return
+        fi
+    fi
+    printf '%s\n' "$(basename "$root")"
+}
+
 # Ensure a tav window exists for one worktree (wta helper)
 function _wta_ensure_window() {
     # Optional 3rd arg adopt_pane: a pane id to adopt as this worktree's window
@@ -41,7 +62,7 @@ function _wta_ensure_window() {
     local branch="$1" wt_path="$2" adopt_pane="${3:-}" prompt="${4:-}"
     local session window cmd claude_key geo_x geo_y status_lines
 
-    session=$(basename "$(dirname "$wt_path")")
+    session=$(_wt_session_for "$wt_path")
     window="${branch//\//-}"
 
     # Resolve the geometry of the terminal/client this window will ultimately be
@@ -185,7 +206,7 @@ function wtc() {
     _wta_ensure_window "$branch" "$wt_path" "" "$prompt"
 
     local session window
-    session=$(basename "$(dirname "$wt_path")")
+    session=$(_wt_session_for "$wt_path")
     window="${branch//\//-}"
     if [[ -n "$TMUX" ]]; then
         tmux switch-client -t "$session:$window"
@@ -243,7 +264,7 @@ function wta() {
     _wta_ensure_window "$branch" "$wt_path" "" "$prompt"
 
     local session window
-    session=$(basename "$(dirname "$wt_path")")
+    session=$(_wt_session_for "$wt_path")
     window="${branch//\//-}"
 
     if [[ -n "$TMUX" ]]; then
@@ -279,7 +300,7 @@ function wtaa() {
     [[ ${#w_branch[@]} -eq 0 ]] && { echo "Error: no worktrees found"; return 1; }
 
     local session first_window
-    session=$(basename "$(dirname "${w_path[0]}")")
+    session=$(_wt_session_for "${w_path[0]}")
     first_window="${w_branch[0]//\//-}"
 
     # If we're launched from a window in this session that isn't inside any
