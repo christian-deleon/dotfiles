@@ -55,9 +55,12 @@ fi
 # ─── History ──────────────────────────────────────────────────────────────────
 
 # Two layers: an in-memory list (what ↑ recalls) and the on-disk history file.
-# By default bash only writes memory→file on exit, so parallel terminals don't
-# see each other and edits get clobbered. These make history big, de-duplicated,
-# timestamped, and shared across sessions in near-real-time.
+# Goal: per-terminal recall. Each shell keeps its OWN in-memory list for the life
+# of the session and never imports commands typed in other live terminals — ↑
+# shows only what THIS terminal ran (plus history from before it started). Each
+# command is still flushed to the shared file immediately, so it survives crashes
+# and any NEWLY opened terminal inherits everything; we just never read the file
+# back into a running session (that read is what used to make siblings bleed in).
 if [[ -n "$BASH_VERSION" ]]; then
     export HISTSIZE=100000                    # in-memory entries
     export HISTFILESIZE=200000                # entries kept on disk
@@ -71,23 +74,18 @@ if [[ -n "$BASH_VERSION" ]]; then
     # and merge on reload (a multi-line entry can swallow following commands into
     # one giant blob). Without it, cmdhist joins multi-line commands with `;` —
     # less pretty on recall, but no literal newlines means entries can never merge.
-    # Converge all terminals on one shared history. ble.sh reimplements the
-    # `history` builtin and shares per-command itself, so the manual PROMPT_COMMAND
-    # dance double-loads entries (`history -a` writes the command, `history -n`
-    # reads it straight back past erasedups → consecutive dups show twice on ↑).
-    # Under ble.sh use its dedup-aware history_share; otherwise drive it by hand.
-    # BLE_VERSION is already set here: ble.sh was sourced (--noattach) above.
+    # Flush each command to the shared file as it runs (`history -a`) but never
+    # read the file back into this session, so sibling terminals don't bleed into
+    # each other's recall. With history_share OFF, ble.sh only adds commands to
+    # its in-memory list (it appends to the file on exit), so the manual
+    # `history -a` is still needed for prompt-time persistence. The old double-load
+    # bug only struck when `-a` was paired with a read (`-n`/`-r`); `-a` alone is
+    # safe. BLE_VERSION is already set here: ble.sh was sourced (--noattach) above.
     if [[ -n "${BLE_VERSION-}" ]]; then
-        bleopt history_share=1
-    else
-        # Append this shell's new lines, then fully rebuild the in-memory list
-        # from the file each prompt (`-c; -r`) instead of the incremental `-n`.
-        # `-n` tracks a file offset and re-reads only "new" lines, which loses
-        # entry boundaries when multi-line entries shift the offsets — the merge
-        # bug. A full reload re-parses every `#<epoch>`-delimited entry cleanly.
-        # Set before starship init, which preserves any existing PROMPT_COMMAND.
-        PROMPT_COMMAND="history -a; history -c; history -r; ${PROMPT_COMMAND:+$PROMPT_COMMAND}"
+        bleopt history_share=0    # was 1: stop importing other live sessions
     fi
+    # Set before starship init, which preserves any existing PROMPT_COMMAND.
+    PROMPT_COMMAND="history -a; ${PROMPT_COMMAND:+$PROMPT_COMMAND}"
 elif [[ -n "$ZSH_VERSION" ]]; then
     HISTSIZE=100000
     SAVEHIST=200000
@@ -95,7 +93,8 @@ elif [[ -n "$ZSH_VERSION" ]]; then
     setopt HIST_IGNORE_ALL_DUPS     # keep only the most recent copy of a command
     setopt HIST_REDUCE_BLANKS       # trim superfluous whitespace
     setopt EXTENDED_HISTORY         # record timestamps
-    setopt SHARE_HISTORY            # append + reload across sessions
+    setopt INC_APPEND_HISTORY       # flush each command to the file as it runs…
+    unsetopt SHARE_HISTORY          # …but don't import other sessions (Oh My Zsh defaults this on)
     HISTORY_IGNORE='(ls|ll|cd|pwd|exit|clear|history|bg|fg)'
 fi
 
