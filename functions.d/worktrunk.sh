@@ -53,6 +53,24 @@ function _wt_session_for() {
     printf '%s\n' "$(basename "$root")"
 }
 
+# Switch/attach to a window by name, dot-safe
+function _wt_goto_window() {
+    # A window name containing '.' (e.g. branch chore-upgrade-to-1.7.5) breaks a
+    # "session:window" target — tmux misreads the trailing ".N" as a pane index.
+    # Resolve the window's id (@N, never ambiguous) and target that instead.
+    local session="$1" name="$2" id wname wid=""
+    while IFS=$'\t' read -r id wname; do
+        if [[ "$wname" == "$name" ]]; then wid="$id"; break; fi
+    done < <(tmux list-windows -t "$session" -F "#{window_id}"$'\t'"#{window_name}" 2>/dev/null)
+    if [[ -n "$TMUX" ]]; then
+        tmux switch-client -t "$session" 2>/dev/null
+        [[ -n "$wid" ]] && tmux select-window -t "$wid" 2>/dev/null
+    else
+        [[ -n "$wid" ]] && tmux select-window -t "$wid" 2>/dev/null
+        tmux attach -t "$session"
+    fi
+}
+
 # Ensure a tav window exists for one worktree (wta helper)
 function _wta_ensure_window() {
     # Optional 3rd arg adopt_pane: a pane id to adopt as this worktree's window
@@ -126,27 +144,32 @@ function _wta_ensure_window() {
         return
     fi
 
+    # Target each new window by its PANE ID (%N), never by "$session:$window". A
+    # window name with a '.' in it (e.g. branch chore-upgrade-to-1.7.5) is misread
+    # by tmux as a window.pane spec — send-keys then dies with "can't find pane:
+    # 7.5" and tav never launches. Pane ids carry no such ambiguity.
+    local pane_id
     if ! tmux has-session -t "$session" 2>/dev/null; then
-        tmux new-session -d -s "$session" -n "$window" -c "$wt_path" -x "$geo_x" -y "$geo_y"
-        tmux set-window-option -t "$session:$window" allow-rename off 2>/dev/null || true
-        tmux send-keys -t "$session:$window" "$tav_cmd" C-m
+        pane_id=$(tmux new-session -d -s "$session" -n "$window" -c "$wt_path" -x "$geo_x" -y "$geo_y" -P -F '#{pane_id}')
+        tmux set-window-option -t "$pane_id" allow-rename off 2>/dev/null || true
+        tmux send-keys -t "$pane_id" "$tav_cmd" C-m
         echo "  create  $session:$window  ($cmd)"
     elif ! tmux list-windows -t "$session" -F "#{window_name}" 2>/dev/null | grep -qx "$window"; then
         # Trailing colon forces a session target: a bare "$session" is ambiguous
         # when a window shares the session's name (automatic-rename can do this),
         # and tmux would try to create at that window's index ("index N in use").
-        tmux new-window -t "$session:" -n "$window" -c "$wt_path"
+        pane_id=$(tmux new-window -t "$session:" -n "$window" -c "$wt_path" -P -F '#{pane_id}')
         # Size to the target geometry before tav lays it out (see above), since
         # new-window inherits the 80x24 default when no client is attached.
-        tmux resize-window -t "$session:$window" -x "$geo_x" -y "$geo_y" 2>/dev/null || true
+        tmux resize-window -t "$pane_id" -x "$geo_x" -y "$geo_y" 2>/dev/null || true
         # resize-window flips the session into `window-size manual`, freezing all
         # its windows at the size above. Restore the inherited default so tmux
         # keeps refitting windows to whatever client views them — geo_y already
         # equals the window area, so the next attach is a no-op (split stays
         # exact) while still self-correcting if a differently-sized client attaches.
         tmux set-option -u -t "$session" window-size 2>/dev/null || true
-        tmux set-window-option -t "$session:$window" allow-rename off 2>/dev/null || true
-        tmux send-keys -t "$session:$window" "$tav_cmd" C-m
+        tmux set-window-option -t "$pane_id" allow-rename off 2>/dev/null || true
+        tmux send-keys -t "$pane_id" "$tav_cmd" C-m
         echo "  create  $session:$window  ($cmd)"
     else
         echo "  skip    $session:$window (already exists)"
@@ -208,11 +231,7 @@ function wtc() {
     local session window
     session=$(_wt_session_for "$wt_path")
     window="${branch//\//-}"
-    if [[ -n "$TMUX" ]]; then
-        tmux switch-client -t "$session:$window"
-    else
-        tmux attach -t "$session:$window"
-    fi
+    _wt_goto_window "$session" "$window"
 }
 
 # Attach to a worktree in tmux with tav layout (fzf if no arg)
@@ -267,11 +286,7 @@ function wta() {
     session=$(_wt_session_for "$wt_path")
     window="${branch//\//-}"
 
-    if [[ -n "$TMUX" ]]; then
-        tmux switch-client -t "$session:$window"
-    else
-        tmux attach -t "$session:$window"
-    fi
+    _wt_goto_window "$session" "$window"
 }
 
 # Open all worktrees as tmux windows with tav + AI resume
@@ -303,25 +318,39 @@ function wtaa() {
     session=$(_wt_session_for "${w_path[0]}")
     first_window="${w_branch[0]//\//-}"
 
-    # If we're launched from a window in this session that isn't inside any
-    # worktree (e.g. the project root), adopt it as the main worktree's window
-    # instead of spawning a separate one and leaving a stray launcher window.
-    local adopt_pane="" cur_session cur_path wp inside=0
+    # Adopt the launcher pane as the main worktree's window instead of spawning a
+    # separate one — but only a SINGLE bare pane (no tav split yet), so we never
+    # clobber a laid-out window. This covers two cases:
+    #   - launched from the project root: main's window doesn't exist yet, and
+    #     adopting avoids leaving a stray launcher window beside a fresh one.
+    #   - launched from main's own window when it was never laid out (e.g. a tmux
+    #     session opened from scratch in main): main's window "exists" but is just
+    #     a shell, so a plain skip would leave it without the tav layout.
+    # Sitting inside a *non-main* worktree never adopts: that window is the user's.
+    local adopt_pane="" cur_session cur_path cur_window cur_panes i inside=0
     if [[ -n "$TMUX" ]]; then
         cur_session=$(tmux display-message -t "$TMUX_PANE" -p '#{session_name}' 2>/dev/null)
         cur_path=$(tmux display-message -t "$TMUX_PANE" -p '#{pane_current_path}' 2>/dev/null)
+        cur_window=$(tmux display-message -t "$TMUX_PANE" -p '#{window_name}' 2>/dev/null)
+        cur_panes=$(tmux display-message -t "$TMUX_PANE" -p '#{window_panes}' 2>/dev/null)
         if [[ "$cur_session" == "$session" ]]; then
-            for wp in "${w_path[@]}"; do
-                if [[ "$cur_path" == "$wp" || "$cur_path" == "$wp"/* ]]; then inside=1; break; fi
+            for i in "${!w_path[@]}"; do
+                [[ "${w_main[$i]}" == "true" ]] && continue
+                if [[ "$cur_path" == "${w_path[$i]}" || "$cur_path" == "${w_path[$i]}"/* ]]; then
+                    inside=1; break
+                fi
             done
-            if [[ $inside -eq 0 ]] \
-               && ! tmux list-windows -t "$session:" -F '#{window_name}' 2>/dev/null | grep -qx "$first_window"; then
-                adopt_pane="$TMUX_PANE"
+            if [[ $inside -eq 0 && "${cur_panes:-1}" == "1" ]]; then
+                # Adopt when the launcher IS the (un-laid-out) main window, or when
+                # main has no window yet (launched from the project root).
+                if [[ "$cur_window" == "$first_window" ]] \
+                   || ! tmux list-windows -t "$session:" -F '#{window_name}' 2>/dev/null | grep -qx "$first_window"; then
+                    adopt_pane="$TMUX_PANE"
+                fi
             fi
         fi
     fi
 
-    local i
     for i in "${!w_branch[@]}"; do
         if [[ -n "$adopt_pane" && "${w_main[$i]}" == "true" ]]; then
             _wta_ensure_window "${w_branch[$i]}" "${w_path[$i]}" "$adopt_pane"
@@ -331,10 +360,6 @@ function wtaa() {
     done
 
     if [[ -n "$first_window" ]]; then
-        if [[ -n "$TMUX" ]]; then
-            tmux switch-client -t "$session:$first_window"
-        else
-            tmux attach -t "$session:$first_window"
-        fi
+        _wt_goto_window "$session" "$first_window"
     fi
 }
