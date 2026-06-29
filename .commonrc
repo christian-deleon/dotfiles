@@ -74,6 +74,33 @@ if [[ -n "$BASH_VERSION" ]]; then
     # and merge on reload (a multi-line entry can swallow following commands into
     # one giant blob). Without it, cmdhist joins multi-line commands with `;` —
     # less pretty on recall, but no literal newlines means entries can never merge.
+    # Collapse duplicate commands in ~/.bash_history before this shell loads it.
+    # erasedups (above) only de-dupes the in-memory list as you type — it never
+    # rewrites the file, so history -a from every terminal lets the file pile up
+    # stale copies that a fresh shell would bulk-load (bash de-dupes nothing on
+    # load). We rewrite the file HERE, during rc, which runs BEFORE the load:
+    # plain bash reads HISTFILE after sourcing rc, and ble.sh imports it at attach
+    # (end of this file). So no `history -r` reload is needed — one would
+    # double-load. Keeps the last occurrence of each command (with its timestamp)
+    # and only rewrites when something was actually removed, to limit churn and
+    # the race with sibling terminals appending via history -a.
+    _hist_dedup_file() {
+        local f="${1:-${HISTFILE:-$HOME/.bash_history}}" tmp
+        [[ -s "$f" ]] || return 0
+        tmp="$(mktemp "${f}.XXXXXX")" || return 0
+        if awk '
+                /^#[0-9]+$/ { pend=$0; have=1; next }
+                { ts[$0]=(have?pend:""); have=0; order[++n]=$0; last[$0]=n }
+                END { for (i=1;i<=n;i++) { c=order[i]; if (last[c]==i) { if (ts[c]!="") print ts[c]; print c } } }
+            ' "$f" >"$tmp" 2>/dev/null && [[ -s "$tmp" ]] &&
+            (( $(wc -l <"$tmp") < $(wc -l <"$f") )); then
+            chmod --reference="$f" "$tmp" 2>/dev/null
+            mv -f "$tmp" "$f"
+        else
+            rm -f "$tmp"
+        fi
+    }
+    _hist_dedup_file
     # Flush each command to the shared file as it runs (`history -a`) but never
     # read the file back into this session, so sibling terminals don't bleed into
     # each other's recall. With history_share OFF, ble.sh only adds commands to
@@ -91,6 +118,8 @@ elif [[ -n "$ZSH_VERSION" ]]; then
     SAVEHIST=200000
     setopt HIST_IGNORE_SPACE        # leading-space commands aren't recorded
     setopt HIST_IGNORE_ALL_DUPS     # keep only the most recent copy of a command
+    setopt HIST_SAVE_NO_DUPS        # drop older dups when writing the history file
+    setopt HIST_FIND_NO_DUPS        # skip earlier dups when searching history
     setopt HIST_REDUCE_BLANKS       # trim superfluous whitespace
     setopt EXTENDED_HISTORY         # record timestamps
     setopt INC_APPEND_HISTORY       # flush each command to the file as it runs…
