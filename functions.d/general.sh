@@ -107,3 +107,30 @@ function hdf() {
     done
     history -w
 }
+
+# De-dupe saved history, keeping the most recent of each
+function histdedup() {
+    if [[ -z "$BASH_VERSION" ]]; then
+        echo "histdedup: bash only (zsh de-dupes via HIST_SAVE_NO_DUPS)" >&2
+        return 1
+    fi
+    if ! declare -F _hist_dedup_file >/dev/null; then
+        echo "histdedup: _hist_dedup_file not loaded (source ~/.commonrc)" >&2
+        return 1
+    fi
+
+    # Clean the shared file so future shells load it dup-free.
+    _hist_dedup_file "${HISTFILE:-$HOME/.bash_history}"
+
+    # Refresh THIS shell's recall too, but without importing other terminals:
+    # de-dupe only the in-memory list (write it out, collapse it, read it back) —
+    # we never re-read the shared file, so per-terminal recall is preserved.
+    local mem
+    mem="$(mktemp)" || return 1
+    history -w "$mem"
+    _hist_dedup_file "$mem"
+    history -c
+    history -r "$mem"
+    rm -f "$mem"
+    echo "history de-duplicated"
+}
