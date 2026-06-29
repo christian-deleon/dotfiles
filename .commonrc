@@ -30,10 +30,11 @@ if [[ -z "$DOTFILES_PROFILE" && -f "$HOME/.dotfiles/.active-profile" ]]; then
 fi
 
 # ─── XDG_RUNTIME_DIR ──────────────────────────────────────────────────────────
-# WSL2: PAM sets XDG_RUNTIME_DIR=/run/user/<uid> but systemd never creates it.
-# Create it on first use so tools like ble.sh don't warn about a missing dir.
+# WSL2: PAM sets XDG_RUNTIME_DIR=/run/user/<uid> but systemd never creates it
+# and /run/user/ is root-owned, so mkdir fails. Unset it so tools fall back to
+# their defaults rather than warning about a missing directory.
 if [[ -n "$XDG_RUNTIME_DIR" && ! -d "$XDG_RUNTIME_DIR" ]]; then
-    mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
+    unset XDG_RUNTIME_DIR
 fi
 
 # ─── ble.sh (Bash Line Editor) ──────────────────────────────────────────────
