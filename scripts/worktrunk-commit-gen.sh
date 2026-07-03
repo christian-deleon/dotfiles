@@ -34,16 +34,23 @@ AI_PIPE_RETRIES="${AI_PIPE_RETRIES:-2}"
 
 # Conventional Commits 1.0.0 subject-line check. Type list mirrors the
 # [commit.generation] template in worktrunk's config.toml — keep them in sync.
-# Scope is intentionally permissive (anything but `)` or `:`) so multi-scope
-# forms like `(broker, engine)` or `(broker,engine)` pass — the model emits
-# these when a change spans subsystems, and they're valid in practice. `!`
-# marks a breaking change. Description ≤ 72 chars per the spec.
-CC_REGEX='^(feat|fix|refactor|perf|test|docs|chore|ci|style|revert)(\([^):]+\))?!?: .{1,72}$'
+# Scope is deliberately restricted to `[a-z0-9_.-]+` (single lowercase token,
+# no commas/slashes/spaces) to match the actual server-side GitLab push hook
+# regex. A looser local check here previously let multi-scope forms like
+# `(helm,terraform)` pass locally, commit, and then get rejected on `git push`
+# every time — this must stay a superset-or-equal restriction of the remote
+# hook, never looser. `!` marks a breaking change. Description ≤ 72 chars.
+CC_REGEX='^(feat|fix|refactor|perf|test|docs|chore|ci|style|revert)(\([a-z0-9_.-]+\))?!?: .{1,72}$'
 
 # Prefix-only form (no description-length check). Used on a validation failure
 # to tell a malformed type/structure apart from a description that is merely too
 # long, so the retry feedback can name the exact problem rather than guess.
-CC_PREFIX_REGEX='^(feat|fix|refactor|perf|test|docs|chore|ci|style|revert)(\([^):]+\))?!?: '
+CC_PREFIX_REGEX='^(feat|fix|refactor|perf|test|docs|chore|ci|style|revert)(\([a-z0-9_.-]+\))?!?: '
+
+# Matches a scope containing a comma or space (`(helm,terraform)`,
+# `(helm, terraform)`) — the most common real-world failure, called out
+# separately so the retry feedback names it instead of a generic message.
+CC_MULTISCOPE_REGEX='^[a-z]+\([^)]*[, ][^)]*\)'
 
 # Normalize $AI_TOOL_PIPE; tolerate the short forms used by AI_TOOL (cld/oc/gra).
 normalize_tool() {
@@ -100,8 +107,17 @@ cc_violation_reason() {
 
     [[ "$first_line" =~ $CC_REGEX ]] && return 0
 
+    # Multi-scope forms (`(helm,terraform)`, `(helm, terraform)`) are the most
+    # common failure here — name it explicitly instead of falling through to
+    # the generic "invalid type" message, so the retry fixes the real problem.
+    if [[ "$first_line" =~ $CC_MULTISCOPE_REGEX ]]; then
+        printf 'the scope must be a single token matching [a-z0-9_.-]+ — no commas, slashes, or spaces. Pick the ONE subsystem most central to the change (or omit the scope entirely for a cross-cutting change). You wrote: "%s"' \
+            "$first_line"
+        return 0
+    fi
+
     if [[ ! "$first_line" =~ $CC_PREFIX_REGEX ]]; then
-        printf 'the subject must start with a valid type (%s), an optional (scope), an optional "!", then ": ". You wrote: "%s"' \
+        printf 'the subject must start with a valid type (%s), an optional (scope) matching [a-z0-9_.-]+, an optional "!", then ": ". You wrote: "%s"' \
             'feat|fix|refactor|perf|test|docs|chore|ci|style|revert' "$first_line"
         return 0
     fi

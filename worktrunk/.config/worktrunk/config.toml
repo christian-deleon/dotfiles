@@ -56,7 +56,7 @@ When a commit mixes concerns, pick the type that reflects the PRIMARY change. If
 
 ## Scope
 
-Use a short lowercase noun identifying the subsystem or crate changed (e.g. engine, marketdata, api, auth). Omit if the change is truly cross-cutting.
+Use a single short lowercase noun identifying the subsystem or crate changed (e.g. engine, marketdata, api, auth). MUST be exactly one token matching `[a-z0-9_.-]+` — never a list like `(helm,terraform)` or `(helm, terraform)`, even when multiple subsystems changed. If several subsystems changed, pick the ONE most central to the change, or omit the scope entirely for a truly cross-cutting change.
 
 ## Description
 
