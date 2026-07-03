@@ -209,8 +209,19 @@ function wtc() {
     # --no-cd skips that directive (hooks still run) — it's the documented flag
     # for tmux workflows where we handle navigation ourselves. Project is
     # resolved from cwd, so run this from somewhere inside the worktrunk project.
-    local -a create=(switch --create "$branch" --no-cd)
-    [[ -n "$base" ]] && create+=(--base "$base")
+    #
+    # --create only applies to branches that don't exist yet. If the branch
+    # already exists locally or on origin (e.g. someone else's remote branch),
+    # `wt switch --create` errors out — `wt switch` alone finds-or-creates the
+    # worktree and auto-creates a local tracking branch from origin/<branch>.
+    local -a create=(switch "$branch" --no-cd)
+    if ! git show-ref --verify --quiet "refs/heads/$branch" && \
+       ! git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+        create=(switch --create "$branch" --no-cd)
+        [[ -n "$base" ]] && create+=(--base "$base")
+    elif [[ -n "$base" ]]; then
+        echo "wtc: '$branch' already exists; ignoring base '$base'" >&2
+    fi
     if ! wt "${create[@]}"; then
         echo "Error: failed to create worktree for '$branch'"
         return 1

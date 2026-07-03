@@ -500,7 +500,7 @@ wta feature/auth -p "add a contact page"   # ...and start the AI tool on that pr
 
 ### `wtc [-p|--prompt <text>] <branch> [base]`
 
-Create a **new** worktree (and branch) and open it in a tmux window with the `tav` layout — the create-first counterpart to [`wta`](#wta--p--prompt-text-branch-). Runs `wt switch --create <branch> [--base <base>] -x true` to materialize the worktree without dropping into a subshell, resolves its path, then hands off to the same window/layout helper `wta` uses (so it lands in the project's session as a window named after the sanitized branch, with a fresh `$AI_TOOL` launch). Finally jumps to that window. Run it from anywhere inside the worktrunk project — the project is resolved from your current directory, and the new window is built separately so your current window stays free.
+Create a worktree for `<branch>` and open it in a tmux window with the `tav` layout — the create-first counterpart to [`wta`](#wta--p--prompt-text-branch-). If `<branch>` doesn't exist locally or on `origin`, runs `wt switch --create <branch> [--base <base>]` to create it; if it already exists (local branch, or a remote-only branch someone else pushed), runs plain `wt switch <branch>` instead, which finds-or-creates the worktree and auto-creates a local tracking branch from `origin/<branch>` as needed (`base` is ignored in this case, with a warning). Either way it uses `--no-cd` to materialize the worktree without pulling the calling shell into it, resolves its path, then hands off to the same window/layout helper `wta` uses (so it lands in the project's session as a window named after the sanitized branch, with a fresh `$AI_TOOL` launch). Finally jumps to that window. Run it from anywhere inside the worktrunk project — the project is resolved from your current directory, and the new window is built separately so your current window stays free.
 
 Pass `-p`/`--prompt` to forward an initial prompt into the new session's AI tool (see [`tav`](#tav--t--tool-ai-cmd-prompt)).
 
@@ -510,6 +510,7 @@ Requires `$AI_TOOL` / `$AI_TOOL_RESUME` — run `dot ai-tool` first.
 wtc feature/auth                          # create feature/auth off the default branch, open + tav
 wtc hotfix/login main                     # create off an explicit base branch
 wtc feature/auth -p "add a contact page"  # create + launch the AI tool on that prompt
+wtc remote-only/branch                    # existing local/remote branch: switches instead of erroring
 ```
 
 ---
