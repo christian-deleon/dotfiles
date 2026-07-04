@@ -172,6 +172,17 @@ generate_mcp_configs() {
         drop_op_servers "$mcp_src" "$resolved"
     fi
 
+    # Expand shell-style $HOME in resolved values (JSON can't; keeps the
+    # template portable across machines). Used by servers that require an
+    # absolute path in env, e.g. flux-operator-mcp's KUBECONFIG.
+    if jq --arg home "$HOME" \
+        'walk(if type == "string" then gsub("\\$HOME"; $home) else . end)' \
+        "$resolved" > "$resolved.exp" 2>/dev/null; then
+        mv "$resolved.exp" "$resolved"
+    else
+        rm -f "$resolved.exp"
+    fi
+
     local claude_cfg="$HOME/.claude.json"
 
     # Only these MCP servers are enabled by default; all others are disabled.

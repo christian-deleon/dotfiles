@@ -101,6 +101,13 @@ flux:
     brew: fluxcd/tap/flux
     script: install-flux.sh
 
+flux-operator-mcp:
+  description: Flux MCP server (AI-assisted GitOps for Flux clusters)
+  install:
+    brew: controlplaneio-fluxcd/tap/flux-operator-mcp
+    script: install-flux-operator-mcp.sh
+    command: flux-operator-mcp
+
 fzf:
   description: Fuzzy finder
   install:

@@ -23,6 +23,14 @@
     "args": ["-y", "kubernetes-mcp-server@latest"],
     "description": "Kubernetes cluster operations"
   },
+  "flux": {
+    "command": "flux-operator-mcp",
+    "args": ["serve", "--read-only=false"],
+    "env": {
+      "KUBECONFIG": "$HOME/.kube/config"
+    },
+    "description": "Flux GitOps analysis, troubleshooting, and reconciliation"
+  },
   "aws-api": {
     "command": "uvx",
     "args": ["awslabs.aws-api-mcp-server@latest"],
