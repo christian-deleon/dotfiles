@@ -8,7 +8,7 @@
 #
 # Usage: generate-opencode-config.sh <ai_dir> <opencode_config_dir>
 #
-# Dependencies: bash, jq, sed
+# Dependencies: bash, jq, sed, awk
 
 set -e
 
@@ -53,15 +53,15 @@ for agent_file in "$AI_DIR"/agents/*.md; do
 
     # Map short model name to full provider ID
     case "$model" in
-        opus|opus-4-6)     model_id="anthropic/claude-opus-4-6" ;;
-        sonnet|sonnet-4-6) model_id="anthropic/claude-sonnet-4-6" ;;
-        haiku|haiku-4-5)   model_id="anthropic/claude-haiku-4-5" ;;
-        "")                model_id="anthropic/claude-sonnet-4-6" ;;
-        *)                 model_id="$model" ;;
+        opus|opus-4-8)   model_id="anthropic/claude-opus-4-8" ;;
+        sonnet|sonnet-5) model_id="anthropic/claude-sonnet-5" ;;
+        haiku|haiku-4-5) model_id="anthropic/claude-haiku-4-5" ;;
+        "")              model_id="anthropic/claude-sonnet-5" ;;
+        *)               model_id="$model" ;;
     esac
 
     # Extract body (everything after the second ---)
-    body="$(sed '1,/^---$/d; 1,/^---$/d' "$agent_file")"
+    body="$(awk 'seen == 2 { print; next } /^---$/ { seen++ }' "$agent_file")"
 
     # Build tools JSON object from comma-separated list
     tools_json="{}"
