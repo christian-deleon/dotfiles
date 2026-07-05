@@ -8,6 +8,12 @@
 
 MSI_DESC="Microstep MAG321UP OLED"
 
+# Serialize all monitor modesets (shared with lid-handler.sh). MST hotplug
+# fires several events in a burst; overlapping runs interleave hyprctl
+# modesets while the kernel is still link-training, which can wedge i915.
+exec 200>"${XDG_RUNTIME_DIR:-/tmp}/hypr-monitor.lock"
+flock -w 15 200 || exit 1 # lock stuck (hung hyprctl) — bail, don't pile up modesets
+
 if [ "$1" = "--swap" ]; then
     # Read current positions and swap them
     eval "$(hyprctl monitors -j | jq -r --arg desc "$MSI_DESC" '
