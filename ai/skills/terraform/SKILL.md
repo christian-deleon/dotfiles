@@ -22,6 +22,7 @@ If you can't tell which implementation is in use, check for: a `tofu` binary on 
 | Write a `tofu test` run, add variable validation, precondition/postcondition, `check` blocks | [testing.md](testing.md) |
 | Set up fmt/validate, `tflint`, security scanners, pre-commit, CI, `terraform-docs` | [tooling.md](tooling.md) |
 | Decide between Terraform and OpenTofu, use a OpenTofu-only feature, migrate from one to the other | [opentofu.md](opentofu.md) |
+| Look up live provider/module docs or HCP/TFE workspaces via MCP | [[terraform-mcp]] skill |
 
 For one-off edits, the cheat sheets in this file are usually enough. Reach for the reference files when the task warrants depth.
 

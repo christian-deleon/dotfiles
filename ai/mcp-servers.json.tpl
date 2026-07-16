@@ -31,14 +31,26 @@
     },
     "description": "Flux GitOps analysis, troubleshooting, and reconciliation"
   },
-  "aws-api": {
+  "aws": {
     "command": "uvx",
-    "args": ["awslabs.aws-api-mcp-server@latest"],
-    "env": {
-      "READ_OPERATIONS_ONLY": "true",
-      "REQUIRE_MUTATION_CONSENT": "true"
-    },
-    "description": "AWS API access (awslabs official, read-only by default)"
+    "args": [
+      "mcp-proxy-for-aws@1.6.3",
+      "https://aws-mcp.us-east-1.api.aws/mcp",
+      "--metadata",
+      "AWS_REGION=us-east-1",
+      "--read-only"
+    ],
+    "description": "AWS API, docs, and skills (managed; read-only via proxy)"
+  },
+  "terraform": {
+    "command": "docker",
+    "args": [
+      "run",
+      "-i",
+      "--rm",
+      "hashicorp/terraform-mcp-server:1.1.0"
+    ],
+    "description": "HashiCorp Terraform MCP (Registry + optional HCP/TFE)"
   },
   "playwright": {
     "command": "npx",

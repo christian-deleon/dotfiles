@@ -160,17 +160,36 @@ To make a one-off, machine-specific change without touching dotfiles: edit `~/.c
 }
 ```
 
-### uvx / Python-based server with read-only mode
+### Managed AWS MCP via SigV4 proxy (read-only)
 
 ```json
-"aws-api": {
+"aws": {
   "command": "uvx",
-  "args": ["awslabs.aws-api-mcp-server@latest"],
-  "env": {
-    "READ_OPERATIONS_ONLY": "true",
-    "REQUIRE_MUTATION_CONSENT": "true"
-  },
-  "description": "AWS API access (read-only by default)"
+  "args": [
+    "mcp-proxy-for-aws@1.6.3",
+    "https://aws-mcp.us-east-1.api.aws/mcp",
+    "--metadata",
+    "AWS_REGION=us-east-1",
+    "--read-only"
+  ],
+  "description": "AWS API, docs, and skills (managed; read-only via proxy)"
+}
+```
+
+Pin the proxy version (supply-chain hygiene).
+
+### Docker-based local MCP server
+
+```json
+"terraform": {
+  "command": "docker",
+  "args": [
+    "run",
+    "-i",
+    "--rm",
+    "hashicorp/terraform-mcp-server:1.1.0"
+  ],
+  "description": "HashiCorp Terraform Registry MCP"
 }
 ```
 
