@@ -57,14 +57,6 @@
     "args": ["@playwright/mcp@latest", "--browser", "chrome", "--executable-path", "/usr/bin/chromium"],
     "description": "Browser automation and E2E testing"
   },
-  "brave-search": {
-    "command": "npx",
-    "args": ["-y", "@brave/brave-search-mcp-server"],
-    "env": {
-      "BRAVE_API_KEY": "op://ujvoilqaehz2gozzpp2jqyhxsu/foc5j53cmytedcdwf25vnyt4t4/credential"
-    },
-    "description": "Web search via Brave"
-  },
   "github": {
     "command": "npx",
     "args": ["-y", "@modelcontextprotocol/server-github"],
@@ -80,10 +72,5 @@
       "FIRECRAWL_API_KEY": "op://ujvoilqaehz2gozzpp2jqyhxsu/qqxnvcu3mzmw6yosgtijqh3hv4/credential"
     },
     "description": "Web scraping and crawling"
-  },
-  "memory": {
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-memory"],
-    "description": "Persistent memory across sessions"
   }
 }

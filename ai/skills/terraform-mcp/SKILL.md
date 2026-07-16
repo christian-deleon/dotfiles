@@ -31,4 +31,4 @@ Workspace create/update/delete and run-triggering tools are powerful. Do **not**
 
 - Treat MCP output as applied infrastructure — registry docs are source of truth for *schemas*, not for what is running in an account
 - Use this as a substitute for `tofu plan` / `tofu apply` in the user's workspace
-- Confuse this with the **deprecated** AWS Labs `terraform-mcp-server` package — only HashiCorp's official image/binary
+- Reach for Context7 or Firecrawl for provider/module schemas when this server is available

@@ -52,6 +52,19 @@ Run `dot install` (or `FORCE_MCP_REGEN=true dot install` to bypass the hash cach
 
 The hash cache at `~/.cache/dotfiles/mcp-servers.hash` skips regeneration when the template hasn't changed AND target files exist with non-empty `mcpServers`. Set `FORCE_MCP_REGEN=true` to bypass.
 
+## Docs / web split (current roster)
+
+Do **not** stack multiple general-purpose search servers. The intentional pair:
+
+| Server | Role |
+|---|---|
+| `context7` | Library/SDK/framework package docs (RAG over curated indexes) |
+| `firecrawl` | Open-web search, scrape known URLs, multi-page research |
+
+Domain servers own their own docs when relevant (`terraform` registry, `aws` docs tools, `flux` docs search). Routing for agents lives in `ai/rules/common/prefer-mcp.md` — keep that rule and this table aligned when you add or remove a docs/web server.
+
+**Default-enabled** (see `enabled_mcp_servers` in `scripts/handlers/ai.sh`): only `context7` and `firecrawl`. Everything else in the template is installed but disabled until the user enables it per session. When adding a server you expect always-on, update that list too.
+
 ## Server schema (template = Claude shape)
 
 ### stdio (local process — most common)
@@ -150,13 +163,13 @@ To make a one-off, machine-specific change without touching dotfiles: edit `~/.c
 ### npm-based server with secret
 
 ```json
-"brave-search": {
+"firecrawl": {
   "command": "npx",
-  "args": ["-y", "@brave/brave-search-mcp-server"],
+  "args": ["-y", "firecrawl-mcp"],
   "env": {
-    "BRAVE_API_KEY": "op://vault/item/credential"
+    "FIRECRAWL_API_KEY": "op://vault/item/credential"
   },
-  "description": "Web search via Brave"
+  "description": "Web search, scrape, and research"
 }
 ```
 
