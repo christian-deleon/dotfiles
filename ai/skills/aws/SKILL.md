@@ -40,7 +40,7 @@ For one-off edits the cheat sheet below is usually enough. Reach for the topic f
 | Concern | Default | Notes |
 |---|---|---|
 | IaC | **OpenTofu** (`tofu`) | Falls back to Terraform if a project pins it |
-| AWS API reads | **`aws` MCP** | Read-only via proxy; see `aws-mcp` skill |
+| AWS API access | **`aws` MCP** | Full tools; read freely, mutations need explicit auth — see `aws-mcp` |
 | Default region | **`us-east-1`** | Most service coverage; multi-region only when workload demands it |
 | Encryption | **On everywhere, KMS-backed** | S3 SSE-KMS, EBS encrypted, RDS encrypted, Secrets Manager KMS-backed; CMK per app boundary |
 | IAM | **Roles, not users.** OIDC for CI, Identity Center for humans | No long-lived access keys in new work |

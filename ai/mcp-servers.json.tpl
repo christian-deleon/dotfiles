@@ -37,10 +37,9 @@
       "mcp-proxy-for-aws@1.6.3",
       "https://aws-mcp.us-east-1.api.aws/mcp",
       "--metadata",
-      "AWS_REGION=us-east-1",
-      "--read-only"
+      "AWS_REGION=us-east-1"
     ],
-    "description": "AWS API, docs, and skills (managed; read-only via proxy)"
+    "description": "AWS API, docs, and skills (managed; full access — agents read-only by policy)"
   },
   "terraform": {
     "command": "docker",
