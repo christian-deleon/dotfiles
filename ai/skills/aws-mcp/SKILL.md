@@ -39,3 +39,4 @@ When in doubt, treat the action as a mutation and ask first.
 ## Do not
 
 - Fall back to Bash `aws` when the MCP server is simply disabled (ask the user to enable it)
+- Use Context7 or Firecrawl for AWS service docs when this server's documentation tools are available

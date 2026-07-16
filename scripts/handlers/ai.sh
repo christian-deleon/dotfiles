@@ -186,7 +186,7 @@ generate_mcp_configs() {
     local claude_cfg="$HOME/.claude.json"
 
     # Only these MCP servers are enabled by default; all others are disabled.
-    local enabled_mcp_servers=("context7" "brave-search")
+    local enabled_mcp_servers=("context7" "firecrawl")
 
     local enabled_json
     enabled_json="$(printf '%s\n' "${enabled_mcp_servers[@]}" | jq -R . | jq -s .)"
