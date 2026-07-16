@@ -173,7 +173,7 @@ To make a one-off, machine-specific change without touching dotfiles: edit `~/.c
 }
 ```
 
-### Managed AWS MCP via SigV4 proxy (read-only)
+### Managed AWS MCP via SigV4 proxy (full access)
 
 ```json
 "aws": {
@@ -182,14 +182,15 @@ To make a one-off, machine-specific change without touching dotfiles: edit `~/.c
     "mcp-proxy-for-aws@1.6.3",
     "https://aws-mcp.us-east-1.api.aws/mcp",
     "--metadata",
-    "AWS_REGION=us-east-1",
-    "--read-only"
+    "AWS_REGION=us-east-1"
   ],
-  "description": "AWS API, docs, and skills (managed; read-only via proxy)"
+  "description": "AWS API, docs, and skills (managed; full access — agents read-only by policy)"
 }
 ```
 
-Pin the proxy version (supply-chain hygiene).
+Pin the proxy version (supply-chain hygiene). Do **not** re-add `--read-only`
+unless intentionally hiding write tools — agent policy (skill +
+`rules/common/live-mutations.md`) enforces read-default behavior instead.
 
 ### Docker-based local MCP server
 
