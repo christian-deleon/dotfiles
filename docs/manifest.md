@@ -46,7 +46,9 @@ Only two:
 
 - **`stow`** — auto-stows from `<package>/.config/<package>/` (directory) or `<package>/.config/<package>.<ext>` (single file). Optional `package:` override lets the stow directory differ from the item name. Used for `btop`, `alacritty`, `omarchy`, etc.
 
-- **`handler`** — calls a named bash function. Used for items that need imperative setup beyond stow: the four AI items (`claude`, `grok`, `opencode`), `tmux` (direct symlinks for `.tmux.conf` and `.tmux/`), `lid-check` (PAM patch), `windows-terminal` (Windows-side settings.json).
+- **`handler`** — calls a named bash function. Used for items that need imperative setup beyond stow: `claude` and `grok` (AI installers), `cargo` (`~/.cargo/config.toml` outside XDG), `lid-check` (PAM patch), `windows-terminal` (Windows-side settings.json).
+
+Note: `opencode` and `tmux` are **`type: stow`** (with `post_install` hooks for OpenCode AI linking / MCP). They are not handlers.
 
 Handlers live in `scripts/handlers/*.sh`, organized by domain:
 

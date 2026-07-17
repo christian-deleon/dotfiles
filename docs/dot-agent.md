@@ -1,4 +1,9 @@
-# Agent Files (`dot agent`)
+# Dot Agent (`dot agent`)
+
+> **Not the `agent-files` skill.** This doc covers the `dot agent` CLI and the
+> private `agent-files/` submodule (per-project / per-env AGENTS.md overlays).
+> For authoring skills/agents/rules under `~/.dotfiles/ai/`, use the
+> **`agent-files` skill** and [ai.md](ai.md).
 
 `dot agent` manages two kinds of overlay agent files sourced from the private `agent-files` submodule. The submodule is namespaced:
 

@@ -81,15 +81,16 @@ git -C ~/.dotfiles remote set-url origin git@github.com:christian-deleon/dotfile
 
 ## App Configs
 
-App configs (`~/.config/`) are managed via [GNU Stow](https://www.gnu.org/software/stow/) + [omadot](https://github.com/tomhayes/omadot) on all platforms. The installer auto-discovers stow packages (any `<pkg>/.config/<pkg>/` directory or single-file `<pkg>/.config/<pkg>.<ext>`) and presents a picker.
+App configs (`~/.config/`) are managed via [GNU Stow](https://www.gnu.org/software/stow/) + [omadot](https://github.com/tomhayes/omadot) on all platforms. Stow packages must be **declared in `manifest.yaml`** (`config.type: stow`) — the installer does not auto-discover them from the filesystem. Profiles (or `dot install <name>`) select which items to install.
 
-**New config from scratch** — write files into the repo first, then stow:
+**New config from scratch** — write files into the repo, add a manifest entry, then stow:
 
 ```bash
 mkdir -p <package>/.config/<package>/
 # ...edit files in <package>/.config/<package>/...
+# add <package> to manifest.yaml with config.type: stow (and to profiles as needed)
 omadot put <package>     # creates symlink ~/.config/<package> -> ~/.dotfiles/<package>/.config/<package>
-git add <package> && git commit
+git add <package> manifest.yaml profiles/ && git commit
 ```
 
 **Importing an existing `~/.config/<package>/`** into the repo:
@@ -97,7 +98,8 @@ git add <package> && git commit
 ```bash
 omadot get <package>     # copy ~/.config/<package> into the repo
 omadot put <package>     # replace original with symlink to dotfiles
-git add <package> && git commit
+# add manifest + profile entries if this is a new item
+git add <package> manifest.yaml profiles/ && git commit
 ```
 
 Stale `~/.config/<pkg>` symlinks from packages that have since been dropped are cleaned automatically on every `./install.sh`, `dot install`, and `dot update`.
@@ -121,10 +123,16 @@ Every item the repo knows about — tools, configs, bundles, handlers — is dec
 
 ## Docs
 
+- [Architecture](docs/architecture.md) — installer flow, stow, SSH, AI plumbing
+- [Common operations](docs/common-operations.md) — add aliases, functions, manifest items, configs
 - [Manifest schema](docs/manifest.md) — the universal inventory of items
 - [Profiles](docs/profiles.md) — curated per-machine install sets
+- [AI config](docs/ai.md) — agents, skills, rules, MCP across Claude/OpenCode/Grok
+- [Dot agent overlays](docs/dot-agent.md) — per-project and per-env AGENTS.md via `dot agent`
 - [Functions reference](docs/functions.md)
 - [Aliases reference](docs/aliases.md)
+- [Shell style](docs/shell-style.md) — bash conventions for this repo
+- [Windows bootstrap](docs/windows-bootstrap.md) — `windows/bootstrap.ps1`
 
 ## License
 
