@@ -75,7 +75,7 @@ Stow + post_install (not handlers): `opencode` (stow config + `install_ai_openco
 
 **Never use `omadot put --all`** in this repo. It would try to stow non-package directories (`brew/`, `scripts/`, `docs/`, etc.).
 
-**Stale-symlink cleanup (`clean_stale_dotfile_symlinks`):** when a stow package is removed from the repo, the `~/.config/<pkg>` symlink on each machine becomes a dangling pointer into `$DOTFILES_DIR/<pkg>/`. `clean_stale_dotfile_symlinks()` in `install.sh` scans `~/.config/` (depth 1), removes any symlink that resolves into `$DOTFILES_DIR/` and whose target no longer exists. It runs at the top of `run_core_config()` (every `./install.sh` and `dot install`) and from `dot.sh:update_system()` after the AI reinstall (every `dot update`). One function, two call sites — generalization of `clean_ai_symlinks()`.
+**Stale-symlink cleanup (`clean_stale_dotfile_symlinks`):** when a stow package is removed from the repo, the `~/.config/<pkg>` symlink on each machine becomes a dangling pointer into `$DOTFILES_DIR/<pkg>/`. `clean_stale_dotfile_symlinks()` in `install.sh` scans `~/.config/` (depth 1), removes any symlink that resolves into `$DOTFILES_DIR/` and whose target no longer exists. It runs at the top of `run_core_config()` (every `./install.sh` and `dot install`) and from `dot.sh:update_dotfiles()` after the AI reinstall (every `dot update`). One function, two call sites — generalization of `clean_ai_symlinks()`.
 
 ## Omarchy compatibility
 

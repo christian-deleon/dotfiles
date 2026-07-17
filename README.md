@@ -31,7 +31,7 @@ If `op` (1Password CLI) is missing, MCP servers that need secrets are skipped au
 
 ```bash
 dot edit                       # Open dotfiles in $EDITOR
-dot update                     # Update OS packages, pull dotfiles, reconcile active profile
+dot update                     # Pull dotfiles, refresh AI, rebuild source tools, reconcile profile
 dot install                    # Interactive: pick a profile or items manually
 dot install <name>...          # Install one or more items directly (binary + config for bundles)
 dot profile list               # Show profiles with compatibility / active markers

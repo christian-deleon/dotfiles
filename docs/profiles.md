@@ -79,7 +79,7 @@ To force a specific profile on a machine without re-running the installer, set `
 
 When a profile is active, `dot update` reconciles missing items: it iterates the profile's `items:` list and calls `install_item` on each. Idempotent — already-installed items are no-ops; new items get installed. **Removed items are left alone**: reconciliation is add-only so `dot update` never deletes work. To remove an item from a machine, uninstall it manually with your package manager.
 
-If no profile is active (e.g. you used Manual mode), `dot update` skips item reconciliation entirely — it just updates OS packages and pulls dotfiles.
+If no profile is active (e.g. you used Manual mode), `dot update` skips item reconciliation entirely — it still pulls dotfiles, refreshes AI, and rebuilds source tools.
 
 ## Manual mode
 

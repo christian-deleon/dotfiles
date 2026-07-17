@@ -45,8 +45,8 @@ Templates live in [`examples/`](examples/) — copy and edit, don't write from s
    disk (restart the session if you changed a skill *description* so
    catalogs reload). **New** skills/agents/commands need a re-link, and
    `dot update` already does that (pull + re-link Claude/OpenCode/Grok AI
-   assets + OS packages). Prefer that over inventing special AI-only
-   install paths. For MCP template changes only: `dot mcp-regen`.
+   assets). Prefer that over inventing special AI-only install paths. For
+   MCP template changes only: `dot mcp-regen`.
 
 3. **Author tool-agnostic content.** Every file you write here gets installed into all three tools simultaneously. Christian uses all three (Claude Code, OpenCode, Grok), so the **body** of any skill/agent/command/rule must read naturally regardless of which tool is consuming it. Specifically:
    - Don't reference tools by brand. Say "the Read tool" or "the Bash tool", not "Claude Code's Read" or "OpenCode's bash".

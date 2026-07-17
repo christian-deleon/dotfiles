@@ -31,7 +31,7 @@ EOF
     echo "Options:"
     echo "  help                  - Browse all functions and aliases interactively (fzf)"
     echo "  edit                  - Open the dotfiles directory in your editor"
-    echo "  update                - Update OS packages, pull dotfiles, reconcile active profile"
+    echo "  update                - Pull dotfiles, refresh AI, rebuild source tools, reconcile profile"
     echo "  install               - Interactive: pick a profile or items manually"
     echo "  install <name>...     - Install one or more items by name (binary + config for bundles)"
     echo "  profile <subcommand>  - Manage active profile (list/show/use)"
@@ -171,10 +171,11 @@ reconcile_profile() {
     _success "Profile reconciliation complete"
 }
 
-# Update OS packages, pull dotfiles, reconcile profile.
-update_system() {
+# Pull dotfiles, refresh AI, rebuild source tools, reconcile active profile.
+# OS package upgrades live in the shell function `pkgup`, not here.
+update_dotfiles() {
     echo
-    _info "Updating system packages and dotfiles..."
+    _info "Updating dotfiles..."
 
     if ! ensure_clean_dotfiles; then
         return 1
@@ -262,29 +263,13 @@ update_system() {
         fi
     fi
 
-    # Update OS packages
-    if [[ "$OSTYPE" == darwin* ]]; then
-        _info "Updating Homebrew..."
-        brew update && brew upgrade && brew cleanup && brew doctor
-    elif command -v pacman &>/dev/null; then
-        _info "Updating pacman packages..."
-        if command -v yay &>/dev/null; then
-            yay -Syu --noconfirm
-        else
-            sudo pacman -Syu --noconfirm
-        fi
-    elif command -v apt-get &>/dev/null; then
-        _info "Updating apt packages..."
-        sudo apt-get update && sudo apt-get upgrade -y && sudo apt-get autoremove -y
-    fi
-
     # Rebuild source-built tools
     update_source_tools || true
 
     # Reconcile active profile (add missing items)
     reconcile_profile || true
 
-    _success "System updated"
+    _success "Dotfiles updated"
 }
 
 
@@ -416,7 +401,7 @@ case "$1" in
         ${EDITOR:-vim} "$DOTFILES_DIR"
         ;;
     update)
-        update_system
+        update_dotfiles
         ;;
     install)
         shift

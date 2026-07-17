@@ -74,7 +74,7 @@ fi
 - Brewfiles: `Brewfile-profile` (`Brewfile-home`)
 
 **Functions:**
-- Descriptive names: `update_system()`, `install_tool()`
+- Descriptive names: `update_dotfiles()`, `install_tool()`
 - Kubernetes prefix: `k*` (`kcs`, `kn`, `kl`, `ke`, `kdp`)
 - Git prefix: `g*` (`gc`, `gcb`)
 - Many support fzf when called without arguments

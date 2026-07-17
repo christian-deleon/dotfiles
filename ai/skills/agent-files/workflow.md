@@ -75,7 +75,7 @@ reconcile step. When you add a new skill/agent/command, or want this machine
 to match the repo after a pull:
 
 ```bash
-dot update    # pull + re-link AI (Claude/OpenCode/Grok) + OS packages
+dot update    # pull + re-link AI (Claude/OpenCode/Grok)
 ```
 
 `dot update` already calls `install_ai_claude` / `install_ai_opencode` /

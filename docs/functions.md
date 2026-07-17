@@ -59,6 +59,25 @@ histdedup
 
 ---
 
+### `pkgup`
+
+Full OS package update and cleanup for the current host. Detects the package manager inline (no dependency on `scripts/lib.sh`):
+
+| Host | What runs |
+|------|-----------|
+| macOS | `brew update && brew upgrade && brew cleanup && brew doctor` |
+| Arch + `yay` | `yay -Syu --noconfirm` then `yay -Yc --noconfirm` |
+| Arch + pacman only | `sudo pacman -Syu --noconfirm` |
+| Debian/Ubuntu | `apt-get update && upgrade && autoremove && autoclean` |
+
+Not part of `dot update` — that command only refreshes this repo (pull, AI, source tools, profile). Use both when you want a full maintenance pass: `dot update && pkgup`.
+
+```bash
+pkgup
+```
+
+---
+
 ## Kubernetes
 
 Functions marked with \* support fzf for interactive selection when no arguments are provided.

@@ -94,7 +94,7 @@ Edits under `ai/` to files that are already linked are live immediately
 command, or to pick up repo changes on a machine:
 
 ```bash
-dot update          # pull + re-link Claude/OpenCode/Grok AI + OS packages
+dot update          # pull + re-link Claude/OpenCode/Grok AI
 ```
 
 `dot update` already re-runs `install_ai_claude` / `install_ai_opencode` /
