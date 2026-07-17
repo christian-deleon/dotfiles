@@ -519,7 +519,7 @@ Create a worktree for `<branch>` and open it in a tmux window with the `tav` lay
 
 Pass `-p`/`--prompt` to forward an initial prompt into the new session's AI tool (see [`tav`](#tav--t--tool-ai-cmd-prompt)).
 
-Pass `-n`/`--no-switch` to create the window without switching the tmux client to it — stay on the current window. Required for agent/script spawns so focus is not stolen; humans use plain `wtc` when they want to land in the new window.
+Pass `-n`/`--no-switch` to create the window without switching the tmux client to it — stay on the current window. Required for agent/script spawns so focus is not stolen; humans use plain `wtc` when they want to land in the new window. Under the hood, windows are always created with `tmux new-window -d` (detached); only the post-create `_wt_goto_window` step jumps — so `-n` actually keeps focus (without `-d`, create itself would steal it).
 
 Requires `$AI_TOOL` / `$AI_TOOL_RESUME` — run `dot ai-tool` first.
 
