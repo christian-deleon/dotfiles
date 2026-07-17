@@ -158,7 +158,11 @@ function _wta_ensure_window() {
         # Trailing colon forces a session target: a bare "$session" is ambiguous
         # when a window shares the session's name (automatic-rename can do this),
         # and tmux would try to create at that window's index ("index N in use").
-        pane_id=$(tmux new-window -t "$session:" -n "$window" -c "$wt_path" -P -F '#{pane_id}')
+        # -d is required: without it, new-window switches the current client to the
+        # new window immediately — which made wtc -n appear to ignore --no-switch
+        # (we skipped _wt_goto_window but the create itself already stole focus).
+        # Callers that want to land on the window call _wt_goto_window after this.
+        pane_id=$(tmux new-window -d -t "$session:" -n "$window" -c "$wt_path" -P -F '#{pane_id}')
         # Size to the target geometry before tav lays it out (see above), since
         # new-window inherits the 80x24 default when no client is attached.
         tmux resize-window -t "$pane_id" -x "$geo_x" -y "$geo_y" 2>/dev/null || true
