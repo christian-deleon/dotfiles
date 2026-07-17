@@ -29,10 +29,12 @@ language spawn order this turn is the only permission you need — do not re-ask
 Outside of that, never run `wtc` / `wta` / `wtaa`.
 
 The most common failure mode is treating "we found a bug" as a reason to spawn.
-It is not — **suggest** `/wtc …` and wait. Another failure mode is a thin prompt
-("fix the bug") that leaves the child agent with no context — always pack the
-handoff into `-p`. A third is running bare `wtc` without `-n` and yanking the
-user's focus — always pass `-n` from this skill.
+It is not — **suggest** `/wtc …` and wait. Another is a thin prompt ("fix the
+bug") that leaves the child with no context — always pack the handoff into `-p`.
+A third is bare `wtc` without `-n` (steals focus). A fourth is **keeping ownership
+after spawn**: still implementing the child's task, or treating child work as open
+on *this* session's checklist when the user asks "is everything resolved?" —
+spawn transfers accountability; see **Ownership after spawn**.
 
 ## Arguments — how to pass a message
 
@@ -149,9 +151,26 @@ Briefly list each spawn:
 - Tmux `session:window` (created; focus stayed put)
 - One-line task summary (not a full re-dump of `-p`)
 
-Do not keep working a child's task here unless the user asks. Parallel agents
-own their items. The user can switch to the new window when ready (`wta <branch>`,
-tmux window picker, etc.).
+Then stop. The user switches when ready (`wta <branch>`, tmux window picker, etc.).
+
+## Ownership after spawn
+
+**Once `wtc` successfully creates a worktree + agent for a task, that task is no
+longer this session's problem.** Parallel agents own their items end-to-end
+(implement, verify, residual report). The parent only owns work still on **this**
+branch / worktree.
+
+| Do | Don't |
+|---|---|
+| Answer "is everything resolved?" for **this** session's scope only | List spawned branches as open blockers on this session's done checklist |
+| Continue the parent's original task | Implement, re-debug, or re-verify the child's task here |
+| Hand off again only if the user pulls the issue back or asks you to work it | Poll child worktrees, merge their status into "are we done?", or restate their bugs as yours |
+
+Exceptions — only when the user **explicitly** asks this session to: resume the
+child's task, check that agent, merge that branch, or re-own the issue.
+
+Spawning is a clean cut: full `-p` handoff goes out; accountability does not stay
+behind as dual ownership.
 
 ## Examples
 
@@ -205,5 +224,7 @@ Or one multi-trigger:
 - Spawn into a different repo than the user's current project without an
   explicit path/repo ask.
 - Pass an empty `-p` when you have conversation context to hand off.
+- Keep working a child's task, or report child residuals as this session's
+  unfinished work, unless the user re-assigns it here.
 - Clean up worktrees afterward unless asked (`wt remove` is a separate explicit
   action).
