@@ -58,7 +58,7 @@ bash scripts/check-descriptions.sh   # function/alias descriptions ≤60 chars, 
 dot install [<name>...]               # Picker, or install specific items
 dot update                            # Update OS packages + pull + reconcile active profile
 dot profile list | show | use <name>
-dot agent link [name]                 # See docs/agent-files.md
+dot agent link [name]                 # See docs/dot-agent.md
 omadot put <pkg>                      # Stow a config (never `--all`)
 ```
 
@@ -87,7 +87,7 @@ Before committing:
 - [docs/common-operations.md](docs/common-operations.md) — step-by-step for adding aliases / functions / manifest items / app configs and for modifying `install.sh` / `dot.sh` / `.commonrc`. **Load when doing any of those.**
 - [docs/shell-style.md](docs/shell-style.md) — shell script standards and naming conventions. **Load when writing shell.**
 - [docs/windows-bootstrap.md](docs/windows-bootstrap.md) — `windows/bootstrap.ps1` internals. **Load only when editing the Windows bootstrap.**
-- [docs/agent-files.md](docs/agent-files.md) — `dot agent` (per-project and per-env AGENTS.md overlays). **Load only when editing `scripts/dot/agent.sh` or related.**
+- [docs/dot-agent.md](docs/dot-agent.md) — `dot agent` (per-project and per-env AGENTS.md overlays). **Load only when editing `scripts/dot/agent.sh` or related.** Not the same as the `agent-files` skill (authoring under `ai/`).
 - [docs/manifest.md](docs/manifest.md) — `manifest.yaml` schema reference
 - [docs/profiles.md](docs/profiles.md) — `profiles/*.yaml` schema reference
 - [docs/ai.md](docs/ai.md) — how to add agents, commands, skills, rules

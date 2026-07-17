@@ -210,12 +210,6 @@ ks 3             # Select deployment, scale to 3
 ks production 5  # In production namespace, scale to 5
 ```
 
-### `filter_kubectl_output <pattern> <command>`
-
-Internal helper function to filter kubectl output by pattern.
-
----
-
 ## Flux
 
 ### `fx` \*
@@ -536,15 +530,13 @@ wtaa             # one session, one window per worktree
 
 ## Dotfiles
 
-### `dothelp [query]` \*
+### `dot help [query]` \*
 
-Interactive fzf explorer for all shell functions and aliases defined in `.functions` and `.aliases`. Shows type, name, category, and description in the list; the preview pane shows the full function body or alias expansion.
+Interactive fzf explorer for all shell functions and aliases defined in `.functions` and `.aliases`. Implemented as the `dot help` subcommand (`scripts/dot/help.sh`), not a standalone shell function. Shows type, name, category, and description in the list; the preview pane shows the full function body or alias expansion.
 
 ```bash
-dothelp          # Browse everything interactively
-dothelp kube     # Pre-filter to Kubernetes shortcuts
-dh               # Short alias
-dh git           # Pre-filter to git shortcuts
+dot help          # Browse everything interactively
+dot help kube     # Pre-filter to Kubernetes shortcuts
 ```
 
 **Controls:**
