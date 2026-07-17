@@ -188,7 +188,8 @@ function wtc() {
 
     # Usage: wtc [-p|--prompt <text>] [-n|--no-switch] <branch> [base]
     #   -p/--prompt    forwarded to tav as the session's initial prompt
-    #   -n/--no-switch create the window but stay on the current one (agent-friendly)
+    #   -n/--no-switch create the window but stay on the current one (agent/script use)
+    # Default (interactive): jump to the new window after create.
     local branch="" base="" prompt="" no_switch=0 pos=0
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -242,8 +243,8 @@ function wtc() {
 
     # Reuse wta's helper to build the window + tav layout (fresh AI launch,
     # since a brand-new worktree has no Claude history). Jump is default for
-    # interactive use; --no-switch leaves the client on the current window
-    # (what the /wtc agent skill wants when spawning siblings in the background).
+    # interactive use; agents/scripts must pass -n/--no-switch so they do not
+    # steal focus from the user's current window.
     _wta_ensure_window "$branch" "$wt_path" "" "$prompt"
 
     local session window
