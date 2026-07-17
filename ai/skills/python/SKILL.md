@@ -47,7 +47,8 @@ A script that ships in a project:
 ```python
 """Brief one-line description.
 
-Longer notes here if useful. PEP 257 docstring conventions.
+Longer notes only for non-obvious invariants — not a walkthrough of the body.
+PEP 257; keep dense (see the `no-comment-slop` rule).
 """
 from __future__ import annotations  # not needed in 3.14+, helpful in 3.12/3.13
 
@@ -157,7 +158,7 @@ Rules:
 
 These apply across both scripts and applications:
 
-1. **Type hints on every public function and method.** Internal helpers can skip them if the types are obvious from context; public APIs cannot.
+1. **Type hints on every public function and method.** Internal helpers can skip them if the types are obvious from context; public APIs cannot. Docstrings on public APIs: purpose + invariants + real edge cases — not signature restatement or body narration. Inline comments explain *why*, never *what*; delete process/migration/restatement slop on sight.
 2. **`pathlib` for paths.** Never `os.path.join`, never raw string concatenation. New code only uses `os.path` for the handful of things `pathlib` doesn't cover.
 3. **`pydantic` (or `msgspec`) at every I/O boundary** — HTTP requests/responses, config files, environment variables, JSON files, message queues. Internal data carriers stay as `@dataclass`. See [data-models.md](data-models.md).
 4. **Never mutate function arguments.** If you need to return a modified copy, return a copy. Mutable default args (`def f(x=[]):`) are a bug — use `None` and `x = x or []`.

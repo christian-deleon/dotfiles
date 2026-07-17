@@ -195,7 +195,7 @@ These apply across binaries, libraries, and one-off scripts:
 
 1. **Treat clippy warnings as errors in CI.** `cargo clippy --workspace --all-targets --all-features -- -D warnings`. The clippy-clean codebase is the readable one.
 2. **`cargo fmt` is non-negotiable.** Pre-commit hook, CI check, or both. Style debates are over.
-3. **Public APIs get rustdoc comments (`///`).** Every public item. Examples in doc tests. `cargo doc --no-deps --open` to preview.
+3. **Public APIs get dense rustdoc (`///`).** Every public item: purpose, invariants, non-obvious edge cases — not a restatement of the signature or a walkthrough of the body. Examples in doc tests when they teach usage. Private helpers: usually no doc comment unless the invariant is subtle. Inline comments explain *why*, never *what* the next lines already say; delete process/migration/restatement slop on sight (see the `no-comment-slop` rule). `cargo doc --no-deps --open` to preview.
 4. **Errors are typed at module boundaries.** Within a function: `?` and let the type system flow. Across modules: a real error type.
 5. **`unwrap`/`expect` are rare and intentional.** When you use one, write `expect("…explanation of why this can't fail…")` — clippy has a lint that prefers `expect` over `unwrap` for exactly this reason.
 6. **Newtype before bare primitives** for IDs, currencies, units. `UserId(u64)`, `Cents(i64)`. Free type safety, zero runtime cost.
