@@ -1,5 +1,82 @@
 # Category: Tmux
 
+# internal: expand AI_TOOL aliases + optional prompt to a command line
+function _tav_expand_launch() {
+    # AI_TOOL values are often aliases (gra → grok --always-approve). Expand
+    # them here (interactive shell has BASH_ALIASES) so we can later launch via
+    # a non-interactive bash that will not expand aliases.
+    local ai_cmd=$1 prompt=$2
+    local first=${ai_cmd%% *}
+    local rest= expanded=
+
+    [[ $ai_cmd == *' '* ]] && rest=${ai_cmd#* }
+
+    if [[ -n ${BASH_ALIASES[$first]+x} ]]; then
+        expanded=${BASH_ALIASES[$first]}
+        [[ -n $rest ]] && expanded+=" $rest"
+    else
+        expanded=$ai_cmd
+    fi
+
+    if [[ -n $prompt ]]; then
+        printf '%s %q' "$expanded" "$prompt"
+    else
+        printf '%s' "$expanded"
+    fi
+}
+
+# internal: schedule post-start scrub of leaked DA text in AI prompt
+function _tav_schedule_da_scrub() {
+    # Grok treats Device Attributes replies as key input: its CSI parser eats
+    # ESC/[/> and leaves the body in the prompt (Alacritty `\e[>0;2600;1c` →
+    # `0;2600;1c`; tmux → `84;0;0c`). Scrub with C-u only when that fingerprint
+    # is visible, so we never wipe real typing. run-shell -b is owned by the
+    # tmux server and survives the pane being respawned (which kills tav's shell).
+    local pane=$1 delay=$2
+    # Compact one-liner for run-shell; pane id is %N (safe, no spaces).
+    # Match DA-body leftovers via grep (case patterns treat `;` as a clause
+    # terminator, so we can't use `case … *[0-9];[0-9]*c*`).
+    # Always end with `true`: grep -q exits 1 when there's no junk, and tmux
+    # run-shell prints "'…' returned 1" into a pane until the user hits C-c.
+    tmux run-shell -b "sleep $delay; { tmux capture-pane -t $pane -p 2>/dev/null | grep -F '❯' | head -1 | grep -qE '[0-9]+;[0-9]+([;0-9]*)c' && tmux send-keys -t $pane C-u; true; }"
+}
+
+# internal: respawn pane running AI without interactive-shell DA race
+function _tav_respawn_ai() {
+    # Two layers of defense against DA-reply garbage in the AI prompt:
+    # 1) Launch via noprofile/norc bash (no ble.sh) after a quiet-period drain.
+    # 2) After the TUI is up, scrub the prompt if a leaked DA body is present.
+    local pane=$1 dir=$2 launch=$3
+    local inner outer shell quiet_drain
+
+    # Wait until stdin is quiet for ~150ms (max ~1s) so late CSI/OSC replies
+    # from pane splits / sibling apps are drained before the AI starts.
+    quiet_drain='
+deadline=$((SECONDS + 1))
+quiet=0
+while (( SECONDS < deadline )); do
+  if IFS= read -r -t 0.05 -n 1 _; then
+    quiet=0
+  else
+    quiet=$((quiet + 1))
+    # 3 consecutive timeouts ≈ 150ms of silence
+    (( quiet >= 3 )) && break
+  fi
+done
+clear 2>/dev/null || true
+'
+    inner="${quiet_drain}${launch}"
+    shell=${SHELL:-bash}
+    outer="bash --noprofile --norc -c $(printf '%q' "$inner"); exec $(printf '%q' "$shell") -i"
+
+    # Two passes: early (TUI init probes) and late (nvim sibling term queries).
+    _tav_schedule_da_scrub "$pane" 0.5
+    _tav_schedule_da_scrub "$pane" 1.3
+
+    # Must be last: -k kills the current process (often the shell running tav).
+    tmux respawn-pane -k -t "$pane" -c "$dir" "$outer"
+}
+
 # Open tmux 3-pane layout with an AI tool and LazyVim
 function tav() {
     [[ -z "$TMUX" ]] && { echo "You must start tmux to use tav."; return 1; }
@@ -25,19 +102,10 @@ function tav() {
         return 1
     fi
 
-    # Append the prompt (if any) as a single shell-quoted arg so the AI tool
-    # launches straight into it. printf %q keeps it safe from the shell that
-    # send-keys feeds the line into.
-    local launch="$ai_cmd"
-    if [[ -n "$prompt" ]]; then
-        local q; q=$(printf '%q' "$prompt")
-        launch="$ai_cmd $q"
-    fi
-
-    local current_dir="${PWD}"
-    local top_left top_right
-
-    top_left="$TMUX_PANE"
+    local launch current_dir top_left top_right
+    launch=$(_tav_expand_launch "$ai_cmd" "$prompt")
+    current_dir=${PWD}
+    top_left=$TMUX_PANE
 
     tmux rename-window -t "$top_left" "$(basename "$current_dir")"
 
@@ -47,14 +115,14 @@ function tav() {
     # Horizontal divider at ~32% from bottom in the left column only
     tmux split-window -v -p 32 -t "$top_left" -c "$current_dir"
 
-    # `clear &&` hides the prompt + the tav invocation before the AI tool takes over
-    tmux send-keys -t "$top_left" "clear && $launch" C-m
     # Open Neovim on the project dir and drop straight into the LazyGit view
     # (same as <leader>gg / the `nvg` alias). vim.schedule defers until Snacks
     # is set up; quitting LazyGit leaves you in the project explorer.
     tmux send-keys -t "$top_right" 'nvim . -c "lua vim.schedule(function() Snacks.lazygit() end)"' C-m
 
+    # Focus AI pane, then respawn it (kills this shell — must be last).
     tmux select-pane -t "$top_left"
+    _tav_respawn_ai "$top_left" "$current_dir" "$launch"
 }
 
 # Open tmux 4-pane layout with an AI tool, LazyVim, and k9s
@@ -79,16 +147,10 @@ function tavk() {
         return 1
     fi
 
-    local launch="$ai_cmd"
-    if [[ -n "$prompt" ]]; then
-        local q; q=$(printf '%q' "$prompt")
-        launch="$ai_cmd $q"
-    fi
-
-    local current_dir="${PWD}"
-    local top_left top_right bottom_right
-
-    top_left="$TMUX_PANE"
+    local launch current_dir top_left top_right bottom_right
+    launch=$(_tav_expand_launch "$ai_cmd" "$prompt")
+    current_dir=${PWD}
+    top_left=$TMUX_PANE
 
     tmux rename-window -t "$top_left" "$(basename "$current_dir")"
 
@@ -99,14 +161,14 @@ function tavk() {
     tmux split-window -v -p 32 -t "$top_left" -c "$current_dir"
     bottom_right=$(tmux split-window -v -p 32 -t "$top_right" -c "$current_dir" -P -F '#{pane_id}')
 
-    # `clear &&` hides the prompt + the tavk invocation before the AI tool takes over
-    tmux send-keys -t "$top_left" "clear && $launch" C-m
     # Open Neovim on the project dir and drop straight into the LazyGit view
     # (same as <leader>gg / the `nvg` alias). See tav for the rationale.
     tmux send-keys -t "$top_right" 'nvim . -c "lua vim.schedule(function() Snacks.lazygit() end)"' C-m
     tmux send-keys -t "$bottom_right" "k9s" C-m
 
+    # Focus AI pane, then respawn it (kills this shell — must be last).
     tmux select-pane -t "$top_left"
+    _tav_respawn_ai "$top_left" "$current_dir" "$launch"
 }
 
 # Tmux session picker (switch/kill/rename via keybinds)
