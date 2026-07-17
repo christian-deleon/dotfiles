@@ -134,3 +134,28 @@ function histdedup() {
     rm -f "$mem"
     echo "history de-duplicated"
 }
+
+# Full OS package update + cleanup (brew/yay|pacman/apt)
+function pkgup() {
+    if [[ "$OSTYPE" == darwin* ]]; then
+        if ! command -v brew &>/dev/null; then
+            echo "pkgup: brew not found" >&2
+            return 1
+        fi
+        brew update && brew upgrade && brew cleanup && brew doctor
+    elif command -v pacman &>/dev/null; then
+        if command -v yay &>/dev/null; then
+            yay -Syu --noconfirm && yay -Yc --noconfirm
+        else
+            sudo pacman -Syu --noconfirm
+        fi
+    elif command -v apt-get &>/dev/null; then
+        sudo apt-get update \
+            && sudo apt-get upgrade -y \
+            && sudo apt-get autoremove -y \
+            && sudo apt-get autoclean
+    else
+        echo "pkgup: no supported package manager (brew/yay|pacman/apt)" >&2
+        return 1
+    fi
+}

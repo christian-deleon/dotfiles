@@ -101,7 +101,7 @@ Full walkthrough in [manifest.md](manifest.md). Short version:
 2. `dot install` (no args) sources `install.sh` and calls `select_profile` then `install_from_profile`/`install_manual` — same flow as `./install.sh`.
 3. `dot install <name> [<name>...]` calls `install_item` for each — manifest-driven, resolves aliases like `op` → `1password-cli`, `nvim` → `neovim`.
 4. `dot profile {list,show,use}` — `manage_profile` dispatcher. State lives in `~/.dotfiles/.active-profile`; `read_active_profile` prefers the `$DOTFILES_PROFILE` env override (set in `.localrc` to force).
-5. `dot update` updates OS packages, pulls dotfiles, refreshes AI symlinks, runs `update_source_tools`, then calls `reconcile_profile` (add-only: install missing items, never remove).
+5. `dot update` pulls dotfiles, refreshes AI symlinks, runs `update_source_tools`, then calls `reconcile_profile` (add-only: install missing items, never remove). OS package upgrades are the shell function `pkgup`, not part of `dot`.
 6. Keep brew commands as-is (macOS only).
 
 ## Modifying `.commonrc`

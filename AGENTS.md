@@ -56,7 +56,7 @@ bash scripts/check-descriptions.sh   # function/alias descriptions ≤60 chars, 
 # Install / manage
 ./install.sh                          # Interactive: pick profile or items manually
 dot install [<name>...]               # Picker, or install specific items
-dot update                            # Update OS packages + pull + reconcile active profile
+dot update                            # Pull + AI refresh + source tools + reconcile active profile
 dot profile list | show | use <name>
 dot agent link [name]                 # See docs/dot-agent.md
 omadot put <pkg>                      # Stow a config (never `--all`)
