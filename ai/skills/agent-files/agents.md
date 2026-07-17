@@ -216,7 +216,7 @@ output a short markdown report with file:line refs.
 When you update `~/.dotfiles/ai/agents/<name>.md`:
 
 1. Save the file.
-2. Run `dot install` — this regenerates `opencode.json` (the JSON-merged form) and refreshes Claude Code + Grok symlinks.
+2. Run `dot update` — re-links all tools and regenerates OpenCode agent JSON. Or `dot install opencode` for OpenCode only.
 3. Verify with `grok inspect <name>` (Grok) or by opening the `/agents` modal in Claude Code.
 
 The JSON regeneration is non-destructive: `generate-opencode-config.sh` only touches managed keys (`.agent`, `.command`, `.instructions`, `.plugin`) and preserves your personal config in `opencode.json`.

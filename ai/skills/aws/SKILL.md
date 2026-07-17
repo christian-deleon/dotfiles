@@ -105,5 +105,3 @@ Full rules: [naming.md](naming.md), [tagging.md](tagging.md).
 ## Adding to this skill
 
 When a new convention or strong preference lands, add it to the relevant topic file (or create a new one and link it from the decision tree). Keep `SKILL.md` lean — the decision tree is the contract, the depth lives in topic files.
-
-After editing anything in this skill, run `dot install` to refresh the symlinks across all three tools.

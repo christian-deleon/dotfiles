@@ -278,7 +278,3 @@ Go is great at: networked services, CLIs, infrastructure tooling, anything that 
 | `go.mod` `go 1.21` on a new module | `go 1.25.0` (matches floor) |
 | Build with `go build .` for a release | `goreleaser` v2 with `-trimpath`, `-ldflags`, `-buildvcs=true` |
 | `alpine` base image | `gcr.io/distroless/static-debian12:nonroot` |
-
-## After you change anything in this skill
-
-Run `dot install` to refresh the symlinks across all three tools. No restart needed.

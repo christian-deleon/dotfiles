@@ -3,12 +3,19 @@ name: bash
 description: Modern Bash scripting — safe, idiomatic, lint-clean. Use when editing `*.sh`/`*.bash`, files with a bash shebang, scripts under `bin/` or `scripts/`, or for prompts about shellcheck, shfmt, bats, strict mode. Bash 4+ default; POSIX `sh` only when target is `/bin/sh`. Enforces shellcheck-clean output and shfmt formatting.
 compatibility: opencode
 ---
-
 # Bash Scripting
 
 Bash is glue. It's great for invoking other programs in sequence and gluing their I/O together; it's bad at structured data, concurrency, and anything resembling business logic. When you reach for an associative array of associative arrays, switch languages. Rule of thumb: ~a few hundred lines, complex data, error-recovery semantics, or real string parsing → Python / Go / Rust.
 
 The most common AI failure mode is writing 2005-era bash: unquoted variables, `for f in $(ls)`, useless `cat`, backticks, `function foo()`, `local x=$(cmd)` masking the substitution's exit code, missing `--` before user paths, and `set -e` boilerplate copy-pasted with no understanding of where it lies to you. Don't do that.
+
+## Decision tree
+
+| Need | Read |
+|---|---|
+| Pipes, getopts, logging, security | [advanced.md](advanced.md) |
+| Layout, shellcheck, shfmt, bats | [tooling.md](tooling.md) |
+
 
 ## Header / preamble
 
@@ -183,157 +190,6 @@ main "$@"                      # Run only when executed directly, source-able ot
     ```
 
 - Put the entry point at the bottom: `main "$@"`. Guard with `[[ ${BASH_SOURCE[0]} == "$0" ]] && main "$@"` if the script is also sourced by tests.
-
-## External commands & file iteration
-
-- **Prefer builtins over forks**: parameter expansion over `sed`/`cut`, `(( ))` over `expr`, `[[ =~ ]]` over `grep` for simple matches, `printf` over `echo`.
-- **`command -v foo`** to test for a command — not `which` (non-standard, inconsistent exit codes).
-- **Never parse `ls`**. Use globs (`for f in ./*.txt`, with `nullglob` so it doesn't loop on the literal `*.txt`) or `find … -print0 | xargs -0` / `find … -exec cmd {} +`.
-- **`mapfile`** / **`readarray`** (bash 4+) for reading lines into an array — fed by process substitution so the array survives:
-
-  ```bash
-  mapfile -t lines < <(grep -h pattern file*.log)
-  printf '%d lines\n' "${#lines[@]}"
-  ```
-
-- **No useless `cat`.** `grep pat file`, not `cat file | grep pat`. To load a file into a variable: `var=$(<file)`, not `var=$(cat file)`.
-- **`printf`** over `echo`. `echo` flags (`-e`, `-n`) are non-portable, and `echo "$x"` mangles input starting with `-`. `printf '%s\n' "$x"` always works.
-
-## Pipes & subshells
-
-The classic trap:
-
-```bash
-count=0
-ls | while read -r f; do
-    (( count++ ))
-done
-echo "$count"                  # Always 0 — the `while` ran in a subshell.
-
-# Fix with process substitution:
-count=0
-while IFS= read -r f; do
-    (( count++ ))
-done < <(ls)
-echo "$count"                  # Correct.
-```
-
-- **`<(cmd)`** / **`>(cmd)`** keep both sides in the current shell. Use to feed `while read` loops and `mapfile`.
-- **`PIPESTATUS[@]`** array exposes per-stage exit codes when `pipefail` isn't enough detail.
-- **`shopt -s lastpipe`** + a non-interactive shell runs the last pipeline stage in the current shell — useful but niche; process substitution is the broadly-understood idiom.
-
-## Argument parsing
-
-**Short options only** → built-in `getopts` (POSIX, no fork):
-
-```bash
-verbose=0
-output=
-while getopts ':vo:h' opt; do
-    case $opt in
-        v) verbose=1 ;;
-        o) output=$OPTARG ;;
-        h) usage; exit 0 ;;
-        :) die "option -$OPTARG requires an argument" ;;
-        \?) die "unknown option: -$OPTARG" ;;
-    esac
-done
-shift $((OPTIND - 1))
-```
-
-**Long options (`--foo`, `--foo=bar`)** → hand-rolled `case` loop (more readable than GNU `getopt` in most cases):
-
-```bash
-verbose=0; file=
-while (( $# )); do
-    case $1 in
-        -h|--help) usage; exit 0 ;;
-        -v|--verbose) verbose=1 ;;
-        --file=*) file=${1#*=} ;;
-        --file) file=$2; shift ;;
-        --) shift; break ;;
-        -*) die "unknown flag: $1" ;;
-        *) break ;;
-    esac
-    shift
-done
-# remaining positionals in "$@"
-```
-
-Honor `--` to terminate option parsing before positionals. Skip BSD `getopt` entirely — only GNU `getopt` (util-linux) handles whitespace correctly, and even then a hand-rolled loop is usually clearer.
-
-## Logging & output
-
-```bash
-log()  { printf '[%(%FT%T%z)T] %s\n' -1 "$*" >&2; }
-warn() { log "WARN: $*"; }
-die()  { log "ERROR: $*"; exit 1; }
-```
-
-- **Diagnostics → stderr** (`>&2`). Reserve stdout for the script's actual output.
-- **`printf` over `echo`.**
-- **TTY-aware color:**
-
-  ```bash
-  if [[ -t 1 ]] && [[ -z ${NO_COLOR-} ]] && command -v tput >/dev/null; then
-      red=$(tput setaf 1); green=$(tput setaf 2); reset=$(tput sgr0)
-  else
-      red=; green=; reset=
-  fi
-  ```
-
-  Honor `NO_COLOR` (any value present disables color — [no-color.org](https://no-color.org/) cross-tool convention) and the `-t 1` TTY check. Prefer `tput` over hardcoded `\033[31m` escapes — works across terminfo definitions.
-
-## Security
-
-- **Never `eval` untrusted input.** If you must, generate the string yourself and document why.
-- **Word-splitting on attacker-controlled input is command injection.** Quote everything.
-- **`find … -exec sh -c '…' _ "{}" \;`** — pass the filename as `$1`, not interpolated into the script body.
-- **Atomic writes:** write to a tempfile in the same directory, then `mv`. Rename is atomic on the same filesystem.
-
-  ```bash
-  tmp=$(mktemp "$dest.XXXXXX")
-  write_output > "$tmp" && mv -- "$tmp" "$dest"
-  ```
-
-- **Singleton scripts with `flock`:**
-
-  ```bash
-  exec 200>/var/lock/myscript.lock
-  flock -n 200 || die "already running"
-  ```
-
-- **Safe PATH** at the top of security-sensitive scripts: `PATH=/usr/local/bin:/usr/bin:/bin`.
-
-## Project layout
-
-```
-bin/myscript            # shebang, set -Eeuo pipefail, main "$@"
-lib/common.sh           # sourced helpers, no shebang, no set -e
-test/test_main.bats     # bats-core tests
-```
-
-- Put scripts under `bin/`, mark `+x`, **drop the `.sh` extension** for tools in `$PATH` — users shouldn't have to know what language a CLI is written in.
-- Libraries get `.sh`, no shebang, no strict-mode at top, and a version guard if they need bash 4+.
-
-## Tooling
-
-| Tool | Role | Notes |
-|---|---|---|
-| [**shellcheck**](https://www.shellcheck.net/) | Static analysis | Treat as required. Gate CI on it. Disable specific checks inline with `# shellcheck disable=SCxxxx` *plus a justification comment*. |
-| [**shfmt**](https://github.com/mvdan/sh) | Formatter | `shfmt -i 2 -ci -bn -s -w` (≈ Google style). Honors `.editorconfig`. |
-| [**bats-core**](https://github.com/bats-core/bats-core) | Test framework | The standard. Pair with `bats-assert`, `bats-support`, `bats-mock`. Structure scripts so the body is in functions and `main "$@"` runs only when `[[ ${BASH_SOURCE[0]} == "$0" ]]` — then `bats` can source the script. |
-| [**shellharden**](https://github.com/anordal/shellharden) | Auto-quoter | Useful one-shot pass on legacy code before shellcheck. |
-
-ShellCheck inline directives:
-
-```bash
-# shellcheck source=lib/common.sh
-. ./lib/common.sh
-
-# shellcheck disable=SC2034  # var is exported via `env` in run_app
-DEBUG=1
-```
 
 ## When to stop using bash
 

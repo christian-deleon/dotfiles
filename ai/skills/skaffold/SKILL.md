@@ -197,7 +197,3 @@ If a cluster is reconciled by Flux/Argo CD, `skaffold dev`/`run` against it will
 - **Multi-cluster fan-out from one config:** Skaffold's `requires:` helps for monorepos, but for fanning the same release to N clusters use the GitOps layer.
 
 Skaffold is great at: the dev loop, the build step in CI, the render step in CI, and bridging "I have Dockerfiles + manifests" to "I can iterate on this in a real cluster in seconds."
-
-## After you change anything in this skill
-
-Run `dot install` to refresh the symlinks across all three tools. No restart needed.

@@ -211,7 +211,3 @@ Python is great at: I/O-bound services, ML/data tooling, CLIs, glue, prototypes 
 | Untyped public function signatures | type-hint every param and return value on public APIs |
 | `# type: ignore` with no error code | `# type: ignore[arg-type]  # reason: …` |
 | `class C: pass` then `c.x = 1; c.y = 2` | `@dataclass(slots=True) class C: x: int; y: int` |
-
-## After you change anything in this skill
-
-Run `dot install` to refresh the symlinks across all three tools. No restart needed.

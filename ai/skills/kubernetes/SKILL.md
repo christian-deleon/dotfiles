@@ -177,5 +177,3 @@ These are skeletons, not full charts. For chart structure, defer to the `helm` s
 ## Adding to this skill
 
 When a new convention lands, add it to the relevant topic file (or create a new one and link it from the decision tree). Keep `SKILL.md` lean — the decision tree is the contract, depth lives in topic files.
-
-After editing anything in this skill, run `dot install` to refresh symlinks across all three tools. No restart needed for Claude Code or Grok; OpenCode picks up changes on next session.

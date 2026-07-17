@@ -189,7 +189,3 @@ Switch tools when you hit any of:
 - **Ad-hoc one-off manifests** — just write the manifests.
 
 Helm is great at: shipping reusable Kubernetes applications, vendoring third-party components, packaging an internal platform's base services, and giving consumers a single `values.yaml`-shaped knob set.
-
-## After you change anything in this skill
-
-Run `dot install` to refresh the symlinks across all three tools. No restart needed.

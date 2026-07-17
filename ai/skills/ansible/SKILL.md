@@ -163,7 +163,3 @@ These apply across plays, roles, and ad-hoc usage:
 | `roles/foo-bar/` (dashes) | `roles/foo_bar/` (snake_case) |
 | `strategy: free` "for speed" | `strategy: host_pinned` |
 | Custom Python scripts to read state from hosts | `ansible.builtin.service_facts`, `setup`, `stat`, `slurp`, `getent` |
-
-## After you change this skill
-
-Run `dot install` to refresh the symlinks across all three tools. No restart needed.
