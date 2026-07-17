@@ -29,6 +29,7 @@ items:
   - fastfetch
   - fd
   - flux
+  - flux-operator-mcp
   - fzf
   - gh
   - granted
@@ -41,6 +42,7 @@ items:
   - k9s
   - kubectl
   - lazygit
+  - lid-check
   - makima
   - mako
   - mise
@@ -49,7 +51,6 @@ items:
   - npm
   - omarchy
   - opencode
-  - poetry
   - ripgrep
   - sccache
   - skaffold
