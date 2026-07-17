@@ -108,7 +108,7 @@ func Backoff(n int, base, cap time.Duration) time.Duration {
 }
 ```
 
-Public identifiers get a doc comment that starts with the identifier name. `gopls`, `golint`, and `revive` all enforce this.
+Public identifiers get a **dense** doc comment that starts with the identifier name — purpose and non-obvious constraints, not a restatement of the signature or a walkthrough of the body. `gopls`, `golint`, and `revive` enforce the presence of the comment; density is on you. Inline comments explain *why*, never *what*; delete process/migration/restatement slop on sight (see the `no-comment-slop` rule).
 
 ## Modern syntax cheat sheet (1.22 → 1.26)
 
