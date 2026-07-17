@@ -20,6 +20,7 @@ This document provides a reference for all custom shell aliases available in thi
 
 ## General Commands
 
+- `g` - Git shortcut (`git`)
 - `diff` - Enable colored diff output (`diff --color=auto`)
 - `mkdir` - Create directories with verbose parent creation (`mkdir -pv`)
 
@@ -27,9 +28,15 @@ This document provides a reference for all custom shell aliases available in thi
 
 ## Neovim
 
-- `v`, `n`, `nv` - Launch Neovim (`nvim`)
+- `v`, `nv` - Launch Neovim (`nvim`)
 - `vim` - Redirect `vim` to Neovim
 - `nvg` - Launch Neovim straight into the LazyGit view (same as `<leader>gg`, via `Snacks.lazygit()`)
+
+---
+
+## Dropbox
+
+- `db` - Dropbox CLI (`dropbox-cli`)
 
 ---
 
@@ -158,17 +165,6 @@ DNS resolution lookups.
 
 ---
 
-## Poetry
-
-Python dependency management shortcuts.
-
-- `pl` - Poetry lock (`poetry lock`)
-- `pu` - Poetry update (`poetry update`)
-- `pv` - Poetry version (`poetry version`)
-- `plu` - Poetry lock and update (`poetry lock && poetry update`)
-
----
-
 ## Skaffold
 
 Kubernetes development workflow tool shortcuts.
@@ -270,7 +266,7 @@ Naming scheme: top-level `wt` commands use `w<letter>` (with a trailing modifier
 
 ## Tmux Keybindings
 
-These are tmux keybindings (not shell aliases) defined in `.tmux.conf`:
+These are tmux keybindings (not shell aliases) defined in `tmux/.config/tmux/tmux.conf` (stowed to `~/.config/tmux/tmux.conf`):
 
 - `prefix + W` - Popup fzf worktree switcher — select a branch and `wt switch` runs in the original pane
 - `prefix + S` - Popup worktree status dashboard — shows `wt list` output
@@ -279,7 +275,7 @@ These are tmux keybindings (not shell aliases) defined in `.tmux.conf`:
 
 ## Dotfiles
 
-- `dh` — Interactive fzf explorer for all functions and aliases (`dothelp`) — see [functions.md](functions.md#dotfiles)
+- `dot help [query]` — Interactive fzf explorer for all functions and aliases — see [functions.md](functions.md#dotfiles)
 
 ---
 
