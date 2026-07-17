@@ -17,7 +17,6 @@ alias mkdir='mkdir -pv'                  # Create dirs with parents (verbose)
 
 # Neovim
 alias v='nvim'                           # Launch Neovim
-alias n='nvim'                           # Launch Neovim
 alias nv='nvim'                          # Launch Neovim
 alias vim='nvim'                         # Redirect vim to Neovim
 alias nvg='nvim -c "lua vim.schedule(function() Snacks.lazygit() end)"'  # Neovim into LazyGit
@@ -81,12 +80,6 @@ alias ncudp='nc -zvu'                    # Quick UDP port check (verbose)
 
 # DNS
 alias nsl='nslookup'                     # DNS lookup via nslookup
-
-# Poetry
-alias pl='poetry lock'                   # Run poetry lock
-alias pu='poetry update'                 # Run poetry update
-alias pv='poetry version'                # Show/set poetry version
-alias plu='poetry lock && poetry update' # Poetry lock then update
 
 # Skaffold
 alias skdel='skaffold delete'            # Delete skaffold resources
