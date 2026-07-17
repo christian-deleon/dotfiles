@@ -29,28 +29,37 @@ function _tav_expand_launch() {
 function _tav_schedule_da_scrub() {
     # Grok treats Device Attributes replies as key input: its CSI parser eats
     # ESC/[/> and leaves the body in the prompt (Alacritty `\e[>0;2600;1c` →
-    # `0;2600;1c`; tmux → `84;0;0c`). Scrub with C-u only when that fingerprint
-    # is visible, so we never wipe real typing. run-shell -b is owned by the
-    # tmux server and survives the pane being respawned (which kills tav's shell).
+    # `0;2600;1c`; tmux → `84;0;0c`). Those keystrokes also dismiss Grok's
+    # centered welcome/logo card permanently — C-u only clears the prompt after.
+    # Scrub with C-u only when the fingerprint is visible. run-shell -b is owned
+    # by the tmux server and survives the pane being respawned.
     local pane=$1 delay=$2
-    # Compact one-liner for run-shell; pane id is %N (safe, no spaces).
-    # Match DA-body leftovers via grep (case patterns treat `;` as a clause
-    # terminator, so we can't use `case … *[0-9];[0-9]*c*`).
     # Always end with `true`: grep -q exits 1 when there's no junk, and tmux
-    # run-shell prints "'…' returned 1" into a pane until the user hits C-c.
+    # run-shell would otherwise print "'…' returned 1" into a pane.
     tmux run-shell -b "sleep $delay; { tmux capture-pane -t $pane -p 2>/dev/null | grep -F '❯' | head -1 | grep -qE '[0-9]+;[0-9]+([;0-9]*)c' && tmux send-keys -t $pane C-u; true; }"
+}
+
+# internal: delay send-keys into a pane (survives tav's shell dying)
+function _tav_schedule_send() {
+    local pane=$1 delay=$2 keys=$3
+    # keys is a full send-keys argument string, e.g. the nvim invocation.
+    # Quote carefully: run-shell goes through a shell once.
+    tmux run-shell -b "sleep $delay; tmux send-keys -t $pane $(printf '%q' "$keys") C-m"
 }
 
 # internal: respawn pane running AI without interactive-shell DA race
 function _tav_respawn_ai() {
-    # Two layers of defense against DA-reply garbage in the AI prompt:
-    # 1) Launch via noprofile/norc bash (no ble.sh) after a quiet-period drain.
-    # 2) After the TUI is up, scrub the prompt if a leaked DA body is present.
+    # Defense against DA-reply keystrokes nuking Grok's welcome UI:
+    # 1) noprofile/norc launch (no ble.sh) after a quiet-period drain.
+    # 2) Sibling TUIs (nvim) must start AFTER the AI — concurrent term probes
+    #    are the main source of late DA leaks into the focused AI pane.
+    # 3) Late scrub of prompt junk if something still slips through (cannot
+    #    restore the logo once dismissed; only clears the typed DA body).
     local pane=$1 dir=$2 launch=$3
     local inner outer shell quiet_drain
 
-    # Wait until stdin is quiet for ~150ms (max ~1s) so late CSI/OSC replies
-    # from pane splits / sibling apps are drained before the AI starts.
+    # Drain until ~250ms of silence (max ~1.2s). Prefer consuming late CSI/OSC
+    # replies before the AI attaches to the tty.
     quiet_drain='
 deadline=$((SECONDS + 1))
 quiet=0
@@ -59,19 +68,21 @@ while (( SECONDS < deadline )); do
     quiet=0
   else
     quiet=$((quiet + 1))
-    # 3 consecutive timeouts ≈ 150ms of silence
-    (( quiet >= 3 )) && break
+    # 5 consecutive timeouts ≈ 250ms of silence
+    (( quiet >= 5 )) && break
   fi
 done
-clear 2>/dev/null || true
 '
+    # No `clear` here: it adds a blank frame and does not help DA handling.
+    # Grok paints its own full-screen UI (incl. the centered logo card).
     inner="${quiet_drain}${launch}"
     shell=${SHELL:-bash}
     outer="bash --noprofile --norc -c $(printf '%q' "$inner"); exec $(printf '%q' "$shell") -i"
 
-    # Two passes: early (TUI init probes) and late (nvim sibling term queries).
-    _tav_schedule_da_scrub "$pane" 0.5
-    _tav_schedule_da_scrub "$pane" 1.3
+    # Scrub after the welcome card has had time to paint. Early C-u is fine for
+    # the prompt, but we wait so capture-pane races don't fight first paint.
+    _tav_schedule_da_scrub "$pane" 1.5
+    _tav_schedule_da_scrub "$pane" 2.5
 
     # Must be last: -k kills the current process (often the shell running tav).
     tmux respawn-pane -k -t "$pane" -c "$dir" "$outer"
@@ -115,13 +126,13 @@ function tav() {
     # Horizontal divider at ~32% from bottom in the left column only
     tmux split-window -v -p 32 -t "$top_left" -c "$current_dir"
 
-    # Open Neovim on the project dir and drop straight into the LazyGit view
-    # (same as <leader>gg / the `nvg` alias). vim.schedule defers until Snacks
-    # is set up; quitting LazyGit leaves you in the project explorer.
-    tmux send-keys -t "$top_right" 'nvim . -c "lua vim.schedule(function() Snacks.lazygit() end)"' C-m
-
-    # Focus AI pane, then respawn it (kills this shell — must be last).
+    # Start AI first (focused). Delay nvim until the welcome/logo has painted —
+    # nvim's terminal probes are a major source of DA replies that Grok treats
+    # as keystrokes and which dismiss the centered splash permanently.
     tmux select-pane -t "$top_left"
+    _tav_schedule_send "$top_right" 1.6 \
+        'nvim . -c "lua vim.schedule(function() Snacks.lazygit() end)"'
+    # Respawn kills this shell — must be last.
     _tav_respawn_ai "$top_left" "$current_dir" "$launch"
 }
 
@@ -161,13 +172,13 @@ function tavk() {
     tmux split-window -v -p 32 -t "$top_left" -c "$current_dir"
     bottom_right=$(tmux split-window -v -p 32 -t "$top_right" -c "$current_dir" -P -F '#{pane_id}')
 
-    # Open Neovim on the project dir and drop straight into the LazyGit view
-    # (same as <leader>gg / the `nvg` alias). See tav for the rationale.
-    tmux send-keys -t "$top_right" 'nvim . -c "lua vim.schedule(function() Snacks.lazygit() end)"' C-m
-    tmux send-keys -t "$bottom_right" "k9s" C-m
-
-    # Focus AI pane, then respawn it (kills this shell — must be last).
+    # AI first; delay nvim/k9s so their term probes don't dismiss Grok's splash.
+    # See tav for the nvim LazyGit rationale.
     tmux select-pane -t "$top_left"
+    _tav_schedule_send "$top_right" 1.6 \
+        'nvim . -c "lua vim.schedule(function() Snacks.lazygit() end)"'
+    _tav_schedule_send "$bottom_right" 1.6 "k9s"
+    # Respawn kills this shell — must be last.
     _tav_respawn_ai "$top_left" "$current_dir" "$launch"
 }
 

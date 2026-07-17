@@ -421,7 +421,7 @@ sudo-revoke
 
 Open a 3-pane tmux layout in the current window: AI tool in the top-left (70% tall, focused), bash in the bottom-left (30% tall), and `nvim` (LazyVim) on the right (full height, 70% wide). The Neovim pane opens on the project dir and drops straight into the LazyGit view (same as `<leader>gg` / the `nvg` alias); quitting LazyGit leaves you in the project explorer. Must be run from inside tmux.
 
-The AI pane is **respawned** with a non-interactive launcher (aliases like `gra`/`cld` expanded first, pending terminal DA/OSC replies drained). After the TUI starts, `tav` also scrubs the prompt if a leaked Device Attributes body is present (Grok partially parses CSI and can leave e.g. Alacritty’s `0;2600;1c` in the input). When the AI tool exits, that pane drops into a normal interactive `$SHELL`.
+The AI pane is **respawned** with a non-interactive launcher (aliases expanded, pending DA/OSC replies drained). Neovim (and k9s in `tavk`) start ~1.6s later so their terminal probes don’t leak Device Attributes keystrokes into Grok — those keystrokes dismiss Grok’s centered welcome/logo permanently (not a session resume). A later prompt scrub clears any DA body that still lands in the input. When the AI tool exits, that pane drops into a normal interactive `$SHELL`.
 
 Bare positional arguments are the **initial prompt** — the AI tool launches straight into it (joined into a single argument, so quoting is optional). The tool defaults to `$AI_TOOL` (set via `dot ai-tool`, default `cld`); use `-t`/`--tool` to override it for one call. The override accepts a full command including flags (e.g. `-t "cld -c"`). Use `--` before a prompt that begins with a dash.
 
