@@ -186,13 +186,15 @@ function wtc() {
         return 1
     fi
 
-    # Usage: wtc [-p|--prompt <text>] <branch> [base]
-    #   -p/--prompt is forwarded to tav as the session's initial prompt.
-    local branch="" base="" prompt="" pos=0
+    # Usage: wtc [-p|--prompt <text>] [-n|--no-switch] <branch> [base]
+    #   -p/--prompt    forwarded to tav as the session's initial prompt
+    #   -n/--no-switch create the window but stay on the current one (agent-friendly)
+    local branch="" base="" prompt="" no_switch=0 pos=0
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            -p|--prompt) prompt="$2"; shift 2 ;;
-            -*)          echo "wtc: unknown option '$1'" >&2; return 1 ;;
+            -p|--prompt)    prompt="$2"; shift 2 ;;
+            -n|--no-switch) no_switch=1; shift ;;
+            -*)             echo "wtc: unknown option '$1'" >&2; return 1 ;;
             *)
                 if   [[ $pos -eq 0 ]]; then branch="$1"; pos=1
                 elif [[ $pos -eq 1 ]]; then base="$1";   pos=2
@@ -200,7 +202,10 @@ function wtc() {
                 shift ;;
         esac
     done
-    if [[ -z "$branch" ]]; then echo "Usage: wtc [-p <prompt>] <branch> [base]"; return 1; fi
+    if [[ -z "$branch" ]]; then
+        echo "Usage: wtc [-p <prompt>] [-n|--no-switch] <branch> [base]"
+        return 1
+    fi
 
     # Create the worktree+branch up front. --no-cd is the key: worktrunk's shell
     # integration wraps `wt` in a function that cd's the *calling* shell into the
@@ -236,13 +241,19 @@ function wtc() {
     fi
 
     # Reuse wta's helper to build the window + tav layout (fresh AI launch,
-    # since a brand-new worktree has no Claude history), then jump to it.
+    # since a brand-new worktree has no Claude history). Jump is default for
+    # interactive use; --no-switch leaves the client on the current window
+    # (what the /wtc agent skill wants when spawning siblings in the background).
     _wta_ensure_window "$branch" "$wt_path" "" "$prompt"
 
     local session window
     session=$(_wt_session_for "$wt_path")
     window="${branch//\//-}"
-    _wt_goto_window "$session" "$window"
+    if [[ $no_switch -eq 0 ]]; then
+        _wt_goto_window "$session" "$window"
+    else
+        echo "  ready   $session:$window  (staying put)"
+    fi
 }
 
 # Attach to a worktree in tmux with tav layout (fzf if no arg)
