@@ -15,24 +15,26 @@ asserting the implementation you're already planning instead of the
 requirement. The fix is the same in both cases: derive the expected value
 independently.
 
-Sequence, in order:
+Sequence, in order (blocking — do not skip):
 1. Write a test asserting the *correct/desired* behavior, with the expected
    value from an independent source of truth — not derived from the current
    or planned implementation.
 2. Run it and confirm it fails for the expected reason (a bug's actual
    symptom; a feature's not-yet-implemented behavior), not an unrelated error
    like a typo or missing import. This is the single easiest step to skip and
-   the one that proves the test actually exercises the thing.
+   the one that proves the test actually exercises the thing. **Record the
+   command and failure summary before any production-code edit.**
 3. Write the minimal code to make it pass.
 4. Re-run the same test and confirm it passes.
 5. Run the full suite to catch regressions.
-6. Keep the test — it's the permanent guard.
+6. Keep the test — it's the permanent guard. When reporting, include the red
+   evidence from step 2; without it, do not claim TDD was followed.
 
-Never write code and its test in the same pass without running step 2 in
-between. Ordering alone is not the safeguard — a test written first can still
-assert the wrong thing; the independent expected value is what does the real
-work. If you can't run the suite in the current environment, say so rather
-than reporting the work as verified.
+Never write production code and its test in the same pass without running
+step 2 in between. Ordering alone is not the safeguard — a test written first
+can still assert the wrong thing; the independent expected value is what does
+the real work. If you can't run the suite in the current environment, say so
+rather than reporting the work as verified.
 
 ## When the project has no tests
 

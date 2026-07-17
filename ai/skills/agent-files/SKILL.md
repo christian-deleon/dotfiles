@@ -36,7 +36,13 @@ Templates live in [`examples/`](examples/) — copy and edit, don't write from s
 
 1. **Source of truth is always `~/.dotfiles/ai/`.** Never write to `~/.claude/`, `~/.config/opencode/`, or `~/.grok/` directly — those paths are populated by symlinks and the installer will overwrite anything you put there. If you're not in `~/.dotfiles/`, `cd` there first.
 
-2. **After editing, the user must re-run the installer.** End every authoring session by telling the user to run `dot install` (or `dot update` if they also want a system-pkg refresh). For MCP changes you can also run `FORCE_MCP_REGEN=true dot install` to bypass the hash cache.
+2. **After authoring, reconcile with the normal project path.** Existing
+   skill/rule/agent files are already symlinked — body edits are live on
+   disk (restart the session if you changed a skill *description* so
+   catalogs reload). **New** skills/agents/commands need a re-link, and
+   `dot update` already does that (pull + re-link Claude/OpenCode/Grok AI
+   assets + OS packages). Prefer that over inventing special AI-only
+   install paths. For MCP template changes only: `dot mcp-regen`.
 
 3. **Author tool-agnostic content.** Every file you write here gets installed into all three tools simultaneously. Christian uses all three (Claude Code, OpenCode, Grok), so the **body** of any skill/agent/command/rule must read naturally regardless of which tool is consuming it. Specifically:
    - Don't reference tools by brand. Say "the Read tool" or "the Bash tool", not "Claude Code's Read" or "OpenCode's bash".

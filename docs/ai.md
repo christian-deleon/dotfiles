@@ -138,13 +138,19 @@ Rules in `ai/rules/` are symlinked into `~/.claude/rules/` for Claude Code and l
 
 ## Applying Changes
 
-After adding or modifying files in `ai/`:
+Edits under `ai/` to files that are already linked are live immediately
+(tool dirs are symlinks into the repo). After adding a **new** skill/agent/
+command, or to pick up repo changes on a machine:
 
 ```bash
-dot update          # Re-installs AI config for both platforms
-# or
-dot install         # Pick 'claude' and/or 'opencode' from the picker
+dot update          # pull + re-link Claude/OpenCode/Grok AI + OS packages
 ```
+
+`dot update` already re-runs `install_ai_claude` / `install_ai_opencode` /
+`install_ai_grok` after the git pull — no separate AI install path is needed.
+
+MCP template only: `dot mcp-regen`. Restart the agent session after adding a
+skill or changing a skill *description* so catalogs reload.
 
 ## How `generate-opencode-config.sh` Works
 

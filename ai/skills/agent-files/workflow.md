@@ -4,8 +4,11 @@ Authoring an AI agent file in this repo follows the same shape regardless of art
 
 1. Edit the source under `~/.dotfiles/ai/`.
 2. Validate locally (syntax check, frontmatter check).
-3. Run `dot install` to propagate to `~/.claude/`, `~/.config/opencode/`, and `~/.grok/`.
-4. Test in the target tool.
+3. Body edits to already-linked files need nothing (symlinks). New
+   skills/agents/commands, or after a pull on another machine: `dot update`
+   (pulls, re-links AI for Claude/OpenCode/Grok, refreshes packages).
+4. Test in the target tool (restart the session if you changed a skill
+   description so catalogs reload).
 5. Commit (the user does this; don't commit without being asked).
 
 This file covers the mechanics. The topic files (`skills.md`, `agents.md`, etc.) cover what to write.
@@ -65,20 +68,24 @@ If it's inline TOML in `~/.grok/config.toml`:
 python3 -c 'import tomllib; tomllib.load(open(sys.argv[1], "rb"))' ~/.dotfiles/grok/.grok/config.toml
 ```
 
-## Run the installer
+## Reconcile (`dot update`)
 
-Three modes, pick the right one:
+Body-only edits to already-linked skills/rules are live via symlink — no
+reconcile step. When you add a new skill/agent/command, or want this machine
+to match the repo after a pull:
 
 ```bash
-dot install                  # Picker; choose 'claude', 'opencode', 'grok' (or all three)
-dot install claude opencode  # Install specific items
-dot update                   # Update OS packages + pull repo + reconcile active profile
+dot update    # pull + re-link AI (Claude/OpenCode/Grok) + OS packages
 ```
 
-For MCP-specific work, force regeneration even if the template hash hasn't changed:
+`dot update` already calls `install_ai_claude` / `install_ai_opencode` /
+`install_ai_grok` after the git pull. That is the normal path — do not invent
+extra AI-only install wrappers.
+
+MCP template changes (secrets / server list):
 
 ```bash
-FORCE_MCP_REGEN=true dot install   # Bypasses ~/.cache/dotfiles/mcp-servers.hash
+dot mcp-regen
 ```
 
 The handlers that fire (in `~/.dotfiles/scripts/handlers/ai.sh`):
@@ -106,7 +113,8 @@ ls -la ~/.claude/skills/<name>     # should be a symlink to ~/.dotfiles/ai/skill
 readlink ~/.claude/skills/<name>
 ```
 
-If the symlink is missing, the installer didn't run for that component — re-run `dot install` and pick the right item.
+If the symlink is missing, re-run `dot update` (or `dot install claude` /
+`opencode` / `grok` for that tool only).
 
 ## Common multi-step flows
 
@@ -115,21 +123,21 @@ If the symlink is missing, the installer didn't run for that component — re-ru
 1. `mkdir ~/.dotfiles/ai/skills/<name>`
 2. Write `~/.dotfiles/ai/skills/<name>/SKILL.md` (see [skills.md](skills.md))
 3. Validate frontmatter: must have `name:` and `description:`; optionally `compatibility: opencode`
-4. Run `dot install`
-5. Test in Claude Code / OpenCode / Grok
+4. Commit (when asked), then `dot update` so this machine re-links
+5. Test in Claude Code / OpenCode / Grok (new session so the catalog picks it up)
 
 ### Add a new subagent
 
 1. Write `~/.dotfiles/ai/agents/<name>.md` (see [agents.md](agents.md))
 2. Validate frontmatter: must have `name:` and `description:`
-3. Run `dot install` — this also regenerates `opencode.json` (the JSON-merged form)
+3. Commit (when asked), then `dot update` — also regenerates OpenCode agent JSON
 4. Verify in Claude Code's `/agents` modal or OpenCode's `@<name>` autocomplete
 
 ### Add a new MCP server
 
 1. Edit `~/.dotfiles/ai/mcp-servers.json.tpl`
 2. `jq . ~/.dotfiles/ai/mcp-servers.json.tpl` to validate
-3. `FORCE_MCP_REGEN=true dot install`
+3. `dot mcp-regen`
 4. Restart any running Claude Code / OpenCode / Grok session
 5. Verify the server's tools are callable
 
@@ -137,13 +145,13 @@ If the symlink is missing, the installer didn't run for that component — re-ru
 
 1. Write `~/.dotfiles/ai/hooks/<event>_<purpose>.sh` (event-prefixed name auto-registers in Grok)
 2. `bash -n` and `shellcheck` the script
-3. Run `dot install`
+3. Commit (when asked), then `dot update`
 4. `grok inspect` to confirm registration
 5. Trigger the event in a Grok session to confirm execution
 
 ### Add a new Claude Code hook
 
-Edit `~/.dotfiles/ai/claude/settings.json` and add the hook under the `hooks` key (see [hooks.md](hooks.md) for schema). On `dot install`, `install_ai_claude` deep-merges the fragment into `~/.claude/settings.json` — the fragment wins on key conflicts, and arrays-per-event are replaced (not concatenated).
+Edit `~/.dotfiles/ai/claude/settings.json` and add the hook under the `hooks` key (see [hooks.md](hooks.md) for schema). On `dot update` (or `dot install claude`), `install_ai_claude` deep-merges the fragment into `~/.claude/settings.json` — the fragment wins on key conflicts, and arrays-per-event are replaced (not concatenated).
 
 For handler scripts of any non-trivial size, drop them in `~/.dotfiles/ai/hooks/` or `~/.dotfiles/ai/scripts/` and reference them by absolute path from the fragment. Machine-specific keys you don't want to track (e.g., `theme`, `effortLevel`) should stay in `~/.claude/settings.json` directly — the merge preserves any keys the fragment doesn't touch.
 
@@ -169,10 +177,10 @@ feat(ai): add agent-files skill for authoring AI artifact files
 | Skill doesn't trigger in Claude Code | Description too generic or too long | Tighten to specific phrases; check 1,536-char cap |
 | Skill not visible in OpenCode | Missing `compatibility: opencode` or `name:` violates regex | Add `compatibility: opencode`; rename to `^[a-z0-9]+(-[a-z0-9]+)*$` |
 | Agent not in `/agents` modal | Filename / `name:` mismatch | Make them match |
-| MCP server missing after install | 1Password not signed in, or hash cache stuck | `op signin`; `FORCE_MCP_REGEN=true dot install` |
+| MCP server missing after install | 1Password not signed in, or hash cache stuck | `op signin`; `dot mcp-regen` |
 | `~/.config/opencode/opencode.json` looks empty | `generate-opencode-config.sh` failed | Run it manually with `bash -x` to see errors |
 | Grok hook not firing | Filename doesn't start with the event name | Rename to `<eventname>_<purpose>.sh` (lowercase) |
-| Symlink points to nothing | Source file deleted but installer didn't clean | `clean_ai_symlinks` runs on install; re-run `dot install` |
+| Symlink points to nothing | Source file deleted but installer didn't clean | `clean_ai_symlinks` runs on install; re-run `dot update` |
 
 ## When to flag back to the user
 
