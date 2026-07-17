@@ -189,4 +189,4 @@ If you update the description, double-check Claude Code's 1,536-char cap. The do
 
 ## When the skill is done
 
-Tell the user to run `dot install` to refresh symlinks across all three tools. No restart is needed for Claude Code or Grok; OpenCode picks up changes on the next session.
+Body edits are live via symlink. New skills/agents/commands: `dot update` (or `dot install claude`/`opencode`/`grok` for one tool). Restart the session if you changed a skill *description*.

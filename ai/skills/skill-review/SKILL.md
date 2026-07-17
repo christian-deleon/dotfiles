@@ -80,9 +80,9 @@ Validation checks before writing:
 - If you added or changed a frontmatter key, verify it's in the schema (see the `agent-files` skill's `skills.md`). OpenCode rejects unknown keys via Zod.
 - If the skill is now over 500 lines after the edit, suggest splitting in a follow-up turn.
 
-### 6. Remind to install
+### 6. Reconcile note
 
-End with: *"Run `dot install` to refresh symlinks across all three tools. No restart needed for Claude Code or Grok; OpenCode picks up changes on the next session."*
+If you only edited an existing skill body, no install step is needed (symlink). If you added a new companion file or skill, remind: `dot update`. Restart the session if the skill *description* changed so catalogs reload.
 
 ## Rules
 
@@ -101,4 +101,4 @@ End with: *"Run `dot install` to refresh symlinks across all three tools. No res
 - Updating a skill based on a single moment of friction without checking whether the existing skill already covers the case (it often does, just not where you looked first).
 - Rewriting a skill's whole structure when the actual problem is one wrong fact.
 - Bloating the `description` field with every phrase you can think of — keep triggers focused; the model fuzzy-matches.
-- Forgetting the `dot install` reminder.
+- Telling the user to `dot install` after a body-only edit (symlinks are live; only new paths need `dot update`).

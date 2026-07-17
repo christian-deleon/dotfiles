@@ -148,7 +148,3 @@ The body of every reference file in this skill is written for "the user's setup"
 | Mega-modules that do "the platform" | Small, composable modules; composition root in the environment |
 | Module sources with `ref=main` | `ref=v1.4.0` or a commit SHA |
 | Skipping `tofu fmt`/`validate`/`tflint` | Run all three before every commit |
-
-## After you change anything in this skill
-
-Run `dot install` to refresh the symlinks across all three tools. No restart needed.

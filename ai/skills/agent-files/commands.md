@@ -122,7 +122,7 @@ Substitutions (`$ARGUMENTS`, `!`cmd``, `@file`) work the same in both tools — 
 | It's a one-shot prompt template, not a multi-page guide | It's a body of knowledge with progressive disclosure |
 | Three tools matter less (Grok lacks native commands) | All three tools should pick it up |
 
-For Christian's setup, **skills are the default**. The existing repo has eleven skills and zero `ai/commands/*.md` entries — that's intentional.
+For Christian's setup, **skills are the default**. The existing repo has many skills and zero `ai/commands/*.md` entries — that's intentional.
 
 ## Minimal canonical example
 
@@ -161,4 +161,4 @@ Summarize what changed. Focus area (optional): $ARGUMENTS
 
 ## Editing an existing command
 
-Same workflow as skills/agents — edit `ai/commands/<name>.md`, run `dot install`. No tool restart needed; Claude Code re-reads on next prompt, OpenCode on next session start.
+Same workflow as skills/agents — edit `ai/commands/<name>.md`. Body edits live via symlink; new commands need `dot update`. Restart if the catalog must reload.

@@ -1,10 +1,14 @@
 ---
 name: agent-files
-description: Authoring AI agent files (skills, agents, slash commands, hooks, rules, MCP entries) for Claude Code, OpenCode, and Grok. Use when adding or updating anything under `~/.dotfiles/ai/`, or for prompts like 'add a skill', 'new subagent', 'create a slash command', 'add a rule', 'add an MCP server', 'update the bash skill'. Source of truth is `~/.dotfiles/ai/`.
+description: Author skills/agents/hooks/rules/MCP under ~/.dotfiles/ai/ for Claude Code, OpenCode, and Grok. Use for 'add a skill', 'new subagent', 'add a rule', 'add an MCP server', 'update the bash skill'. Not for `dot agent` project/env AGENTS overlays (see docs/dot-agent.md).
 compatibility: opencode
 ---
 
 # Authoring AI Agent Files
+
+> **Not `dot agent`.** This skill authors content under `~/.dotfiles/ai/`.
+> Per-project / per-env AGENTS.md overlays are a different system — see
+> [docs/dot-agent.md](../../../docs/dot-agent.md) and `dot agent`.
 
 This dotfiles repo is the **single source of truth** for AI agent configuration across three terminal coding agents:
 
@@ -28,7 +32,7 @@ Pick the reference file that matches the artifact, read it first, then act:
 | Wire up a hook | [hooks.md](hooks.md) | `~/.dotfiles/ai/hooks/` (Grok) or `~/.claude/settings.json` (Claude) |
 | Add a rule / always-loaded instruction | [rules.md](rules.md) | `~/.dotfiles/ai/rules/<category>/<name>.md` |
 | Add or edit an MCP server entry | [mcp.md](mcp.md) | `~/.dotfiles/ai/mcp-servers.json.tpl` |
-| Apply changes to live config | [workflow.md](workflow.md) | run `dot install` or `dot update` |
+| Apply changes to live config | [workflow.md](workflow.md) | body edits live; new items: `dot update`; MCP: `dot mcp-regen` |
 
 Templates live in [`examples/`](examples/) — copy and edit, don't write from scratch.
 

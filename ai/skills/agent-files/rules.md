@@ -172,7 +172,7 @@ Globs and remote URLs (5s timeout) are supported. The installer's `generate-open
 
 ## Editing rules
 
-Edit the file in `~/.dotfiles/ai/rules/<category>/<name>.md`, then run `dot install`. The installer:
+Edit the file in `~/.dotfiles/ai/rules/<category>/<name>.md`. Body edits are live via symlink; new rule files need `dot update`. The installer:
 - Refreshes the symlink at `~/.claude/rules/<name>.md`
 - Regenerates `opencode.json` `instructions: [...]` to include the new path
 

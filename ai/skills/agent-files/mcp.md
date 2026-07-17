@@ -42,7 +42,7 @@ Format: a JSON object where each key is a server name and each value is a server
 
 ## Generated targets
 
-Run `dot install` (or `FORCE_MCP_REGEN=true dot install` to bypass the hash cache). The installer writes:
+Run `dot mcp-regen` (or `FORCE_MCP_REGEN=true` with `dot install claude`/`opencode` to bypass the hash cache). The installer writes:
 
 | Target | Path | Format |
 |---|---|---|
@@ -116,7 +116,7 @@ Any value (in `args`, `env`, or `headers`) can be a 1Password CLI reference:
 op://<vault>/<item>/<field>
 ```
 
-The installer runs `op inject` against the template before writing the per-tool configs. Secrets are pulled at install time, written as plaintext to the generated configs (which live in `~/.claude.json` / `~/.config/opencode/opencode.json`). Make sure the user is signed into 1Password before `dot install` — the installer prompts otherwise.
+The installer runs `op inject` against the template before writing the per-tool configs. Secrets are pulled at install time, written as plaintext to the generated configs (which live in `~/.claude.json` / `~/.config/opencode/opencode.json`). Make sure the user is signed into 1Password before `dot mcp-regen` / AI install — the installer prompts otherwise.
 
 Common patterns from `mcp-servers.json.tpl`:
 
@@ -146,7 +146,7 @@ The installer handles this conversion automatically. **Author the template in Cl
 1. Open `~/.dotfiles/ai/mcp-servers.json.tpl`.
 2. Add the new server entry (Claude shape, with `op://` references for any secrets).
 3. Validate the JSON: `jq . ~/.dotfiles/ai/mcp-servers.json.tpl`.
-4. Run `FORCE_MCP_REGEN=true dot install` to regenerate configs immediately.
+4. Run `dot mcp-regen` to regenerate configs immediately.
 5. Restart any running Claude Code / OpenCode / Grok session — MCP servers are loaded on session start.
 
 ## Removing or disabling an MCP server
@@ -243,8 +243,8 @@ Use absolute paths to mise shims when the server needs a specific Python or uv v
 ## After authoring
 
 1. `jq . ~/.dotfiles/ai/mcp-servers.json.tpl` to validate.
-2. `FORCE_MCP_REGEN=true dot install` to regenerate.
+2. `dot mcp-regen` to regenerate.
 3. Restart Claude Code / OpenCode / Grok sessions — MCP servers load at session start.
 4. Test the new tools: in Claude Code, ask the agent to call one; in Grok, use `grok inspect` to confirm registration.
 
-If 1Password isn't signed in: the installer warns and skips injection. Run `op signin`, then re-run `dot install`.
+If 1Password isn't signed in: the installer warns and skips injection. Run `op signin`, then re-run `dot mcp-regen`.

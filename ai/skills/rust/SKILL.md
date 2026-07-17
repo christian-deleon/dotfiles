@@ -263,7 +263,3 @@ Rust is great at: long-running services, CLIs you want to ship as a single binar
 | `.iter().map(...).collect::<Vec<_>>()` for a one-shot in-place transform | `Vec::extend` / `for` loop / in-place mutation |
 | Forgetting `#[derive(Debug)]` on public types | derive `Debug` (and `Clone`/`PartialEq`/`Eq`/`Hash` as warranted) for any type a caller might log |
 | Hand-rolled `Display` to `format!` then `parse` round-trip | dedicated `From`/`Into` or `serde` impls |
-
-## After you change anything in this skill
-
-Run `dot install` to refresh the symlinks across all three tools. No restart needed.
