@@ -1,8 +1,7 @@
 ---
 name: test-driven-development
-description: Test-first repair and construction. Use when fixing a bug or building a feature in a project that has (or should have) tests. Write a failing test that encodes the correct/desired behavior first, confirm it fails for the right reason, then make the minimal change to turn it green. Prevents tests that just re-encode the code's own logic. Skip for projects deliberately without tests.
+description: Test-first bugfix and feature work. Use when implementing, fixing, or changing behavior in a tested codebase. Write the failing test first, confirm red for the right reason, freeze it, then implement. Triggers: implement, fix, add feature, regression, bug. Skip only when the project deliberately has no tests.
 compatibility: opencode
-allowed-tools: Read Grep Glob Bash
 ---
 
 # Test-Driven Development
@@ -60,12 +59,16 @@ before writing the test.
    step before resuming.
 3. **Never skip the red state.** If you cannot produce a failing test, you do
    not yet understand the bug or the requirement. Go back and research —
-   read the code, trace the path, clarify the spec. Do not proceed to
-   implementation without a test that fails for the right reason.
-4. **Minimal change only.** Write the smallest code that turns the test
+   read the code, trace the path, clarify the spec. Do not edit production
+   code until you have a test that fails for the right reason.
+4. **Record red evidence before green edits.** After Phase 3, note the test
+   name(s), the command you ran, and a one-line summary of the failure. If
+   that evidence is missing from the session, you skipped TDD — stop and
+   produce a real red run before continuing.
+5. **Minimal change only.** Write the smallest code that turns the test
    green. If it requires broad or cross-cutting changes, pause and plan with
    the user first.
-5. **Run the test after every edit.** One change, run, observe — don't batch
+6. **Run the test after every edit.** One change, run, observe — don't batch
    edits and hope.
 
 ## Process
@@ -145,10 +148,14 @@ If existing tests fail after the change:
 
 ### Phase 6 — Report
 
-Tell the user: the root cause (bug) or the behavior added (feature); what the
-new test checks and why it failed before; what changed and why it's the right
-change; and confirmation that the full suite passes. The test is now a
-permanent guard.
+Tell the user:
+- root cause (bug) or behavior added (feature)
+- test name(s) and what they assert
+- **red evidence**: command + why it failed before the fix
+- what production code changed and why
+- confirmation the new test and full relevant suite pass
+
+If you cannot produce red evidence, do not claim TDD was followed.
 
 ## When the project has no tests
 
