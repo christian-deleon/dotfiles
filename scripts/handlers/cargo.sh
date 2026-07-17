@@ -4,8 +4,7 @@
 #
 # Cargo reads $CARGO_HOME/config.toml (default ~/.cargo/config.toml), which
 # sits outside ~/.config/, so type:stow (which targets ~/.config/<pkg>) does
-# not fit. The handler symlinks the tracked file into ~/.cargo/ directly,
-# mirroring the tmux pattern (~/.tmux.conf).
+# not fit. The handler symlinks the tracked file into ~/.cargo/ directly.
 
 install_cargo_config() {
     local src="$DOTFILES_DIR/cargo/.cargo/config.toml"

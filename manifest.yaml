@@ -259,7 +259,7 @@ opencode:
   post_install: [install_ai_opencode, generate_mcp_configs]
 
 poetry:
-  description: Python dependency management
+  description: Poetry (optional/legacy; prefer uv for new Python work)
   install:
     arch: python-poetry
     brew: poetry

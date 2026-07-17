@@ -26,6 +26,7 @@ items:
   - docker
   - fd
   - flux
+  - flux-operator-mcp
   - fzf
   - gh
   - granted
@@ -42,7 +43,6 @@ items:
   - neovim
   - npm
   - opencode
-  - poetry
   - ripgrep
   - sccache
   - skaffold
