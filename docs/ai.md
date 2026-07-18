@@ -15,6 +15,7 @@ ai/
 │   ├── agent-files/     # Authoring guide for everything under ai/
 │   ├── bash/, go/, python/, rust/, …
 │   ├── kubernetes/, helm/, flux/, terraform/, …
+│   ├── observability/       # App instrumentation (logs/metrics/traces placement)
 │   └── test-driven-development/, commit/, wtc/, …
 ├── rules/
 │   └── common/          # Always-on rules (TDD, MCP routing, no-auto-commit, …)
