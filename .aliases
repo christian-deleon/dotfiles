@@ -124,6 +124,7 @@ alias wsr='wt switch --remotes'                # Switch, picker includes remote 
 alias wm='wt merge'                            # Merge current worktree into default branch
 alias wmn='wt merge --no-remove'               # Merge current worktree but keep it
 alias wms='wt merge --no-remove --stage none'  # Merge only staged changes, keep worktree
+alias wmu='wt merge --no-squash'               # Merge without squashing (keep commit history)
 alias wr='wt remove'                           # Remove current worktree
 alias wxc='wt step commit'                     # Stage & AI-commit current worktree
 alias wxcs='wt step commit --stage none'       # AI-commit only already-staged changes
