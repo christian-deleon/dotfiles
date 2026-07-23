@@ -59,6 +59,7 @@ Picking `grok` runs `install_ai_grok()`:
 
 1. Symlinks `ai/skills/*`, `ai/agents/*`, and `ai/hooks/*` into native `~/.grok/`
 2. Symlinks `grok/.grok/config.toml` and `grok/.grok/pager.toml` into `~/.grok/`
+3. Merges baseline grants from `grok/.grok/trusted_folders.toml` into the live store `~/.grok/trusted_folders.toml` (never symlinked — Grok mutates that file at runtime). Parent grants cascade to subdirs, so `$HOME/Projects` covers all worktrees underneath.
 
 Grok does **not** run `generate_mcp_configs` itself. It loads MCP from `~/.claude.json` via Claude Code compatibility when that file already exists (install `claude` or `opencode` once, or run `dot mcp-regen`).
 

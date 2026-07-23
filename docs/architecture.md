@@ -151,6 +151,7 @@ Shared AI agent configuration owned by this dotfiles repo at `~/.dotfiles/ai/`. 
 **What `install_ai_grok()` does:**
 - Symlinks skills, agents, and hooks from `ai/` into native `~/.grok/`
 - Symlinks `grok/.grok/config.toml` and `pager.toml` into `~/.grok/`
+- Merges baseline folder-trust grants from `grok/.grok/trusted_folders.toml` into `~/.grok/trusted_folders.toml` (append-only ensure; live file is runtime-owned by Grok)
 - Does **not** regenerate MCP; Grok reads `~/.claude.json` via Claude Code compatibility when present
 
 **Shared MCP:** `generate_mcp_configs()` (post_install on `claude` and `opencode` only) reads `~/.dotfiles/ai/mcp-servers.json.tpl`, resolves secrets via 1Password, and writes to both `~/.claude.json` (mcpServers) and `~/.config/opencode/opencode.json` (mcp).

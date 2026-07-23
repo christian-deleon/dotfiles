@@ -94,7 +94,7 @@ The handlers that fire (in `~/.dotfiles/scripts/handlers/ai.sh`):
 |---|---|
 | `install_ai_claude` | Symlinks `ai/{agents,commands,skills,rules}/*` → `~/.claude/*`; deep-merges `ai/claude/settings.json` fragment into `~/.claude/settings.json` |
 | `install_ai_opencode` | Symlinks `ai/{commands,skills}/*` → `~/.config/opencode/*`, runs `generate-opencode-config.sh` to merge agents and rules into `opencode.json` |
-| `install_ai_grok` | Symlinks `ai/{skills,agents,hooks}/*` → `~/.grok/*`, links `grok/.grok/{config,pager}.toml` |
+| `install_ai_grok` | Symlinks `ai/{skills,agents,hooks}/*` → `~/.grok/*`, links `grok/.grok/{config,pager}.toml`, merges `grok/.grok/trusted_folders.toml` into live store |
 | `generate_mcp_configs` | Resolves 1Password refs, writes `~/.claude.json` `mcpServers` and `~/.config/opencode/opencode.json` `mcp` |
 
 ## Test in the target tool

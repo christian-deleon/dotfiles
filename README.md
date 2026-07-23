@@ -112,7 +112,7 @@ Select `claude`, `opencode`, or `grok` from `dot install`:
 
 - **Claude Code** — agents, commands, skills, and rules symlinked into `~/.claude/`
 - **OpenCode** — commands and skills symlinked into `~/.config/opencode/`; agents converted from markdown to JSON
-- **Grok Build TUI** — skills/agents/hooks symlinked into native `~/.grok/skills/`, `~/.grok/agents/`, `~/.grok/hooks/`; plus `config.toml` + `pager.toml`
+- **Grok Build TUI** — skills/agents/hooks symlinked into native `~/.grok/skills/`, `~/.grok/agents/`, `~/.grok/hooks/`; plus `config.toml` + `pager.toml`; parent folder-trust grants merged from `grok/.grok/trusted_folders.toml`
 - **MCP servers** — defined once in `ai/mcp-servers.json.tpl`, generated into `~/.claude.json` (consumed by Claude Code + Grok via compatibility layer) and `opencode.json`. 1Password secrets are injected; unresolved `op://` refs are dropped gracefully. Use `dot mcp-regen` to force re-injection.
 
 `dot update` refreshes AI config for all three platforms automatically. See [docs/ai.md](docs/ai.md) for details on adding agents, commands, skills, and rules.
