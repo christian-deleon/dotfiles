@@ -18,6 +18,7 @@ ai/
 │   ├── bash/, go/, python/, rust/, …
 │   ├── kubernetes/, helm/, flux/, terraform/, …
 │   ├── observability/       # App instrumentation (logs/metrics/traces placement)
+│   ├── playwright-mcp/      # Playwright MCP (don't dump screenshots in-repo)
 │   └── test-driven-development/, commit/, wtc/, …
 ├── rules/
 │   └── common/          # Always-on rules (TDD, MCP routing, no-auto-commit, …)
