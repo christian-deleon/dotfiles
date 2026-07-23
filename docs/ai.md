@@ -13,6 +13,8 @@ ai/
 ├── commands/            # Shared slash commands (intentionally empty — prefer skills)
 ├── skills/              # Shared skills (each dir has SKILL.md + optional companions)
 │   ├── agent-files/     # Authoring guide for everything under ai/
+│   ├── agent-optimize/  # Mine chat → project + global agent context
+│   ├── skill-review/    # Surgical fix for one existing skill after friction
 │   ├── bash/, go/, python/, rust/, …
 │   ├── kubernetes/, helm/, flux/, terraform/, …
 │   ├── observability/       # App instrumentation (logs/metrics/traces placement)

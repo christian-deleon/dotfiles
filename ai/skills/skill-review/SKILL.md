@@ -27,6 +27,7 @@ Fire this skill when:
 Do NOT fire this skill when:
 
 - The user wants a brand new skill — use the `agent-files` skill instead.
+- The user wants an open-ended pass over skills/rules/agents/AGENTS from the chat — use `agent-optimize` instead.
 - The change is a one-off preference that doesn't generalize to future sessions.
 - The friction was a model mistake, not a skill gap (the skill said the right thing and the model ignored it — flag that to the user but don't edit the skill).
 
