@@ -87,6 +87,59 @@ install_ai_opencode() {
     success "Installed AI config for OpenCode"
 }
 
+# Merge baseline grants from grok/.grok/trusted_folders.toml into the live
+# store at ~/.grok/trusted_folders.toml. Never symlink/replace that file —
+# Grok mutates it at runtime for per-path decisions. $HOME and ~ in managed
+# path keys are expanded so the same source works across machines.
+ensure_grok_trusted_folders() {
+    local managed="$DOTFILES_DIR/grok/.grok/trusted_folders.toml"
+    local dest="$HOME/.grok/trusted_folders.toml"
+    [[ -f "$managed" ]] || return 0
+
+    mkdir -p "$HOME/.grok"
+    if [[ ! -f "$dest" ]]; then
+        : >"$dest"
+        chmod 600 "$dest" || true
+    fi
+
+    local line path header
+    local -a paths=()
+    while IFS= read -r line || [[ -n $line ]]; do
+        [[ $line =~ ^\[folders\.\"([^\"]+)\"\]$ ]] || continue
+        path=${BASH_REMATCH[1]}
+        path=${path//\$HOME/$HOME}
+        path=${path/#\~/$HOME}
+        paths+=("$path")
+    done <"$managed"
+
+    local added=0
+    for path in "${paths[@]}"; do
+        header="[folders.\"${path}\"]"
+        if grep -Fq -- "$header" "$dest" 2>/dev/null; then
+            continue
+        fi
+        if [[ -s $dest ]]; then
+            # Separate tables with a blank line; ensure trailing newline first.
+            [[ -n $(tail -c1 "$dest" 2>/dev/null || true) ]] && printf '\n' >>"$dest"
+            printf '\n' >>"$dest"
+        fi
+        {
+            printf '%s\n' "$header"
+            printf 'trusted = true\n'
+            printf 'decided_at = %s\n' "$(date +%s)"
+        } >>"$dest"
+        added=$((added + 1))
+        info "Trusted Grok folder: $path"
+    done
+
+    chmod 600 "$dest" 2>/dev/null || true
+    if ((added > 0)); then
+        success "Merged $added Grok folder trust grant(s) into trusted_folders.toml"
+    else
+        success "Grok folder trust grants already present"
+    fi
+}
+
 install_ai_grok() {
     local ai_dir="$DOTFILES_DIR/ai"
     [[ -d "$ai_dir" ]] || { warn "ai/ directory not found"; return; }
@@ -112,6 +165,8 @@ install_ai_grok() {
             fi
         done
     fi
+
+    ensure_grok_trusted_folders
 
     success "Installed AI config for Grok Build TUI"
 }

@@ -1,0 +1,15 @@
+# Dotfiles-managed baseline for Grok folder trust.
+#
+# install_ai_grok merges these grants into ~/.grok/trusted_folders.toml.
+# That live file is NOT symlinked — Grok rewrites it at runtime when you
+# approve (or revoke) trust for individual paths.
+#
+# Trust cascades to subdirectories, so a parent grant covers every project
+# and worktree underneath (e.g. worktrunk siblings). $HOME is expanded at
+# install time so the same file works on Linux and macOS.
+
+[folders."$HOME/Projects"]
+trusted = true
+
+[folders."$HOME/projects"]
+trusted = true
