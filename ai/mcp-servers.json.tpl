@@ -53,7 +53,13 @@
   },
   "playwright": {
     "command": "npx",
-    "args": ["@playwright/mcp@latest", "--browser", "chrome", "--executable-path", "/usr/bin/chromium"],
+    "args": [
+      "@playwright/mcp@latest",
+      "--browser", "chrome",
+      "--executable-path", "/usr/bin/chromium",
+      "--output-dir", "/tmp/playwright-mcp",
+      "--isolated"
+    ],
     "description": "Browser automation and E2E testing"
   },
   "github": {
