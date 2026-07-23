@@ -33,6 +33,7 @@ Pick the reference file that matches the artifact, read it first, then act:
 | Add a rule / always-loaded instruction | [rules.md](rules.md) | `~/.dotfiles/ai/rules/<category>/<name>.md` |
 | Add or edit an MCP server entry | [mcp.md](mcp.md) | `~/.dotfiles/ai/mcp-servers.json.tpl` |
 | Apply changes to live config | [workflow.md](workflow.md) | body edits live; new items: `dot update`; MCP: `dot mcp-regen` |
+| Mine this chat and optimize project and/or global agent context | `agent-optimize` skill | orchestrator → project files + this skill + `skill-review` |
 
 Templates live in [`examples/`](examples/) — copy and edit, don't write from scratch.
 
