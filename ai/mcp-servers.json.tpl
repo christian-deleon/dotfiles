@@ -58,9 +58,10 @@
       "--browser", "chrome",
       "--executable-path", "/usr/bin/chromium",
       "--output-dir", "/tmp/playwright-mcp",
-      "--isolated"
+      "--isolated",
+      "--ignore-https-errors"
     ],
-    "description": "Browser automation and E2E testing"
+    "description": "Browser automation and E2E testing (ignore HTTPS errors for local/self-signed UIs)"
   },
   "github": {
     "command": "npx",
