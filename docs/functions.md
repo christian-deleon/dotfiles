@@ -430,31 +430,33 @@ sudo-revoke
 
 ## Tmux
 
-### `tav [-t|--tool <ai-cmd>] [prompt...]`
+### `tav [-t|--tool <ai-cmd>] [-f|--prompt-file <path>] [prompt...]`
 
 Open a 3-pane tmux layout in the current window: AI tool in the top-left (70% tall, focused), bash in the bottom-left (30% tall), and `nvim` (LazyVim) on the right (full height, 70% wide). The Neovim pane opens on the project dir and drops straight into the LazyGit view (same as `<leader>gg` / the `nvg` alias); quitting LazyGit leaves you in the project explorer. Must be run from inside tmux.
 
 The AI pane is **respawned** with a non-interactive launcher (aliases expanded, pending DA/OSC replies drained). Neovim (and k9s in `tavk`) start ~1.6s later so their terminal probes don’t leak Device Attributes keystrokes into Grok — those keystrokes dismiss Grok’s centered welcome/logo permanently (not a session resume). A later prompt scrub clears any DA body that still lands in the input. When the AI tool exits, that pane drops into a normal interactive `$SHELL`.
 
-Bare positional arguments are the **initial prompt** — the AI tool launches straight into it (joined into a single argument, so quoting is optional). The tool defaults to `$AI_TOOL` (set via `dot ai-tool`, default `cld`); use `-t`/`--tool` to override it for one call. The override accepts a full command including flags (e.g. `-t "cld -c"`). Use `--` before a prompt that begins with a dash.
+Bare positional arguments are the **initial prompt** — the AI tool launches straight into it (joined into a single argument, so quoting is optional). Prefer `-f`/`--prompt-file` for multi-line or multi-KB handoffs (the file is read once then deleted). `wta`/`wtc` use that path automatically for `-p` so they never `tmux send-keys` a huge shell-quoted prompt into a ble.sh pane (that used to hang on `(N bytes received...)`). The tool defaults to `$AI_TOOL` (set via `dot ai-tool`, default `cld`); use `-t`/`--tool` to override it for one call. The override accepts a full command including flags (e.g. `-t "cld -c"`). Use `--` before a prompt that begins with a dash.
 
 ```bash
 tav                            # just the layout, uses $AI_TOOL
 tav "add a contact me page"    # launch $AI_TOOL with that prompt
 tav -t "cld -c" "fix the bug"  # resume Claude, with a prompt
 tav -t oc "make it blue"       # override the AI tool for this call
+tav -f /tmp/handoff.md         # initial prompt from a file (deleted after read)
 ```
 
 ---
 
-### `tavk [-t|--tool <ai-cmd>] [prompt...]`
+### `tavk [-t|--tool <ai-cmd>] [-f|--prompt-file <path>] [prompt...]`
 
-Same as [`tav`](#tav--t--tool-ai-cmd-prompt) but with a 4th pane: bottom-right (30% tall, 70% wide) runs `k9s`. Takes the same `-t`/`--tool` flag and prompt arguments.
+Same as [`tav`](#tav--t--tool-ai-cmd-f--prompt-file-path-prompt) but with a 4th pane: bottom-right (30% tall, 70% wide) runs `k9s`. Takes the same `-t`/`--tool` / `-f`/`--prompt-file` flags and prompt arguments.
 
 ```bash
 tavk                            # 4-pane variant with k9s in the bottom-right
 tavk "fix the k8s deploy"       # 4-pane variant with an initial prompt
 tavk -t "cld -c" "..."          # 4-pane variant resuming Claude
+tavk -f /tmp/handoff.md         # 4-pane variant with a file-based prompt
 ```
 
 ---
@@ -501,7 +503,7 @@ wrf              # fzf multi-select, removes selected worktrees and their branch
 
 Open a single worktree in tmux with the `tav` layout. fzf picker if no branch is passed. The target session is the one you're already in when your current pane sits anywhere inside the project; otherwise it falls back to a session named after the worktrees' parent dir, creating it if needed. (This means launching from a session you named yourself — e.g. `tn ngc` — adds the window to *that* session instead of forking a separate one and orphaning your current window.) It then adds a window named after the sanitized branch and sends a `tav` invocation into it. If the window already exists, just attaches. Claude-aware resume: launches `$AI_TOOL_RESUME` when prior history exists at `~/.claude/projects/<slug>/*.jsonl`, otherwise `$AI_TOOL`.
 
-Pass `-p`/`--prompt` to forward an initial prompt into the session's AI tool (see [`tav`](#tav--t--tool-ai-cmd-prompt)). It works with both the picker and an explicit branch.
+Pass `-p`/`--prompt` to forward an initial prompt into the session's AI tool (see [`tav`](#tav--t--tool-ai-cmd-f--prompt-file-path-prompt)). Large prompts are written to a temp file and launched via `tav -f` so the tmux key stream stays short. It works with both the picker and an explicit branch.
 
 Requires `$AI_TOOL` / `$AI_TOOL_RESUME` — run `dot ai-tool` first.
 
@@ -517,7 +519,7 @@ wta feature/auth -p "add a contact page"   # ...and start the AI tool on that pr
 
 Create a worktree for `<branch>` and open it in a tmux window with the `tav` layout — the create-first counterpart to [`wta`](#wta--p--prompt-text-branch-). If `<branch>` doesn't exist locally or on `origin`, runs `wt switch --create <branch> [--base <base>]` to create it; if it already exists (local branch, or a remote-only branch someone else pushed), runs plain `wt switch <branch>` instead, which finds-or-creates the worktree and auto-creates a local tracking branch from `origin/<branch>` as needed (`base` is ignored in this case, with a warning). Either way it uses `--no-cd` to materialize the worktree without pulling the calling shell into it, resolves its path, then hands off to the same window/layout helper `wta` uses (so it lands in the project's session as a window named after the sanitized branch, with a fresh `$AI_TOOL` launch). **By default it then jumps to that window** (interactive default). Run it from anywhere inside the worktrunk project — the project is resolved from your current directory, and the new window is built separately so your current window stays free until the optional jump.
 
-Pass `-p`/`--prompt` to forward an initial prompt into the new session's AI tool (see [`tav`](#tav--t--tool-ai-cmd-prompt)).
+Pass `-p`/`--prompt` to forward an initial prompt into the new session's AI tool (see [`tav`](#tav--t--tool-ai-cmd-f--prompt-file-path-prompt)). Large handoffs go through a temp file + `tav -f` (avoids ble.sh hanging on `(N bytes received...)` when multi-KB prompts were send-keys'd verbatim).
 
 Pass `-n`/`--no-switch` to create the window without switching the tmux client to it — stay on the current window. Required for agent/script spawns so focus is not stolen; humans use plain `wtc` when they want to land in the new window. Under the hood, windows are always created with `tmux new-window -d` (detached); only the post-create `_wt_goto_window` step jumps — so `-n` actually keeps focus (without `-d`, create itself would steal it).
 
