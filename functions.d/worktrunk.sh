@@ -124,13 +124,24 @@ function _wta_ensure_window() {
         cmd="$AI_TOOL"
     fi
 
-    # Build the tav invocation: pass the resolved tool via -t (it may carry a
-    # flag like `cld -c`, so it must stay one quoted token), then the optional
-    # prompt as a shell-quoted trailing arg. tav re-parses both in the pane.
-    local tav_cmd="tav -t \"$cmd\""
+    # Build a short tav invocation for tmux send-keys. Large -p handoffs must
+    # NOT be shell-quoted into the key stream: ble.sh hangs on multi-KB input
+    # showing "(N bytes received...)" and tav never runs. Write the prompt to
+    # a temp file and pass -f so send-keys stays a few dozen bytes.
+    # -t value is printf-%q'd so multi-word tools (e.g. `cld -c`) stay one token.
+    local tav_cmd="tav -t $(printf '%q' "$cmd")"
     if [[ -n "$prompt" ]]; then
-        local pq; pq=$(printf '%q' "$prompt")
-        tav_cmd="$tav_cmd $pq"
+        local pf
+        pf=$(mktemp "${TMPDIR:-/tmp}/wtc-prompt.XXXXXX") || {
+            echo "Error: mktemp failed for wtc prompt file" >&2
+            return 1
+        }
+        printf '%s' "$prompt" > "$pf" || {
+            rm -f -- "$pf"
+            echo "Error: failed to write wtc prompt file" >&2
+            return 1
+        }
+        tav_cmd+=" -f $(printf '%q' "$pf")"
     fi
 
     # Adopt the launcher window: rename it now (so name-based targets resolve
@@ -139,7 +150,7 @@ function _wta_ensure_window() {
     if [[ -n "$adopt_pane" ]]; then
         tmux rename-window -t "$adopt_pane" "$window"
         tmux set-window-option -t "$adopt_pane" allow-rename off 2>/dev/null || true
-        tmux send-keys -t "$adopt_pane" "cd $wt_path && clear && $tav_cmd" C-m
+        tmux send-keys -t "$adopt_pane" "cd $(printf '%q' "$wt_path") && clear && $tav_cmd" C-m
         echo "  adopt   $session:$window  ($cmd)"
         return
     fi
@@ -176,6 +187,10 @@ function _wta_ensure_window() {
         tmux send-keys -t "$pane_id" "$tav_cmd" C-m
         echo "  create  $session:$window  ($cmd)"
     else
+        # Window already exists — drop the unused prompt file so it does not leak.
+        if [[ -n "$prompt" && -n "${pf:-}" ]]; then
+            rm -f -- "$pf"
+        fi
         echo "  skip    $session:$window (already exists)"
     fi
 }

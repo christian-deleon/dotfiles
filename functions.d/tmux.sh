@@ -88,24 +88,56 @@ done
     tmux respawn-pane -k -t "$pane" -c "$dir" "$outer"
 }
 
+# internal: parse tav/tavk flags into ai_cmd + prompt (via name refs)
+function _tav_parse_args() {
+    # Usage: _tav_parse_args <cmdname> ai_cmd_var prompt_var -- "$@"
+    # Supports -t/--tool, -f/--prompt-file, --, and bare prompt args.
+    # Prompt-file is preferred for large handoffs: wtc used to tmux send-keys
+    # the full shell-quoted prompt into a ble.sh pane, which hangs on
+    # "(N bytes received...)" for multi-KB agent handoffs.
+    local cmdname=$1
+    local -n _ai=$2 _prompt=$3
+    shift 3
+    [[ $1 == -- ]] && shift
+
+    local prompt_file=""
+    _ai=""
+    _prompt=""
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -t|--tool)        _ai=$2; shift 2 ;;
+            -f|--prompt-file) prompt_file=$2; shift 2 ;;
+            --)               shift; break ;;
+            -*)               echo "$cmdname: unknown option '$1'" >&2; return 1 ;;
+            *)                break ;;
+        esac
+    done
+    _prompt="$*"
+
+    if [[ -n $prompt_file ]]; then
+        if [[ ! -f $prompt_file ]]; then
+            echo "$cmdname: prompt file not found: $prompt_file" >&2
+            return 1
+        fi
+        # Preserve trailing newlines (command substitution strips them).
+        _prompt=$(cat -- "$prompt_file"; printf x) || return 1
+        _prompt=${_prompt%x}
+        rm -f -- "$prompt_file"
+    fi
+    return 0
+}
+
 # Open tmux 3-pane layout with an AI tool and LazyVim
 function tav() {
     [[ -z "$TMUX" ]] && { echo "You must start tmux to use tav."; return 1; }
 
-    # Usage: tav [-t|--tool <ai_cmd>] [prompt...]
+    # Usage: tav [-t|--tool <ai_cmd>] [-f|--prompt-file <path>] [prompt...]
     #   bare positional args are the initial prompt (e.g. tav "add a contact page");
-    #   -t/--tool overrides $AI_TOOL for this call (e.g. tav -t oc "...").
+    #   -t/--tool overrides $AI_TOOL for this call (e.g. tav -t oc "...");
+    #   -f/--prompt-file reads the initial prompt from a file (deleted after read).
     #   Use `--` to force a prompt that begins with a dash.
-    local ai_cmd=""
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            -t|--tool) ai_cmd="$2"; shift 2 ;;
-            --)        shift; break ;;
-            -*)        echo "tav: unknown option '$1'" >&2; return 1 ;;
-            *)         break ;;
-        esac
-    done
-    local prompt="$*"
+    local ai_cmd="" prompt=""
+    _tav_parse_args tav ai_cmd prompt -- "$@" || return 1
 
     ai_cmd="${ai_cmd:-${AI_TOOL:-}}"
     if [[ -z "$ai_cmd" ]]; then
@@ -140,17 +172,9 @@ function tav() {
 function tavk() {
     [[ -z "$TMUX" ]] && { echo "You must start tmux to use tavk."; return 1; }
 
-    # Usage: tavk [-t|--tool <ai_cmd>] [prompt...] — see tav for flag details.
-    local ai_cmd=""
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            -t|--tool) ai_cmd="$2"; shift 2 ;;
-            --)        shift; break ;;
-            -*)        echo "tavk: unknown option '$1'" >&2; return 1 ;;
-            *)         break ;;
-        esac
-    done
-    local prompt="$*"
+    # Usage: tavk [-t|--tool <ai_cmd>] [-f|--prompt-file <path>] [prompt...] — see tav.
+    local ai_cmd="" prompt=""
+    _tav_parse_args tavk ai_cmd prompt -- "$@" || return 1
 
     ai_cmd="${ai_cmd:-${AI_TOOL:-}}"
     if [[ -z "$ai_cmd" ]]; then
