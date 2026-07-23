@@ -16,6 +16,7 @@ web scraping by hand, or training-data recall whenever one matches the task.
 | Grafana dashboards / observability | `grafana` |
 | Docker engine / containers | `docker` |
 | GitHub PRs, issues, repos | `github` |
+| Browser automation / UI screenshots | `playwright` |
 
 **General knowledge** (only when no domain server covers it):
 
