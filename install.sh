@@ -43,15 +43,80 @@ success() { printf '%b\n' "${GREEN}✓${RESET} $1"; }
 warn()    { printf '%b\n' "${YELLOW}!${RESET} $1" >&2; }
 error()   { printf '%b\n' "${RED}✗${RESET} $1" >&2; }
 
+# Resolve a path to an absolute form (including dangling symlink targets).
+# GNU `readlink -m` is not available on macOS/BSD; never let resolution failure
+# abort the installer under `set -e`.
+resolve_path() {
+    local path="$1"
+    local resolved raw dir
+
+    if command -v greadlink &>/dev/null; then
+        resolved="$(greadlink -m "$path" 2>/dev/null)" && [[ -n "$resolved" ]] && {
+            printf '%s\n' "$resolved"
+            return 0
+        }
+    fi
+
+    # GNU coreutils readlink
+    if resolved="$(readlink -m "$path" 2>/dev/null)" && [[ -n "$resolved" ]]; then
+        printf '%s\n' "$resolved"
+        return 0
+    fi
+
+    # GNU realpath -m, or BSD/macOS realpath for existing paths
+    if command -v realpath &>/dev/null; then
+        if resolved="$(realpath -m "$path" 2>/dev/null)" && [[ -n "$resolved" ]]; then
+            printf '%s\n' "$resolved"
+            return 0
+        fi
+        if resolved="$(realpath "$path" 2>/dev/null)" && [[ -n "$resolved" ]]; then
+            printf '%s\n' "$resolved"
+            return 0
+        fi
+    fi
+
+    # macOS/BSD readlink -f (existing targets only)
+    if resolved="$(readlink -f "$path" 2>/dev/null)" && [[ -n "$resolved" ]]; then
+        printf '%s\n' "$resolved"
+        return 0
+    fi
+
+    # Dangling symlink: absolute-ize the raw target
+    if [[ -L "$path" ]]; then
+        raw="$(readlink "$path" 2>/dev/null || true)"
+        if [[ -n "$raw" ]]; then
+            if [[ "$raw" == /* ]]; then
+                printf '%s\n' "$raw"
+            else
+                dir="$(cd "$(dirname "$path")" 2>/dev/null && pwd)" || dir="$(dirname "$path")"
+                printf '%s/%s\n' "$dir" "$raw"
+            fi
+            return 0
+        fi
+    fi
+
+    if [[ "$path" == /* ]]; then
+        printf '%s\n' "$path"
+    else
+        printf '%s/%s\n' "${PWD:-.}" "$path"
+    fi
+}
+
 backup_item() {
     local src="$1"
     local relative="${src#"$HOME"/}"
     local dest="$BACKUP_DIR/$relative"
 
-    if [[ -e "$src" ]]; then
+    # Include broken symlinks (common when migrating ~/dotfiles -> ~/.dotfiles)
+    if [[ -e "$src" || -L "$src" ]]; then
         mkdir -p "$(dirname "$dest")"
-        cp -rL "$src" "$dest"
-        info "Backed up ${DIM}$relative${RESET}"
+        if [[ -L "$src" && ! -e "$src" ]]; then
+            readlink "$src" > "${dest}.broken-link-target" 2>/dev/null || true
+            info "Noted broken link ${DIM}$relative${RESET}"
+        else
+            cp -rL "$src" "$dest"
+            info "Backed up ${DIM}$relative${RESET}"
+        fi
     fi
 }
 
@@ -190,6 +255,10 @@ ensure_omadot() {
 
 # Resolve op:// references across multiple 1Password accounts.
 # Usage: op_inject_multi <template> <output>
+#
+# macOS ships /bin/bash 3.2 — no associative arrays. Encode the vault→account
+# map as newline-separated "vault_id<TAB>account_url" rows (same pattern as
+# run_post_install's hook dedupe list).
 op_inject_multi() {
     local tpl="$1"
     local out="$2"
@@ -213,22 +282,40 @@ op_inject_multi() {
         return 1
     fi
 
-    local -A vault_account_map
+    # vault_id → account URL map (bash 3.2-safe)
+    local vault_account_map=""
+    local acct acct_url vault_line vid
     while IFS= read -r acct; do
-        local acct_url
+        [[ -z "$acct" ]] && continue
         acct_url="$(echo "$acct" | awk '{print $1}')"
+        # Skip table header if present
+        [[ -z "$acct_url" || "$acct_url" == "URL" ]] && continue
         while IFS= read -r vault_line; do
-            local vid
+            [[ -z "$vault_line" ]] && continue
             vid="$(echo "$vault_line" | awk '{print $1}')"
-            vault_account_map["$vid"]="$acct_url"
+            [[ -z "$vid" || "$vid" == "ID" ]] && continue
+            vault_account_map+="${vid}"$'\t'"${acct_url}"$'\n'
         done < <(op vault list --account "$acct_url" 2>/dev/null | tail -n +2)
-    done < <(echo "$op_check" | tail -n +2)
+    done < <(printf '%s\n' "$op_check" | tail -n +2)
 
     local failed=0
+    local ref vault_id account secret map_line map_vid
     while IFS= read -r ref; do
-        local vault_id
+        [[ -z "$ref" ]] && continue
+        # op://VAULT/item/field → vault is field 3 of /-split with empty first from op:
+        #   op://vault/... → cut -d/ -f3
         vault_id="$(echo "$ref" | cut -d'/' -f3)"
-        local account="${vault_account_map[$vault_id]:-}"
+        account=""
+        while IFS= read -r map_line; do
+            [[ -z "$map_line" ]] && continue
+            map_vid="${map_line%%$'\t'*}"
+            if [[ "$map_vid" == "$vault_id" ]]; then
+                account="${map_line#*$'\t'}"
+                break
+            fi
+        done <<EOF
+$vault_account_map
+EOF
 
         if [[ -z "$account" ]]; then
             warn "Vault $vault_id not found in any account"
@@ -236,7 +323,6 @@ op_inject_multi() {
             continue
         fi
 
-        local secret
         secret="$(op read "$ref" --account "$account" 2>/dev/null)" || {
             warn "Failed to read $ref"
             failed=1
@@ -272,19 +358,84 @@ clean_ai_symlinks() {
 
 # Remove ~/.config symlinks pointing into the dotfiles repo whose targets no
 # longer exist. Idempotent reconciliation for dropped stow packages.
+# Portable: avoids GNU-only `readlink -m` (silent set -e exit on macOS).
 clean_stale_dotfile_symlinks() {
-    local dotfiles_real
-    dotfiles_real="$(readlink -f "$DOTFILES_DIR")"
+    local dotfiles_real link resolved
+    dotfiles_real="$(resolve_path "$DOTFILES_DIR")"
     [[ -d "$HOME/.config" ]] || return 0
 
-    find "$HOME/.config" -maxdepth 1 -type l 2>/dev/null | while read -r link; do
-        local resolved
-        resolved="$(readlink -m "$link" 2>/dev/null)"
+    # Use process substitution (not a pipe) so the loop runs in this shell and
+    # failures are handled with `|| true` instead of aborting under set -e.
+    while IFS= read -r link; do
+        [[ -L "$link" ]] || continue
+        resolved="$(resolve_path "$link" || true)"
+        [[ -n "$resolved" ]] || continue
         if [[ "$resolved" == "$dotfiles_real"/* ]] && [[ ! -e "$resolved" ]]; then
             printf '%b\n' "Removing stale dotfile symlink: $link"
             rm "$link"
         fi
+    done < <(find "$HOME/.config" -maxdepth 1 -type l 2>/dev/null || true)
+}
+
+# Repair symlinks left over from a repo path migration (e.g. ~/dotfiles →
+# ~/.dotfiles). Remap when the new target exists; remove when still dangling.
+# Without this, a broken ~/.zshrc never sources .commonrc and ~/.local/bin
+# (grok, dot, …) never appears on PATH.
+migrate_legacy_dotfiles_symlinks() {
+    local legacy_roots=("$HOME/dotfiles")
+    local root link raw new_target scanned=0 fixed=0 removed=0
+
+    for root in "${legacy_roots[@]}"; do
+        # Skip if the legacy path still exists and is the active repo
+        [[ -d "$root" ]] && [[ "$(resolve_path "$root")" == "$(resolve_path "$DOTFILES_DIR")" ]] && continue
+
+        while IFS= read -r link; do
+            [[ -L "$link" ]] || continue
+            raw="$(readlink "$link" 2>/dev/null || true)"
+            [[ -n "$raw" ]] || continue
+            case "$raw" in
+                "$root"|"$root"/*) ;;
+                *) continue ;;
+            esac
+            scanned=$((scanned + 1))
+            new_target="${raw/#$root/$DOTFILES_DIR}"
+            if [[ -e "$new_target" ]]; then
+                ln -snf "$new_target" "$link"
+                success "Migrated ${DIM}${link#"$HOME"/}${RESET} → ${DIM}${new_target#"$HOME"/}${RESET}"
+                fixed=$((fixed + 1))
+            elif [[ ! -e "$link" ]]; then
+                rm -f "$link"
+                info "Removed dangling legacy link ${DIM}${link#"$HOME"/}${RESET}"
+                removed=$((removed + 1))
+            fi
+        done < <(
+            # Home-level + common nesting that historically pointed at the repo
+            find "$HOME" "$HOME/.config" "$HOME/.local" "$HOME/.ssh" "$HOME/.tmux" \
+                "$HOME/.vim" "$HOME/.cursor" "$HOME/.vscode" "$HOME/.warp" \
+                -maxdepth 3 -type l 2>/dev/null || true
+        )
     done
+
+    if [[ "$scanned" -gt 0 ]]; then
+        info "Legacy path migration: ${fixed} remapped, ${removed} removed (${scanned} scanned)"
+    fi
+}
+
+# Point SSH at the 1Password agent on macOS when available so private
+# submodule clones (git@github.com:…) work during install.
+ensure_ssh_auth_sock() {
+    if [[ -n "${SSH_AUTH_SOCK:-}" && -S "${SSH_AUTH_SOCK}" ]]; then
+        return 0
+    fi
+    local sock
+    if [[ "$OSTYPE" == darwin* ]]; then
+        sock="$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
+    else
+        sock="$HOME/.1password/agent.sock"
+    fi
+    if [[ -S "$sock" ]]; then
+        export SSH_AUTH_SOCK="$sock"
+    fi
 }
 
 # ─── Source handlers ──────────────────────────────────────────────────────────
@@ -311,8 +462,26 @@ install_shell_config() {
 
     local source_line='[[ -f "$HOME/.commonrc" ]] && source "$HOME/.commonrc"'
 
+    # ~/.bashrc is system-owned (never a long-lived symlink). Recover broken
+    # leftovers from a path migration (e.g. ~/dotfiles -> ~/.dotfiles) by
+    # installing the repo reference as a real file, then ensure it sources
+    # .commonrc.
+    if [[ -L "$HOME/.bashrc" && ! -e "$HOME/.bashrc" ]]; then
+        backup_item "$HOME/.bashrc"
+        rm -f "$HOME/.bashrc"
+        if [[ -f "$DOTFILES_DIR/.bashrc" ]]; then
+            cp "$DOTFILES_DIR/.bashrc" "$HOME/.bashrc"
+            success "Restored ${DIM}~/.bashrc${RESET} from repo (was a broken symlink)"
+        fi
+    fi
+
     if [[ ! -f "$HOME/.bashrc" ]]; then
-        warn "No ~/.bashrc found — copy the reference from $DOTFILES_DIR/.bashrc"
+        if [[ -f "$DOTFILES_DIR/.bashrc" ]]; then
+            cp "$DOTFILES_DIR/.bashrc" "$HOME/.bashrc"
+            success "Installed ${DIM}~/.bashrc${RESET} from repo"
+        else
+            warn "No ~/.bashrc found — copy the reference from $DOTFILES_DIR/.bashrc"
+        fi
     elif grep -qF '.commonrc' "$HOME/.bashrc" 2>/dev/null; then
         info "~/.bashrc already sources .commonrc"
     else
@@ -344,17 +513,37 @@ install_zsh_config() {
 }
 
 install_git_submodules() {
-    info "Initializing critical submodules (ssh)..."
-    git -C "$DOTFILES_DIR" submodule sync --recursive .ssh
+    ensure_ssh_auth_sock
+
+    info "Initializing critical submodules (.ssh, tpm)..."
+    git -C "$DOTFILES_DIR" submodule sync --recursive .ssh .tmux/plugins/tpm 2>/dev/null || \
+        git -C "$DOTFILES_DIR" submodule sync --recursive .ssh
+
+    local failed=0
     if git -C "$DOTFILES_DIR" submodule update --init --recursive .ssh; then
-        success "Git submodules initialized"
+        success "SSH config submodule initialized"
         # `submodule update --init` leaves the submodule in detached HEAD.
         # For branch-tracking submodules (.ssh), put it on its configured
         # branch so updates and local commits land cleanly.
         _submodule_checkout_branch .ssh || warn "Could not check out branch in .ssh"
     else
-        warn "Some submodules failed to fetch (SSH auth may not be configured yet)"
-        warn "Run ${BOLD}git -C $DOTFILES_DIR submodule update --init --recursive${RESET} after setting up SSH"
+        failed=1
+        warn "SSH submodule failed to fetch (is 1Password SSH agent unlocked?)"
+        warn "Run: ${BOLD}SSH_AUTH_SOCK=… git -C $DOTFILES_DIR submodule update --init .ssh${RESET}"
+    fi
+
+    if git -C "$DOTFILES_DIR" submodule update --init --recursive .tmux/plugins/tpm 2>/dev/null; then
+        success "tmux tpm submodule initialized"
+        mkdir -p "$HOME/.tmux"
+        ln -snf "$DOTFILES_DIR/.tmux/plugins" "$HOME/.tmux/plugins"
+        success "Linked ${DIM}~/.tmux/plugins${RESET}"
+    else
+        # Non-fatal — tpm is HTTPS and usually works; ignore if path missing
+        :
+    fi
+
+    if [[ "$failed" -ne 0 ]]; then
+        warn "Some submodules failed — continuing"
     fi
 
     local submodule_path
@@ -642,8 +831,14 @@ install_ai_tool() {
         local tmp
         tmp="$(mktemp)"
         grep -vE '^export AI_TOOL(_RESUME|_PIPE)?=' "$localrc" > "$tmp" || true
-        # Drop the trailing "AI CLI tool" comment if we added one previously
-        sed -i '/^# AI CLI tool/d' "$tmp" 2>/dev/null || true
+        # Drop the trailing "AI CLI tool" comment if we added one previously.
+        # Avoid `sed -i` (GNU vs BSD/macOS differ); rewrite via temp file.
+        if grep -q '^# AI CLI tool' "$tmp" 2>/dev/null; then
+            local tmp2
+            tmp2="$(mktemp)"
+            grep -v '^# AI CLI tool' "$tmp" > "$tmp2" || true
+            mv "$tmp2" "$tmp"
+        fi
         mv "$tmp" "$localrc"
     fi
 
@@ -678,8 +873,30 @@ run_core_config() {
 
     clean_stale_dotfile_symlinks
 
+    echo
+    info "Legacy path migration..."
+    migrate_legacy_dotfiles_symlinks
+
     info "Shell config..."
     install_shell_config
+
+    # On macOS, zsh is the login shell. Linking .zshrc (which sources
+    # .commonrc → PATH+=~/.local/bin) must not wait for the profile picker,
+    # or tools like grok/dot stay invisible until a full profile install.
+    if [[ "$OSTYPE" == darwin* ]]; then
+        echo
+        info "macOS zsh links..."
+        local file
+        for file in "${ZSH_FILES[@]}"; do
+            if [[ -f "$DOTFILES_DIR/$file" ]]; then
+                link_file "$DOTFILES_DIR/$file" "$HOME/$file"
+            fi
+        done
+        # Minimal gitconfig link (full interactive setup remains a core_extra)
+        if [[ -f "$DOTFILES_DIR/.gitconfig.dotfiles" ]]; then
+            link_file "$DOTFILES_DIR/.gitconfig.dotfiles" "$HOME/.gitconfig"
+        fi
+    fi
 
     echo
     info "Dot CLI..."
@@ -813,12 +1030,15 @@ install_stow_config() {
         target="$HOME/.config/$(basename "$src")"
     fi
 
-    local expected
-    expected="$(readlink -f "$src")"
+    local expected target_resolved
+    expected="$(resolve_path "$src")"
 
-    if [[ -L "$target" ]] && [[ "$(readlink -f "$target")" == "$expected" ]]; then
-        info "$pkg already stowed"
-        return 0
+    if [[ -L "$target" ]]; then
+        target_resolved="$(resolve_path "$target" || true)"
+        if [[ -n "$target_resolved" && "$target_resolved" == "$expected" ]]; then
+            info "$pkg already stowed"
+            return 0
+        fi
     fi
 
     if [[ -e "$target" && ! -L "$target" ]]; then
@@ -890,9 +1110,11 @@ install_item() {
 
 # Run all post_install hooks for the given items, deduped. Items must be
 # canonical names (caller resolves aliases first).
+# Uses a newline-separated list instead of `declare -A` so this works on
+# macOS /bin/bash 3.2 (no associative arrays).
 run_post_install() {
     local items=("$@")
-    declare -A seen
+    local seen_hooks=""
     local item hook
     for item in "${items[@]}"; do
         # Resolve in case caller passed an alias.
@@ -901,8 +1123,10 @@ run_post_install() {
         [[ -z "$canon" ]] && continue
         while IFS= read -r hook; do
             [[ -z "$hook" ]] && continue
-            [[ -n "${seen[$hook]:-}" ]] && continue
-            seen["$hook"]=1
+            case $'\n'"$seen_hooks" in
+                *$'\n'"$hook"$'\n'*) continue ;;
+            esac
+            seen_hooks+="${hook}"$'\n'
             if declare -F "$hook" >/dev/null; then
                 info "Post-install: $hook"
                 "$hook"
