@@ -1,0 +1,4 @@
+# Linux/Omarchy overlay — linked to os.toml by alacritty_setup.
+# Intentionally empty of overrides: shared.toml already has the Linux baseline
+# (font size 10, decorations None). Exists so os.toml always resolves on Linux
+# and Mac-only keys never leak in via a stale os.toml → os.darwin.toml link.

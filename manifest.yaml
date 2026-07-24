@@ -26,7 +26,7 @@ alacritty:
     brew: --cask alacritty
   config:
     type: stow
-  post_install: [alacritty_theme_shim]
+  post_install: [alacritty_setup]
 
 bat:
   description: Cat with syntax highlighting
