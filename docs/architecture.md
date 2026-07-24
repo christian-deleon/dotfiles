@@ -18,6 +18,10 @@ SYSTEM-OWNED (never symlinked)          DOTFILES (symlinked from ~/.dotfiles/)
 
 `.bashrc` is never symlinked. `install.sh` injects `source ~/.commonrc` into the system's existing `~/.bashrc`. Machine-specific config (`EDITOR`, secrets, env vars) goes in `~/.localrc` (not tracked).
 
+### XDG base directories
+
+`.commonrc` exports `XDG_CONFIG_HOME` / `XDG_DATA_HOME` / `XDG_STATE_HOME` / `XDG_CACHE_HOME` to the usual `~/.config`, `~/.local/share`, `~/.local/state`, and `~/.cache` paths when they are unset. Linux often sets these via PAM; **macOS does not**. Without them, Go tools such as k9s use `~/Library/Application Support` and ignore stowed `~/.config/<tool>` configs. Values already set (e.g. in `~/.localrc`) are left alone.
+
 ### Shell loading order
 
 **On Omarchy/Linux (bash):**
