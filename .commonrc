@@ -29,7 +29,15 @@ if [[ -z "$DOTFILES_PROFILE" && -f "$HOME/.dotfiles/.active-profile" ]]; then
     export DOTFILES_PROFILE="$(cat "$HOME/.dotfiles/.active-profile")"
 fi
 
-# ─── XDG_RUNTIME_DIR ──────────────────────────────────────────────────────────
+# ─── XDG base directories ────────────────────────────────────────────────────────
+# Linux usually sets these via PAM; macOS does not. Without XDG_CONFIG_HOME,
+# Go tools (k9s, etc.) use ~/Library/Application Support and ignore stowed
+# ~/.config/<tool> configs. Only set when unset so .localrc / the host can override.
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+export XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+export XDG_STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
+
 # WSL2: PAM sets XDG_RUNTIME_DIR=/run/user/<uid> but systemd never creates it
 # and /run/user/ is root-owned, so mkdir fails. Unset it so tools fall back to
 # their defaults rather than warning about a missing directory.
