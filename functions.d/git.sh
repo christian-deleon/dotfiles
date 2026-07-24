@@ -104,6 +104,8 @@ function gi() {
 }
 
 
+# OMZ git plugin aliases gcb='git checkout -b'; drop it so our function wins.
+unalias gcb 2>/dev/null
 # Clone a repo as a bare repo for worktree workflows
 function gcb() {
     if [[ -z "$1" ]]; then
