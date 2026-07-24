@@ -59,3 +59,5 @@ fi
 # Powerlevel10k Configuration
 # ============================
 [[ ! -f "$HOME/.p10k.zsh" ]] || source "$HOME/.p10k.zsh"
+
+if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)"; fi
