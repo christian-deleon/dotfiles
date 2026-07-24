@@ -142,7 +142,16 @@ function pkgup() {
             echo "pkgup: brew not found" >&2
             return 1
         fi
-        brew update && brew upgrade && brew cleanup && brew doctor
+        # Do not chain with && after `brew update`: a single unreachable/broken
+        # tap makes update exit non-zero even when core taps refreshed, which
+        # previously skipped upgrade + cleanup entirely.
+        if ! brew update; then
+            echo "pkgup: brew update reported errors (broken/unreachable tap?); continuing with upgrade" >&2
+        fi
+        brew upgrade || return $?
+        brew cleanup || return $?
+        # doctor often exits non-zero for warnings — informative only
+        brew doctor || true
     elif command -v pacman &>/dev/null; then
         if command -v yay &>/dev/null; then
             yay -Syu --noconfirm && yay -Yc --noconfirm
