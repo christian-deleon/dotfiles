@@ -1,0 +1,10 @@
+# macOS overlay — linked to os.toml by alacritty_setup.
+# Imported after shared.toml so these keys win on Mac only.
+
+[font]
+size = 14
+
+[window]
+decorations = "Full"
+option_as_alt = "Both"
+dimensions = { columns = 140, lines = 60 }

@@ -58,7 +58,7 @@ Handlers live in `scripts/handlers/*.sh`, organized by domain:
 | `scripts/handlers/cargo.sh` | `install_cargo_config` |
 | `scripts/handlers/linux.sh` | `install_lid_check` |
 | `scripts/handlers/windows.sh` | `install_windows_terminal_config` |
-| `scripts/handlers/alacritty.sh` | `alacritty_theme_shim` |
+| `scripts/handlers/alacritty.sh` | `alacritty_setup` (theme shim + macOS Nerd Font) |
 | `scripts/handlers/neovim.sh` | `install_neovim_extras` |
 
 ## CLI aliases

@@ -271,6 +271,16 @@ install_tool() {
         return 0
     fi
 
+    # macOS GUI apps often live only under /Applications (not on PATH).
+    # Alacritty is commonly installed from the GitHub .app, so brew would
+    # fail with "already an App at '/Applications/Alacritty.app'".
+    if [[ "$OSTYPE" == darwin* && "$item" == "alacritty" ]]; then
+        if [[ -x /Applications/Alacritty.app/Contents/MacOS/alacritty ]]; then
+            _info "${_DIM}$item${_RESET} already installed (Alacritty.app) — skipping"
+            return 0
+        fi
+    fi
+
     local pkg_manager
     pkg_manager="$(detect_pkg_manager)"
 

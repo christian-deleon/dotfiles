@@ -1,28 +1,14 @@
-general.import = [ "~/.config/omarchy/current/theme/alacritty.toml" ]
-
-[env]
-TERM = "xterm-256color"
-
-[terminal]
-osc52 = "CopyPaste"
-
-[font]
-normal = { family = "JetBrainsMono Nerd Font", style = "Regular" }
-bold = { family = "JetBrainsMono Nerd Font", style = "Bold" }
-italic = { family = "JetBrainsMono Nerd Font", style = "Italic" }
-size = 10
-
-[window]
-padding.x = 14
-padding.y = 14
-decorations = "None"
-
-[keyboard]
-bindings = [
-{ key = "Insert", mods = "Shift", action = "Paste" },
-{ key = "Insert", mods = "Control", action = "Copy" },
-# Send Shift+Return as CSI-u so TUIs can distinguish it from Return without treating it as Alt+Return.
-{ key = "Return", mods = "Shift", chars = "\u001B[13;2u" },
-# Legacy encoding sends Alt+Shift+Return the same as Alt+Return; send CSI-u so tmux can match M-S-Enter.
-{ key = "Return", mods = "Alt|Shift", chars = "\u001B[13;4u" }
+# Alacritty entrypoint. Imports only — Alacritty loads the importing file last,
+# so platform overrides must be imports (not keys in this file).
+#
+# Load order (later wins for the same key; missing files are skipped):
+#   1. shared.toml  — cross-platform defaults (Linux/Omarchy baseline: size 10, decorations None)
+#   2. Omarchy theme colors (DE-managed on Omarchy; linked by alacritty_setup elsewhere)
+#   3. os.toml      — os.darwin.toml (Mac) or os.linux.toml (noop baseline) via alacritty_setup
+#
+# Windows host uses windows/alacritty.toml (separate file).
+general.import = [
+    "~/.config/alacritty/shared.toml",
+    "~/.config/omarchy/current/theme/alacritty.toml",
+    "~/.config/alacritty/os.toml",
 ]
