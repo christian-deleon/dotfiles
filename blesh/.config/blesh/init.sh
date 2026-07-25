@@ -29,3 +29,9 @@ ble-bind -f 'M-BS'  'kill-backward-cword'
 #      already visible via the prompt, so the extra line is noise.
 bleopt exec_elapsed_enabled=
 bleopt exec_errexit_mark=
+
+# Tab completion: ble.sh's default menu-complete opens a selectable list of
+# candidates (arrow keys / typing filters) when Tab can't finish a unique match.
+# Prefer native bash behavior — fill the longest common prefix, keep typing,
+# Tab again — instead of entering that picker.
+bleopt complete_menu_complete=
