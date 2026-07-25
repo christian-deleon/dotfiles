@@ -43,6 +43,26 @@ Full walkthrough in [manifest.md](manifest.md). Short version:
 4. Test: `dot install <item>`.
 5. Update `README.md` tool list if appropriate.
 
+## Retiring a tool or config (tombstones)
+
+Profile reconcile is **add-only** — dropping an item from `profiles/*.yaml` does not delete it from machines. Stow packages also get dangling-symlink cleanup when the package dir leaves the repo. For anything else (script installs, XDG data/cache/state, home files):
+
+1. Remove the package / manifest entry / profile items as usual.
+2. Add a **tombstone** to `tombstones.yaml` listing residue paths (see [tombstones.md](tombstones.md)).
+3. `yq '.' tombstones.yaml` parses; names are single path segments only.
+4. On each machine, `dot update` runs `apply_tombstones` and deletes those paths if present.
+
+Example residue for a script-installed tool named `foo`:
+
+```yaml
+foo:
+  description: Retired foo CLI script install
+  xdg_config: [foo]
+  xdg_data: [foo]
+  xdg_state: [foo]
+  xdg_cache: [foo]
+```
+
 ## Adding a new app config to omadot
 
 > **STOP — read this before touching `~/.config/` directly.**
@@ -101,7 +121,7 @@ Full walkthrough in [manifest.md](manifest.md). Short version:
 2. `dot install` (no args) sources `install.sh` and calls `select_profile` then `install_from_profile`/`install_manual` — same flow as `./install.sh`.
 3. `dot install <name> [<name>...]` calls `install_item` for each — manifest-driven, resolves aliases like `op` → `1password-cli`, `nvim` → `neovim`.
 4. `dot profile {list,show,use}` — `manage_profile` dispatcher. State lives in `~/.dotfiles/.active-profile`; `read_active_profile` prefers the `$DOTFILES_PROFILE` env override (set in `.localrc` to force).
-5. `dot update` pulls dotfiles, refreshes AI symlinks, runs `update_source_tools`, then calls `reconcile_profile` (add-only: install missing items, never remove). OS package upgrades are the shell function `pkgup`, not part of `dot`.
+5. `dot update` pulls dotfiles, refreshes AI symlinks, applies `tombstones.yaml` absences, runs `update_source_tools`, then calls `reconcile_profile` (add-only: install missing items). Path residue from retired tools is cleaned via tombstones — see [tombstones.md](tombstones.md). OS package upgrades are the shell function `pkgup`, not part of `dot`.
 6. Keep brew commands as-is (macOS only).
 
 ## Modifying `.commonrc`

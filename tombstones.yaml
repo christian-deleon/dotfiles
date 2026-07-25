@@ -1,0 +1,31 @@
+# tombstones.yaml — desired-state absences for retired tools / configs.
+#
+# Applied idempotently by apply_tombstones() during `dot update` and
+# `./install.sh` core config. Not a migration ledger: every run re-checks and
+# removes residue if still present. Greenfield machines no-op.
+#
+# Prefer this over versioned migration scripts for path cleanup. See
+# docs/tombstones.md.
+#
+# Schema (each top-level key is a short id, usually the retired item name):
+#
+#   <id>:
+#     description: string           # required — why this exists (shown when removing)
+#     requires: [string]            # optional host predicates (same as manifest)
+#     xdg_config: [name]            # under $XDG_CONFIG_HOME (default ~/.config)
+#     xdg_data:   [name]            # under $XDG_DATA_HOME   (default ~/.local/share)
+#     xdg_state:  [name]            # under $XDG_STATE_HOME  (default ~/.local/state)
+#     xdg_cache:  [name]            # under $XDG_CACHE_HOME  (default ~/.cache)
+#     home:       [name]            # under $HOME (e.g. .blerc); single path segment only
+#
+# Names are a single path segment (no slashes, no `..`). That keeps removals
+# scoped to one directory/file under a known root.
+
+# ble.sh — removed from the project; script install left residue outside stow.
+blesh:
+  description: Retired ble.sh (Bash Line Editor) install and config
+  xdg_config: [blesh]
+  xdg_data: [blesh]
+  xdg_state: [blesh]
+  xdg_cache: [blesh]
+  home: [.blerc]

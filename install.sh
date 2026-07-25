@@ -873,6 +873,9 @@ run_core_config() {
 
     clean_stale_dotfile_symlinks
 
+    # Desired-state absences for retired tools (see tombstones.yaml).
+    apply_tombstones
+
     echo
     info "Legacy path migration..."
     migrate_legacy_dotfiles_symlinks

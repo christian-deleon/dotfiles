@@ -31,7 +31,7 @@ EOF
     echo "Options:"
     echo "  help                  - Browse all functions and aliases interactively (fzf)"
     echo "  edit                  - Open the dotfiles directory in your editor"
-    echo "  update                - Pull dotfiles, refresh AI, rebuild source tools, reconcile profile"
+    echo "  update                - Pull, AI refresh, tombstones, source tools, reconcile profile"
     echo "  install               - Interactive: pick a profile or items manually"
     echo "  install <name>...     - Install one or more items by name (binary + config for bundles)"
     echo "  profile <subcommand>  - Manage active profile (list/show/use)"
@@ -262,6 +262,10 @@ update_dotfiles() {
             clean_stale_dotfile_symlinks
         fi
     fi
+
+    # Desired-state absences: remove residue from retired tools (tombstones.yaml).
+    # Runs even when the git pull block was skipped; idempotent no-op if clean.
+    apply_tombstones || true
 
     # Rebuild source-built tools
     update_source_tools || true

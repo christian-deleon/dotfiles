@@ -11,6 +11,7 @@ Guidelines for AI coding agents working in this personal dotfiles repo. Manages 
 - Omarchy desktop configs: hypr, waybar, alacritty, mako, walker, btop, fastfetch, lazygit, omarchy, opencode, starship (via GNU Stow + omadot)
 - AI config: `ai/` (agents, commands, skills, rules); MCP template at `ai/mcp-servers.json.tpl`
 - Package + config management: `manifest.yaml` + `profiles/*.yaml` + `scripts/lib.sh` + `scripts/handlers/*.sh`
+- Desired absences for retired tools: `tombstones.yaml` (applied by `apply_tombstones` on `dot update` / install)
 - Windows bootstrap: `windows/bootstrap.ps1`
 
 ## Core principles (read first)
@@ -56,7 +57,7 @@ bash scripts/check-descriptions.sh   # function/alias descriptions ≤60 chars, 
 # Install / manage
 ./install.sh                          # Interactive: pick profile or items manually
 dot install [<name>...]               # Picker, or install specific items
-dot update                            # Pull + AI refresh + source tools + reconcile active profile
+dot update                            # Pull + AI refresh + tombstones + source tools + reconcile active profile
 dot profile list | show | use <name>
 dot agent link [name]                 # See docs/dot-agent.md
 omadot put <pkg>                      # Stow a config (never `--all`)
@@ -76,6 +77,7 @@ Before committing:
 - [ ] New aliases/functions evaluated for `HISTIGNORE` in `.commonrc` — add high-frequency, low-recall-value ones (navigation, list/status, fire-and-forget toggles, picker/AI launchers). A **bare** pattern (`name`) only filters the no-arg form and keeps `name <args>` recallable; use `name *` (or escaped `\&\&` for compounds) only when the args themselves are noise. Don't add mutating commands you'd want for audit/repeat.
 - [ ] `yq '.' manifest.yaml` parses; every `config.handler` references a function in `scripts/handlers/*.sh`
 - [ ] `yq '.' profiles/<name>.yaml` parses for any modified profile
+- [ ] `yq '.' tombstones.yaml` parses if modified; path names are single segments only
 - [ ] New stow packages are declared in `manifest.yaml` (`config.type: stow`) AND follow `<dir>/.config/<dir>/` layout
 - [ ] No hardcoded personal info (use `.gitconfig.local`, `.localrc`)
 - [ ] No hardcoded OS-specific paths (use `$OSTYPE` detection)
@@ -90,6 +92,7 @@ Before committing:
 - [docs/dot-agent.md](docs/dot-agent.md) — `dot agent` (per-project and per-env AGENTS.md overlays). **Load only when editing `scripts/dot/agent.sh` or related.** Not the same as the `agent-files` skill (authoring under `ai/`).
 - [docs/manifest.md](docs/manifest.md) — `manifest.yaml` schema reference
 - [docs/profiles.md](docs/profiles.md) — `profiles/*.yaml` schema reference
+- [docs/tombstones.md](docs/tombstones.md) — desired-state absences for retired tools. **Load when retiring an item or changing update cleanup.**
 - [docs/ai.md](docs/ai.md) — how to add agents, commands, skills, rules
 - [docs/functions.md](docs/functions.md), [docs/aliases.md](docs/aliases.md) — full reference for shell functions and aliases
 
