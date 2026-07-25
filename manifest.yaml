@@ -319,6 +319,12 @@ uv:
     brew: uv
     script: install-uv.sh
 
+voxtype:
+  description: Push-to-talk voice-to-text config
+  config:
+    type: stow
+  requires: [linux]
+
 walker:
   description: Application launcher config
   config:
