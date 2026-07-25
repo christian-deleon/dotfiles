@@ -58,6 +58,7 @@ items:
   - terraform
   - tmux
   - uv
+  - voxtype
   - walker
   - waybar
   - worktrunk
