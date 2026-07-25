@@ -17,7 +17,6 @@ core_extras:
 items:
   - 1password-cli
   - bat
-  - blesh
   - btop
   - cargo
   - claude

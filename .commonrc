@@ -45,29 +45,6 @@ if [[ -n "$XDG_RUNTIME_DIR" && ! -d "$XDG_RUNTIME_DIR" ]]; then
     unset XDG_RUNTIME_DIR
 fi
 
-# ─── ble.sh (Bash Line Editor) ──────────────────────────────────────────────
-# Fish/zsh-style autosuggestions + syntax highlighting for interactive bash.
-# Two-step load (the ble.sh-recommended pattern): source with --noattach here,
-# then `ble-attach` at the very end of this file — after history, fzf, starship,
-# and PROMPT_COMMAND are set — so ble.sh wraps the finished config. Bash +
-# interactive only; zsh has its own autosuggestions via .zshrc. Installed by
-# scripts/tools/install-blesh.sh into ~/.local/share/blesh.
-_blesh="${XDG_DATA_HOME:-$HOME/.local/share}/blesh/ble.sh"
-if [[ -n "$BASH_VERSION" && $- == *i* && -r "$_blesh" ]]; then
-    source "$_blesh" --noattach
-fi
-
-# Filename highlighting: ble.sh's default filename_* faces are blue + underline,
-# which makes completion candidates and on-line paths hard to read. Drive its
-# colors from LS_COLORS instead (so paths match `ls`/eza) and clear the extra
-# underline. Populate LS_COLORS from dircolors' default palette if nothing set
-# it yet — without it filename_ls_colors is empty and ble.sh keeps its defaults.
-if [[ -n "${BLE_VERSION-}" ]]; then
-    [[ -z "$LS_COLORS" ]] && command -v dircolors &>/dev/null && eval "$(dircolors -b)"
-    bleopt filename_ls_colors="$LS_COLORS"
-    ble-face filename_ls_colors=none
-fi
-
 # ─── History ──────────────────────────────────────────────────────────────────
 
 # Two layers: an in-memory list (what ↑ recalls) and the on-disk history file.
@@ -94,9 +71,8 @@ if [[ -n "$BASH_VERSION" ]]; then
     # erasedups (above) only de-dupes the in-memory list as you type — it never
     # rewrites the file, so history -a from every terminal lets the file pile up
     # stale copies that a fresh shell would bulk-load (bash de-dupes nothing on
-    # load). We rewrite the file HERE, during rc, which runs BEFORE the load:
-    # plain bash reads HISTFILE after sourcing rc, and ble.sh imports it at attach
-    # (end of this file). So no `history -r` reload is needed — one would
+    # load). We rewrite the file HERE, during rc, which runs BEFORE bash loads
+    # HISTFILE after sourcing rc. So no `history -r` reload is needed — one would
     # double-load. Keeps the last occurrence of each command (with its timestamp)
     # and only rewrites when something was actually removed, to limit churn and
     # the race with sibling terminals appending via history -a.
@@ -119,14 +95,8 @@ if [[ -n "$BASH_VERSION" ]]; then
     _hist_dedup_file
     # Flush each command to the shared file as it runs (`history -a`) but never
     # read the file back into this session, so sibling terminals don't bleed into
-    # each other's recall. With history_share OFF, ble.sh only adds commands to
-    # its in-memory list (it appends to the file on exit), so the manual
-    # `history -a` is still needed for prompt-time persistence. The old double-load
-    # bug only struck when `-a` was paired with a read (`-n`/`-r`); `-a` alone is
-    # safe. BLE_VERSION is already set here: ble.sh was sourced (--noattach) above.
-    if [[ -n "${BLE_VERSION-}" ]]; then
-        bleopt history_share=0    # was 1: stop importing other live sessions
-    fi
+    # each other's recall. The old double-load bug only struck when `-a` was
+    # paired with a read (`-n`/`-r`); `-a` alone is safe.
     # Set before starship init, which preserves any existing PROMPT_COMMAND.
     PROMPT_COMMAND="history -a; ${PROMPT_COMMAND:+$PROMPT_COMMAND}"
 elif [[ -n "$ZSH_VERSION" ]]; then
@@ -217,8 +187,3 @@ if ! type starship_precmd &>/dev/null && command -v starship &>/dev/null; then
     fi
 fi
 
-# ─── ble.sh attach (must stay last) ──────────────────────────────────────────
-# Attach now that prompt, completions, fzf, and PROMPT_COMMAND are configured.
-# No-op unless ble.sh was sourced above (sets BLE_VERSION); skipped on zsh.
-[[ -n "${BLE_VERSION-}" ]] && ble-attach
-unset _blesh
