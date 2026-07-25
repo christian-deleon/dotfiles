@@ -10,6 +10,7 @@ if [[ -z "${DOTFILES_DIR}" ]]; then
     fi
 fi
 MANIFEST_FILE="$DOTFILES_DIR/manifest.yaml"
+TOMBSTONES_FILE="$DOTFILES_DIR/tombstones.yaml"
 
 # ─── Color helpers ────────────────────────────────────────────────────────────
 
@@ -412,6 +413,126 @@ update_source_tools() {
         _warn "Failed to rebuild: ${failed[*]}"
         return 1
     fi
+}
+
+# ─── Tombstones (desired-state absences) ──────────────────────────────────────
+# Path-only cleanup for retired tools. Idempotent: safe on every update/install.
+# Schema: docs/tombstones.md + header comments in tombstones.yaml.
+
+# Resolve an XDG/home root for a tombstone path kind.
+# Usage: _tombstone_root <xdg_config|xdg_data|xdg_state|xdg_cache|home>
+_tombstone_root() {
+    case "$1" in
+        xdg_config) printf '%s\n' "${XDG_CONFIG_HOME:-$HOME/.config}" ;;
+        xdg_data)   printf '%s\n' "${XDG_DATA_HOME:-$HOME/.local/share}" ;;
+        xdg_state)  printf '%s\n' "${XDG_STATE_HOME:-$HOME/.local/state}" ;;
+        xdg_cache)  printf '%s\n' "${XDG_CACHE_HOME:-$HOME/.cache}" ;;
+        home)       printf '%s\n' "$HOME" ;;
+        *)          return 1 ;;
+    esac
+}
+
+# Reject path traversal: a single segment only (may start with '.').
+# Usage: _tombstone_valid_name <name>
+_tombstone_valid_name() {
+    local name=$1
+    [[ -n "$name" ]] || return 1
+    # No slashes, no parent refs, no absolute paths, no empty dots-only.
+    [[ "$name" != */* && "$name" != *\\* ]] || return 1
+    [[ "$name" != *..* ]] || return 1
+    [[ "$name" != /* ]] || return 1
+    [[ "$name" != "." && "$name" != ".." ]] || return 1
+    return 0
+}
+
+# Return 0 if the tombstone entry's requires: are met (or absent).
+# Usage: tombstone_requires_met <id>
+tombstone_requires_met() {
+    local id=$1
+    local preds pred
+    preds="$(yq -r ".\"$id\".requires[]?" "$TOMBSTONES_FILE" 2>/dev/null)"
+    [[ -z "$preds" ]] && return 0
+
+    while IFS= read -r pred; do
+        [[ -z "$pred" ]] && continue
+        if ! host_has "$pred"; then
+            return 1
+        fi
+    done <<< "$preds"
+    return 0
+}
+
+# Remove one path if it exists. Prints a line when something is deleted.
+# Usage: _tombstone_remove_path <absolute-path>
+# Returns 0 always; sets _tombstone_removed=1 when a removal happened.
+_tombstone_remove_path() {
+    local path=$1
+    [[ -e "$path" || -L "$path" ]] || return 0
+    rm -rf -- "$path"
+    _info "Removed retired path: $path"
+    _tombstone_removed=1
+}
+
+# Apply all tombstones: delete declared residue if still present.
+# Idempotent; no-ops when the file is missing or nothing is left.
+apply_tombstones() {
+    [[ -f "$TOMBSTONES_FILE" ]] || return 0
+    ensure_yq || return 0
+
+    local ids=() id
+    while IFS= read -r id; do
+        [[ -n "$id" && "$id" != "null" ]] && ids+=("$id")
+    done < <(yq -r 'keys | .[]' "$TOMBSTONES_FILE" 2>/dev/null)
+
+    [[ ${#ids[@]} -eq 0 ]] && return 0
+
+    local _tombstone_removed=0
+    local kind name root target desc announced
+    local -a kinds=(xdg_config xdg_data xdg_state xdg_cache home)
+
+    for id in "${ids[@]}"; do
+        tombstone_requires_met "$id" || continue
+
+        desc="$(yq -r ".\"$id\".description // \"$id\"" "$TOMBSTONES_FILE" 2>/dev/null)"
+        announced=0
+
+        for kind in "${kinds[@]}"; do
+            root="$(_tombstone_root "$kind")" || continue
+            [[ -n "$root" ]] || continue
+
+            while IFS= read -r name; do
+                [[ -z "$name" || "$name" == "null" ]] && continue
+                if ! _tombstone_valid_name "$name"; then
+                    _warn "tombstone '$id': skipping unsafe path name '$name'"
+                    continue
+                fi
+                target="$root/$name"
+                # Belt-and-suspenders: target must stay under root.
+                case "$target" in
+                    "$root"/*) ;;
+                    *)
+                        _warn "tombstone '$id': refusing path outside root: $target"
+                        continue
+                        ;;
+                esac
+                [[ -e "$target" || -L "$target" ]] || continue
+
+                if [[ "$_tombstone_removed" -eq 0 ]]; then
+                    _info "Applying tombstones..."
+                fi
+                if [[ "$announced" -eq 0 ]]; then
+                    _info "Tombstone ${_BOLD}$id${_RESET}: $desc"
+                    announced=1
+                fi
+                _tombstone_remove_path "$target"
+            done < <(yq -r ".\"$id\".\"$kind\"[]?" "$TOMBSTONES_FILE" 2>/dev/null)
+        done
+    done
+
+    if [[ "$_tombstone_removed" -eq 1 ]]; then
+        _success "Tombstone cleanup complete"
+    fi
+    return 0
 }
 
 # ─── Gum Bootstrap ────────────────────────────────────────────────────────────

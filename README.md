@@ -23,7 +23,7 @@ Only the bare minimum runs unconditionally — shell config and the `dot` CLI. T
 - **A profile** — a curated, hand-authored set of tools + configs for a specific machine context (`omarchy-personal`, `wsl-personal`, `wsl-work`, `macos-personal`, …). Only profiles whose `requires:` predicates pass on the host appear in the picker.
 - **Manual selection** — ad-hoc picker of core extras + individual items from `manifest.yaml`. Use this on a brand-new machine type, then author a profile when you're ready to reproduce it elsewhere.
 
-The picker auto-suggests the first compatible profile based on host detection (Hyprland present → omarchy, Darwin → macos, microsoft in `/proc/version` → wsl). On `dot update`, the active profile is reconciled — missing items get installed, nothing is removed.
+The picker auto-suggests the first compatible profile based on host detection (Hyprland present → omarchy, Darwin → macos, microsoft in `/proc/version` → wsl). On `dot update`, the active profile is reconciled (missing items get installed; profile reconcile is add-only). Residue from *retired* tools is cleaned via [`tombstones.yaml`](tombstones.yaml) — see [docs/tombstones.md](docs/tombstones.md).
 
 If `op` (1Password CLI) is missing, MCP servers that need secrets are skipped automatically; the keyless ones still install.
 
@@ -31,7 +31,7 @@ If `op` (1Password CLI) is missing, MCP servers that need secrets are skipped au
 
 ```bash
 dot edit                       # Open dotfiles in $EDITOR
-dot update                     # Pull dotfiles, refresh AI, rebuild source tools, reconcile profile
+dot update                     # Pull, AI refresh, tombstones, source tools, reconcile profile
 dot install                    # Interactive: pick a profile or items manually
 dot install <name>...          # Install one or more items directly (binary + config for bundles)
 dot profile list               # Show profiles with compatibility / active markers
@@ -102,7 +102,7 @@ omadot put <package>     # replace original with symlink to dotfiles
 git add <package> manifest.yaml profiles/ && git commit
 ```
 
-Stale `~/.config/<pkg>` symlinks from packages that have since been dropped are cleaned automatically on every `./install.sh`, `dot install`, and `dot update`.
+Stale `~/.config/<pkg>` symlinks from packages that have since been dropped are cleaned automatically on every `./install.sh`, `dot install`, and `dot update`. Non-stow residue (script installs, XDG data/cache, home files) is declared in `tombstones.yaml` and removed by the same entry points.
 
 ## AI Config
 
@@ -127,6 +127,7 @@ Every item the repo knows about — tools, configs, bundles, handlers — is dec
 - [Common operations](docs/common-operations.md) — add aliases, functions, manifest items, configs
 - [Manifest schema](docs/manifest.md) — the universal inventory of items
 - [Profiles](docs/profiles.md) — curated per-machine install sets
+- [Tombstones](docs/tombstones.md) — desired-state absences for retired tools
 - [AI config](docs/ai.md) — agents, skills, rules, MCP across Claude/OpenCode/Grok
 - [Dot agent overlays](docs/dot-agent.md) — per-project and per-env AGENTS.md via `dot agent`
 - [Functions reference](docs/functions.md)

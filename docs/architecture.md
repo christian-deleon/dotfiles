@@ -81,6 +81,8 @@ Stow + post_install (not handlers): `opencode` (stow config + `install_ai_openco
 
 **Stale-symlink cleanup (`clean_stale_dotfile_symlinks`):** when a stow package is removed from the repo, the `~/.config/<pkg>` symlink on each machine becomes a dangling pointer into `$DOTFILES_DIR/<pkg>/`. `clean_stale_dotfile_symlinks()` in `install.sh` scans `~/.config/` (depth 1), removes any symlink that resolves into `$DOTFILES_DIR/` and whose target no longer exists. It runs at the top of `run_core_config()` (every `./install.sh` and `dot install`) and from `dot.sh:update_dotfiles()` after the AI reinstall (every `dot update`). One function, two call sites — generalization of `clean_ai_symlinks()`.
 
+**Tombstones (`apply_tombstones`):** path-only **desired absences** for residue that is not a dangling stow link (script installs under `~/.local/share`, XDG cache/state, home files like `.blerc`). Declared in repo-root `tombstones.yaml`; applied idempotently by `apply_tombstones()` in `scripts/lib.sh` on every `dot update` and during `run_core_config()`. Not a migration ledger — re-check forever, no-op when clean. Does not uninstall OS packages. Full schema and when-to-use: [tombstones.md](tombstones.md).
+
 ## Omarchy compatibility
 
 On [Omarchy](https://omarchy.org/) (Arch Linux + Hyprland):
@@ -126,6 +128,7 @@ The shared library `scripts/lib.sh` provides (yq-backed):
 - `manifest_label <item>` — picker label with `(+ config)` suffix for bundles
 - `install_tool <item>` / `install_tools <item ...>` — binary installer (manifest-driven)
 - `update_source_tools` — rebuild items flagged with `install.update: true`
+- `apply_tombstones` — remove paths declared in `tombstones.yaml` (desired absences)
 - `ensure_gum()` — bootstraps gum if not installed
 
 Custom config handlers live in `scripts/handlers/*.sh` (`ai.sh`, `cargo.sh`, `linux.sh`, `windows.sh`, `alacritty.sh`, `neovim.sh`) and are referenced by name from `manifest.yaml`. Tool install scripts in `scripts/tools/install-*.sh` are referenced via `install.script` in manifest entries.
