@@ -50,7 +50,7 @@ function _tav_schedule_send() {
 # internal: respawn pane running AI without interactive-shell DA race
 function _tav_respawn_ai() {
     # Defense against DA-reply keystrokes nuking Grok's welcome UI:
-    # 1) noprofile/norc launch (no ble.sh) after a quiet-period drain.
+    # 1) noprofile/norc launch after a quiet-period drain.
     # 2) Sibling TUIs (nvim) must start AFTER the AI — concurrent term probes
     #    are the main source of late DA leaks into the focused AI pane.
     # 3) Late scrub of prompt junk if something still slips through (cannot
@@ -92,9 +92,8 @@ done
 function _tav_parse_args() {
     # Usage: _tav_parse_args <cmdname> ai_cmd_var prompt_var -- "$@"
     # Supports -t/--tool, -f/--prompt-file, --, and bare prompt args.
-    # Prompt-file is preferred for large handoffs: wtc used to tmux send-keys
-    # the full shell-quoted prompt into a ble.sh pane, which hangs on
-    # "(N bytes received...)" for multi-KB agent handoffs.
+    # Prompt-file is preferred for large handoffs: multi-KB shell-quoted
+    # prompts via tmux send-keys are slow/fragile and can stall the pane.
     local cmdname=$1
     local -n _ai=$2 _prompt=$3
     shift 3

@@ -125,9 +125,9 @@ function _wta_ensure_window() {
     fi
 
     # Build a short tav invocation for tmux send-keys. Large -p handoffs must
-    # NOT be shell-quoted into the key stream: ble.sh hangs on multi-KB input
-    # showing "(N bytes received...)" and tav never runs. Write the prompt to
-    # a temp file and pass -f so send-keys stays a few dozen bytes.
+    # NOT be shell-quoted into the key stream (multi-KB send-keys is slow and
+    # can stall the pane). Write the prompt to a temp file and pass -f so
+    # send-keys stays a few dozen bytes.
     # -t value is printf-%q'd so multi-word tools (e.g. `cld -c`) stay one token.
     local tav_cmd="tav -t $(printf '%q' "$cmd")"
     if [[ -n "$prompt" ]]; then
