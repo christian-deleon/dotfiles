@@ -21,11 +21,4 @@
 # Names are a single path segment (no slashes, no `..`). That keeps removals
 # scoped to one directory/file under a known root.
 
-# ble.sh — removed from the project; script install left residue outside stow.
-blesh:
-  description: Retired ble.sh (Bash Line Editor) install and config
-  xdg_config: [blesh]
-  xdg_data: [blesh]
-  xdg_state: [blesh]
-  xdg_cache: [blesh]
-  home: [.blerc]
+# (no active tombstones)

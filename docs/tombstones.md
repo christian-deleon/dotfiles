@@ -27,7 +27,7 @@ File: `tombstones.yaml` (repo root).
   xdg_data:   [name]         # under $XDG_DATA_HOME
   xdg_state:  [name]         # under $XDG_STATE_HOME
   xdg_cache:  [name]         # under $XDG_CACHE_HOME
-  home:       [name]         # under $HOME (e.g. .blerc)
+  home:       [name]         # under $HOME (e.g. .somerc)
 ```
 
 **Names** must be a single path segment (no `/`, no `..`). That keeps every removal under a known root.
@@ -39,6 +39,7 @@ File: `tombstones.yaml` (repo root).
 3. Commit. On each machine, `dot update` (or `./install.sh`) runs `apply_tombstones`.
 4. Residue is removed if present; later runs are no-ops.
 5. Optionally delete the tombstone entry months later if you no longer care about ancient machines — not required.
+6. When reintroducing a tool, **delete its tombstone first** — otherwise `dot update` will keep removing its install.
 
 ## When it runs
 
@@ -49,16 +50,16 @@ File: `tombstones.yaml` (repo root).
 
 Implementation: `apply_tombstones()` in `scripts/lib.sh`.
 
-## Example — retired ble.sh
+## Example — retired script-installed tool
 
 ```yaml
-blesh:
-  description: Retired ble.sh (Bash Line Editor) install and config
-  xdg_config: [blesh]
-  xdg_data: [blesh]
-  xdg_state: [blesh]
-  xdg_cache: [blesh]
-  home: [.blerc]
+exampletool:
+  description: Retired exampletool install and config
+  xdg_config: [exampletool]
+  xdg_data: [exampletool]
+  xdg_state: [exampletool]
+  xdg_cache: [exampletool]
+  home: [.exampletoolrc]
 ```
 
 ## Safety

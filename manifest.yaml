@@ -35,6 +35,14 @@ bat:
     apt: bat
     brew: bat
 
+blesh:
+  description: Bash autosuggestions + syntax highlighting (ble.sh)
+  install:
+    script: install-blesh.sh
+  config:
+    type: stow
+  requires: [linux]
+
 btop:
   description: System resource monitor
   config:
