@@ -1,6 +1,6 @@
 ---
 name: wtc
-description: Spawn sibling tmux+worktree agent(s) via shell wtc when the user explicitly approves (slash /wtc, "wtc that", "spawn a fix agent", "one for each", …). Builds a full -p handoff; always -n so focus is not stolen. Without approval, only suggest /wtc lines.
+description: Spawn sibling tmux+worktree agent(s) via shell wtc when the user explicitly approves (slash /wtc, "wtc that", "spawn a fix agent", "one for each", …). When this skill runs, execute wtc yourself — never tell the user a /wtc or shell command to re-run. Builds a full -p handoff; always -n so focus is not stolen. Without approval, only suggest /wtc lines.
 compatibility: opencode
 argument-hint: "[branch] [message…] | each: … | (empty = from context)"
 user-invocable: true
@@ -19,10 +19,13 @@ created without stealing focus from the user's current window.
 **Two ways this gets used:**
 
 1. **User runs `/wtc`** (or says "wtc that" / "spawn a fix agent" / "one worktree
-   for each") — this skill runs and executes. That **is** approval for this turn.
-2. **You find side work** while on another task — *suggest* ready `/wtc …`
-   line(s) (see always-on rule `no-auto-wtc`); do **not** execute until they
-   approve.
+   for each") — this skill is active. **You spawn.** Run `wtc -n -p …` via the
+   shell tool yourself. That **is** approval for this turn. Do **not** reply with
+   a `/wtc …` line, a shell command, or "here's what to run" for the user to
+   copy — they already invoked the skill; your job is to execute.
+2. **You find side work** while on another task (skill **not** invoked) — only
+   *suggest* ready `/wtc …` line(s) (see always-on rule `no-auto-wtc`); do **not**
+   execute until they approve.
 
 **Authorization for this turn only.** User slash `/wtc` or an explicit natural-
 language spawn order this turn is the only permission you need — do not re-ask.
@@ -34,8 +37,9 @@ bug") that leaves the child with no context — always pack the handoff into `-p
 A third is bare `wtc` without `-n` (steals focus). A fourth is **keeping ownership
 after spawn**: still implementing the child's task, or treating child work as open
 on *this* session's checklist when the user asks "is everything resolved?" —
-spawn transfers accountability; see **Ownership after spawn**.
-
+spawn transfers accountability; see **Ownership after spawn**. A fifth is **when
+this skill is already running, printing a command for the user instead of
+executing** — that is always wrong.
 ## Arguments — how to pass a message
 
 `$ARGUMENTS` is freeform text after `/wtc`. That text **is** the message seed
@@ -112,9 +116,10 @@ unknowns ("suspected — not confirmed") rather than guessing.
 source "$HOME/.dotfiles/functions.d/worktrunk.sh"
 ```
 
-### 3. Run `wtc` (once, or once per task)
+### 3. Run `wtc` yourself (once, or once per task)
 
-Do not dry-run. Do not re-confirm after the user already approved this turn.
+**Execute in the shell tool.** Do not dry-run. Do not re-confirm. Do not paste
+the command (or a `/wtc …` re-invoke) into chat for the user to run — you run it.
 
 **Always pass `-n` / `--no-switch`.** Interactive shell `wtc` (no flag) jumps by
 default for humans; agent use must not.
@@ -143,16 +148,17 @@ Notes:
 - `wtc` creates a real worktree + branch and a new tmux window; with `-n` it
   does **not** switch the client to that window.
 
-### 4. Report back
+### 4. Report back (after the spawn actually ran)
 
-Briefly list each spawn:
+Only after `wtc` has succeeded (or failed) in the shell, briefly list each spawn:
 
 - Branch and worktree path
 - Tmux `session:window` (created; focus stayed put)
 - One-line task summary (not a full re-dump of `-p`)
 
-Then stop. The user switches when ready (`wta <branch>`, tmux window picker, etc.).
-
+Then stop. Do not end with "run this" / "try `/wtc …`" / a copy-paste shell
+block — the work is done. The user switches when ready (`wta <branch>`, tmux
+window picker, etc.).
 ## Ownership after spawn
 
 **Once `wtc` successfully creates a worktree + agent for a task, that task is no
@@ -202,7 +208,8 @@ behind as dual ownership.
 4. docs lie about --dry-run in cmd/root.go
 ```
 
-**Agent suggestion style** (do not execute until user triggers — rule):
+**Agent suggestion style** — only when this skill is **not** active (side work;
+do not execute until the user triggers):
 ```text
 Want parallel agents? For example:
 /wtc fix/session-null Null deref auth/session.go:142 after idle
@@ -212,12 +219,17 @@ Or one multi-trigger:
 ```text
 /wtc one for each of the four above
 ```
+When the user *does* trigger (`/wtc`, "wtc that", …), switch to **execute** mode
+above — never answer an active `/wtc` with another suggestion block.
 
 ## Do not
 
 - Run `wtc` / `wta` / `wtaa` just because you noticed side work — **suggest**
   `/wtc …` line(s) instead; only execute when this skill was invoked or the user
   explicitly ordered a spawn this turn.
+- When this skill **is** active: tell the user to run `/wtc …` again, paste a
+  shell `wtc …` for them to copy, or dry-run with "here's the command" instead
+  of calling the shell tool yourself.
 - Run bare `wtc` without `-n` from this skill — that steals the user's focus.
 - Cram multiple unrelated bugs into a **single** child prompt when the user
   asked for one worktree each — split.
