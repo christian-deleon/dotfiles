@@ -1,7 +1,7 @@
 {
   "browser": {
     "launchOptions": {
-      "args": ["--profile-directory=Profile 6"]
+      "args": ["--class=chromium-agent"]
     }
   }
 }
