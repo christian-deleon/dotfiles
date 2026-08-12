@@ -20,7 +20,7 @@ Open it yourself to install extensions or log in:
 chromium-agent
 ```
 
-Walker: **Chromium Agent**.
+Walker: **Chromium Agent**. Windows use class `chromium-agent` and Hyprland pops them (float + pin, 1300×1500) so they overlay instead of retileing the workspace.
 
 Close that window before the agent launches the browser — same-dir lock still applies to *this* data dir. Do not point `--user-data-dir` back at `~/.config/chromium`.
 
