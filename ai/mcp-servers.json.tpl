@@ -59,6 +59,7 @@
       "--executable-path", "/usr/bin/chromium",
       "--user-data-dir", "$HOME/.config/chromium-agent",
       "--config", "$HOME/.dotfiles/ai/playwright-mcp.config.json",
+      "--sandbox",
       "--output-dir", "/tmp/playwright-mcp",
       "--ignore-https-errors"
     ],
