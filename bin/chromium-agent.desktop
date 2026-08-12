@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=Chromium Agent
+GenericName=Agent Web Browser
+Comment=Dedicated Chromium for AI agents (extensions, 1Password)
+Exec=chromium-agent %U
+StartupNotify=true
+Terminal=false
+Icon=chromium
+Type=Application
+Categories=Network;WebBrowser;
+StartupWMClass=chromium-agent
+MimeType=text/html;text/xml;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;

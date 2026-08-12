@@ -4,6 +4,15 @@ This document provides a reference for all custom shell functions available in t
 
 ## General
 
+### `chromium-agent [args...]`
+
+Open the dedicated agent Chromium (`~/.config/chromium-agent`). Full browser — install 1Password and other extensions here; Playwright MCP uses the same profile. Daily Chromium can stay open. Close this window before an agent drives the browser (profile lock). Also in Walker as **Chromium Agent**.
+
+```bash
+chromium-agent
+chromium-agent https://start.1password.com
+```
+
 ### `mkd <directory>`
 
 Create a new directory and immediately cd into it.

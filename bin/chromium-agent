@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Launch the dedicated agent Chromium (extensions, 1Password).
+#
+# Usage: chromium-agent [chromium-args...]
+set -Eeuo pipefail
+
+dir="${XDG_CONFIG_HOME:-$HOME/.config}/chromium-agent"
+nm_src="${XDG_CONFIG_HOME:-$HOME/.config}/chromium/NativeMessagingHosts"
+nm_dst="$dir/NativeMessagingHosts"
+
+mkdir -p -- "$dir"
+
+# 1Password (and other desktop-connected extensions) register native-messaging
+# hosts under daily Chromium. Share them so the extension can talk to the app.
+# Chromium may create an empty NativeMessagingHosts dir on first launch.
+if [[ -d $nm_src ]]; then
+    if [[ -d $nm_dst && ! -L $nm_dst ]]; then
+        rmdir -- "$nm_dst" 2>/dev/null || true
+    fi
+    if [[ ! -e $nm_dst ]]; then
+        ln -snf -- "$nm_src" "$nm_dst"
+    fi
+fi
+
+chromium=$(command -v chromium) || {
+    printf '%s: chromium not found\n' "${0##*/}" >&2
+    exit 1
+}
+
+args=(--user-data-dir="$dir" --class=chromium-agent)
+if [[ ${XDG_SESSION_TYPE-} == wayland || -n ${WAYLAND_DISPLAY-} ]]; then
+    args+=(--ozone-platform=wayland --ozone-platform-hint=wayland)
+fi
+
+exec "$chromium" "${args[@]}" "$@"
