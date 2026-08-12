@@ -57,11 +57,11 @@
       "@playwright/mcp@latest",
       "--browser", "chrome",
       "--executable-path", "/usr/bin/chromium",
+      "--user-data-dir", "$HOME/.config/chromium",
       "--output-dir", "/tmp/playwright-mcp",
-      "--isolated",
       "--ignore-https-errors"
     ],
-    "description": "Browser automation and E2E testing (ignore HTTPS errors for local/self-signed UIs)"
+    "description": "Browser automation using real Chromium Default profile (close Chromium first — profile lock)"
   },
   "github": {
     "command": "npx",

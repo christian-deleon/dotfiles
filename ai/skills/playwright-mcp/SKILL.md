@@ -10,6 +10,12 @@ Browser automation goes through the **`playwright`** MCP server. Prefer its tool
 
 If the tools are not available, ask the user to enable the `playwright` MCP server — do not invent a fallback.
 
+## Profile
+
+Uses the real Chromium user data dir (`~/.config/chromium`, **Default** profile) — same cookies/logins as daily browsing.
+
+Chromium locks that profile: **only one process can hold it**. If launch fails with a profile-in-use / singleton lock error, ask the user to quit Chromium, then retry. Do not fall back to a temp/isolated profile unless they ask.
+
 ## Screenshots must not land in the project
 
 `--output-dir` is `/tmp/playwright-mcp`, but that only applies when `filename` is **omitted**. A bare name (e.g. `chart.png`) is resolved against the **project workspace** and leaves untracked files in the repo.
