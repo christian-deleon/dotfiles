@@ -22,7 +22,17 @@ chromium-agent
 
 Walker: **Chromium Agent**. Windows use class `chromium-agent` and Hyprland floats them (1300×1500, not pinned) so they overlay the workspace they opened on. Playwright launches with `--sandbox` so Chromium does not show the unsupported `--no-sandbox` infobar.
 
-Close that window before the agent launches the browser — same-dir lock still applies to *this* data dir. Do not point `--user-data-dir` back at `~/.config/chromium`.
+Same-dir lock: only one process can hold `~/.config/chromium-agent`. Do not point `--user-data-dir` back at `~/.config/chromium`.
+
+## Shared browser — wait your turn
+
+The Agent profile is **one** Chromium. Another agent may already own it. Do **not**:
+
+- close it (`browser_close`, `pkill`/`kill`, Hyprland close)
+- steal it with a new tab or a second instance
+- retry in a loop
+
+If launch fails because the profile is in use, **stop and ask the user** to let you proceed. Wait until they say you can. Do not assume you may close the other session or take the window.
 
 ## Screenshots must not land in the project
 
