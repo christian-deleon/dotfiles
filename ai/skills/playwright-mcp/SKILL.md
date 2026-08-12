@@ -12,9 +12,9 @@ If the tools are not available, ask the user to enable the `playwright` MCP serv
 
 ## Profile
 
-Uses the real Chromium user data dir (`~/.config/chromium`, **Default** profile) — same cookies/logins as daily browsing.
+Uses the dedicated Chromium **Agent** profile (`Profile 6` under `~/.config/chromium`), configured in `ai/playwright-mcp.config.json`. Log into sites in that profile once; agents reuse those cookies.
 
-Chromium locks that profile: **only one process can hold it**. If launch fails with a profile-in-use / singleton lock error, ask the user to quit Chromium, then retry. Do not fall back to a temp/isolated profile unless they ask.
+Chromium locks the whole user-data dir: **quit all Chromium windows** before the agent launches the browser. If launch fails with a profile-in-use / singleton lock error, ask the user to quit Chromium, then retry. Do not fall back to a temp/isolated profile unless they ask.
 
 ## Screenshots must not land in the project
 
