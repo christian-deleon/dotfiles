@@ -12,9 +12,17 @@ If the tools are not available, ask the user to enable the `playwright` MCP serv
 
 ## Profile
 
-Uses the dedicated Chromium **Agent** profile (`Profile 6` under `~/.config/chromium`), configured in `ai/playwright-mcp.config.json`. Log into sites in that profile once; agents reuse those cookies.
+Uses a **separate** Chromium user-data dir: `~/.config/chromium-agent`. That is a full second browser (extensions, 1Password, cookies), not a picker profile inside daily Chromium, so it can run while Work / other profiles stay open.
 
-Chromium locks the whole user-data dir: **quit all Chromium windows** before the agent launches the browser. If launch fails with a profile-in-use / singleton lock error, ask the user to quit Chromium, then retry. Do not fall back to a temp/isolated profile unless they ask.
+Open it yourself to install extensions or log in:
+
+```bash
+chromium-agent
+```
+
+Walker: **Chromium Agent**.
+
+Close that window before the agent launches the browser — same-dir lock still applies to *this* data dir. Do not point `--user-data-dir` back at `~/.config/chromium`.
 
 ## Screenshots must not land in the project
 

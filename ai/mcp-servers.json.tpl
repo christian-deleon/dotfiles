@@ -57,12 +57,11 @@
       "@playwright/mcp@latest",
       "--browser", "chrome",
       "--executable-path", "/usr/bin/chromium",
-      "--user-data-dir", "$HOME/.config/chromium",
-      "--config", "$HOME/.dotfiles/ai/playwright-mcp.config.json",
+      "--user-data-dir", "$HOME/.config/chromium-agent",
       "--output-dir", "/tmp/playwright-mcp",
       "--ignore-https-errors"
     ],
-    "description": "Browser automation using Chromium Agent profile (close Chromium first — profile lock)"
+    "description": "Browser automation in a dedicated Chromium profile (runs alongside daily Chromium)"
   },
   "github": {
     "command": "npx",
