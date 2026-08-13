@@ -71,17 +71,71 @@ function _wt_goto_window() {
     fi
 }
 
+# Grok session UUID to resume for this worktree, if any
+function _wta_grok_resume_id() {
+    # grok -c continues the newest session for the cwd, including empty ones
+    # created by a previous fresh launch. That permanently shadows the last
+    # real conversation. Pick the most recently active parent session that
+    # actually has a title or more than the system+skills bootstrap.
+    local wt_path="$1"
+    local grok_home key dir f id
+    local -a summaries=()
+    grok_home="${GROK_HOME:-$HOME/.grok}"
+    key=$(jq -nr --arg p "$wt_path" '$p|@uri') || return 1
+    dir="$grok_home/sessions/$key"
+    [[ -d "$dir" ]] || return 1
+    for f in "$dir"/*/summary.json; do
+        [[ -f "$f" ]] && summaries+=("$f")
+    done
+    (( ${#summaries[@]} > 0 )) || return 1
+    id=$(jq -rs '
+        map(select(
+            (.session_kind // "") != "subagent" and
+            (.session_kind // "") != "subagent_resume" and
+            (
+                ((.generated_title // "") | length) > 0 or
+                ((.num_chat_messages // 0) > 2)
+            )
+        ))
+        | max_by(.last_active_at // .updated_at // "")
+        | .info.id // empty
+    ' "${summaries[@]}") || return 1
+    [[ -n "$id" ]] || return 1
+    printf '%s\n' "$id"
+}
+
+# True if the configured AI tool has history at this path
+function _wta_has_session_history() {
+    # wta/wtaa resume is per-tool. Claude is ~/.claude/projects/<slash-as-dash>/,
+    # Grok is a real parent session under ~/.grok/sessions/<url-encoded-cwd>/.
+    local wt_path="$1"
+    local tool="${AI_TOOL%% *}"
+    local key
+    case "$tool" in
+        gra|grok|gr)
+            _wta_grok_resume_id "$wt_path" >/dev/null
+            ;;
+        cld|claude|cl)
+            key="${wt_path//\//-}"
+            compgen -G "$HOME/.claude/projects/$key/*.jsonl" >/dev/null 2>&1
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 # Ensure a tav window exists for one worktree (wta helper)
 function _wta_ensure_window() {
     # Optional 3rd arg adopt_pane: a pane id to adopt as this worktree's window
     # (instead of creating a new one) — used by wtaa when the launcher window
     # isn't inside a worktree.
     # Optional 4th arg prompt: an initial prompt forwarded to tav (wta/wtc).
-    # Optional 5th arg force_fresh: non-empty skips Claude-history resume and
+    # Optional 5th arg force_fresh: non-empty skips history resume and
     # always launches $AI_TOOL. wtaa uses this for the main worktree so a
     # full-project restore never continues yesterday's main-branch session.
     local branch="$1" wt_path="$2" adopt_pane="${3:-}" prompt="${4:-}" force_fresh="${5:-}"
-    local session window cmd claude_key geo_x geo_y status_lines
+    local session window cmd geo_x geo_y status_lines resume_id tool
 
     session=$(_wt_session_for "$wt_path")
     window="${branch//\//-}"
@@ -116,16 +170,17 @@ function _wta_ensure_window() {
     [[ "$geo_y" =~ ^[0-9]+$ ]] || geo_y=50
     [[ "$geo_y" =~ ^[0-9]+$ ]] && geo_y=$((geo_y - status_lines))
 
-    # Resume if Claude has prior history for this path, else launch fresh.
-    # Claude stores per-project sessions under ~/.claude/projects/<slug>/
-    # where the slug is the absolute path with `/` replaced by `-`. The
-    # detection is Claude-specific; non-Claude tools always launch fresh
-    # unless leftover Claude history exists (then $AI_TOOL_RESUME is used).
+    # Resume the current tool's last real session for this worktree when
+    # history exists; otherwise launch fresh. Grok is pinned by session id
+    # (`-r`) because `-c` continues the newest cwd session, empty ones included.
     # force_fresh (wtaa's main worktree) always starts a new session.
-    claude_key="${wt_path//\//-}"
+    tool="${AI_TOOL%% *}"
     if [[ -n "$force_fresh" ]]; then
         cmd="$AI_TOOL"
-    elif compgen -G "$HOME/.claude/projects/$claude_key/*.jsonl" >/dev/null 2>&1; then
+    elif [[ "$tool" == gra || "$tool" == grok || "$tool" == gr ]] \
+         && resume_id=$(_wta_grok_resume_id "$wt_path"); then
+        cmd="$AI_TOOL -r $resume_id"
+    elif _wta_has_session_history "$wt_path"; then
         cmd="$AI_TOOL_RESUME"
     else
         cmd="$AI_TOOL"
@@ -403,7 +458,7 @@ function wtaa() {
 
     for i in "${!w_branch[@]}"; do
         # Main is a home base, not a task session — never continue last chat.
-        # Feature worktrees still resume when Claude history exists.
+        # Feature worktrees still resume when the current AI tool has history.
         this_adopt=""
         this_fresh=""
         if [[ "${w_main[$i]}" == "true" ]]; then
