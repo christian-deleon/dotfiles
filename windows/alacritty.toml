@@ -30,7 +30,14 @@ padding.y = 14
 bindings = [
 { key = "Insert", mods = "Shift", action = "Paste" },
 { key = "Insert", mods = "Control", action = "Copy" },
-{ key = "Return", mods = "Shift", chars = "\r" }
+# Same chords as alacritty/.config/alacritty/shared.toml (see that file).
+{ key = "Return", mods = "Shift", chars = "\n" },
+{ key = ".", mods = "Control", chars = "\u0018" },
+{ key = "Return", mods = "Alt|Shift", chars = "\u001B[13;4u" },
+{ key = "Return", mods = "Control", chars = "\u001B[13;5u" },
+{ key = ";", mods = "Control", chars = "\u001B[59;5u" },
+{ key = "'", mods = "Control", chars = "\u001B[39;5u" },
+{ key = ",", mods = "Control", chars = "\u001B[44;5u" }
 ]
 
 [colors.primary]

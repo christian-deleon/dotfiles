@@ -24,8 +24,15 @@ decorations = "None"
 bindings = [
 { key = "Insert", mods = "Shift", action = "Paste" },
 { key = "Insert", mods = "Control", action = "Copy" },
-# Send Shift+Return as CSI-u so TUIs can distinguish it from Return without treating it as Alt+Return.
-{ key = "Return", mods = "Shift", chars = "\u001B[13;2u" },
-# Legacy encoding sends Alt+Shift+Return the same as Alt+Return; send CSI-u so tmux can match M-S-Enter.
-{ key = "Return", mods = "Alt|Shift", chars = "\u001B[13;4u" }
+# Single-byte chords: Grok panes in tmux stay VT10x, which strips modifiers
+# from CSI-u / S-Enter / C-.. LF is a newline; C-x is Grok's shortcuts fallback.
+# Named keys like Quote/Period are invalid in Alacritty — use the character.
+{ key = "Return", mods = "Shift", chars = "\n" },
+{ key = ".", mods = "Control", chars = "\u0018" },
+# CSI-u so tmux can tell these apart from unshifted / unmodded keys.
+{ key = "Return", mods = "Alt|Shift", chars = "\u001B[13;4u" },
+{ key = "Return", mods = "Control", chars = "\u001B[13;5u" },
+{ key = ";", mods = "Control", chars = "\u001B[59;5u" },
+{ key = "'", mods = "Control", chars = "\u001B[39;5u" },
+{ key = ",", mods = "Control", chars = "\u001B[44;5u" }
 ]
