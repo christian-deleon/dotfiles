@@ -7,6 +7,8 @@ disable-model-invocation: true
 
 # Bro
 
+Default replies are already supposed to sound like this. Use this skill only to rewrite a reply that still came out dense.
+
 Restate **your last message** only. Drop jargon, acronyms-without-expansion, and hedging. Speak like one person talking to another — short sentences, everyday words, same facts.
 
 ## Rules
