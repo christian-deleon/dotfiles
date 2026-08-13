@@ -1,11 +1,10 @@
-# Grok Build TUI - User Configuration
-# This file is managed by ~/.dotfiles (symlinked into ~/.grok/config.toml)
+# Grok Build TUI — seed for a missing ~/.grok/config.toml.
+# The live file is NOT a symlink: Grok mutates it at runtime. install_ai_grok
+# copies this seed only when the live file is absent, then merges MCP and
+# [compat.claude] into the live file.
 #
-# Grok also reads MCP servers from ~/.claude.json (Claude Code compatibility)
-# and project-scoped .grok/config.toml files. Native [mcp_servers] here take precedence.
-#
-# For skills, agents, and hooks, see the shared ai/ directory in dotfiles.
-# They are symlinked into ~/.grok/skills/, ~/.grok/agents/, and ~/.grok/hooks/.
+# Skills, agents, hooks, and rules live in ~/.dotfiles/ai/ and are symlinked
+# into ~/.grok/{skills,agents,hooks,rules}/.
 
 [cli]
 auto_update = true
@@ -59,18 +58,11 @@ respect_gitignore = true
 # ---------------------------------------------------------------------------
 # MCP Servers
 # ---------------------------------------------------------------------------
-# Primary MCP configuration lives in ~/.dotfiles/ai/mcp-servers.json.tpl
-# It is processed by `generate_mcp_configs` and injected into:
-#   - ~/.claude.json (for Claude Code + Grok compatibility)
-#   - ~/.config/opencode/opencode.json
+# Roster lives in ~/.dotfiles/ai/mcp-servers.json.tpl. generate_mcp_configs
+# merges [mcp_servers.*] into the live ~/.grok/config.toml (canonical) and
+# writes OpenCode's mcp block as an adapter.
 #
-# You can still declare additional [mcp_servers.xxx] here. They will be merged.
-# Example:
-#
-# [mcp_servers.my-internal]
-# command = "npx"
-# args = ["-y", "@myorg/mcp-server"]
-# env = { API_TOKEN = "..." }
+# Extra [mcp_servers.xxx] tables you add by hand survive the merge.
 
 # ---------------------------------------------------------------------------
 # Disabled MCP Servers (runtime preference)
@@ -111,10 +103,22 @@ enabled = true
 # ---------------------------------------------------------------------------
 # Skills
 # ---------------------------------------------------------------------------
-# Additional skill directories (beyond ~/.grok/skills/ and ~/.claude/skills/)
+# Additional skill directories (beyond ~/.grok/skills/)
 # [skills]
 # paths = ["~/team-skills"]
 # ignore = ["~/team-skills/wip"]
+
+# ---------------------------------------------------------------------------
+# Harness compatibility
+# ---------------------------------------------------------------------------
+# Claude Code is retired. Keep these off so leftover ~/.claude paths are ignored.
+[compat.claude]
+skills = false
+rules = false
+agents = false
+mcps = false
+hooks = false
+sessions = false
 
 # ---------------------------------------------------------------------------
 # Plugins / Marketplace (advanced)

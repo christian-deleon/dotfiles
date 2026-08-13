@@ -173,7 +173,7 @@ function tav() {
 
     ai_cmd="${ai_cmd:-${AI_TOOL:-}}"
     if [[ -z "$ai_cmd" ]]; then
-        echo "Error: no AI tool set. Run 'dot ai-tool' or pass one explicitly: tav -t cld" >&2
+        echo "Error: no AI tool set. Run 'dot ai-tool' or pass one explicitly: tav -t gra" >&2
         return 1
     fi
 
@@ -210,7 +210,7 @@ function tavk() {
 
     ai_cmd="${ai_cmd:-${AI_TOOL:-}}"
     if [[ -z "$ai_cmd" ]]; then
-        echo "Error: no AI tool set. Run 'dot ai-tool' or pass one explicitly: tavk -t cld" >&2
+        echo "Error: no AI tool set. Run 'dot ai-tool' or pass one explicitly: tavk -t gra" >&2
         return 1
     fi
 

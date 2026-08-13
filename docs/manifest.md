@@ -1,6 +1,6 @@
 # manifest.yaml
 
-Single source of truth for every installable item the dotfiles repo knows about. Each top-level key is an item name (e.g. `docker`, `alacritty`, `claude`). The installer reads this file to decide:
+Single source of truth for every installable item the dotfiles repo knows about. Each top-level key is an item name (e.g. `docker`, `alacritty`, `grok`). The installer reads this file to decide:
 
 1. What items exist (used by the picker, `dot install <name>`, and profiles)
 2. How to install each item (binary install methods, config type, post-install hooks)
@@ -35,7 +35,7 @@ The installer classifies items based on which blocks are present:
 | Kind | Has `install`? | Has `config`? | Example |
 |--------|---|---|------------|
 | `tool` | yes | no | `docker`, `jq` |
-| `config` | no | yes | `btop`, `claude` |
+| `config` | no | yes | `btop` |
 | `bundle` | yes | yes | `alacritty`, `neovim`, `tmux` |
 
 Picking a bundle item installs the binary **and** the config in one step.
@@ -46,7 +46,7 @@ Only two:
 
 - **`stow`** — auto-stows from `<package>/.config/<package>/` (directory) or `<package>/.config/<package>.<ext>` (single file). Optional `package:` override lets the stow directory differ from the item name. Used for `btop`, `alacritty`, `omarchy`, etc.
 
-- **`handler`** — calls a named bash function. Used for items that need imperative setup beyond stow: `claude` and `grok` (AI installers), `cargo` (`~/.cargo/config.toml` outside XDG), `lid-check` (PAM patch), `windows-terminal` (Windows-side settings.json).
+- **`handler`** — calls a named bash function. Used for items that need imperative setup beyond stow: `grok` (AI installer), `cargo` (`~/.cargo/config.toml` outside XDG), `lid-check` (PAM patch), `windows-terminal` (Windows-side settings.json).
 
 Note: `opencode` and `tmux` are **`type: stow`** (with `post_install` hooks for OpenCode AI linking / MCP). They are not handlers.
 
@@ -54,7 +54,7 @@ Handlers live in `scripts/handlers/*.sh`, organized by domain:
 
 | File | Functions |
 |---|---|
-| `scripts/handlers/ai.sh` | `install_ai_claude`, `install_ai_grok`, `install_ai_opencode`, `generate_mcp_configs` |
+| `scripts/handlers/ai.sh` | `install_ai_grok`, `install_ai_opencode`, `generate_mcp_configs` |
 | `scripts/handlers/cargo.sh` | `install_cargo_config` |
 | `scripts/handlers/linux.sh` | `install_lid_check` |
 | `scripts/handlers/windows.sh` | `install_windows_terminal_config` |

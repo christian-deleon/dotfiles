@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Generate OpenCode agent and instructions config from ai/ sources.
+# OpenCode adapter: JSON agents + instructions from Grok-shaped ai/ sources.
 #
 # Scans ai/agents/*.md for YAML frontmatter (name, description, model, tools)
 # and converts each to OpenCode JSON agent format. Collects ai/rules/**/*.md
@@ -51,13 +51,12 @@ for agent_file in "$AI_DIR"/agents/*.md; do
 
     [[ -z "$name" ]] && continue
 
-    # Map short model name to full provider ID
+    # Grok-native short names stay as-is; omit model unless frontmatter set a
+    # full provider id (OpenCode inherits its own default otherwise).
     case "$model" in
-        opus|opus-4-8)   model_id="anthropic/claude-opus-4-8" ;;
-        sonnet|sonnet-5) model_id="anthropic/claude-sonnet-5" ;;
-        haiku|haiku-4-5) model_id="anthropic/claude-haiku-4-5" ;;
-        "")              model_id="anthropic/claude-sonnet-5" ;;
-        *)               model_id="$model" ;;
+        ""|grok-build|grok-*) model_id="" ;;
+        */*)                  model_id="$model" ;;
+        *)                    model_id="" ;;
     esac
 
     # Extract body (everything after the second ---)
@@ -76,19 +75,33 @@ for agent_file in "$AI_DIR"/agents/*.md; do
         done <<< "$tools_clean"
     fi
 
-    # Build agent entry
-    agent_entry="$(jq -n \
-        --arg desc "$description" \
-        --arg model "$model_id" \
-        --arg prompt "$body" \
-        --argjson tools "$tools_json" \
-        '{
-            description: $desc,
-            model: $model,
-            prompt: $prompt,
-            mode: "subagent",
-            tools: $tools
-        }')"
+    # Build agent entry. Omit model so OpenCode uses its configured default
+    # unless the frontmatter already named a full provider id.
+    if [[ -n "$model_id" ]]; then
+        agent_entry="$(jq -n \
+            --arg desc "$description" \
+            --arg model "$model_id" \
+            --arg prompt "$body" \
+            --argjson tools "$tools_json" \
+            '{
+                description: $desc,
+                model: $model,
+                prompt: $prompt,
+                mode: "subagent",
+                tools: $tools
+            }')"
+    else
+        agent_entry="$(jq -n \
+            --arg desc "$description" \
+            --arg prompt "$body" \
+            --argjson tools "$tools_json" \
+            '{
+                description: $desc,
+                prompt: $prompt,
+                mode: "subagent",
+                tools: $tools
+            }')"
+    fi
 
     agents_json="$(jq --arg name "$name" --argjson entry "$agent_entry" \
         '. + {($name): $entry}' <(echo "$agents_json"))"
@@ -112,6 +125,6 @@ overlay="$(jq -n \
 # Strip keys managed by this script before merging so stale entries don't persist.
 # Personal config (everything else) wins on conflicts.
 
-personal_clean="$(jq 'del(.agent, .command, .instructions, .plugin)' "$OC_CFG")"
+personal_clean="$(jq 'del(.agent, .command, .instructions, .plugin) | del(.provider.anthropic)' "$OC_CFG")"
 jq -s '.[0] * .[1]' <(echo "$overlay") <(echo "$personal_clean") > "$OC_CFG.tmp"
 mv "$OC_CFG.tmp" "$OC_CFG"

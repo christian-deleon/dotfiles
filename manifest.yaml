@@ -54,13 +54,6 @@ cargo:
     type: handler
     handler: install_cargo_config
 
-claude:
-  description: Claude Code AI config (agents, skills, commands, rules)
-  config:
-    type: handler
-    handler: install_ai_claude
-  post_install: [generate_mcp_configs]
-
 cloc:
   description: Count lines of code
   install:
@@ -134,6 +127,7 @@ grok:
   config:
     type: handler
     handler: install_ai_grok
+  post_install: [generate_mcp_configs]
 
 gum:
   description: TUI components for scripts

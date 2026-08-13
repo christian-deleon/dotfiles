@@ -2,9 +2,9 @@
 # AI dispatcher for worktrunk commit-message generation.
 #
 # Reads the rendered prompt on stdin, runs whichever AI CLI is selected via
-# $AI_TOOL_PIPE (claude|opencode|grok), validates the result against the
+# $AI_TOOL_PIPE (grok|opencode), validates the result against the
 # Conventional Commits format, and prints the cleaned message on stdout.
-# With $AI_TOOL_PIPE unset, auto-detects in claude > opencode > grok order.
+# With $AI_TOOL_PIPE unset, auto-detects in grok > opencode order.
 #
 # Failure handling:
 #   - Tool exits non-zero (auth, subscription, network): surface and exit 1
@@ -15,18 +15,16 @@
 #     to the prompt so the model corrects that attempt instead of blindly
 #     regenerating a similarly-invalid message. Default 2 (so 3 total attempts).
 #
-# Each tool gets its native stdin path — Claude and Grok read directly from
-# stdin (no $(cat) round-trip), OpenCode takes the prompt as a positional arg
+# Each tool gets its native stdin path — Grok reads directly from stdin
+# (no $(cat) round-trip), OpenCode takes the prompt as a file attach
 # (the only form `opencode run` reliably accepts). This avoids ARG_MAX and
 # shell-quoting issues with large diffs that contain backticks/dollar signs.
 
 set -euo pipefail
 
-# Model defaults per tool. Override via env if you want a different model for a
-# specific tool without touching this script (e.g. AI_PIPE_CLAUDE_MODEL=haiku to
-# trade quality for speed/cost on a single tool).
-AI_PIPE_CLAUDE_MODEL="${AI_PIPE_CLAUDE_MODEL:-sonnet}"
-AI_PIPE_OPENCODE_MODEL="${AI_PIPE_OPENCODE_MODEL:-amazon-bedrock/anthropic.claude-sonnet-4-6}"
+# Model overrides per tool. Unset = the tool's own configured default.
+# OpenCode: set AI_PIPE_OPENCODE_MODEL to a full provider id to pin one.
+AI_PIPE_OPENCODE_MODEL="${AI_PIPE_OPENCODE_MODEL:-}"
 AI_PIPE_GROK_MODEL="${AI_PIPE_GROK_MODEL:-}"
 
 # Total attempts = AI_PIPE_RETRIES + 1. Set 0 to disable retry entirely.
@@ -52,16 +50,15 @@ CC_PREFIX_REGEX='^(feat|fix|refactor|perf|test|docs|chore|ci|style|revert)(\([a-
 # separately so the retry feedback names it instead of a generic message.
 CC_MULTISCOPE_REGEX='^[a-z]+\([^)]*[, ][^)]*\)'
 
-# Normalize $AI_TOOL_PIPE; tolerate the short forms used by AI_TOOL (cld/oc/gra).
+# Normalize $AI_TOOL_PIPE; tolerate the short forms used by AI_TOOL (gra/oc).
 normalize_tool() {
     case "${1:-}" in
-        claude|cld) echo claude ;;
-        opencode|oc) echo opencode ;;
         grok|gra|gr) echo grok ;;
+        opencode|oc) echo opencode ;;
         "") echo "" ;;
         *)
             echo "worktrunk-commit-gen: unknown AI_TOOL_PIPE value: $1" >&2
-            echo "  expected one of: claude, opencode, grok" >&2
+            echo "  expected one of: grok, opencode" >&2
             return 1
             ;;
     esac
@@ -69,13 +66,13 @@ normalize_tool() {
 
 detect_tool() {
     local t
-    for t in claude opencode grok; do
+    for t in grok opencode; do
         if command -v "$t" &>/dev/null; then
             echo "$t"
             return 0
         fi
     done
-    echo "worktrunk-commit-gen: no AI CLI found on PATH (tried: claude, opencode, grok)" >&2
+    echo "worktrunk-commit-gen: no AI CLI found on PATH (tried: grok, opencode)" >&2
     echo "  install one, or set AI_TOOL_PIPE to a tool that is installed." >&2
     return 1
 }
@@ -136,23 +133,6 @@ cc_violation_reason() {
 invoke_tool() {
     local tool="$1" prompt="$2"
     case "$tool" in
-        claude)
-            # Flag salad mirrors the historical pre-opencode invocation from
-            # commit b461855 — works under both OAuth (keychain) and
-            # ANTHROPIC_API_KEY auth. Do NOT swap to --bare here: --bare
-            # refuses to read keychain credentials and silently writes
-            # "Not logged in" to stdout, which looks like a model failure.
-            # CLAUDECODE= prevents the nested-session guard when wt runs
-            # inside a Claude session. MAX_THINKING_TOKENS=0 disables thinking.
-            printf '%s' "$prompt" | \
-                CLAUDECODE= MAX_THINKING_TOKENS=0 \
-                claude -p --model="$AI_PIPE_CLAUDE_MODEL" \
-                    --output-format text \
-                    --tools='' \
-                    --disable-slash-commands \
-                    --setting-sources='' \
-                    --system-prompt='' | clean_output
-            ;;
         opencode)
             # opencode run does not accept prompt on stdin; the positional-arg
             # form triggers ARG_MAX on large diffs. Write the prompt to a temp
@@ -162,10 +142,10 @@ invoke_tool() {
             # shellcheck disable=SC2064
             trap "rm -f '$oc_tmp'; rm -f '$err_file'" EXIT
             printf '%s' "$prompt" > "$oc_tmp"
-            opencode run --model "$AI_PIPE_OPENCODE_MODEL" \
-                --file "$oc_tmp" \
-                -- "Follow the instructions in the attached file exactly. Output only the raw commit message." \
-                | clean_output
+            local oc_args=(run --file "$oc_tmp")
+            [[ -n "$AI_PIPE_OPENCODE_MODEL" ]] && oc_args+=(--model "$AI_PIPE_OPENCODE_MODEL")
+            oc_args+=(-- "Follow the instructions in the attached file exactly. Output only the raw commit message.")
+            opencode "${oc_args[@]}" | clean_output
             ;;
         grok)
             local model_args=()
@@ -191,8 +171,8 @@ output=""
 reason=""
 
 # Capture stderr to a temp file each attempt so we can surface it on failure.
-# Some tools (notably claude) write auth/login errors to STDOUT, so we have to
-# print both streams on failure to avoid silent "exited 1" with no context.
+# Some tools write auth/login errors to STDOUT, so we have to print both
+# streams on failure to avoid silent "exited 1" with no context.
 err_file="$(mktemp)"
 trap 'rm -f "$err_file"' EXIT
 

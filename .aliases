@@ -97,10 +97,6 @@ alias tn='tmux new -s'                   # Create a new named tmux session
 alias tk='tmux kill-session -t'          # Kill a named tmux session
 alias tka='tmux kill-server'             # Kill the tmux server and all sessions
 
-# Claude
-alias cl='claude'                                 # Claude CLI
-alias cld='claude --dangerously-skip-permissions' # Claude CLI, skipping permission prompts
-
 # OpenCode
 alias oc='opencode'                      # OpenCode CLI
 

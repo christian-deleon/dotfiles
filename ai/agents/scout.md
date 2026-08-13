@@ -1,7 +1,7 @@
 ---
 name: scout
 description: Fast, low-cost codebase scout for broad searches and bulk reading. Use proactively whenever answering requires searching across many files or directories, sweeping naming conventions, or reading large files/logs — returns distilled findings with file:line refs, never raw dumps. Read-only; not for code review or design judgment.
-model: sonnet
+model: grok-build
 tools: Read, Grep, Glob, Bash
 mode: subagent
 ---

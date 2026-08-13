@@ -1,90 +1,33 @@
 #!/bin/bash
 # AI config handlers — referenced from manifest.yaml.
-# Functions: install_ai_claude, install_ai_grok, install_ai_opencode, generate_mcp_configs.
+# Functions: install_ai_grok, install_ai_opencode, generate_mcp_configs.
 #
 # Sourced by install.sh. Uses helpers from install.sh: info/success/warn/error,
 # link_directory_contents, link_file, clean_ai_symlinks, op_inject_multi, ensure_jq.
+#
+# Grok is first-class. OpenCode is an adapter that links at Grok's live tree
+# and only generates JSON for shapes Grok does not share.
 
-install_ai_claude() {
-    local ai_dir="$DOTFILES_DIR/ai"
-    [[ -d "$ai_dir" ]] || { warn "ai/ directory not found"; return; }
+# Flatten ai/rules/**/*.md into ~/.grok/rules/<basename>.md — Grok scans one
+# level of ~/.grok/rules/, not nested category dirs.
+link_grok_rules() {
+    local src="$1"
+    local dest="$2"
+    [[ -d "$src" ]] || return 0
 
-    info "Installing AI config for Claude Code..."
+    mkdir -p "$dest"
+    clean_ai_symlinks "$dest"
 
-    for dir in rules commands skills agents; do
-        clean_ai_symlinks "$HOME/.claude/$dir"
-    done
-
-    # Remove old ECC plugin symlink (migration)
-    [[ -L "$HOME/.claude/plugins/everything-claude-code" ]] && rm "$HOME/.claude/plugins/everything-claude-code"
-
-    mkdir -p "$HOME/.claude/rules" "$HOME/.claude/commands" \
-             "$HOME/.claude/skills" "$HOME/.claude/agents"
-    link_directory_contents "$ai_dir/agents" "$HOME/.claude/agents"
-    link_directory_contents "$ai_dir/commands" "$HOME/.claude/commands"
-    link_directory_contents "$ai_dir/skills" "$HOME/.claude/skills"
-    link_directory_contents "$ai_dir/rules" "$HOME/.claude/rules"
-
-    # Merge ai/claude/settings.json fragment into ~/.claude/settings.json.
-    # Deep-merge for most keys: fragment wins on conflicts; machine-specific
-    # keys the fragment doesn't touch (theme, effortLevel, etc.) survive.
-    # Exception: `hooks` is fully replaced from the fragment when present, so
-    # dropping an event from the fragment also drops it from live config.
-    local settings_fragment="$ai_dir/claude/settings.json"
-    local claude_settings="$HOME/.claude/settings.json"
-    if [[ -f "$settings_fragment" ]]; then
-        ensure_jq || return
-        if ! jq -e . "$settings_fragment" >/dev/null 2>&1; then
-            warn "Invalid JSON in $settings_fragment — skipping merge"
-        elif [[ -f "$claude_settings" ]]; then
-            jq -s '
-                .[0] as $live | .[1] as $frag
-                | ($live * $frag)
-                | if $frag.hooks then .hooks = $frag.hooks else . end
-            ' "$claude_settings" "$settings_fragment" > "$claude_settings.tmp" \
-                && mv "$claude_settings.tmp" "$claude_settings" \
-                && success "Merged Claude settings fragment into $claude_settings"
-        else
-            mkdir -p "$(dirname "$claude_settings")"
-            cp "$settings_fragment" "$claude_settings"
-            success "Installed Claude settings from fragment to $claude_settings"
+    local f base dest_file
+    while IFS= read -r -d '' f; do
+        base="$(basename "$f")"
+        dest_file="$dest/$base"
+        if [[ -e "$dest_file" && ! -L "$dest_file" ]]; then
+            warn "Grok rule name collision, skipping: $dest_file"
+            continue
         fi
-    fi
-
-    success "Installed AI config for Claude Code"
-}
-
-install_ai_opencode() {
-    local ai_dir="$DOTFILES_DIR/ai"
-    [[ -d "$ai_dir" ]] || { warn "ai/ directory not found"; return; }
-
-    ensure_jq || return
-
-    info "Installing AI config for OpenCode..."
-    local oc_dir="$HOME/.config/opencode"
-
-    clean_ai_symlinks "$oc_dir/commands"
-    clean_ai_symlinks "$oc_dir/skills"
-
-    # Remove old ECC directory symlinks (migration)
-    for old in "$oc_dir/plugins/ecc" "$oc_dir/instructions" "$oc_dir/prompts" "$oc_dir/tools"; do
-        [[ -L "$old" ]] && rm "$old"
-    done
-
-    mkdir -p "$oc_dir/commands" "$oc_dir/skills"
-    link_directory_contents "$ai_dir/commands" "$oc_dir/commands"
-    link_directory_contents "$ai_dir/skills" "$oc_dir/skills"
-
-    # Clean stale ECC entries from opencode.json (migration) and regenerate
-    # from ai/ sources. The generate script strips managed keys before merging.
-    if [[ -x "$ai_dir/scripts/generate-opencode-config.sh" ]]; then
-        "$ai_dir/scripts/generate-opencode-config.sh" "$ai_dir" "$oc_dir"
-    elif [[ -f "$oc_dir/opencode.json" ]] && command -v jq &>/dev/null; then
-        jq 'del(.agent, .command, .instructions, .plugin)' "$oc_dir/opencode.json" > "$oc_dir/opencode.json.tmp"
-        mv "$oc_dir/opencode.json.tmp" "$oc_dir/opencode.json"
-    fi
-
-    success "Installed AI config for OpenCode"
+        ln -snf "$f" "$dest_file"
+    done < <(find "$src" -name '*.md' -type f -print0 | sort -z)
 }
 
 # Merge baseline grants from grok/.grok/trusted_folders.toml into the live
@@ -140,45 +83,103 @@ ensure_grok_trusted_folders() {
     fi
 }
 
+# Seed live config.toml if missing; never symlink it (Grok mutates the file).
+# Always force [compat.claude] off so leftover ~/.claude paths are ignored.
+ensure_grok_config() {
+    local seed="$DOTFILES_DIR/grok/.grok/config.toml"
+    local dest="$HOME/.grok/config.toml"
+    local merger="$DOTFILES_DIR/ai/scripts/merge-grok-mcp.py"
+
+    mkdir -p "$HOME/.grok"
+    if [[ ! -f "$dest" && -f "$seed" ]]; then
+        cp "$seed" "$dest"
+        chmod 600 "$dest"
+        info "Seeded ~/.grok/config.toml from repo"
+    fi
+
+    if [[ -x "$merger" ]] || [[ -f "$merger" ]]; then
+        python3 "$merger" "$dest" || warn "Could not merge Grok Claude-compat flags"
+    fi
+}
+
 install_ai_grok() {
     local ai_dir="$DOTFILES_DIR/ai"
     [[ -d "$ai_dir" ]] || { warn "ai/ directory not found"; return; }
 
-    info "Installing AI config for Grok Build TUI (native paths)..."
+    info "Installing AI config for Grok Build TUI..."
 
-    for dir in skills agents hooks; do
+    for dir in skills agents hooks rules; do
         clean_ai_symlinks "$HOME/.grok/$dir"
     done
 
-    mkdir -p "$HOME/.grok/skills" "$HOME/.grok/agents" "$HOME/.grok/hooks"
+    mkdir -p "$HOME/.grok/skills" "$HOME/.grok/agents" "$HOME/.grok/hooks" "$HOME/.grok/rules"
 
     link_directory_contents "$ai_dir/skills" "$HOME/.grok/skills"
     link_directory_contents "$ai_dir/agents" "$HOME/.grok/agents"
     link_directory_contents "$ai_dir/hooks" "$HOME/.grok/hooks"
+    link_grok_rules "$ai_dir/rules" "$HOME/.grok/rules"
 
     local grok_cfg_src="$DOTFILES_DIR/grok/.grok"
     if [[ -d "$grok_cfg_src" ]]; then
         mkdir -p "$HOME/.grok"
-        for f in config.toml pager.toml; do
-            if [[ -f "$grok_cfg_src/$f" ]]; then
-                link_file "$grok_cfg_src/$f" "$HOME/.grok/$f"
-            fi
-        done
+        if [[ -f "$grok_cfg_src/pager.toml" ]]; then
+            link_file "$grok_cfg_src/pager.toml" "$HOME/.grok/pager.toml"
+        fi
     fi
 
+    ensure_grok_config
     ensure_grok_trusted_folders
 
     success "Installed AI config for Grok Build TUI"
 }
 
-# Generate MCP configs for Claude Code and OpenCode from the shared source.
-# Source: ~/.dotfiles/ai/mcp-servers.json.tpl (Claude Desktop format with op:// refs)
+# OpenCode adapter: point at Grok's live tree. JSON-only bits (agents,
+# instructions) still go through generate-opencode-config.sh.
+install_ai_opencode() {
+    local ai_dir="$DOTFILES_DIR/ai"
+    [[ -d "$ai_dir" ]] || { warn "ai/ directory not found"; return; }
+
+    ensure_jq || return
+
+    info "Installing OpenCode adapter (links at Grok)..."
+    local oc_dir="$HOME/.config/opencode"
+    mkdir -p "$oc_dir" "$HOME/.grok/skills"
+
+    # Drop the old per-item dual-install (and empty commands/) before the
+    # single dir symlink. clean_ai_symlinks only removes links into ai/.
+    if [[ -d "$oc_dir/skills" && ! -L "$oc_dir/skills" ]]; then
+        clean_ai_symlinks "$oc_dir/skills"
+        rm -rf "$oc_dir/skills"
+    elif [[ -L "$oc_dir/skills" ]]; then
+        rm "$oc_dir/skills"
+    fi
+    ln -snf "$HOME/.grok/skills" "$oc_dir/skills"
+
+    if [[ -d "$oc_dir/commands" && ! -L "$oc_dir/commands" ]]; then
+        clean_ai_symlinks "$oc_dir/commands"
+    fi
+
+    if [[ -e "$HOME/.grok/AGENTS.md" || -L "$HOME/.grok/AGENTS.md" ]]; then
+        ln -snf "$HOME/.grok/AGENTS.md" "$oc_dir/AGENTS.md"
+    fi
+
+    if [[ -x "$ai_dir/scripts/generate-opencode-config.sh" ]]; then
+        "$ai_dir/scripts/generate-opencode-config.sh" "$ai_dir" "$oc_dir"
+    fi
+
+    success "Installed OpenCode adapter"
+}
+
+# Generate MCP configs from the shared roster.
+# Source: ~/.dotfiles/ai/mcp-servers.json.tpl (command/args/env/url JSON, op:// refs)
 # Targets:
-#   Claude Code: ~/.claude.json mcpServers (merges into existing config)
-#   OpenCode:    ~/.config/opencode/opencode.json mcp (converted format)
+#   Grok:     ~/.grok/config.toml [mcp_servers.*]  (canonical)
+#   OpenCode: ~/.config/opencode/opencode.json mcp (adapter; JSON ≠ TOML)
 generate_mcp_configs() {
     local mcp_src="$DOTFILES_DIR/ai/mcp-servers.json.tpl"
     local force="${FORCE_MCP_REGEN:-false}"
+    local merger="$DOTFILES_DIR/ai/scripts/merge-grok-mcp.py"
+    local grok_cfg="$HOME/.grok/config.toml"
 
     if [[ ! -f "$mcp_src" ]]; then
         warn "Shared MCP config not found: $mcp_src"
@@ -187,7 +188,6 @@ generate_mcp_configs() {
 
     ensure_jq || return
 
-    # Skip 1Password injection if template hasn't changed and targets exist
     local cache_dir="$HOME/.cache/dotfiles"
     local hash_file="$cache_dir/mcp-servers.hash"
     local current_hash
@@ -197,8 +197,8 @@ generate_mcp_configs() {
         local cached_hash
         cached_hash="$(cat "$hash_file")"
         if [[ "$current_hash" == "$cached_hash" ]] \
-            && [[ -f "$HOME/.claude.json" ]] \
-            && jq -e '.mcpServers | length > 0' "$HOME/.claude.json" &>/dev/null; then
+            && [[ -f "$grok_cfg" ]] \
+            && grep -q '^\[mcp_servers\.' "$grok_cfg" 2>/dev/null; then
             info "MCP config unchanged — skipping 1Password injection"
             return 0
         fi
@@ -238,39 +238,22 @@ generate_mcp_configs() {
         rm -f "$resolved.exp"
     fi
 
-    local claude_cfg="$HOME/.claude.json"
-
-    # Only these MCP servers are enabled by default; all others are disabled.
     local enabled_mcp_servers=("context7" "firecrawl")
-
     local enabled_json
     enabled_json="$(printf '%s\n' "${enabled_mcp_servers[@]}" | jq -R . | jq -s .)"
 
-    local disabled_json
-    disabled_json="$(jq --argjson enabled "$enabled_json" '
-        keys | map(select(. as $k | $enabled | contains([$k]) | not))
-    ' "$resolved")"
-
-    local claude_mcp
-    claude_mcp="$(jq '{mcpServers: .}' "$resolved")"
-
-    if [[ -f "$claude_cfg" ]]; then
-        jq -s --argjson disabled "$disabled_json" '
-            (.[0] | del(.mcpServers)) * .[1]
-            | if .projects then
-                .projects |= with_entries(
-                    .value.disabledMcpServers = $disabled
-                )
-              else . end
-        ' "$claude_cfg" <(echo "$claude_mcp") > "$claude_cfg.tmp"
-        mv "$claude_cfg.tmp" "$claude_cfg"
+    mkdir -p "$HOME/.grok"
+    local enabled_file
+    enabled_file="$(mktemp)"
+    printf '%s' "$enabled_json" > "$enabled_file"
+    if python3 "$merger" "$grok_cfg" --mcp "$resolved" --enabled "$enabled_file"; then
+        success "Updated Grok MCP servers in ~/.grok/config.toml"
     else
-        jq '{mcpServers: .}' "$resolved" > "$claude_cfg"
+        warn "Failed to merge Grok MCP servers into ~/.grok/config.toml"
     fi
-    success "Updated Claude Code MCP servers in ~/.claude.json"
+    rm -f "$enabled_file"
 
     local oc_cfg="$HOME/.config/opencode/opencode.json"
-
     local oc_tpl="${oc_cfg%.json}.json.tpl"
     if [[ ! -f "$oc_cfg" && -f "$oc_tpl" ]]; then
         cp "$oc_tpl" "$oc_cfg"

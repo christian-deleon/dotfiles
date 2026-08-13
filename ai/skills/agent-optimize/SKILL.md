@@ -38,13 +38,13 @@ From the project root (walk up from cwd to the git root if needed), look for wha
 | Rules | `.claude/rules/**/*.md`, project rules dirs the repo already uses |
 | Project skills | `.claude/skills/**`, `.agents/skills/**`, or other skill dirs the project documents |
 | Tool config | `opencode.json` / `.opencode/` instructions, Cursor/Codex rule files if present and in use |
-| Private overlay | Symlinked `AGENTS.md` / `CLAUDE.md` managed by `dot agent` (canonical content may live under `~/.dotfiles/agent-files/projects/<name>/`) |
+| Private overlay | Symlinked `AGENTS.md` managed by `dot agent` (canonical content may live under `~/.dotfiles/agent-files/projects/<name>/`) |
 
 Edit the **canonical** file: if `AGENTS.md` is a symlink, write through to (or open) its target — do not replace a managed symlink with a plain file unless the user asks.
 
 Prefer the project's established pattern:
 
-- Checked-in `AGENTS.md` (+ thin `CLAUDE.md` with `@AGENTS.md` when Claude must load it) when the team commits agent context
+- Checked-in `AGENTS.md` when the team commits agent context
 - `dot agent` overlays when the project deliberately keeps agent files out of git
 - Do not invent a new layout when one already exists
 
@@ -52,7 +52,7 @@ Prefer the project's established pattern:
 
 | Surface | Canonical source | Do **not** edit |
 |---|---|---|
-| Shared skills | `~/.dotfiles/ai/skills/<name>/` | Tool install dirs (`~/.claude/skills/`, `~/.grok/skills/`, `~/.config/opencode/skills/`) — those are symlinks/install targets |
+| Shared skills | `~/.dotfiles/ai/skills/<name>/` | Tool install dirs (`~/.grok/skills/`, `~/.config/opencode/skills/`) — those are symlinks/install targets |
 | Shared rules | `~/.dotfiles/ai/rules/` | Same: edit source, not install copies |
 | Shared agents / MCP | `~/.dotfiles/ai/agents/`, `~/.dotfiles/ai/mcp-servers.json.tpl` | Generated or symlinked tool configs |
 | Env-level AGENTS | `dot agent env` → `~/.dotfiles/agent-files/env/<name>/AGENTS.md` | Unmanaged copies at tool entrypoints if they are symlinks into that tree |

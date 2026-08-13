@@ -1,8 +1,8 @@
 # AI Config (`ai/`)
 
-Shared AI agent configuration for **Claude Code**, **OpenCode**, and **Grok Build TUI**.
+Shared AI agent configuration for **Grok Build TUI** (first-class) and **OpenCode** (adapter).
 
-Lives in `~/.dotfiles/ai/` (skills, agents, hooks, rules, commands) and `~/.dotfiles/grok/.grok/` (native config files). The installer symlinks assets into all three tools.
+Lives in `~/.dotfiles/ai/` (skills, agents, hooks, rules) and `~/.dotfiles/grok/.grok/` (native seed files). The installer links assets into Grok's live tree. OpenCode points at that tree.
 
 ## Directory Structure
 
@@ -10,113 +10,72 @@ Lives in `~/.dotfiles/ai/` (skills, agents, hooks, rules, commands) and `~/.dotf
 ai/
 ├── agents/              # Subagent definitions (markdown + YAML frontmatter)
 │   └── scout.md
-├── commands/            # Shared slash commands (intentionally empty — prefer skills)
 ├── skills/              # Shared skills (each dir has SKILL.md + optional companions)
-│   ├── agent-files/     # Authoring guide for everything under ai/
-│   ├── agent-optimize/  # Mine chat → project + global agent context
-│   ├── skill-review/    # Surgical fix for one existing skill after friction
-│   ├── bash/, go/, python/, rust/, …
-│   ├── kubernetes/, helm/, flux/, terraform/, …
-│   ├── observability/       # App instrumentation (logs/metrics/traces placement)
-│   ├── playwright-mcp/      # Playwright MCP (don't dump screenshots in-repo)
-│   └── test-driven-development/, commit/, wtc/, …
 ├── rules/
-│   └── common/          # Always-on rules (TDD, MCP routing, no-auto-commit, …)
-├── hooks/               # Portable hook scripts (Grok; Claude via settings merge)
-├── claude/
-│   └── settings.json    # Claude hooks fragment (merged into ~/.claude/settings.json)
-├── mcp-servers.json.tpl # Single MCP roster (1Password op:// secrets)
+│   └── common/          # Always-on rules (flattened into ~/.grok/rules/)
+├── hooks/               # Grok hook scripts (filename prefix = event)
+├── mcp-servers.json.tpl # MCP roster (1Password op:// secrets)
+├── playwright-mcp.config.json
 └── scripts/
-    └── generate-opencode-config.sh
+    ├── generate-opencode-config.sh   # OpenCode JSON adapter
+    └── merge-grok-mcp.py             # merge MCP + compat into live config.toml
 ```
 
-Authoring details (schemas, templates, cross-tool quirks) live in the
-**`agent-files` skill** at `ai/skills/agent-files/` — not duplicated here.
+Authoring details live in the **`agent-files` skill** at `ai/skills/agent-files/`.
 
 ## How It Works
 
-### Claude Code
+### Grok Build TUI (canonical)
 
-Picking `claude` from `dot install` runs `install_ai_claude()`, which:
+Picking `grok` runs `install_ai_grok()` + `generate_mcp_configs`:
 
 | Source | Target |
 |--------|--------|
-| `ai/agents/*` | `~/.claude/agents/` |
-| `ai/commands/*` | `~/.claude/commands/` |
-| `ai/skills/*` | `~/.claude/skills/` |
-| `ai/rules/*` | `~/.claude/rules/` |
-| `ai/claude/settings.json` | deep-merged into `~/.claude/settings.json` |
+| `ai/skills/*` | `~/.grok/skills/` |
+| `ai/agents/*` | `~/.grok/agents/` |
+| `ai/hooks/*` | `~/.grok/hooks/` |
+| `ai/rules/**/*.md` | `~/.grok/rules/<basename>.md` (flattened) |
+| `grok/.grok/pager.toml` | `~/.grok/pager.toml` (symlink) |
+| `grok/.grok/config.toml` | seed `~/.grok/config.toml` **only if missing** (live file is Grok-owned) |
+| `grok/.grok/trusted_folders.toml` | merged into live `~/.grok/trusted_folders.toml` |
 
-Symlinks are per-item (`link_directory_contents`), so personal files in `~/.claude/` coexist alongside dotfiles-managed ones. `post_install: [generate_mcp_configs]` regenerates MCP.
+`[compat.claude]` is forced off in the live config so leftover `~/.claude` paths are ignored.
 
-### OpenCode
+### OpenCode (adapter)
 
-Picking `opencode` stows the OpenCode config package, then runs `install_ai_opencode()` + `generate_mcp_configs`:
+Picking `opencode` stows the OpenCode package, then `install_ai_opencode()`:
 
-1. Symlinks `ai/commands/*` and `ai/skills/*` into `~/.config/opencode/`
-2. Runs `generate-opencode-config.sh` to convert `ai/agents/*.md` into OpenCode JSON agents and merge rules as instructions
+1. `~/.config/opencode/skills` → `~/.grok/skills` (one dir symlink)
+2. `~/.config/opencode/AGENTS.md` → `~/.grok/AGENTS.md` when that file exists
+3. `generate-opencode-config.sh` writes JSON `agent` + `instructions` (formats OpenCode cannot read from Grok)
 
-### Grok Build TUI
+### MCP
 
-Picking `grok` runs `install_ai_grok()`:
+Roster is `ai/mcp-servers.json.tpl`. `generate_mcp_configs()` (post_install on **`grok`** and **`opencode`**, or `dot mcp-regen`) resolves 1Password secrets and writes:
 
-1. Symlinks `ai/skills/*`, `ai/agents/*`, and `ai/hooks/*` into native `~/.grok/`
-2. Symlinks `grok/.grok/config.toml` and `grok/.grok/pager.toml` into `~/.grok/`
-3. Merges baseline grants from `grok/.grok/trusted_folders.toml` into the live store `~/.grok/trusted_folders.toml` (never symlinked — Grok mutates that file at runtime). Parent grants cascade to subdirs, so `$HOME/Projects` covers all worktrees underneath.
+- `~/.grok/config.toml` `[mcp_servers.*]` — canonical
+- `~/.config/opencode/opencode.json` `mcp` — adapter
 
-Grok does **not** run `generate_mcp_configs` itself. It loads MCP from `~/.claude.json` via Claude Code compatibility when that file already exists (install `claude` or `opencode` once, or run `dot mcp-regen`).
-
-### MCP Configs
-
-MCP servers are defined once in `ai/mcp-servers.json.tpl`. `generate_mcp_configs()` (post_install on **`claude`** and **`opencode`**, or `dot mcp-regen`) resolves 1Password secrets and writes:
-
-- `~/.claude.json` — Claude Code + Grok compat
-- `~/.config/opencode/opencode.json` — OpenCode `mcp` block
-
-Unresolved `op://` refs are dropped when `op` is missing.
+Unresolved `op://` refs are dropped when `op` is missing. Default-enabled: `context7`, `firecrawl`.
 
 ## Adding Content
 
-> **Use the `agent-files` skill.** This document is the human-readable overview; the
-> canonical authoring guide is `ai/skills/agent-files/` — `SKILL.md` plus topic
-> files and templates in `examples/`. **Source of truth is always `~/.dotfiles/ai/`;
-> never edit the symlinked targets.**
-
-Quick shapes (full schemas in the skill):
+> **Use the `agent-files` skill.** Source of truth is always `~/.dotfiles/ai/`.
 
 **Agent** — `ai/agents/<name>.md` with frontmatter `name`, `description`, optional `model` / `tools`.
 
-**Command** — `ai/commands/<name>.md`. Prefer a skill with `disable-model-invocation: true` for portable slash commands (this repo keeps `commands/` empty on purpose).
+**Skill** — `ai/skills/<name>/SKILL.md`. Grok slash commands are skills.
 
-**Skill** — `ai/skills/<name>/SKILL.md` (+ companions as needed).
+**Rule** — `ai/rules/<category>/<name>.md` (always-on).
 
-**Rule** — `ai/rules/<category>/<name>.md` (always-on instructions).
+**Hook** — `ai/hooks/<event>_<name>.sh` (Grok filename auto-register).
 
 ## Applying Changes
 
-Edits under `ai/` to files that are already linked are live immediately
-(tool dirs are symlinks into the repo). After adding a **new** skill/agent/
-command, or to pick up repo changes on a machine:
+Edits under `ai/` to files that are already linked are live immediately. After adding a **new** skill/agent/rule:
 
 ```bash
-dot update          # pull + re-link Claude/OpenCode/Grok AI
+dot update          # pull + re-link Grok + OpenCode adapter
 ```
 
-`dot update` already re-runs `install_ai_claude` / `install_ai_opencode` /
-`install_ai_grok` after the git pull — no separate AI install path is needed.
-
-MCP template only: `dot mcp-regen`. Restart the agent session after adding a
-skill or changing a skill *description* so catalogs reload.
-
-## How `generate-opencode-config.sh` Works
-
-The script bridges Claude Code's markdown agent format and OpenCode's JSON config:
-
-1. Scans `ai/agents/*.md` and parses YAML frontmatter
-2. Maps short model names to full provider IDs (e.g. `sonnet` → `anthropic/claude-sonnet-5`)
-3. Converts tool lists to OpenCode's boolean format (`{read: true, bash: true}`)
-4. Inlines the markdown body as the agent's prompt
-5. Collects `ai/rules/**/*.md` paths as instruction references
-6. Merges the generated overlay into `opencode.json` (personal config wins on conflicts)
-
-Dependencies: `bash`, `jq`, `sed` (no Python or yq needed).
+MCP template only: `dot mcp-regen`. Restart the agent session after adding a skill or changing a skill *description*.

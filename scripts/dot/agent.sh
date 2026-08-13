@@ -1,6 +1,7 @@
 # shellcheck shell=bash
-# ─── Per-project agent files (AGENTS.md / CLAUDE.md) ─────────────────────────
+# ─── Per-project agent files (AGENTS.md) ─────────────────────────────────────
 # Sourced by dot.sh. Requires DOTFILES_DIR and lib.sh helpers.
+# Grok convention is first-class. OpenCode is an adapter hop.
 
 AGENT_FILES_DIR="$DOTFILES_DIR/agent-files"
 AGENT_FILES_BEGIN="# >>> dot-agent-files >>>"
@@ -11,10 +12,9 @@ AGENT_PROJECTS_DIR="$AGENT_FILES_DIR/projects"
 AGENT_ENV_DIR="$AGENT_FILES_DIR/env"
 
 # Targets that should symlink to the per-env AGENTS.md.
-# Each entry is "absolute/path". The basename determines whether the target
-# is named AGENTS.md or CLAUDE.md on disk — content is identical.
+# Grok's ~/.grok/AGENTS.md is canonical; OpenCode is an adapter hop.
 AGENT_ENV_TARGETS=(
-    "$HOME/.claude/CLAUDE.md"
+    "$HOME/.grok/AGENTS.md"
     "$HOME/.config/opencode/AGENTS.md"
 )
 
@@ -185,8 +185,8 @@ agent_commit_in_submodule() {
 }
 
 # ─── Per-env global agent files ──────────────────────────────────────────────
-# These live at agent-files/env/<name>/AGENTS.md and symlink into global AI
-# tool config paths (Claude Code, OpenCode, ...). Designed for env-scoped
+# These live at agent-files/env/<name>/AGENTS.md and symlink into Grok's
+# global AGENTS.md (OpenCode hops at the same file). Designed for env-scoped
 # context — e.g. "this machine is a locked-down WSL VM behind a corp proxy."
 
 agent_list_envs() {
@@ -325,7 +325,7 @@ agent_env_link() {
 This file is a **per-environment agent overlay** managed by the \`dot agent env\` system in
 \`~/.dotfiles\`. It lives in the private \`agent-files\` submodule at
 \`agent-files/env/$name/AGENTS.md\` and is symlinked into the global config paths
-of each AI tool on this machine (\`~/.config/opencode/AGENTS.md\`, \`~/.claude/CLAUDE.md\`).
+of Grok on this machine (\`~/.grok/AGENTS.md\`; OpenCode hops at the same file).
 
 Its purpose is to give every AI agent session on this machine persistent, automatic context
 about the environment — constraints, quirks, and capabilities — without having to re-explain
@@ -435,10 +435,10 @@ agent_env_status() {
 
 agent_env_help() {
     echo
-    echo "Manage per-env global AGENTS.md / CLAUDE.md — content that loads into"
-    echo "every AI session on machines that have opted in. Source of truth lives"
-    echo "in the agent-files submodule under env/<name>/AGENTS.md and is"
-    echo "symlinked to the global config paths of each AI tool:"
+    echo "Manage per-env global AGENTS.md — content that loads into every AI"
+    echo "session on machines that have opted in. Source of truth lives in the"
+    echo "agent-files submodule under env/<name>/AGENTS.md. Canonical live path"
+    echo "is Grok's ~/.grok/AGENTS.md; OpenCode gets a hop at the same file:"
     echo
     local target
     for target in "${AGENT_ENV_TARGETS[@]}"; do
@@ -475,9 +475,8 @@ agent_env_dispatch() {
     esac
 }
 
-# Set up AGENTS.md / CLAUDE.md symlinks in every worktree of the current
-# project, pointing at the canonical source in
-# $AGENT_PROJECTS_DIR/<name>/AGENTS.md.
+# Set up AGENTS.md symlinks in every worktree of the current project,
+# pointing at the canonical source in $AGENT_PROJECTS_DIR/<name>/AGENTS.md.
 #
 # This tool exists for one use case: projects where the agent files can't
 # be committed to the project repo and `.gitignore` can't be modified. The
@@ -493,8 +492,9 @@ agent_env_dispatch() {
 #      needed), then commit.
 #   4. Else: implicit call → silent-skip; explicit → error.
 #
-# Then for every worktree of the project, create AGENTS.md → submodule source
-# and CLAUDE.md → AGENTS.md. Refuses to overwrite tracked or unmanaged files.
+# Then for every worktree of the project, create AGENTS.md → submodule source.
+# A leftover managed CLAUDE.md hop we used to create is removed. Refuses to
+# overwrite tracked or unmanaged files.
 agent_link() {
     local explicit=true
     local name="${1:-}"
@@ -599,26 +599,27 @@ agent_link() {
         return 1
     fi
 
-    # Safety: refuse to overwrite tracked or unmanaged files in any worktree.
+    # Safety: refuse to overwrite a tracked or unmanaged AGENTS.md.
     # Implicit mode silent-skips so the global hook stays harmless on projects
-    # that already commit their own files.
-    local wt base
+    # that already commit their own file. Leftover CLAUDE.md hops we used to
+    # manage are removed after the AGENTS.md link is in place.
+    local wt
     for wt in "${worktrees[@]}"; do
-        for base in AGENTS.md CLAUDE.md; do
-            if [[ "$explicit" == false ]]; then
-                if ! agent_check_safe "$wt" "$base" true; then
-                    _info "agent-files: ${_BOLD}$wt/$base${_RESET} already exists (tracked or unmanaged) — skipping"
-                    return 0
-                fi
-            else
-                agent_check_safe "$wt" "$base" || return 1
+        if [[ "$explicit" == false ]]; then
+            if ! agent_check_safe "$wt" "AGENTS.md" true; then
+                _info "agent-files: ${_BOLD}$wt/AGENTS.md${_RESET} already exists (tracked or unmanaged) — skipping"
+                return 0
             fi
-        done
+        else
+            agent_check_safe "$wt" "AGENTS.md" || return 1
+        fi
     done
 
     for wt in "${worktrees[@]}"; do
         ln -snf "$src_agents" "$wt/AGENTS.md"
-        ln -snf "AGENTS.md" "$wt/CLAUDE.md"
+        if agent_is_managed_link "$wt/CLAUDE.md"; then
+            rm "$wt/CLAUDE.md"
+        fi
     done
 
     agent_write_exclude
@@ -737,24 +738,23 @@ agent_update() {
 
 agent_help() {
     echo
-    echo "Manage agent files (AGENTS.md / CLAUDE.md) sourced from the private"
-    echo "agent-files submodule. Two scopes are supported:"
+    echo "Manage agent files (AGENTS.md) sourced from the private agent-files"
+    echo "submodule. Two scopes are supported:"
     echo
     echo "  ${_BOLD}Per-project${_RESET}  — symlinks into a project's worktrees for projects"
     echo "                where agent files can't be committed and .gitignore"
     echo "                can't be modified. Excluded via .git/info/exclude."
     echo "                Source: agent-files/projects/<project>/AGENTS.md"
     echo
-    echo "  ${_BOLD}Per-env${_RESET}      — symlinks into the global config paths of each AI"
-    echo "                tool (Claude Code, OpenCode, …) on this machine. Use"
-    echo "                for environment-scoped context (locked-down VM, corp"
-    echo "                proxy, etc.)."
+    echo "  ${_BOLD}Per-env${_RESET}      — symlink into Grok's ~/.grok/AGENTS.md (OpenCode"
+    echo "                hops at the same file). Use for environment-scoped"
+    echo "                context (locked-down VM, corp proxy, etc.)."
     echo "                Source: agent-files/env/<name>/AGENTS.md"
     echo
     echo "On project link, if there's no entry yet for the project but the cwd's"
-    echo "worktree has an untracked AGENTS.md (or CLAUDE.md), it is moved into"
-    echo "the submodule first (CLAUDE.md is renamed to AGENTS.md so the"
-    echo "submodule is canonicalized on AGENTS.md), then committed there."
+    echo "worktree has an untracked AGENTS.md (or leftover CLAUDE.md), it is"
+    echo "moved into the submodule first (CLAUDE.md is renamed to AGENTS.md),"
+    echo "then committed there."
     echo
     echo "New worktrees are handled automatically via the worktrunk post-start"
     echo "hook in the user config."
@@ -762,11 +762,10 @@ agent_help() {
     echo "Usage: dot agent <subcommand>"
     echo
     echo "Subcommands:"
-    echo "  link [name]   Set up project AGENTS.md / CLAUDE.md symlinks in"
-    echo "                every worktree. [name] defaults to the project root's"
-    echo "                basename. With no [name], silent-skips when there's"
-    echo "                no entry and nothing to migrate (safe for global"
-    echo "                hook use)."
+    echo "  link [name]   Set up project AGENTS.md symlinks in every worktree."
+    echo "                [name] defaults to the project root's basename. With"
+    echo "                no [name], silent-skips when there's no entry and"
+    echo "                nothing to migrate (safe for global hook use)."
     echo "  unlink        Remove the managed project symlinks from all"
     echo "                worktrees and clean the exclude block."
     echo "  list          List available projects in the agent-files submodule."

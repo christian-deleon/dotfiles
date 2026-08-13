@@ -3,28 +3,6 @@
   "theme": "system",
   "autoupdate": false,
   "provider": {
-    "anthropic": {
-      "models": {
-        "claude-sonnet-4-5": {
-          "limit": {
-            "context": 1024000,
-            "output": 64000
-          }
-        },
-        "claude-sonnet-4-5-20250929": {
-          "limit": {
-            "context": 1024000,
-            "output": 64000
-          }
-        },
-        "claude-sonnet-4-6": {
-          "limit": {
-            "context": 1024000,
-            "output": 64000
-          }
-        }
-      }
-    },
     "ollama": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "Ollama (local)",

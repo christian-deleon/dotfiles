@@ -21,4 +21,9 @@
 # Names are a single path segment (no slashes, no `..`). That keeps removals
 # scoped to one directory/file under a known root.
 
-# (no active tombstones)
+claude:
+  description: Retired Claude Code / Anthropic CLI
+  home: [.claude, .claude.json]
+  xdg_data: [claude]
+  xdg_state: [claude]
+  xdg_cache: [claude, claude-cli-nodejs]
