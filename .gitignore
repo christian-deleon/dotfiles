@@ -1,3 +1,7 @@
 # Machine-local profile selection — written by install.sh / dot profile use.
 # Each machine picks its own profile; this file is not shared across machines.
 .active-profile
+
+# Python bytecode from ai/scripts helpers
+__pycache__/
+*.py[cod]

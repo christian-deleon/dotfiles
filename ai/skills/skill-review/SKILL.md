@@ -73,7 +73,7 @@ Keep edits **minimal**. Prefer 1–5 line additions or replacements over rewriti
 
 ### 5. Confirm and apply
 
-After the user accepts, use the Edit tool against the file in `~/.dotfiles/ai/skills/<name>/`. **Never edit the symlinked targets** under `~/.claude/skills/`, `~/.config/opencode/skills/`, or `~/.grok/skills/` — the installer will overwrite them.
+After the user accepts, use the Edit tool against the file in `~/.dotfiles/ai/skills/<name>/`. **Never edit the symlinked targets** under `~/.grok/skills/` or `~/.config/opencode/skills/` — the installer will overwrite them.
 
 Validation checks before writing:
 
@@ -97,7 +97,7 @@ If you only edited an existing skill body, no install step is needed (symlink). 
 
 ## Anti-patterns
 
-- Editing the symlinked target (`~/.claude/skills/<name>/SKILL.md`) — the installer will overwrite it on the next run.
+- Editing the symlinked target (`~/.grok/skills/<name>/SKILL.md`) — the installer will overwrite it on the next run.
 - Adding a personal anecdote ("user once said…") to a skill — skills are general; private context goes in `~/.localrc` or `~/.gitconfig.local`.
 - Updating a skill based on a single moment of friction without checking whether the existing skill already covers the case (it often does, just not where you looked first).
 - Rewriting a skill's whole structure when the actual problem is one wrong fact.

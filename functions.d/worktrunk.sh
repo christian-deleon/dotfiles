@@ -106,18 +106,13 @@ function _wta_grok_resume_id() {
 
 # True if the configured AI tool has history at this path
 function _wta_has_session_history() {
-    # wta/wtaa resume is per-tool. Claude is ~/.claude/projects/<slash-as-dash>/,
-    # Grok is a real parent session under ~/.grok/sessions/<url-encoded-cwd>/.
+    # wta/wtaa resume is per-tool. Grok is a real parent session under
+    # ~/.grok/sessions/<url-encoded-cwd>/. OpenCode has no history probe.
     local wt_path="$1"
     local tool="${AI_TOOL%% *}"
-    local key
     case "$tool" in
         gra|grok|gr)
             _wta_grok_resume_id "$wt_path" >/dev/null
-            ;;
-        cld|claude|cl)
-            key="${wt_path//\//-}"
-            compgen -G "$HOME/.claude/projects/$key/*.jsonl" >/dev/null 2>&1
             ;;
         *)
             return 1
@@ -190,7 +185,7 @@ function _wta_ensure_window() {
     # NOT be shell-quoted into the key stream: ble.sh hangs on multi-KB input
     # showing "(N bytes received...)" and tav never runs. Write the prompt to
     # a temp file and pass -f so send-keys stays a few dozen bytes.
-    # -t value is printf-%q'd so multi-word tools (e.g. `cld -c`) stay one token.
+    # -t value is printf-%q'd so multi-word tools (e.g. `gra -c`) stay one token.
     local tav_cmd="tav -t $(printf '%q' "$cmd")"
     if [[ -n "$prompt" ]]; then
         local pf

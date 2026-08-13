@@ -1,7 +1,10 @@
 ---
-description: One-sentence summary of what this command does
+name: my-command
+description: One-sentence summary of what this user-only skill does. Invoked via /my-command.
+compatibility: opencode
+disable-model-invocation: true
 argument-hint: "[args description]"
-allowed-tools: Bash(git diff), Bash(git log)
+allowed-tools: Bash
 ---
 
 [Optional preamble for the model — context for the upcoming task.]

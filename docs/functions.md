@@ -445,12 +445,12 @@ Open a 3-pane tmux layout in the current window: AI tool in the top-left (70% ta
 
 The AI pane is **respawned** with a non-interactive launcher (aliases expanded, pending DA/OSC replies drained). Grok is started under `bin/tty-filter-da`, which drops Device Attributes / cursor-position replies (`0;2600;1c`, `84;0;0c`) before they reach the TUI — those keystrokes dismiss Grok’s welcome card permanently (not a session resume) and `C-u` can only clear the leftover prompt text. Neovim (and k9s in `tavk`) start ~2.5s later. A prompt scrub still polls briefly and `C-u`s any DA body that slips through. When the AI tool exits, that pane drops into a normal interactive `$SHELL`.
 
-Bare positional arguments are the **initial prompt** — the AI tool launches straight into it (joined into a single argument, so quoting is optional). Prefer `-f`/`--prompt-file` for multi-line or multi-KB handoffs (the file is read once then deleted). `wta`/`wtc` use that path automatically for `-p` so they never `tmux send-keys` a huge shell-quoted prompt into a ble.sh pane (that used to hang on `(N bytes received...)`). The tool defaults to `$AI_TOOL` (set via `dot ai-tool`, default `cld`); use `-t`/`--tool` to override it for one call. The override accepts a full command including flags (e.g. `-t "cld -c"`). Use `--` before a prompt that begins with a dash.
+Bare positional arguments are the **initial prompt** — the AI tool launches straight into it (joined into a single argument, so quoting is optional). Prefer `-f`/`--prompt-file` for multi-line or multi-KB handoffs (the file is read once then deleted). `wta`/`wtc` use that path automatically for `-p` so they never `tmux send-keys` a huge shell-quoted prompt into a ble.sh pane (that used to hang on `(N bytes received...)`). The tool defaults to `$AI_TOOL` (set via `dot ai-tool`, default `gra`); use `-t`/`--tool` to override it for one call. The override accepts a full command including flags (e.g. `-t "gra -c"`). Use `--` before a prompt that begins with a dash.
 
 ```bash
 tav                            # just the layout, uses $AI_TOOL
 tav "add a contact me page"    # launch $AI_TOOL with that prompt
-tav -t "cld -c" "fix the bug"  # resume Claude, with a prompt
+tav -t "gra -c" "fix the bug"  # resume Grok, with a prompt
 tav -t oc "make it blue"       # override the AI tool for this call
 tav -f /tmp/handoff.md         # initial prompt from a file (deleted after read)
 ```
@@ -464,7 +464,7 @@ Same as [`tav`](#tav--t--tool-ai-cmd-f--prompt-file-path-prompt) but with a 4th 
 ```bash
 tavk                            # 4-pane variant with k9s in the bottom-right
 tavk "fix the k8s deploy"       # 4-pane variant with an initial prompt
-tavk -t "cld -c" "..."          # 4-pane variant resuming Claude
+tavk -t "gra -c" "..."          # 4-pane variant resuming Grok
 tavk -f /tmp/handoff.md         # 4-pane variant with a file-based prompt
 ```
 
@@ -510,7 +510,7 @@ wrf              # fzf multi-select, removes selected worktrees and their branch
 
 ### `wta [-p|--prompt <text>] [branch]` \*
 
-Open a single worktree in tmux with the `tav` layout. fzf picker if no branch is passed. The target session is the one you're already in when your current pane sits anywhere inside the project; otherwise it falls back to a session named after the worktrees' parent dir, creating it if needed. (This means launching from a session you named yourself — e.g. `tn ngc` — adds the window to *that* session instead of forking a separate one and orphaning your current window.) It then adds a window named after the sanitized branch and sends a `tav` invocation into it. If the window already exists, just attaches. Tool-aware resume: launches the current AI tool against the last **real** session for that worktree path. Grok is pinned with `-r <session-id>` (skipping empty “just opened” sessions and subagents — Grok’s own `-c` continues the newest cwd session, which is often an empty one from a previous fresh launch). Claude uses `$AI_TOOL_RESUME` when `~/.claude/projects/<slash-as-dash>/*.jsonl` exists. Otherwise `$AI_TOOL`.
+Open a single worktree in tmux with the `tav` layout. fzf picker if no branch is passed. The target session is the one you're already in when your current pane sits anywhere inside the project; otherwise it falls back to a session named after the worktrees' parent dir, creating it if needed. (This means launching from a session you named yourself — e.g. `tn ngc` — adds the window to *that* session instead of forking a separate one and orphaning your current window.) It then adds a window named after the sanitized branch and sends a `tav` invocation into it. If the window already exists, just attaches. Tool-aware resume: launches the current AI tool against the last **real** session for that worktree path. Grok is pinned with `-r <session-id>` (skipping empty “just opened” sessions and subagents — Grok’s own `-c` continues the newest cwd session, which is often an empty one from a previous fresh launch). Otherwise `$AI_TOOL`.
 
 Pass `-p`/`--prompt` to forward an initial prompt into the session's AI tool (see [`tav`](#tav--t--tool-ai-cmd-f--prompt-file-path-prompt)). Large prompts are written to a temp file and launched via `tav -f` so the tmux key stream stays short. It works with both the picker and an explicit branch.
 

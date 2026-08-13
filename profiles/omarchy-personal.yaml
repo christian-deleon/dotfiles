@@ -22,7 +22,6 @@ items:
   - blesh
   - btop
   - cargo
-  - claude
   - cloc
   - delta
   - docker

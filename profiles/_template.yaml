@@ -45,7 +45,7 @@ items: []
 # Examples — replace with your selection:
 #   - 1password-cli
 #   - bat
-#   - claude
+#   - grok
 #   - delta
 #   - fd
 #   - fzf

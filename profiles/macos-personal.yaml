@@ -21,7 +21,6 @@ items:
   - bat
   - btop
   - cargo
-  - claude
   - cloc
   - delta
   - docker

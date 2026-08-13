@@ -24,7 +24,7 @@ wt switch feat                              # existing
 wt switch -c hotfix --base=production       # new branch from prod
 wt switch -c fix --base=@                   # branch from current HEAD
 wt switch pr:123                            # PR checkout
-wt switch -x claude -c feat -- 'task text'  # parallel-agent pattern
+wt switch -x grok -c feat -- 'task text'  # parallel-agent pattern
 wt switch -                                 # toggle previous
 ```
 

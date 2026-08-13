@@ -35,9 +35,9 @@ EOF
     echo "  install               - Interactive: pick a profile or items manually"
     echo "  install <name>...     - Install one or more items by name (binary + config for bundles)"
     echo "  profile <subcommand>  - Manage active profile (list/show/use)"
-    echo "  ai-tool [INT] [PIPE]  - Set AI CLIs (interactive picker, or args: INT={cld|oc|gra} PIPE={claude|opencode|grok})"
+    echo "  ai-tool [INT] [PIPE]  - Set AI CLIs (interactive picker, or args: INT={gra|oc} PIPE={grok|opencode})"
     echo "  mcp-regen             - Force regenerate MCP configs (re-injects 1Password secrets)"
-    echo "  agent <subcommand>    - Manage per-project & per-env AGENTS.md/CLAUDE.md"
+    echo "  agent <subcommand>    - Manage per-project & per-env AGENTS.md"
     echo "  theme <subcommand>    - Manage Omarchy theme submodules (add/update/list)"
     echo "  brew  <subcommand>    - Homebrew helpers (install/bundle/save)"
 }
@@ -251,9 +251,8 @@ update_dotfiles() {
         # Refresh AI symlinks after dotfiles pull (idempotent)
         if [[ -d "$DOTFILES_DIR/ai" ]]; then
             source "$DOTFILES_DIR/install.sh"
-            install_ai_claude 2>/dev/null || _warn "Failed to install Claude AI config"
-            install_ai_opencode 2>/dev/null || _warn "Failed to install OpenCode AI config"
             install_ai_grok 2>/dev/null || _warn "Failed to install Grok AI config"
+            install_ai_opencode 2>/dev/null || _warn "Failed to install OpenCode adapter"
         fi
 
         # Reconcile stale symlinks left by dropped stow packages

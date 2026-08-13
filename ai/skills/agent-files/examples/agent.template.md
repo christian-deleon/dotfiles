@@ -1,7 +1,7 @@
 ---
 name: my-agent
 description: One-sentence summary of what this agent does. Use proactively when [trigger conditions], or when the user asks for [specific phrases]. Focused on [scope]; explicitly not for [out-of-scope].
-model: sonnet
+model: grok-build
 tools: Read, Grep, Glob, Bash
 mode: subagent
 permission:

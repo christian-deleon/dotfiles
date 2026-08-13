@@ -189,13 +189,6 @@ Kubernetes development workflow tool shortcuts.
 
 ---
 
-## Claude
-
-- `cl` - Claude CLI (`claude`)
-- `cld` - Claude CLI with skip permissions (`claude --dangerously-skip-permissions`)
-
----
-
 ## OpenCode
 
 - `oc` - OpenCode CLI (`opencode`)

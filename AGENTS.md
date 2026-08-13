@@ -9,7 +9,7 @@ Guidelines for AI coding agents working in this personal dotfiles repo. Manages 
 **Key components:**
 - Shell configs: `.commonrc` (cross-platform), `.zshrc` (macOS), `.bashrc` (reference only — never symlinked)
 - Omarchy desktop configs: hypr, waybar, alacritty, mako, walker, btop, fastfetch, lazygit, omarchy, opencode, starship (via GNU Stow + omadot)
-- AI config: `ai/` (agents, commands, skills, rules); MCP template at `ai/mcp-servers.json.tpl`
+- AI config: `ai/` (skills, agents, hooks, rules); MCP template at `ai/mcp-servers.json.tpl`. Grok is first-class; OpenCode is an adapter.
 - Package + config management: `manifest.yaml` + `profiles/*.yaml` + `scripts/lib.sh` + `scripts/handlers/*.sh`
 - Desired absences for retired tools: `tombstones.yaml` (applied by `apply_tombstones` on `dot update` / install)
 - Windows bootstrap: `windows/bootstrap.ps1`

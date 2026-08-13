@@ -21,6 +21,7 @@ items:
   - fd
   - fzf
   - gh
+  - grok
   - jq
   - just
   - lazygit

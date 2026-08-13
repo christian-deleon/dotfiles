@@ -529,10 +529,41 @@ apply_tombstones() {
         done
     done
 
+    # Paths tombstones cannot express (not a single segment under a known root).
+    if yq -e '.claude' "$TOMBSTONES_FILE" >/dev/null 2>&1; then
+        if tombstone_requires_met "claude"; then
+            _tombstone_retire_claude_extras
+        fi
+    fi
+
     if [[ "$_tombstone_removed" -eq 1 ]]; then
         _success "Tombstone cleanup complete"
     fi
     return 0
+}
+
+# Native Claude Code installer leftovers that are not single-segment XDG/home names.
+_tombstone_retire_claude_extras() {
+    local bin="$HOME/.local/bin/claude"
+    local desktop="${XDG_DATA_HOME:-$HOME/.local/share}/applications/claude-code-url-handler.desktop"
+    local announced=0
+
+    _retire_one() {
+        local path=$1
+        [[ -e "$path" || -L "$path" ]] || return 0
+        if [[ "$_tombstone_removed" -eq 0 ]]; then
+            _info "Applying tombstones..."
+        fi
+        if [[ "$announced" -eq 0 ]]; then
+            _info "Tombstone ${_BOLD}claude${_RESET}: extra installer residue"
+            announced=1
+        fi
+        _tombstone_remove_path "$path"
+    }
+
+    _retire_one "$bin"
+    _retire_one "$desktop"
+    unset -f _retire_one
 }
 
 # ─── Gum Bootstrap ────────────────────────────────────────────────────────────

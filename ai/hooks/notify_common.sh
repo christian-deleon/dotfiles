@@ -2,7 +2,7 @@
 # No shebang, no strict-mode (callers control their own shell options).
 
 # Populate context globals from hook stdin + surrounding env:
-#   tool      invoking agent: Claude / Grok / OpenCode / Agent (default)
+#   tool      invoking agent: Grok / OpenCode / Agent (default)
 #   project   tmux session name in tmux, else basename of payload .cwd
 #   worktree  cwd basename when in tmux AND it differs from session; else empty
 #
@@ -27,7 +27,6 @@ notify::collect_context() {
     for _ in 1 2 3 4 5 6 7 8 9 10; do
         [[ -z "$pid" || "$pid" == "1" ]] && break
         case "$(ps -p "$pid" -o comm= 2>/dev/null | tr -d '[:space:]')" in
-            claude)   tool="Claude";   break ;;
             grok)     tool="Grok";     break ;;
             opencode) tool="OpenCode"; break ;;
         esac

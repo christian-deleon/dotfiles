@@ -7,8 +7,9 @@ bun.lock
 opencode.json
 opencode.json.bak.*
 
-# AI symlinks (managed by install_ai_opencode, not tracked)
+# AI adapter links (managed by install_ai_opencode, not tracked)
 commands/
+skills
 skills/
 
 # Per-env global agent file (managed by `dot agent env`, not tracked)

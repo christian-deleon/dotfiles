@@ -37,11 +37,11 @@ dot install <name>...          # Install one or more items directly (binary + co
 dot profile list               # Show profiles with compatibility / active markers
 dot profile show               # Print the currently active profile
 dot profile use <name>         # Switch active profile and run reconciliation
-dot mcp-regen                  # Regenerate MCP config for Claude, OpenCode, and Grok from ai/mcp-servers.json.tpl
-dot agent link [name]          # Symlink per-project AGENTS.md/CLAUDE.md (private overlay submodule)
+dot mcp-regen                  # Regenerate MCP config for Grok (and OpenCode adapter) from ai/mcp-servers.json.tpl
+dot agent link [name]          # Symlink per-project AGENTS.md (private overlay submodule)
 dot agent unlink               # Remove the per-project symlinks
 dot agent list|status|update   # List projects / show cwd state / pull latest agent-files
-dot agent env link <name>      # Symlink per-environment AGENTS.md into ~/.claude/ and ~/.config/opencode/
+dot agent env link <name>      # Symlink per-environment AGENTS.md into ~/.grok/ (OpenCode hops)
 dot agent env unlink|list|status
 dot theme add <url>            # Add an Omarchy theme submodule
 dot theme list                 # List installed Omarchy themes
@@ -54,9 +54,9 @@ dot brew save <profile>        # macOS: save current Homebrew packages
 
 Two scopes of overlay agent files, sourced from the private `agent-files` submodule (synced across machines via private GitHub). Content is committed automatically inside the submodule; push to the remote is always manual.
 
-**Per-project — `dot agent link`.** For projects where `AGENTS.md` / `CLAUDE.md` can't be committed and `.gitignore` can't be modified. Content lives in `agent-files/projects/<project>/AGENTS.md`; the project gets symlinks excluded via the shared `.git/info/exclude`. `dot agent link` symlinks `AGENTS.md` → the canonical source and `CLAUDE.md` → `AGENTS.md` in every worktree. An untracked `AGENTS.md` / `CLAUDE.md` sitting in the project is auto-migrated into the submodule. A worktrunk `post-start` hook auto-links every newly created worktree.
+**Per-project — `dot agent link`.** For projects where `AGENTS.md` can't be committed and `.gitignore` can't be modified. Content lives in `agent-files/projects/<project>/AGENTS.md`; the project gets a symlink excluded via the shared `.git/info/exclude`. An untracked leftover `CLAUDE.md` is migrated to `AGENTS.md`. A worktrunk `post-start` hook auto-links every newly created worktree.
 
-**Per-environment — `dot agent env link <name>`.** For machine- or environment-scoped context (e.g. "this is a locked-down WSL VM behind a corp proxy, X tool is unavailable"). Content lives in `agent-files/env/<env>/AGENTS.md` and is symlinked from one source into every AI tool's global config path (`~/.claude/CLAUDE.md`, `~/.config/opencode/AGENTS.md`). The symlinks themselves are the state — no marker files. Opt out with `dot agent env unlink`.
+**Per-environment — `dot agent env link <name>`.** For machine- or environment-scoped context. Content lives in `agent-files/env/<env>/AGENTS.md` and is symlinked into Grok's `~/.grok/AGENTS.md` (OpenCode hops at the same file). The symlinks themselves are the state. Opt out with `dot agent env unlink`.
 
 ## Windows bootstrap
 
@@ -106,16 +106,15 @@ Stale `~/.config/<pkg>` symlinks from packages that have since been dropped are 
 
 ## AI Config
 
-Shared AI agent configuration for **Claude Code**, **OpenCode**, and **Grok Build TUI** lives in `ai/` (plus `grok/.grok/` for native Grok config files).
+Shared AI agent configuration for **Grok Build TUI** lives in `ai/` (plus `grok/.grok/` for native seed files). **OpenCode** is a second-class adapter.
 
-Select `claude`, `opencode`, or `grok` from `dot install`:
+Select `grok` or `opencode` from `dot install`:
 
-- **Claude Code** — agents, commands, skills, and rules symlinked into `~/.claude/`
-- **OpenCode** — commands and skills symlinked into `~/.config/opencode/`; agents converted from markdown to JSON
-- **Grok Build TUI** — skills/agents/hooks symlinked into native `~/.grok/skills/`, `~/.grok/agents/`, `~/.grok/hooks/`; plus `config.toml` + `pager.toml`; parent folder-trust grants merged from `grok/.grok/trusted_folders.toml`
-- **MCP servers** — defined once in `ai/mcp-servers.json.tpl`, generated into `~/.claude.json` (consumed by Claude Code + Grok via compatibility layer) and `opencode.json`. 1Password secrets are injected; unresolved `op://` refs are dropped gracefully. Use `dot mcp-regen` to force re-injection.
+- **Grok Build TUI** — skills/agents/hooks/rules linked into `~/.grok/`; pager.toml; config.toml seeded if missing; folder-trust grants merged; MCP written as `[mcp_servers.*]`
+- **OpenCode** — `skills` and `AGENTS.md` hop at Grok's live tree; agents/instructions/MCP generated into `opencode.json`
+- **MCP servers** — defined once in `ai/mcp-servers.json.tpl`. 1Password secrets are injected; unresolved `op://` refs are dropped. Use `dot mcp-regen` to force re-injection.
 
-`dot update` refreshes AI config for all three platforms automatically. See [docs/ai.md](docs/ai.md) for details on adding agents, commands, skills, and rules.
+`dot update` refreshes Grok and the OpenCode adapter. See [docs/ai.md](docs/ai.md).
 
 ## Manifest and Profiles
 
@@ -128,7 +127,7 @@ Every item the repo knows about — tools, configs, bundles, handlers — is dec
 - [Manifest schema](docs/manifest.md) — the universal inventory of items
 - [Profiles](docs/profiles.md) — curated per-machine install sets
 - [Tombstones](docs/tombstones.md) — desired-state absences for retired tools
-- [AI config](docs/ai.md) — agents, skills, rules, MCP across Claude/OpenCode/Grok
+- [AI config](docs/ai.md) — skills, agents, rules, MCP (Grok first-class; OpenCode adapter)
 - [Dot agent overlays](docs/dot-agent.md) — per-project and per-env AGENTS.md via `dot agent`
 - [Functions reference](docs/functions.md)
 - [Aliases reference](docs/aliases.md)
