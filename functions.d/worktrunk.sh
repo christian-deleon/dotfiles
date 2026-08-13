@@ -77,7 +77,10 @@ function _wta_ensure_window() {
     # (instead of creating a new one) — used by wtaa when the launcher window
     # isn't inside a worktree.
     # Optional 4th arg prompt: an initial prompt forwarded to tav (wta/wtc).
-    local branch="$1" wt_path="$2" adopt_pane="${3:-}" prompt="${4:-}"
+    # Optional 5th arg force_fresh: non-empty skips Claude-history resume and
+    # always launches $AI_TOOL. wtaa uses this for the main worktree so a
+    # full-project restore never continues yesterday's main-branch session.
+    local branch="$1" wt_path="$2" adopt_pane="${3:-}" prompt="${4:-}" force_fresh="${5:-}"
     local session window cmd claude_key geo_x geo_y status_lines
 
     session=$(_wt_session_for "$wt_path")
@@ -116,9 +119,13 @@ function _wta_ensure_window() {
     # Resume if Claude has prior history for this path, else launch fresh.
     # Claude stores per-project sessions under ~/.claude/projects/<slug>/
     # where the slug is the absolute path with `/` replaced by `-`. The
-    # detection is Claude-specific; non-Claude tools always launch fresh.
+    # detection is Claude-specific; non-Claude tools always launch fresh
+    # unless leftover Claude history exists (then $AI_TOOL_RESUME is used).
+    # force_fresh (wtaa's main worktree) always starts a new session.
     claude_key="${wt_path//\//-}"
-    if compgen -G "$HOME/.claude/projects/$claude_key/*.jsonl" >/dev/null 2>&1; then
+    if [[ -n "$force_fresh" ]]; then
+        cmd="$AI_TOOL"
+    elif compgen -G "$HOME/.claude/projects/$claude_key/*.jsonl" >/dev/null 2>&1; then
         cmd="$AI_TOOL_RESUME"
     else
         cmd="$AI_TOOL"
@@ -331,7 +338,7 @@ function wta() {
     _wt_goto_window "$session" "$window"
 }
 
-# Open all worktrees as tmux windows with tav + AI resume
+# Open all worktrees in tmux; main always starts fresh
 function wtaa() {
     if ! command -v tmux &>/dev/null; then echo "Error: tmux is not installed"; return 1; fi
     if ! command -v jq &>/dev/null;   then echo "Error: jq is not installed";   return 1; fi
@@ -370,6 +377,7 @@ function wtaa() {
     #     a shell, so a plain skip would leave it without the tav layout.
     # Sitting inside a *non-main* worktree never adopts: that window is the user's.
     local adopt_pane="" cur_session cur_path cur_window cur_panes i inside=0
+    local this_adopt this_fresh
     if [[ -n "$TMUX" ]]; then
         cur_session=$(tmux display-message -t "$TMUX_PANE" -p '#{session_name}' 2>/dev/null)
         cur_path=$(tmux display-message -t "$TMUX_PANE" -p '#{pane_current_path}' 2>/dev/null)
@@ -394,11 +402,15 @@ function wtaa() {
     fi
 
     for i in "${!w_branch[@]}"; do
-        if [[ -n "$adopt_pane" && "${w_main[$i]}" == "true" ]]; then
-            _wta_ensure_window "${w_branch[$i]}" "${w_path[$i]}" "$adopt_pane"
-        else
-            _wta_ensure_window "${w_branch[$i]}" "${w_path[$i]}"
+        # Main is a home base, not a task session — never continue last chat.
+        # Feature worktrees still resume when Claude history exists.
+        this_adopt=""
+        this_fresh=""
+        if [[ "${w_main[$i]}" == "true" ]]; then
+            this_adopt="$adopt_pane"
+            this_fresh=1
         fi
+        _wta_ensure_window "${w_branch[$i]}" "${w_path[$i]}" "$this_adopt" "" "$this_fresh"
     done
 
     if [[ -n "$first_window" ]]; then

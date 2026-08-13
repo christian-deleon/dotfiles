@@ -546,7 +546,7 @@ wtc remote-only/branch                    # existing local/remote branch: switch
 
 ### `wtaa`
 
-Same per-worktree logic as [`wta`](#wta--p--prompt-text-branch-), but loops every worktree in the project (main first). Use to restore the full project as a single tmux session after a reboot.
+Same per-worktree logic as [`wta`](#wta--p--prompt-text-branch-), but loops every worktree in the project (main first). Use to restore the full project as a single tmux session after a reboot. Feature worktrees still resume `$AI_TOOL_RESUME` when Claude history exists; the **main worktree always launches `$AI_TOOL` fresh** so a restore never continues yesterday's main-branch chat. (`wta main` still resumes if you want that session back.)
 
 If you run it from **outside** tmux, it builds the session detached and `attach`es at the end — so it starts tmux for you. If you run it from **inside** tmux, the launcher window is **adopted** as the main worktree's window (`cd` + `tav`) — but only when it's a single bare pane (no `tav` split yet), so a laid-out window is never clobbered. This covers two cases: launching from the project root (main has no window yet) and launching from main's own window when it was opened from scratch and never laid out (e.g. you ran `tn ngc` in main, then `wtaa` — previously the existing-but-bare `main` window was skipped, leaving it without the layout). Launch from inside a *non-main* worktree and that window is left as-is.
 
