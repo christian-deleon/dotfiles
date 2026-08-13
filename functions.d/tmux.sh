@@ -25,18 +25,50 @@ function _tav_expand_launch() {
     fi
 }
 
+# internal: wrap grok so DA/CPR replies never reach the TUI
+function _tav_wrap_grok_filter() {
+    local launch=$1
+    local first=${launch%% *}
+    local filter="$HOME/.dotfiles/bin/tty-filter-da"
+    first=${first##*/}
+    if [[ $first == grok && -x $filter ]]; then
+        printf '%s %s' "$filter" "$launch"
+    else
+        printf '%s' "$launch"
+    fi
+}
+
 # internal: schedule post-start scrub of leaked DA text in AI prompt
 function _tav_schedule_da_scrub() {
-    # Grok treats Device Attributes replies as key input: its CSI parser eats
-    # ESC/[/> and leaves the body in the prompt (Alacritty `\e[>0;2600;1c` →
-    # `0;2600;1c`; tmux → `84;0;0c`). Those keystrokes also dismiss Grok's
-    # centered welcome/logo card permanently — C-u only clears the prompt after.
-    # Scrub with C-u only when the fingerprint is visible. run-shell -b is owned
-    # by the tmux server and survives the pane being respawned.
-    local pane=$1 delay=$2
-    # Always end with `true`: grep -q exits 1 when there's no junk, and tmux
-    # run-shell would otherwise print "'…' returned 1" into a pane.
-    tmux run-shell -b "sleep $delay; { tmux capture-pane -t $pane -p 2>/dev/null | grep -F '❯' | head -1 | grep -qE '[0-9]+;[0-9]+([;0-9]*)c' && tmux send-keys -t $pane C-u; true; }"
+    # Grok treats Device Attributes / CPR / CSI-u replies as key input: its CSI
+    # parser eats ESC/[/> and leaves the body in the prompt (Alacritty
+    # `\e[>0;2600;1c` → `0;2600;1c`; tmux → `84;0;0c`; CPR → `24;1R`). Those
+    # keystrokes also dismiss Grok's centered welcome/logo card permanently —
+    # C-u only clears the prompt after. Scrub only when the fingerprint is
+    # visible so we never wipe real typing. run-shell -b is owned by the tmux
+    # server and survives the pane being respawned.
+    #
+    # Poll from 1.5s through ~10s: nvim/LazyGit keep probing after first paint,
+    # and a single 2.5s check misses the late replies. run-shell uses /bin/sh.
+    local pane=$1
+    local script
+    # $pane is a tmux pane id (%N) expanded here; \$ keeps the loop in /bin/sh.
+    script=$(cat <<EOF
+sleep 0.8
+i=0
+while [ "\$i" -lt 16 ]; do
+  if tmux capture-pane -t '${pane}' -p -J 2>/dev/null \
+      | tail -n 8 \
+      | grep -qE '0;2600;1c|84;0;0c|[0-9]+;[0-9]+([;0-9]*)[cRu]'; then
+    tmux send-keys -t '${pane}' C-u
+  fi
+  i=\$((i + 1))
+  sleep 0.5
+done
+true
+EOF
+    )
+    tmux run-shell -b "$script"
 }
 
 # internal: delay send-keys into a pane (survives tav's shell dying)
@@ -57,6 +89,7 @@ function _tav_respawn_ai() {
     #    restore the logo once dismissed; only clears the typed DA body).
     local pane=$1 dir=$2 launch=$3
     local inner outer shell quiet_drain
+    launch=$(_tav_wrap_grok_filter "$launch")
 
     # Drain until ~250ms of silence (max ~1.2s). Prefer consuming late CSI/OSC
     # replies before the AI attaches to the tty.
@@ -81,8 +114,7 @@ done
 
     # Scrub after the welcome card has had time to paint. Early C-u is fine for
     # the prompt, but we wait so capture-pane races don't fight first paint.
-    _tav_schedule_da_scrub "$pane" 1.5
-    _tav_schedule_da_scrub "$pane" 2.5
+    _tav_schedule_da_scrub "$pane"
 
     # Must be last: -k kills the current process (often the shell running tav).
     tmux respawn-pane -k -t "$pane" -c "$dir" "$outer"
@@ -162,7 +194,7 @@ function tav() {
     # nvim's terminal probes are a major source of DA replies that Grok treats
     # as keystrokes and which dismiss the centered splash permanently.
     tmux select-pane -t "$top_left"
-    _tav_schedule_send "$top_right" 1.6 \
+    _tav_schedule_send "$top_right" 2.5 \
         'nvim . -c "lua vim.schedule(function() Snacks.lazygit() end)"'
     # Respawn kills this shell — must be last.
     _tav_respawn_ai "$top_left" "$current_dir" "$launch"
@@ -199,9 +231,9 @@ function tavk() {
     # AI first; delay nvim/k9s so their term probes don't dismiss Grok's splash.
     # See tav for the nvim LazyGit rationale.
     tmux select-pane -t "$top_left"
-    _tav_schedule_send "$top_right" 1.6 \
+    _tav_schedule_send "$top_right" 2.5 \
         'nvim . -c "lua vim.schedule(function() Snacks.lazygit() end)"'
-    _tav_schedule_send "$bottom_right" 1.6 "k9s"
+    _tav_schedule_send "$bottom_right" 2.5 "k9s"
     # Respawn kills this shell — must be last.
     _tav_respawn_ai "$top_left" "$current_dir" "$launch"
 }
