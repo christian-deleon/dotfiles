@@ -2,9 +2,9 @@
 # so platform overrides must be imports (not keys in this file).
 #
 # Load order (later wins for the same key; missing files are skipped):
-#   1. shared.toml  — cross-platform defaults (Linux/Omarchy baseline: size 10, decorations None)
-#   2. Omarchy theme colors (DE-managed on Omarchy; linked by alacritty_setup elsewhere)
-#   3. os.toml      — os.darwin.toml (Mac) or os.linux.toml (noop baseline) via alacritty_setup
+#   1. shared.toml
+#   2. Omarchy theme colors
+#   3. os.toml — os.darwin.toml or os.linux.toml via alacritty_setup
 #
 # Windows host uses windows/alacritty.toml (separate file).
 general.import = [
