@@ -10,7 +10,10 @@ hl.unbind("SUPER + SHIFT + ALT + B")
 o.bind("SUPER + SHIFT + ALT + B", "Browser (Profile 1)", 'omarchy-launch-browser --profile-directory="Profile 1"')
 
 o.bind("SUPER + SHIFT + K", "K9s", { tui = "k9s" })
-o.bind("SUPER + SHIFT + V", "VMware Workstation", { focus = "^[Vv]mware$", launch = "vmware" })
+o.bind("SUPER + SHIFT + V", "VMware Workstation", {
+  focus = "^[Vv]mware$",
+  launch = "env GDK_SCALE=1 GDK_DPI_SCALE=1 vmware",
+})
 
 -- Stock binds SUPER+/ to monitor scale cycling; passwords stay on SUPER+SHIFT+/.
 hl.unbind("SUPER + SLASH")
