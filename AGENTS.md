@@ -8,7 +8,7 @@ Guidelines for AI coding agents working in this personal dotfiles repo. Manages 
 
 **Key components:**
 - Shell configs: `.commonrc` (cross-platform), `.zshrc` (macOS), `.bashrc` (reference only — never symlinked)
-- Omarchy desktop configs: hypr, waybar, alacritty, mako, walker, btop, fastfetch, lazygit, omarchy, opencode, starship (via GNU Stow + omadot)
+- Omarchy desktop: personal Hypr/Omarchy overlays via handlers; other app configs via GNU Stow + omadot (alacritty, btop, fastfetch, lazygit, nvim, tmux, starship, …)
 - AI config: `ai/` (skills, agents, hooks, rules); MCP template at `ai/mcp-servers.json.tpl`. Grok is first-class; OpenCode is an adapter.
 - Package + config management: `manifest.yaml` + `profiles/*.yaml` + `scripts/lib.sh` + `scripts/handlers/*.sh`
 - Desired absences for retired tools: `tombstones.yaml` (applied by `apply_tombstones` on `dot update` / install)
@@ -16,8 +16,8 @@ Guidelines for AI coding agents working in this personal dotfiles repo. Manages 
 
 ## Core principles (read first)
 
-1. **Source into, never replace.** `~/.bashrc` is system-owned (Omarchy/Ubuntu/etc.). `install.sh` injects `source ~/.commonrc`; we never symlink `.bashrc`. Machine-specific config goes in untracked `~/.localrc`.
-2. **All `~/.config/<tool>/` is managed via omadot/Stow.** Never write to `~/.config/` directly — see "CRITICAL" section below.
+1. **Source into, never replace.** `~/.bashrc` is system-owned (Omarchy/Ubuntu/etc.). `install.sh` injects `source ~/.commonrc`; we never symlink `.bashrc`. The same rule applies to `~/.config/hypr` and `~/.config/omarchy` — Omarchy owns those directories; this repo only copies personal overlays in. Machine-specific config goes in untracked `~/.localrc`.
+2. **Most `~/.config/<tool>/` is managed via omadot/Stow.** Exceptions: `hypr` and `omarchy` (handlers). See "CRITICAL" section below.
 3. **Idempotent.** Every install module must be safe to re-run. Use `ln -snf`, check before stowing, clean stale symlinks.
 4. **OS-aware.** Detect with `$OSTYPE` and `requires:` predicates. Supports macOS, Omarchy/Arch, Ubuntu/Pop!_OS, Debian. Omarchy is documented heavily because of its unique integration points — that does **not** mean the user is on Omarchy. Always check the actual environment.
 5. **Privacy.** Never commit secrets, tokens, or credentials.
@@ -41,7 +41,7 @@ Not tracked (machine-specific): `~/.localrc`, `~/.gitconfig.local`.
 
 | Package | Path in dotfiles |
 |---------|------------------|
-| `alacritty`, `btop`, `fastfetch`, `hypr`, `k9s`, `lazygit`, `makima`, `mako`, `nvim`, `omarchy`, `opencode`, `tmux`, `voxtype`, `walker`, `waybar`, `worktrunk` | `<pkg>/.config/<pkg>/` |
+| `alacritty`, `btop`, `fastfetch`, `k9s`, `lazygit`, `makima`, `nvim`, `opencode`, `tmux`, `voxtype`, `worktrunk` | `<pkg>/.config/<pkg>/` |
 | `starship` | `starship/.config/starship.toml` (single-file package) |
 
 ## Build / Test / Run
@@ -78,7 +78,7 @@ Before committing:
 - [ ] `yq '.' manifest.yaml` parses; every `config.handler` references a function in `scripts/handlers/*.sh`
 - [ ] `yq '.' profiles/<name>.yaml` parses for any modified profile
 - [ ] `yq '.' tombstones.yaml` parses if modified; path names are single segments only
-- [ ] New stow packages are declared in `manifest.yaml` (`config.type: stow`) AND follow `<dir>/.config/<dir>/` layout
+- [ ] New stow packages are declared in `manifest.yaml` (`config.type: stow`) AND follow `<dir>/.config/<dir>/` layout. Do not add `hypr` or `omarchy` as stow packages.
 - [ ] No hardcoded personal info (use `.gitconfig.local`, `.localrc`)
 - [ ] No hardcoded OS-specific paths (use `$OSTYPE` detection)
 - [ ] Documentation updated
@@ -105,9 +105,21 @@ Before committing:
 
 ## CRITICAL: How app configs are managed
 
-**ALL `~/.config/<tool>/` configs are managed via omadot (GNU Stow). Never create or edit files directly in `~/.config/`.**
+**Most `~/.config/<tool>/` configs are managed via omadot (GNU Stow). Never create or edit those directly in `~/.config/`.**
 
-When asked to add or update a config for any tool:
+**Exceptions — Omarchy owns the directory:** `~/.config/hypr` and `~/.config/omarchy` are real directories (not stow symlinks). Personal files live in the repo and are **copied** in by `install_hypr_config` / `install_omarchy_config`:
+
+| Yours (tracked) | Lands on disk |
+|-----------------|---------------|
+| `hypr/overlays/*.lua` | `~/.config/hypr/` |
+| `hypr/scripts/{monitor-setup,monitor-listener,screen-rescue}.sh` | `~/.config/hypr/` |
+| `omarchy/.config/omarchy/themes/<name>` | `~/.config/omarchy/themes/<name>` (symlink) |
+| `omarchy/.config/omarchy/branding/` | `~/.config/omarchy/branding/` |
+| `omarchy/hooks/post-update.d/reapply-desktop-overlays` | same path under `~/.config/omarchy/` |
+
+Do **not** `omadot put hypr` or `omadot put omarchy`. Do **not** commit files just because they appeared under `~/.config/hypr` or `~/.config/omarchy` after an Omarchy update. Stock templates stay in `/usr/share/omarchy/config/`. `omarchy refresh hyprland` is safe; `dot update` / the post-update hook re-applies overlays.
+
+When asked to add or update a config for any **other** tool:
 
 1. **Create the file in the dotfiles repo** at `~/.dotfiles/<tool>/.config/<tool>/<file>`
 2. **Add a manifest entry** to `manifest.yaml` with `config.type: stow` (see [docs/manifest.md](docs/manifest.md))
@@ -115,7 +127,7 @@ When asked to add or update a config for any tool:
 4. **Add to relevant profiles** (`profiles/*.yaml` → `items:` list) for machines that should install it
 5. **Commit** the new/updated files: `~/.dotfiles/<tool>/`, `manifest.yaml`, modified profiles
 
-Structure is always:
+Structure for stow packages:
 ```
 ~/.dotfiles/<tool>/.config/<tool>/   ← files live here (tracked by git)
 ~/.config/<tool>                     ← symlink created by omadot put
@@ -124,7 +136,7 @@ profiles/*.yaml                      ← profiles that include the item
 ```
 
 **Do NOT:**
-- Write files directly to `~/.config/<tool>/` — they won't be tracked
+- Write files directly to a **stowed** `~/.config/<tool>/` — they won't be tracked
 - Use `omadot get` for a brand-new config that doesn't yet exist in `~/.config/`; only use it to *import* an existing config
 - Use `omadot put --all`
 - Skip the manifest entry — the installer no longer auto-discovers stow packages from the filesystem

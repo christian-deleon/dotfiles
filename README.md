@@ -81,7 +81,9 @@ git -C ~/.dotfiles remote set-url origin git@github.com:christian-deleon/dotfile
 
 ## App Configs
 
-App configs (`~/.config/`) are managed via [GNU Stow](https://www.gnu.org/software/stow/) + [omadot](https://github.com/tomhayes/omadot) on all platforms. Stow packages must be **declared in `manifest.yaml`** (`config.type: stow`) — the installer does not auto-discover them from the filesystem. Profiles (or `dot install <name>`) select which items to install.
+App configs (`~/.config/`) are mostly managed via [GNU Stow](https://www.gnu.org/software/stow/) + [omadot](https://github.com/tomhayes/omadot). Stow packages must be **declared in `manifest.yaml`** (`config.type: stow`) — the installer does not auto-discover them from the filesystem. Profiles (or `dot install <name>`) select which items to install.
+
+`hypr` and `omarchy` are the exception: Omarchy owns `~/.config/hypr` and `~/.config/omarchy`. This repo only copies personal overlays in (see [docs/architecture.md](docs/architecture.md)). Do not `omadot put hypr` or `omadot put omarchy`.
 
 **New config from scratch** — write files into the repo, add a manifest entry, then stow:
 

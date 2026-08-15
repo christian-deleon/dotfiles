@@ -130,7 +130,7 @@ fi
 # then keep the laptop panel off while docked.
 POS=0
 for name in "${ORDERED[@]}"; do
-    hyprctl keyword monitor "$name, 3840x2160@120, ${POS}x0, 1, bitdepth, 10"
+    hyprctl eval "hl.monitor({ output = \"$name\", mode = \"3840x2160@120\", position = \"${POS}x0\", scale = 1, bitdepth = 10 })"
     POS=$((POS + 3840))
 done
-hyprctl keyword monitor "eDP-1, disable"
+hyprctl eval 'hl.monitor({ output = "eDP-1", disabled = true })'

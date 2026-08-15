@@ -43,7 +43,6 @@ items:
   - lazygit
   - lid-check
   - makima
-  - mako
   - mise
   - mold
   - neovim
@@ -58,7 +57,5 @@ items:
   - tmux
   - uv
   - voxtype
-  - walker
-  - waybar
   - worktrunk
   - yq

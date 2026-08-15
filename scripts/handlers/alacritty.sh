@@ -2,60 +2,24 @@
 # Alacritty post-install handler — referenced from manifest.yaml.
 # Sourced by install.sh. Uses helpers: info, warn, success.
 
-# alacritty.toml imports ~/.config/omarchy/current/theme/alacritty.toml.
+# alacritty.toml imports ~/.local/state/omarchy/current/theme/alacritty.toml.
+# On Omarchy that file is written by `omarchy theme set`. Never rewrite it.
 #
-# On Omarchy the theme tree is DE-managed (often current/theme → themes/<name>,
-# or a real directory of theme files from the omarchy stow package). Never
-# rewrite those.
-#
-# On non-Omarchy hosts (macOS, plain Linux without Omarchy), link the Everforest
-# colors from the omarchy package so terminals match. Last resort: empty-theme.
+# On non-Omarchy hosts, link the empty-theme shim so the import is harmless.
 alacritty_theme_shim() {
-    local theme_dir="$HOME/.config/omarchy/current/theme"
+    local theme_dir="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/current/theme"
     local theme_file="$theme_dir/alacritty.toml"
-    local repo_theme="$DOTFILES_DIR/omarchy/.config/omarchy/current/theme/alacritty.toml"
     local empty_shim="$DOTFILES_DIR/alacritty/.config/alacritty/empty-theme.toml"
 
-    # Omarchy: current/theme is a symlink into themes/<name>
-    if [[ -L "$theme_dir" ]]; then
+    if [[ -f $theme_file ]]; then
         return 0
     fi
 
-    # Omarchy / stowed package: real theme files already present — do not replace
-    if [[ -f "$theme_file" && ! -L "$theme_file" ]]; then
-        return 0
-    fi
-
-    # Any non-empty theme directory that isn't our fallback layout — leave alone
-    # (e.g. partial Omarchy install with multiple theme assets).
-    if [[ -d "$theme_dir" ]] && [[ -f "$theme_dir/colors.toml" || -f "$theme_dir/neovim.lua" ]]; then
-        return 0
-    fi
-
-    local target=""
-    if [[ -f "$repo_theme" ]]; then
-        target="$repo_theme"
-    elif [[ -f "$empty_shim" ]]; then
-        target="$empty_shim"
-    else
-        return 0
-    fi
+    [[ -f $empty_shim ]] || return 0
 
     mkdir -p "$theme_dir"
-
-    local cur=""
-    cur="$(readlink "$theme_file" 2>/dev/null || true)"
-    if [[ "$cur" == "$target" ]]; then
-        info "Alacritty theme already linked"
-        return 0
-    fi
-
-    ln -snf "$target" "$theme_file"
-    if [[ "$target" == "$repo_theme" ]]; then
-        success "Linked alacritty theme → omarchy current (Everforest)"
-    else
-        info "Linked alacritty empty-theme shim (no repo theme found)"
-    fi
+    ln -snf "$empty_shim" "$theme_file"
+    info "Linked alacritty empty-theme shim (no Omarchy theme present)"
 }
 
 # JetBrainsMono Nerd Font is assumed on Omarchy/Linux and installed by

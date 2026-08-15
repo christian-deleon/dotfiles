@@ -44,9 +44,9 @@ Picking a bundle item installs the binary **and** the config in one step.
 
 Only two:
 
-- **`stow`** — auto-stows from `<package>/.config/<package>/` (directory) or `<package>/.config/<package>.<ext>` (single file). Optional `package:` override lets the stow directory differ from the item name. Used for `btop`, `alacritty`, `omarchy`, etc.
+- **`stow`** — auto-stows from `<package>/.config/<package>/` (directory) or `<package>/.config/<package>.<ext>` (single file). Optional `package:` override lets the stow directory differ from the item name. Used for `btop`, `alacritty`, `tmux`, etc. Not used for `hypr` or `omarchy`.
 
-- **`handler`** — calls a named bash function. Used for items that need imperative setup beyond stow: `grok` (AI installer), `cargo` (`~/.cargo/config.toml` outside XDG), `lid-check` (PAM patch), `windows-terminal` (Windows-side settings.json).
+- **`handler`** — calls a named bash function. Used for items that need imperative setup beyond stow: `grok` (AI installer), `cargo` (`~/.cargo/config.toml` outside XDG), `lid-check` (PAM patch), `windows-terminal` (Windows-side settings.json), `hypr` / `omarchy` (overlays into Omarchy-owned dirs).
 
 Note: `opencode` and `tmux` are **`type: stow`** (with `post_install` hooks for OpenCode AI linking / MCP). They are not handlers.
 
@@ -60,6 +60,7 @@ Handlers live in `scripts/handlers/*.sh`, organized by domain:
 | `scripts/handlers/windows.sh` | `install_windows_terminal_config` |
 | `scripts/handlers/alacritty.sh` | `alacritty_setup` (theme shim + macOS Nerd Font) |
 | `scripts/handlers/neovim.sh` | `install_neovim_extras` |
+| `scripts/handlers/desktop.sh` | `install_hypr_config`, `install_omarchy_config` |
 
 ## CLI aliases
 

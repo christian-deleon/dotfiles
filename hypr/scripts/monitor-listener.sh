@@ -1,8 +1,8 @@
 #!/bin/bash
 # Listen for Hyprland monitor hotplug events and reposition MSI monitors.
 # Runs in the background via autostart.
-# configreloaded: `hyprctl reload` wipes keyword-set monitor positions and
-# re-applies monitors.conf, so every reload needs a repositioning pass too.
+# configreloaded: `hyprctl reload` re-applies monitors.lua (auto positions),
+# so every reload needs a repositioning pass too.
 
 SOCKET="$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock"
 
