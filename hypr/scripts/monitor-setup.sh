@@ -126,11 +126,14 @@ if [ "${#ORDERED[@]}" -ge 2 ]; then
     done
 fi
 
-# Apply: position side by side (position-only changes don't retrain DP links),
-# then keep the laptop panel off while docked.
+# Apply every output in one eval. Each hyprctl eval only *schedules* a
+# layout reload; Hyprland commits on the next frame. A loop lets that
+# frame land between moves and trips the overlap notification.
+LUA=""
 POS=0
 for name in "${ORDERED[@]}"; do
-    hyprctl eval "hl.monitor({ output = \"$name\", mode = \"3840x2160@120\", position = \"${POS}x0\", scale = 1, bitdepth = 10 })"
+    LUA+="hl.monitor({ output = \"${name}\", mode = \"3840x2160@120\", position = \"${POS}x0\", scale = 1, bitdepth = 10 })"$'\n'
     POS=$((POS + 3840))
 done
-hyprctl eval 'hl.monitor({ output = "eDP-1", disabled = true })'
+LUA+='hl.monitor({ output = "eDP-1", disabled = true })'
+hyprctl eval "$LUA"
