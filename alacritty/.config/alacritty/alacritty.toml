@@ -9,6 +9,6 @@
 # Windows host uses windows/alacritty.toml (separate file).
 general.import = [
     "~/.config/alacritty/shared.toml",
-    "~/.config/omarchy/current/theme/alacritty.toml",
+    "~/.local/state/omarchy/current/theme/alacritty.toml",
     "~/.config/alacritty/os.toml",
 ]

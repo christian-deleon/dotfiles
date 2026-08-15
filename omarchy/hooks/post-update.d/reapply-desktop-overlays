@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Re-apply personal Hyprland/Omarchy overlays after `omarchy update`.
+# Refresh copies stock templates into the real ~/.config trees; this puts
+# binds/monitors/themes back without touching the package.
+
+set -euo pipefail
+
+DOTFILES_DIR="${DOTFILES_DIR:-$HOME/.dotfiles}"
+# Path is resolved at runtime from DOTFILES_DIR, not relative to this hook.
+# shellcheck disable=SC1091
+source "$DOTFILES_DIR/scripts/handlers/desktop.sh"
+
+apply_hypr_overlays
+apply_omarchy_overlays

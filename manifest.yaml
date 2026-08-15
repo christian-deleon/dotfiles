@@ -144,9 +144,10 @@ helm:
     script: install-helm.sh
 
 hypr:
-  description: Hyprland window manager config
+  description: Hyprland personal overlays (binds, monitors, scripts)
   config:
-    type: stow
+    type: handler
+    handler: install_hypr_config
   requires: [hyprland]
 
 jq:
@@ -201,12 +202,6 @@ makima:
     type: stow
   requires: [linux]
 
-mako:
-  description: Wayland notification daemon
-  config:
-    type: stow
-  requires: [hyprland]
-
 mold:
   description: Fast linker — accelerates Rust/C/C++ link step (Linux only)
   install:
@@ -241,9 +236,10 @@ npm:
     brew: node
 
 omarchy:
-  description: Omarchy desktop environment config
+  description: Omarchy personal overlays (themes, branding, bar widget)
   config:
-    type: stow
+    type: handler
+    handler: install_omarchy_config
   requires: [omarchy]
 
 opencode:
@@ -318,18 +314,6 @@ voxtype:
   config:
     type: stow
   requires: [linux]
-
-walker:
-  description: Application launcher config
-  config:
-    type: stow
-  requires: [hyprland]
-
-waybar:
-  description: Wayland status bar config
-  config:
-    type: stow
-  requires: [hyprland]
 
 windows-terminal:
   description: Windows Terminal theme + font config (WSL only)

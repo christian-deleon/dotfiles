@@ -71,10 +71,15 @@ App configs in `~/.config/` are managed via [GNU Stow](https://www.gnu.org/softw
 - `cargo` — links `cargo/.cargo/config.toml` into `~/.cargo/config.toml` (`install_cargo_config`)
 - `lid-check` — Linux+fprintd PAM patch (`install_lid_check`)
 - `windows-terminal` — WSL-side script wrapper (`install_windows_terminal_config`)
+- `hypr` / `omarchy` — copy personal overlays into Omarchy-owned real directories (`install_hypr_config`, `install_omarchy_config` in `scripts/handlers/desktop.sh`)
 
 Stow + post_install (not handlers): `opencode` (stow config + OpenCode adapter + `generate_mcp_configs`), `tmux` (stow under `tmux/.config/tmux/`).
 
-**Not managed by omadot** (Omarchy-owned): `~/.config/git/`
+**Not managed by omadot:**
+- `~/.config/git/` (Omarchy-owned)
+- `~/.config/hypr` and `~/.config/omarchy` (Omarchy-owned real directories; see below)
+
+**Never use `omadot put hypr` or `omadot put omarchy`.** That would replace the real directory with a git symlink and make the next Omarchy update write into the repo.
 
 **Never use `omadot put --all`** in this repo. It would try to stow non-package directories (`brew/`, `scripts/`, `docs/`, etc.).
 
@@ -88,6 +93,9 @@ On [Omarchy](https://omarchy.org/) (Arch Linux + Hyprland):
 
 - Omarchy owns `~/.bashrc` and sources its defaults (starship, mise, zoxide, eza, etc.)
 - Dotfiles layer on top via `.commonrc` — never replace Omarchy's shell setup
+- Omarchy owns `~/.config/hypr` and `~/.config/omarchy` as **real directories**. Package defaults live in `/usr/share/omarchy/default/`; stock user templates in `/usr/share/omarchy/config/`. This repo copies only personal overlays (`hypr/overlays/*.lua`, monitor scripts, custom themes, branding) into those directories. `omarchy refresh hyprland` restores stock templates without touching git; `dot update` and `~/.config/omarchy/hooks/post-update.d/reapply-desktop-overlays` put overlays back.
+- Do not commit a file just because an Omarchy update created it under `~/.config/hypr` or `~/.config/omarchy`. Diff against `/usr/share/omarchy/config/` to see whether it is stock.
+- Active theme files live in `~/.local/state/omarchy/current/` (generated). They are not tracked.
 - Dotfiles own `~/.config/starship.toml` (stowed from `starship/.config/starship.toml`); seeded byte-for-byte from Omarchy's default and evolved from there. `.commonrc` initializes starship on bash with a `$STARSHIP_SHELL` guard to avoid double-init on Omarchy.
 - 1Password SSH agent path: `/opt/1Password/op-ssh-sign` (Linux) vs `/Applications/1Password.app/Contents/MacOS/op-ssh-sign` (macOS)
 - 1Password SSH socket: `~/.1password/agent.sock` (Linux) vs `~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock` (macOS)

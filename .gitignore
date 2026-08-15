@@ -5,3 +5,7 @@
 # Python bytecode from ai/scripts helpers
 __pycache__/
 *.py[cod]
+
+# Omarchy upgrade residue — generated next to live configs, never source
+**/*omarchy-upgrade-to-quattro*
+omarchy/.config/omarchy/current/

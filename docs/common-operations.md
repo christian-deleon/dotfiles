@@ -66,7 +66,19 @@ foo:
 ## Adding a new app config to omadot
 
 > **STOP — read this before touching `~/.config/` directly.**
-> All configs are managed via omadot. Create files in the dotfiles repo first, then stow.
+> Most configs are managed via omadot. Create files in the dotfiles repo first, then stow.
+> **Hyprland / Omarchy:** do not stow `~/.config/hypr` or `~/.config/omarchy`. Edit `hypr/overlays/` or `hypr/scripts/` (or `omarchy/` themes/branding) and run `dot install hypr` / `dot install omarchy` (or `dot update`) so the handler copies them in.
+
+## Hypr / Omarchy overlays
+
+Personal desktop files (not the Omarchy package):
+
+- Binds, monitors, input, looknfeel, autostart → `hypr/overlays/<file>.lua`
+- Monitor scripts → `hypr/scripts/` (`monitor-setup.sh`, `monitor-listener.sh`, `screen-rescue.sh` are installed; `lid-handler.sh` / `lock-session.sh` are kept in-repo only)
+- Custom themes → `omarchy/.config/omarchy/themes/<name>/` (git submodules)
+- Branding → `omarchy/.config/omarchy/branding/`
+
+Do not commit stock templates, hook samples, `current/`, or `*omarchy-upgrade*` backups. Those belong to Omarchy.
 
 **For a brand-new tool config (most common case):**
 
