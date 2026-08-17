@@ -127,10 +127,10 @@ function _wta_ensure_window() {
     # isn't inside a worktree.
     # Optional 4th arg prompt: an initial prompt forwarded to tav (wta/wtc).
     # Optional 5th arg force_fresh: non-empty skips history resume and
-    # always launches $AI_TOOL. wtaa uses this for the main worktree so a
-    # full-project restore never continues yesterday's main-branch session.
+    # always launches $AI_TOOL. The main worktree is always treated as
+    # force_fresh — it's a home base, not a task session.
     local branch="$1" wt_path="$2" adopt_pane="${3:-}" prompt="${4:-}" force_fresh="${5:-}"
-    local session window cmd geo_x geo_y status_lines resume_id tool
+    local session window cmd geo_x geo_y status_lines resume_id tool is_main
 
     session=$(_wt_session_for "$wt_path")
     window="${branch//\//-}"
@@ -168,7 +168,12 @@ function _wta_ensure_window() {
     # Resume the current tool's last real session for this worktree when
     # history exists; otherwise launch fresh. Grok is pinned by session id
     # (`-r`) because `-c` continues the newest cwd session, empty ones included.
-    # force_fresh (wtaa's main worktree) always starts a new session.
+    # Main never resumes (home base). force_fresh does the same for any caller.
+    if [[ -z "$force_fresh" ]]; then
+        is_main=$(wt list --format json 2>/dev/null | jq -r --arg b "$branch" \
+            '.[] | select(.branch == $b) | .is_main')
+        [[ "$is_main" == "true" ]] && force_fresh=1
+    fi
     tool="${AI_TOOL%% *}"
     if [[ -n "$force_fresh" ]]; then
         cmd="$AI_TOOL"
