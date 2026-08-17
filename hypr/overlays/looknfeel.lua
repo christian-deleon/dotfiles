@@ -4,8 +4,8 @@ hl.env("OMARCHY_SCREENSHOT_DIR", (os.getenv("HOME") or "") .. "/Pictures/screens
 
 hl.config({
   general = {
-    gaps_in = 2,
-    gaps_out = 2,
+    gaps_in = 3,
+    gaps_out = 3,
   },
   misc = {
     -- Keep toasts/bells; don't steal focus when a window requests activation.
