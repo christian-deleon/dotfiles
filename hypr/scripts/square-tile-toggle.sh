@@ -21,7 +21,7 @@ gaps_out() {
     if [[ $raw =~ ([0-9]+) ]]; then
         printf '%s\n' "${BASH_REMATCH[1]}"
     else
-        printf '2\n'
+        printf '3\n'
     fi
 }
 
