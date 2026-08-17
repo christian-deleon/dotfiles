@@ -130,10 +130,11 @@ apply_hypr_overlays() {
         desktop_install_file "$src" "$dest/$(basename "$src")"
     done
 
-    for src in "$repo"/hypr/scripts/monitor-setup.sh \
-        "$repo"/hypr/scripts/monitor-listener.sh \
-        "$repo"/hypr/scripts/screen-rescue.sh; do
+    for src in "$repo"/hypr/scripts/*.sh; do
         [[ -f $src ]] || continue
+        case "$(basename "$src")" in
+            lid-handler.sh | lock-session.sh) continue ;;
+        esac
         desktop_install_file "$src" "$dest/$(basename "$src")"
         chmod +x -- "$dest/$(basename "$src")"
     done
@@ -162,6 +163,14 @@ apply_omarchy_overlays() {
             [[ -d $src ]] || continue
             name="$(basename "$src")"
             ln -snf -- "${src%/}" "$dest/themes/$name"
+        done
+    fi
+
+    if [[ -d $repo/omarchy/.config/omarchy/extensions ]]; then
+        mkdir -p "$dest/extensions"
+        for src in "$repo"/omarchy/.config/omarchy/extensions/*; do
+            [[ -f $src ]] || continue
+            desktop_install_file "$src" "$dest/extensions/$(basename "$src")"
         done
     fi
 

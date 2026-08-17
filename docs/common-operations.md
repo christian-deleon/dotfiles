@@ -74,9 +74,10 @@ foo:
 Personal desktop files (not the Omarchy package):
 
 - Binds, monitors, input, looknfeel, autostart → `hypr/overlays/<file>.lua`
-- Monitor scripts → `hypr/scripts/` (`monitor-setup.sh`, `monitor-listener.sh`, `screen-rescue.sh` are installed; `lid-handler.sh` / `lock-session.sh` are kept in-repo only)
+- Monitor scripts → `hypr/scripts/` (`monitor-setup.sh`, `monitor-listener.sh`, `screen-rescue.sh`, `square-tile-toggle.sh` are installed; `lid-handler.sh` / `lock-session.sh` are kept in-repo only)
 - Custom themes → `omarchy/.config/omarchy/themes/<name>/` (git submodules)
 - Branding → `omarchy/.config/omarchy/branding/`
+- Menu overrides → `omarchy/.config/omarchy/extensions/omarchy-menu.jsonc`
 
 Do not commit stock templates, hook samples, `current/`, or `*omarchy-upgrade*` backups. Those belong to Omarchy.
 

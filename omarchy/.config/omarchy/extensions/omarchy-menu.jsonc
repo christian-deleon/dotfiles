@@ -1,0 +1,7 @@
+{
+  // Stock 1-Window Ratio runs hyprctl reload and fights clamshell / desk layout.
+  "trigger.toggle.one-window-ratio": {
+    "label": "Square focused window",
+    "action": "$HOME/.config/hypr/square-tile-toggle.sh"
+  }
+}

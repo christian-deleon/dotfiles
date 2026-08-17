@@ -112,9 +112,10 @@ Before committing:
 | Yours (tracked) | Lands on disk |
 |-----------------|---------------|
 | `hypr/overlays/*.lua` | `~/.config/hypr/` |
-| `hypr/scripts/{monitor-setup,monitor-listener,screen-rescue}.sh` | `~/.config/hypr/` |
+| `hypr/scripts/{monitor-setup,monitor-listener,screen-rescue,square-tile-toggle}.sh` | `~/.config/hypr/` |
 | `omarchy/.config/omarchy/themes/<name>` | `~/.config/omarchy/themes/<name>` (symlink) |
 | `omarchy/.config/omarchy/branding/` | `~/.config/omarchy/branding/` |
+| `omarchy/.config/omarchy/extensions/` | `~/.config/omarchy/extensions/` |
 | `omarchy/hooks/post-update.d/reapply-desktop-overlays` | same path under `~/.config/omarchy/` |
 
 Do **not** `omadot put hypr` or `omadot put omarchy`. Do **not** commit files just because they appeared under `~/.config/hypr` or `~/.config/omarchy` after an Omarchy update. Stock templates stay in `/usr/share/omarchy/config/`. `omarchy refresh hyprland` is safe; `dot update` / the post-update hook re-applies overlays.
