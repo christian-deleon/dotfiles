@@ -510,14 +510,14 @@ wrf              # fzf multi-select, removes selected worktrees and their branch
 
 ### `wta [-p|--prompt <text>] [branch]` \*
 
-Open a single worktree in tmux with the `tav` layout. fzf picker if no branch is passed. The target session is the one you're already in when your current pane sits anywhere inside the project; otherwise it falls back to a session named after the worktrees' parent dir, creating it if needed. (This means launching from a session you named yourself — e.g. `tn ngc` — adds the window to *that* session instead of forking a separate one and orphaning your current window.) It then adds a window named after the sanitized branch and sends a `tav` invocation into it. If the window already exists, just attaches. Tool-aware resume: launches the current AI tool against the last **real** session for that worktree path. Grok is pinned with `-r <session-id>` (skipping empty “just opened” sessions and subagents — Grok’s own `-c` continues the newest cwd session, which is often an empty one from a previous fresh launch). Otherwise `$AI_TOOL`.
+Open a single worktree in tmux with the `tav` layout. If no branch is passed and the project has only one worktree (usually `main`), that one is used; otherwise an fzf picker. The target session is the one you're already in when your current pane sits anywhere inside the project; otherwise it falls back to a session named after the worktrees' parent dir, creating it if needed. (This means launching from a session you named yourself — e.g. `tn ngc` — adds the window to *that* session instead of forking a separate one and orphaning your current window.) It then adds a window named after the sanitized branch and sends a `tav` invocation into it. If the window already exists, just attaches. Tool-aware resume: launches the current AI tool against the last **real** session for that worktree path. Grok is pinned with `-r <session-id>` (skipping empty “just opened” sessions and subagents — Grok’s own `-c` continues the newest cwd session, which is often an empty one from a previous fresh launch). Otherwise `$AI_TOOL`.
 
 Pass `-p`/`--prompt` to forward an initial prompt into the session's AI tool (see [`tav`](#tav--t--tool-ai-cmd-f--prompt-file-path-prompt)). Large prompts are written to a temp file and launched via `tav -f` so the tmux key stream stays short. It works with both the picker and an explicit branch.
 
 Requires `$AI_TOOL` / `$AI_TOOL_RESUME` — run `dot ai-tool` first.
 
 ```bash
-wta                                   # fzf picker
+wta                                   # only one worktree → attach; else fzf picker
 wta feature/auth                      # attach to (or create) feature/auth's window
 wta feature/auth -p "add a contact page"   # ...and start the AI tool on that prompt
 ```
