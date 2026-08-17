@@ -56,5 +56,6 @@ o.bind("SUPER + CTRL + M", "Cycle monitor arrangement", home .. "/.config/hypr/m
 hl.unbind("SUPER + CTRL + R")
 o.bind("SUPER + CTRL + R", "Rescue displays (force on)", home .. "/.config/hypr/screen-rescue.sh", { locked = true })
 
--- Stock SUPER+CTRL+BACKSPACE squares a lone tiled window.
+-- Stock bind reloads Hyprland (flashes eDP-1 / reshuffles desk OLEDs).
 hl.unbind("SUPER + CTRL + BACKSPACE")
+o.bind("SUPER + CTRL + BACKSPACE", "Square focused window", home .. "/.config/hypr/square-tile-toggle.sh")
