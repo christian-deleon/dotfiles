@@ -333,7 +333,7 @@ function wtc() {
     fi
 }
 
-# Attach to a worktree in tmux with tav layout (fzf if no arg)
+# Attach to a worktree in tmux (auto if one, else fzf)
 function wta() {
     if ! command -v tmux &>/dev/null; then echo "Error: tmux is not installed"; return 1; fi
     if ! command -v jq &>/dev/null;   then echo "Error: jq is not installed";   return 1; fi
@@ -362,14 +362,19 @@ function wta() {
     done
 
     if [[ -z "$branch" ]]; then
-        if ! command -v fzf &>/dev/null; then
+        local count
+        count=$(echo "$worktrees_json" | jq 'length')
+        if (( count == 1 )); then
+            branch=$(echo "$worktrees_json" | jq -r '.[0].branch')
+        elif ! command -v fzf &>/dev/null; then
             echo "Usage: wta [-p <prompt>] <branch>   (or install fzf for picker)"
             return 1
+        else
+            branch=$(echo "$worktrees_json" | \
+                     jq -r 'sort_by([(.is_main | not), .branch]) | .[] | .branch' | \
+                     fzf --prompt="Worktree: " --height=40% --reverse)
+            [[ -z "$branch" ]] && return 0
         fi
-        branch=$(echo "$worktrees_json" | \
-                 jq -r 'sort_by([(.is_main | not), .branch]) | .[] | .branch' | \
-                 fzf --prompt="Worktree: " --height=40% --reverse)
-        [[ -z "$branch" ]] && return 0
     fi
 
     local wt_path
