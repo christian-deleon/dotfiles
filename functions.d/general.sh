@@ -135,7 +135,7 @@ function histdedup() {
     echo "history de-duplicated"
 }
 
-# Full OS package update + cleanup (brew/yay|pacman/apt)
+# Full OS package update (omarchy/brew/yay|pacman/apt)
 function pkgup() {
     if [[ "$OSTYPE" == darwin* ]]; then
         if ! command -v brew &>/dev/null; then
@@ -152,6 +152,14 @@ function pkgup() {
         brew cleanup || return $?
         # doctor often exits non-zero for warnings — informative only
         brew doctor || true
+    elif [[ -d /usr/share/omarchy || -d "$HOME/.local/share/omarchy" ]]; then
+        # Omarchy's pacman hook aborts a raw -Syu; omarchy update sets the
+        # allowlisted env and also runs snapshot/keyring/migrations/hooks.
+        if ! command -v omarchy &>/dev/null; then
+            echo "pkgup: omarchy command not found" >&2
+            return 1
+        fi
+        omarchy update "$@"
     elif command -v pacman &>/dev/null; then
         if command -v yay &>/dev/null; then
             yay -Syu --noconfirm && yay -Yc --noconfirm
