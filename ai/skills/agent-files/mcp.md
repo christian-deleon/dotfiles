@@ -147,7 +147,7 @@ Author the template in the roster shape — don't mix in OpenCode keys.
 1. **Delete the entry** from the template. Next generate drops it.
 2. **Rename the key** e.g. `"github"` → `"_disabled_github"` (JSON has no comments). The installer still writes it; it won't be picked up by the old name.
 
-Don't edit live `config.toml` MCP tables as the long-term fix — `merge-grok-mcp.py` replaces `[mcp_servers.*]` on the next regen.
+Don't edit live `config.toml` MCP tables as the long-term fix — `merge-grok-mcp.py` replaces `[mcp_servers.*]` on the next regen. Servers already `enabled = true` in the live file stay enabled (unioned with `enabled_mcp_servers`).
 
 ## Common patterns
 

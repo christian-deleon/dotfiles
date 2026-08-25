@@ -17,9 +17,12 @@ import sys
 from pathlib import Path
 
 TABLE_RE = re.compile(r"^\[\[?([^]]+)\]\]?\s*(?:#.*)?$")
+ENABLED_TRUE_RE = re.compile(r"^enabled\s*=\s*true\b")
 
 
-def parse_tables(text: str) -> tuple[list[str], list[tuple[str | None, bool, list[str]]]]:
+def parse_tables(
+    text: str,
+) -> tuple[list[str], list[tuple[str | None, bool, list[str]]]]:
     """Split TOML into preamble lines + (header, is_array_table, lines) tables."""
     preamble: list[str] = []
     tables: list[tuple[str | None, bool, list[str]]] = []
@@ -48,6 +51,22 @@ def parse_tables(text: str) -> tuple[list[str], list[tuple[str | None, bool, lis
             buf.append(line)
     flush()
     return preamble, tables
+
+
+def live_enabled_servers(
+    tables: list[tuple[str | None, bool, list[str]]],
+) -> set[str]:
+    """Servers already enabled in live Grok config ([mcp_servers.name], not .env)."""
+    enabled: set[str] = set()
+    for header, _aot, lines in tables:
+        if header is None or not header.startswith("mcp_servers."):
+            continue
+        name = header.removeprefix("mcp_servers.")
+        if "." in name:
+            continue
+        if any(ENABLED_TRUE_RE.match(line.strip()) for line in lines):
+            enabled.add(name)
+    return enabled
 
 
 def keep_table(header: str | None, *, strip_mcp: bool) -> bool:
@@ -135,8 +154,13 @@ def ensure_trailing_newline(text: str) -> str:
 def merge(config_path: Path, mcp_path: Path | None, enabled_path: Path | None) -> None:
     original = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
     preamble, tables = parse_tables(original)
+    preserved_enabled = live_enabled_servers(tables)
 
-    kept = [(h, aot, lines) for h, aot, lines in tables if keep_table(h, strip_mcp=mcp_path is not None)]
+    kept = [
+        (h, aot, lines)
+        for h, aot, lines in tables
+        if keep_table(h, strip_mcp=mcp_path is not None)
+    ]
     out: list[str] = []
     out.extend(preamble)
     for _h, _aot, lines in kept:
@@ -153,6 +177,7 @@ def merge(config_path: Path, mcp_path: Path | None, enabled_path: Path | None) -
         if enabled_path is not None:
             raw = json.loads(enabled_path.read_text(encoding="utf-8"))
             enabled = set(raw)
+        enabled |= preserved_enabled
         mcp_block = emit_mcp_tables(servers, enabled)
         if mcp_block:
             extras.append(mcp_block)
@@ -173,7 +198,10 @@ def main() -> int:
     mcp = Path(args.mcp) if args.mcp else None
     enabled = Path(args.enabled) if args.enabled else None
     if (mcp is None) ^ (enabled is None):
-        print("merge-grok-mcp.py: --mcp and --enabled must be used together", file=sys.stderr)
+        print(
+            "merge-grok-mcp.py: --mcp and --enabled must be used together",
+            file=sys.stderr,
+        )
         return 2
     merge(Path(args.config), mcp, enabled)
     return 0
