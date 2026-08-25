@@ -6,7 +6,7 @@ compatibility: opencode
 
 # AWS MCP Usage
 
-All AWS API access goes through the **`aws`** MCP server (via `mcp-proxy-for-aws` → managed AWS MCP). Do not shell out to the `aws` CLI via Bash for API calls.
+All AWS API access goes through the **`aws`** MCP server (via a Grok name shim → `mcp-proxy-for-aws` → managed AWS MCP). Do not shell out to the `aws` CLI via Bash for API calls. Grok sees unprefixed names (`call_aws`); the managed server’s `aws___` prefix is stripped.
 
 The proxy is **not** pinned `--read-only`. **Availability is not permission.** Mutation policy is the always-on `live-mutations` rule — this skill only classifies AWS-specific operations and lists tools.
 

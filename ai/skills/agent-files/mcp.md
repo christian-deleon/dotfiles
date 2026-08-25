@@ -166,16 +166,20 @@ Don't edit live `config.toml` MCP tables as the long-term fix — `merge-grok-mc
 
 ### Managed AWS MCP via SigV4 proxy (full access)
 
+Grok namespaces tools as `server__tool` and drops the managed server's `aws___call_aws` names (session registers 0 tools; `grok mcp doctor` still counts 9). The shim rewrites `aws___foo` → `foo` on `tools/list` and maps `tools/call` back.
+
 ```json
 "aws": {
-  "command": "uvx",
+  "command": "python3",
   "args": [
-    "mcp-proxy-for-aws@1.6.3",
+    "$HOME/.dotfiles/ai/scripts/aws_mcp_grok_shim.py",
+    "uvx",
+    "mcp-proxy-for-aws@1.6.4",
     "https://aws-mcp.us-east-1.api.aws/mcp",
     "--metadata",
     "AWS_REGION=us-east-1"
   ],
-  "description": "AWS API, docs, and skills (managed; full access — agents read-only by policy)"
+  "description": "AWS API, docs, and skills (managed; shim strips aws___ names for Grok)"
 }
 ```
 
