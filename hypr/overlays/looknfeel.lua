@@ -2,6 +2,12 @@
 
 hl.env("OMARCHY_SCREENSHOT_DIR", (os.getenv("HOME") or "") .. "/Pictures/screenshots")
 
+-- Hybrid: displays/compositor are Intel. Omarchy 4.0.1 sets
+-- LIBVA_DRIVER_NAME=nvidia whenever a GSP NVIDIA GPU is present,
+-- so Chromium NVDEC-decodes then DMA-BUF-imports into Intel GL.
+-- https://github.com/basecamp/omarchy/issues/8215
+hl.env("LIBVA_DRIVER_NAME", "iHD")
+
 hl.config({
   general = {
     gaps_in = 3,
