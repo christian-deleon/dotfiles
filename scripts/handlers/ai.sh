@@ -83,12 +83,26 @@ ensure_grok_trusted_folders() {
     fi
 }
 
+# Profile overlay at grok/.grok/overlays/<profile>.toml, if that file exists.
+grok_profile_overlay() {
+    local profile="${DOTFILES_PROFILE:-}"
+    if [[ -z "$profile" && -f "$DOTFILES_DIR/.active-profile" ]]; then
+        profile=$(<"$DOTFILES_DIR/.active-profile")
+        profile=${profile//$'\n'/}
+    fi
+    local overlay="$DOTFILES_DIR/grok/.grok/overlays/${profile}.toml"
+    [[ -n "$profile" && -f "$overlay" ]] || return 1
+    printf '%s\n' "$overlay"
+}
+
 # Seed live config.toml if missing; never symlink it (Grok mutates the file).
 # Always force [compat.claude] off so leftover ~/.claude paths are ignored.
+# Work profiles may also merge grok/.grok/overlays/<profile>.toml.
 ensure_grok_config() {
     local seed="$DOTFILES_DIR/grok/.grok/config.toml"
     local dest="$HOME/.grok/config.toml"
     local merger="$DOTFILES_DIR/ai/scripts/merge-grok-mcp.py"
+    local overlay=""
 
     mkdir -p "$HOME/.grok"
     if [[ ! -f "$dest" && -f "$seed" ]]; then
@@ -97,8 +111,14 @@ ensure_grok_config() {
         info "Seeded ~/.grok/config.toml from repo"
     fi
 
-    if [[ -x "$merger" ]] || [[ -f "$merger" ]]; then
-        python3 "$merger" "$dest" || warn "Could not merge Grok Claude-compat flags"
+    overlay=$(grok_profile_overlay) || overlay=""
+    if [[ -x "$merger" || -f "$merger" ]]; then
+        if [[ -n "$overlay" ]]; then
+            python3 "$merger" "$dest" --overlay "$overlay" \
+                || warn "Could not merge Grok profile overlay"
+        else
+            python3 "$merger" "$dest" || warn "Could not merge Grok Claude-compat flags"
+        fi
     fi
 }
 
@@ -243,10 +263,13 @@ generate_mcp_configs() {
     enabled_json="$(printf '%s\n' "${enabled_mcp_servers[@]}" | jq -R . | jq -s .)"
 
     mkdir -p "$HOME/.grok"
-    local enabled_file
+    local enabled_file overlay=""
     enabled_file="$(mktemp)"
     printf '%s' "$enabled_json" > "$enabled_file"
-    if python3 "$merger" "$grok_cfg" --mcp "$resolved" --enabled "$enabled_file"; then
+    overlay=$(grok_profile_overlay) || overlay=""
+    local -a merge_args=("$grok_cfg" --mcp "$resolved" --enabled "$enabled_file")
+    [[ -n "$overlay" ]] && merge_args+=(--overlay "$overlay")
+    if python3 "$merger" "${merge_args[@]}"; then
         success "Updated Grok MCP servers in ~/.grok/config.toml"
     else
         warn "Failed to merge Grok MCP servers into ~/.grok/config.toml"

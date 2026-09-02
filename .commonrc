@@ -29,6 +29,11 @@ if [[ -z "$DOTFILES_PROFILE" && -f "$HOME/.dotfiles/.active-profile" ]]; then
     export DOTFILES_PROFILE="$(cat "$HOME/.dotfiles/.active-profile")"
 fi
 
+# Work WSL: Bedrock SSE proxy. Personal profiles skip this.
+if [[ "${DOTFILES_PROFILE:-}" == wsl-work ]]; then
+    python3 "$HOME/.dotfiles/ai/scripts/bedrock_grok_proxy.py" --daemon 2>/dev/null || true
+fi
+
 # ─── XDG base directories ────────────────────────────────────────────────────────
 # Linux usually sets these via PAM; macOS does not. Without XDG_CONFIG_HOME,
 # Go tools (k9s, etc.) use ~/Library/Application Support and ignore stowed

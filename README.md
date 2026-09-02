@@ -112,7 +112,7 @@ Shared AI agent configuration for **Grok Build TUI** lives in `ai/` (plus `grok/
 
 Select `grok` or `opencode` from `dot install`:
 
-- **Grok Build TUI** — skills/agents/hooks/rules linked into `~/.grok/`; pager.toml; config.toml seeded if missing; folder-trust grants merged; MCP written as `[mcp_servers.*]`
+- **Grok Build TUI** — skills/agents/hooks/rules linked into `~/.grok/`; pager.toml; config.toml seeded if missing; optional `grok/.grok/overlays/<profile>.toml` merged on matching machines; folder-trust grants merged; MCP written as `[mcp_servers.*]`
 - **OpenCode** — `skills` and `AGENTS.md` hop at Grok's live tree; agents/instructions/MCP generated into `opencode.json`
 - **MCP servers** — defined once in `ai/mcp-servers.json.tpl`. 1Password secrets are injected; unresolved `op://` refs are dropped. Use `dot mcp-regen` to force re-injection.
 

@@ -77,7 +77,7 @@ To force a specific profile on a machine without re-running the installer, set `
 
 ## Drift handling (`dot update`)
 
-When a profile is active, `dot update` reconciles missing items: it iterates the profile's `items:` list and calls `install_item` on each. Idempotent — already-installed items are no-ops; new items get installed. **Removed profile items are not uninstalled by reconcile** (add-only), so package-manager packages stay until you remove them yourself.
+When a profile is active, `dot update` reconciles missing items: it iterates the profile's `items:` list and calls `install_item` on each. Grok also upserts `grok/.grok/overlays/<profile>.toml` into live `~/.grok/config.toml` when that overlay exists (`wsl-work` pins org Bedrock; personal profiles have none). Idempotent — already-installed items are no-ops; new items get installed. **Removed profile items are not uninstalled by reconcile** (add-only), so package-manager packages stay until you remove them yourself.
 
 Residue from **retired** tools (paths we used to create) is handled separately by **tombstones** — `apply_tombstones` runs on every `dot update` and removes paths listed in `tombstones.yaml` if they still exist. See [tombstones.md](tombstones.md).
 

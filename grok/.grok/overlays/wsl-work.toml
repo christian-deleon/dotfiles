@@ -1,0 +1,28 @@
+# Work-machine Grok overlay (profile: wsl-work). Merged into live
+# ~/.grok/config.toml by install_ai_grok. Personal profiles have no overlay.
+
+[models]
+default = "us-gov.xai.grok-4.6"
+web_search = "us-gov.xai.grok-4.6"
+hidden_models = ["grok-4.6", "grok-4.5"]
+session_summary = "us-gov.xai.grok-4.6"
+max_retries = 2
+
+[ui]
+fork_secondary_model = "us-gov.xai.grok-4.6"
+
+[subagents]
+default_model = "us-gov.xai.grok-4.6"
+
+# Custom id — overriding built-in grok-4.6 sends the grok.com token to Bedrock.
+[model."us-gov.xai.grok-4.6"]
+model = "us-gov.xai.grok-4.6"
+base_url = "http://127.0.0.1:18787/openai/v1"
+name = "GovCloud Grok 4.6"
+api_backend = "responses"
+env_key = "GROK_BEDROCK_API_KEY"
+context_window = 500000
+max_completion_tokens = 16384
+supports_backend_search = false
+max_retries = 2
+stream_tool_calls = false
