@@ -108,7 +108,9 @@ done
 '
     # No `clear` here: it adds a blank frame and does not help DA handling.
     # Grok paints its own full-screen UI (incl. the centered logo card).
-    inner="${quiet_drain}${launch}"
+    # --norc skips ~/.localrc, so GROK_BEDROCK_API_KEY (and other machine
+    # secrets) never reach Grok and it falls through to grok.com login.
+    inner=". \"$HOME/.localrc\" 2>/dev/null || true; ${quiet_drain}${launch}"
     shell=${SHELL:-bash}
     outer="bash --noprofile --norc -c $(printf '%q' "$inner"); exec $(printf '%q' "$shell") -i"
 
