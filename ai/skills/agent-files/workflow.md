@@ -21,6 +21,7 @@ Hard rule: source of truth is the dotfiles repo. Never edit the live targets:
 | `~/.grok/hooks/<script>` | `~/.dotfiles/ai/hooks/<script>` |
 | `~/.grok/rules/<name>.md` | `~/.dotfiles/ai/rules/<category>/<name>.md` |
 | `~/.grok/config.toml` `[mcp_servers.*]` | `~/.dotfiles/ai/mcp-servers.json.tpl` then `dot mcp-regen` |
+| `~/.grok/config.toml` work Bedrock model | `~/.dotfiles/grok/.grok/overlays/<profile>.toml` then `dot update` |
 | `~/.config/opencode/skills/<name>/SKILL.md` | same `ai/skills/` source (that's a dir symlink) |
 | `~/.config/opencode/opencode.json` (`agent.*` / `instructions` / `mcp`) | the `ai/` source, then `dot update` / `dot mcp-regen` |
 

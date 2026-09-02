@@ -16,9 +16,10 @@ ai/
 ├── hooks/               # Grok hook scripts (filename prefix = event)
 ├── mcp-servers.json.tpl # MCP roster (1Password op:// secrets)
 ├── playwright-mcp.config.json
-└── scripts/
-    ├── generate-opencode-config.sh   # OpenCode JSON adapter
-    └── merge-grok-mcp.py             # merge MCP + compat into live config.toml
+    └── scripts/
+        ├── generate-opencode-config.sh   # OpenCode JSON adapter
+        ├── merge-grok-mcp.py             # merge MCP + compat + profile overlay
+        └── bedrock_grok_proxy.py         # work-machine Bedrock SSE filter
 ```
 
 Authoring details live in the **`agent-files` skill** at `ai/skills/agent-files/`.
@@ -37,6 +38,7 @@ Picking `grok` runs `install_ai_grok()` + `generate_mcp_configs`:
 | `ai/rules/**/*.md` | `~/.grok/rules/<basename>.md` (flattened) |
 | `grok/.grok/pager.toml` | `~/.grok/pager.toml` (symlink) |
 | `grok/.grok/config.toml` | seed `~/.grok/config.toml` **only if missing** (live file is Grok-owned) |
+| `grok/.grok/overlays/<profile>.toml` | merged into live config when `DOTFILES_PROFILE` matches (e.g. `wsl-work` Bedrock) |
 | `grok/.grok/trusted_folders.toml` | merged into live `~/.grok/trusted_folders.toml` |
 
 `[compat.claude]` is forced off in the live config so leftover `~/.claude` paths are ignored.
