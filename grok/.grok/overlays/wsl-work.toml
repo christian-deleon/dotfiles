@@ -26,3 +26,8 @@ max_completion_tokens = 16384
 supports_backend_search = false
 max_retries = 2
 stream_tool_calls = false
+
+# Ubuntu npm 9.2.0 wedges `npx @latest` (ENOTEMPTY leftover rename).
+[mcp_servers.kubernetes]
+command = "kubernetes-mcp-server"
+enabled = true
