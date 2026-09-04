@@ -21,6 +21,7 @@ Guidelines for AI coding agents working in this personal dotfiles repo. Manages 
 3. **Idempotent.** Every install module must be safe to re-run. Use `ln -snf`, check before stowing, clean stale symlinks.
 4. **OS-aware.** Detect with `$OSTYPE` and `requires:` predicates. Supports macOS, Omarchy/Arch, Ubuntu/Pop!_OS, Debian. Omarchy is documented heavily because of its unique integration points — that does **not** mean the user is on Omarchy. Always check the actual environment.
 5. **Privacy.** Never commit secrets, tokens, or credentials.
+6. **No TDD.** Do not add tests, a test runner, or a red/green cycle. Prove changes by running the real command (`bash -n`, `dot`, `grok mcp doctor`, a new shell). Leave existing `ai/scripts/test_*.py` files alone unless asked.
 
 ## Files symlinked to $HOME
 
