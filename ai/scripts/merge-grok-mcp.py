@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Merge MCP servers into live ~/.grok/config.toml and force Claude compat off.
-# Optional --overlay upserts a profile overlay (model tables + selected keys).
+# Optional --overlay upserts a profile overlay (model.* and mcp_servers.<name>
+# tables replace wholesale; other keys upsert).
 #
 # Usage:
 #   merge-grok-mcp.py <config.toml>
@@ -168,11 +169,32 @@ def _overlay_kvs(lines: list[str]) -> dict[str, str]:
     return kvs
 
 
+def is_replaced_overlay_table(header: str | None) -> bool:
+    """model.* and mcp_servers.<name> (not .env subtables) replace wholesale."""
+    if header is None:
+        return False
+    if header.startswith("model."):
+        return True
+    if header.startswith("mcp_servers."):
+        rest = header.removeprefix("mcp_servers.")
+        return bool(rest) and "." not in rest
+    return False
+
+
+def _open_container_depth(line: str) -> int:
+    if "=" not in line:
+        return 0
+    rhs = line.split("=", 1)[1]
+    return rhs.count("[") - rhs.count("]") + rhs.count("{") - rhs.count("}")
+
+
 def _upsert_table(live_lines: list[str], overlay_lines: list[str]) -> list[str]:
     kvs = _overlay_kvs(overlay_lines)
     seen: set[str] = set()
     out: list[str] = [live_lines[0]]
-    for line in live_lines[1:]:
+    i = 1
+    while i < len(live_lines):
+        line = live_lines[i]
         stripped = line.strip()
         if stripped and not stripped.startswith("#"):
             m = KV_RE.match(stripped)
@@ -180,8 +202,16 @@ def _upsert_table(live_lines: list[str], overlay_lines: list[str]) -> list[str]:
                 if m.group(1) not in seen:
                     out.append(kvs[m.group(1)])
                     seen.add(m.group(1))
+                depth = _open_container_depth(line)
+                i += 1
+                while i < len(live_lines) and depth > 0:
+                    cont = live_lines[i]
+                    depth += cont.count("[") - cont.count("]")
+                    depth += cont.count("{") - cont.count("}")
+                    i += 1
                 continue
         out.append(line)
+        i += 1
     missing = [kvs[k] for k in kvs if k not in seen]
     if missing:
         trail: list[str] = []
@@ -195,14 +225,19 @@ def _upsert_table(live_lines: list[str], overlay_lines: list[str]) -> list[str]:
 
 
 def apply_overlay(config_path: Path, overlay_path: Path) -> None:
-    """Upsert overlay tables into live config. model.* tables are replaced whole."""
+    """Upsert overlay tables into live config.
+
+    model.* and mcp_servers.<name> tables replace wholesale; other keys upsert.
+    """
     original = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
     overlay_text = overlay_path.read_text(encoding="utf-8")
     preamble, live_tables = parse_tables(original)
     _, overlay_tables = parse_tables(overlay_text)
 
     replace_headers = {
-        h for h, _aot, _lines in overlay_tables if h is not None and h.startswith("model.")
+        h
+        for h, _aot, _lines in overlay_tables
+        if is_replaced_overlay_table(h)
     }
     overlay_by_header = {h: lines for h, _aot, lines in overlay_tables if h is not None}
 
