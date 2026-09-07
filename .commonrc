@@ -34,6 +34,9 @@ if [[ "${DOTFILES_PROFILE:-}" == wsl-work ]]; then
     python3 "$HOME/.dotfiles/ai/scripts/bedrock_grok_proxy.py" --daemon 2>/dev/null || true
 fi
 
+# Skip Grok's per-directory trust prompt (blocks unattended wtc agents).
+export GROK_FOLDER_TRUST=0
+
 # ─── XDG base directories ────────────────────────────────────────────────────────
 # Linux usually sets these via PAM; macOS does not. Without XDG_CONFIG_HOME,
 # Go tools (k9s, etc.) use ~/Library/Application Support and ignore stowed

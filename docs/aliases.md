@@ -197,8 +197,8 @@ Kubernetes development workflow tool shortcuts.
 
 ## Grok
 
-- `gr` - Grok Build TUI (`grok`)
-- `gra` - Grok Build TUI with auto-approve (`grok --always-approve`)
+- `gr` - Grok Build TUI (`grok --trust`; auto-trusts the cwd)
+- `gra` - Grok Build TUI with auto-approve (`grok --always-approve --trust`)
 
 ---
 

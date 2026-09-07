@@ -71,6 +71,31 @@ function _wt_goto_window() {
     fi
 }
 
+# internal: record a path as trusted in Grok's folder-trust store
+function _grok_trust_folder() {
+    local path=$1 dest="$HOME/.grok/trusted_folders.toml" header
+    [[ -n $path ]] || return 0
+    path=$(readlink -f -- "$path" 2>/dev/null || printf '%s' "$path")
+    [[ -n $path && $path != / && $path != "$HOME" ]] || return 0
+    header="[folders.\"${path}\"]"
+    mkdir -p "$HOME/.grok"
+    if [[ ! -f $dest ]]; then
+        : >"$dest"
+        chmod 600 "$dest" || true
+    fi
+    grep -Fq -- "$header" "$dest" 2>/dev/null && return 0
+    if [[ -s $dest ]]; then
+        [[ -n $(tail -c1 "$dest" 2>/dev/null || true) ]] && printf '\n' >>"$dest"
+        printf '\n' >>"$dest"
+    fi
+    {
+        printf '%s\n' "$header"
+        printf 'trusted = true\n'
+        printf 'decided_at = %s\n' "$(date +%s)"
+    } >>"$dest"
+    chmod 600 "$dest" 2>/dev/null || true
+}
+
 # Grok session UUID to resume for this worktree, if any
 function _wta_grok_resume_id() {
     # grok -c continues the newest session for the cwd, including empty ones
@@ -134,6 +159,7 @@ function _wta_ensure_window() {
 
     session=$(_wt_session_for "$wt_path")
     window="${branch//\//-}"
+    _grok_trust_folder "$wt_path"
 
     # Resolve the geometry of the terminal/client this window will ultimately be
     # viewed at, and build every window at that exact size. tav bakes its 32%

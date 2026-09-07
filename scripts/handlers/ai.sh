@@ -96,7 +96,7 @@ grok_profile_overlay() {
 }
 
 # Seed live config.toml if missing; never symlink it (Grok mutates the file).
-# Always force [compat.claude] off so leftover ~/.claude paths are ignored.
+# Always force [compat.claude] off and [folder_trust] enabled = false.
 # Work profiles may also merge grok/.grok/overlays/<profile>.toml.
 ensure_grok_config() {
     local seed="$DOTFILES_DIR/grok/.grok/config.toml"

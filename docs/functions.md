@@ -532,7 +532,7 @@ Create a worktree for `<branch>` and open it in a tmux window with the `tav` lay
 
 Pass `-p`/`--prompt` to forward an initial prompt into the new session's AI tool (see [`tav`](#tav--t--tool-ai-cmd-f--prompt-file-path-prompt)). Large handoffs go through a temp file + `tav -f` (avoids ble.sh hanging on `(N bytes received...)` when multi-KB prompts were send-keys'd verbatim).
 
-Pass `-n`/`--no-switch` to create the window without switching the tmux client to it — stay on the current window. Required for agent/script spawns so focus is not stolen; humans use plain `wtc` when they want to land in the new window. Under the hood, windows are always created with `tmux new-window -d` (detached); only the post-create `_wt_goto_window` step jumps — so `-n` actually keeps focus (without `-d`, create itself would steal it).
+Pass `-n`/`--no-switch` to create the window without switching the tmux client to it — stay on the current window. Required for agent/script spawns so focus is not stolen; humans use plain `wtc` when they want to land in the new window. Under the hood, windows are always created with `tmux new-window -d` (detached); only the post-create `_wt_goto_window` step jumps — so `-n` actually keeps focus (without `-d`, create itself would steal it). Grok's per-directory trust modal is skipped (`--trust`, `GROK_FOLDER_TRUST=0`, and a grant written for the new worktree) so a `-n` agent starts without anyone switching over to press **y**.
 
 Requires `$AI_TOOL` / `$AI_TOOL_RESUME` — run `dot ai-tool` first.
 

@@ -158,7 +158,7 @@ Shared AI agent configuration owned by this dotfiles repo at `~/.dotfiles/ai/`. 
 - Symlinks skills, agents, and hooks from `ai/` into native `~/.grok/`
 - Flattens `ai/rules/**/*.md` into `~/.grok/rules/`
 - Seeds `~/.grok/config.toml` only if missing; never overwrites the live file
-- Forces `[compat.claude]` off; merges trusted folders
+- Forces `[compat.claude]` off and `[folder_trust] enabled = false`; merges trusted folders
 - If `grok/.grok/overlays/<active-profile>.toml` exists, upserts it into the live file (work Bedrock, etc.)
 - Symlinks `pager.toml`
 

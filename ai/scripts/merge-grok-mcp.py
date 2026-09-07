@@ -7,8 +7,8 @@
 #   merge-grok-mcp.py <config.toml> --mcp <resolved.json> --enabled <enabled.json>
 #   merge-grok-mcp.py <config.toml> --overlay <profile.toml>
 #
-# Stdlib only. Splices [mcp_servers.*] and [compat.claude] tables so the rest
-# of the live file (which Grok mutates) is left byte-for-byte intact.
+# Stdlib only. Splices [mcp_servers.*], [compat.claude], and [folder_trust]
+# so the rest of the live file (which Grok mutates) is left byte-for-byte intact.
 
 from __future__ import annotations
 
@@ -78,6 +78,8 @@ def keep_table(header: str | None, *, strip_mcp: bool) -> bool:
         return False
     if header == "compat.claude" or header.startswith("compat.claude."):
         return False
+    if header == "folder_trust" or header.startswith("folder_trust."):
+        return False
     return True
 
 
@@ -146,6 +148,11 @@ agents = false
 mcps = false
 hooks = false
 sessions = false
+"""
+
+FOLDER_TRUST_OFF = """\
+[folder_trust]
+enabled = false
 """
 
 
@@ -264,7 +271,7 @@ def merge(config_path: Path, mcp_path: Path | None, enabled_path: Path | None) -
     if body and not body.endswith("\n\n"):
         body += "\n"
 
-    extras: list[str] = [COMPAT_CLAUDE]
+    extras: list[str] = [COMPAT_CLAUDE, FOLDER_TRUST_OFF]
     if mcp_path is not None:
         servers = json.loads(mcp_path.read_text(encoding="utf-8"))
         enabled: set[str] = set()
