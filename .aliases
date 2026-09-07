@@ -101,8 +101,8 @@ alias tka='tmux kill-server'             # Kill the tmux server and all sessions
 alias oc='opencode'                      # OpenCode CLI
 
 # Grok Build TUI
-alias gr='grok'                           # Grok Build TUI
-alias gra='grok --always-approve'         # Grok Build TUI, auto-approve all tool executions
+alias gr='grok --trust'                   # Grok Build TUI, auto-trust cwd
+alias gra='grok --always-approve --trust' # Grok TUI, auto-approve + auto-trust cwd
 
 # Ollama
 alias ol='ollama'                        # Ollama CLI

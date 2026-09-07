@@ -2,12 +2,12 @@
 
 # internal: expand AI_TOOL aliases + optional prompt to a command line
 function _tav_expand_launch() {
-    # AI_TOOL values are often aliases (gra → grok --always-approve). Expand
-    # them here (interactive shell has BASH_ALIASES) so we can later launch via
-    # a non-interactive bash that will not expand aliases.
+    # AI_TOOL values are often aliases (gra → grok --always-approve --trust).
+    # Expand them here (interactive shell has BASH_ALIASES) so we can later
+    # launch via a non-interactive bash that will not expand aliases.
     local ai_cmd=$1 prompt=$2
     local first=${ai_cmd%% *}
-    local rest= expanded=
+    local rest= expanded= bin=
 
     [[ $ai_cmd == *' '* ]] && rest=${ai_cmd#* }
 
@@ -16,6 +16,14 @@ function _tav_expand_launch() {
         [[ -n $rest ]] && expanded+=" $rest"
     else
         expanded=$ai_cmd
+    fi
+
+    # Each git worktree is a new Grok workspace. Without --trust the TUI
+    # blocks on "Do you trust this directory?" and a wtc -n agent never starts.
+    bin=${expanded%% *}
+    bin=${bin##*/}
+    if [[ $bin == grok && " $expanded " != *' --trust '* ]]; then
+        expanded+=' --trust'
     fi
 
     if [[ -n $prompt ]]; then
@@ -183,6 +191,7 @@ function tav() {
     launch=$(_tav_expand_launch "$ai_cmd" "$prompt")
     current_dir=${PWD}
     top_left=$TMUX_PANE
+    declare -F _grok_trust_folder >/dev/null && _grok_trust_folder "$current_dir"
 
     tmux rename-window -t "$top_left" "$(basename "$current_dir")"
 
@@ -220,6 +229,7 @@ function tavk() {
     launch=$(_tav_expand_launch "$ai_cmd" "$prompt")
     current_dir=${PWD}
     top_left=$TMUX_PANE
+    declare -F _grok_trust_folder >/dev/null && _grok_trust_folder "$current_dir"
 
     tmux rename-window -t "$top_left" "$(basename "$current_dir")"
 

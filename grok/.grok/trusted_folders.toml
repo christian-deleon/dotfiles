@@ -4,8 +4,10 @@
 # That live file is NOT symlinked — Grok rewrites it at runtime when you
 # approve (or revoke) trust for individual paths.
 #
-# Trust cascades to subdirectories, so a parent grant covers every project
-# and worktree underneath (e.g. worktrunk siblings). $HOME is expanded at
+# Parent grants cover subdirectories of the same git checkout only — sibling
+# worktrees are separate workspaces and still prompt. Folder-trust is also
+# disabled globally ([folder_trust] enabled = false / GROK_FOLDER_TRUST=0)
+# so new worktrees do not block on the TUI modal. $HOME is expanded at
 # install time so the same file works on Linux and macOS.
 
 [folders."$HOME/Projects"]

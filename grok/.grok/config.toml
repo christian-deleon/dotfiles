@@ -55,6 +55,11 @@ load_envrc = true
 # Respect .gitignore for file operations
 respect_gitignore = true
 
+# Skip the blocking "Do you trust this directory?" modal. Each git worktree is
+# a separate workspace, so a parent grant does not cover wtc windows.
+[folder_trust]
+enabled = false
+
 # ---------------------------------------------------------------------------
 # MCP Servers
 # ---------------------------------------------------------------------------
