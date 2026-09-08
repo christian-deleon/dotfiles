@@ -73,6 +73,7 @@ format = '[⏱ $duration]($style) '
 style = 'bold yellow'
 
 [python]
+disabled = true
 format = '[🐍 $version]($style) '
 style = 'bold yellow'
 
