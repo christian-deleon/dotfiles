@@ -113,7 +113,7 @@ Shared AI agent configuration for **Grok Build TUI** lives in `ai/` (plus `grok/
 Select `grok` or `opencode` from `dot install`:
 
 - **Grok Build TUI** — skills/agents/hooks/rules linked into `~/.grok/`; pager.toml; config.toml seeded if missing; optional `grok/.grok/overlays/<profile>.toml` merged on matching machines; folder-trust disabled (and parent grants merged); MCP written as `[mcp_servers.*]`
-- **OpenCode** — `skills` and `AGENTS.md` hop at Grok's live tree; agents/instructions/MCP generated into `opencode.json`. Bedrock ARNs in `opencode.json.tpl` use `{env:…}` account IDs from `~/.localrc`
+- **OpenCode** — `skills` and `AGENTS.md` hop at Grok's live tree; agents/instructions/MCP generated into `opencode.json`. Personal Bedrock ARNs use `{env:BEDROCK_AWS_ACCOUNT_ID}`; work GovCloud uses `WORK_BEDROCK_API_KEY` (not the personal `/connect` key)
 - **MCP servers** — defined once in `ai/mcp-servers.json.tpl`. 1Password secrets are injected; unresolved `op://` refs are dropped. Use `dot mcp-regen` to force re-injection.
 
 `dot update` refreshes Grok and the OpenCode adapter. See [docs/ai.md](docs/ai.md).

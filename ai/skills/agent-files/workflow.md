@@ -24,7 +24,7 @@ Hard rule: source of truth is the dotfiles repo. Never edit the live targets:
 | `~/.grok/config.toml` work Bedrock model | `~/.dotfiles/grok/.grok/overlays/<profile>.toml` then `dot update` |
 | `~/.config/opencode/skills/<name>/SKILL.md` | same `ai/skills/` source (that's a dir symlink) |
 | `~/.config/opencode/opencode.json` (`agent.*` / `instructions` / `mcp`) | the `ai/` source, then `dot update` / `dot mcp-regen` |
-| `~/.config/opencode/opencode.json` `.provider` | `opencode/.config/opencode/opencode.json.tpl` (`{env:BEDROCK_AWS_ACCOUNT_ID}` / `{env:WORK_BEDROCK_AWS_ACCOUNT_ID}` in `~/.localrc`) |
+| `~/.config/opencode/opencode.json` `.provider` | `opencode/.config/opencode/opencode.json.tpl` (`BEDROCK_AWS_ACCOUNT_ID` for personal ARNs; `WORK_BEDROCK_API_KEY` or `/connect amazon-bedrock-gov` for work) |
 
 When the session is running outside `~/.dotfiles/`, `cd` there first or use absolute paths.
 
