@@ -165,7 +165,7 @@ Shared AI agent configuration owned by this dotfiles repo at `~/.dotfiles/ai/`. 
 **What `install_ai_opencode()` does:**
 - Points `~/.config/opencode/skills` at `~/.grok/skills`
 - Hops `AGENTS.md` at `~/.grok/AGENTS.md` when present
-- Runs `ai/scripts/generate-opencode-config.sh` for JSON agents + instructions
+- Runs `ai/scripts/generate-opencode-config.sh` for JSON agents + instructions and re-applies `.provider` from `opencode.json.tpl`
 
 **Shared MCP:** `generate_mcp_configs()` (post_install on `grok` and `opencode`, or `dot mcp-regen`) reads `~/.dotfiles/ai/mcp-servers.json.tpl`, resolves secrets via 1Password, and writes native `[mcp_servers.*]` into live `~/.grok/config.toml` plus OpenCode `mcp`.
 
