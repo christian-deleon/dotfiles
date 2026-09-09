@@ -67,40 +67,29 @@
       }
     },
     "amazon-bedrock-gov": {
-      "npm": "@ai-sdk/amazon-bedrock",
+      "npm": "@ai-sdk/openai-compatible",
       "name": "Amazon Bedrock (Gov)",
+      "env": ["WORK_BEDROCK_API_KEY", "GROK_BEDROCK_API_KEY"],
       "options": {
-        "region": "us-gov-west-1"
+        "baseURL": "https://bedrock-runtime.us-gov-west-1.amazonaws.com/openai/v1"
       },
       "models": {
         "work-grok-4.6": {
-          "id": "arn:aws-us-gov:bedrock:us-gov-west-1:{env:WORK_BEDROCK_AWS_ACCOUNT_ID}:inference-profile/us-gov.xai.grok-4.6",
+          "id": "us-gov.xai.grok-4.6",
           "name": "work-grok-4.6",
           "reasoning": true,
           "variants": {
             "low": {
-              "reasoningConfig": {
-                "type": "enabled",
-                "maxReasoningEffort": "low"
-              }
+              "reasoningEffort": "low"
             },
             "medium": {
-              "reasoningConfig": {
-                "type": "enabled",
-                "maxReasoningEffort": "medium"
-              }
+              "reasoningEffort": "medium"
             },
             "high": {
-              "reasoningConfig": {
-                "type": "enabled",
-                "maxReasoningEffort": "high"
-              }
+              "reasoningEffort": "high"
             },
             "xhigh": {
-              "reasoningConfig": {
-                "type": "enabled",
-                "maxReasoningEffort": "xhigh"
-              }
+              "reasoningEffort": "xhigh"
             }
           }
         }

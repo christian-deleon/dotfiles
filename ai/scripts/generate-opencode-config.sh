@@ -5,8 +5,8 @@
 # Scans ai/agents/*.md for YAML frontmatter (name, description, model, tools)
 # and converts each to OpenCode JSON agent format. Collects ai/rules/**/*.md
 # as instruction paths. Re-applies opencode.json.tpl (providers, theme) each
-# run; personal keys (mcp, etc.) win. Bedrock providers whose account-id env
-# is unset are dropped so empty {env:} ARNs never land in the live file.
+# run; personal keys (mcp, etc.) win. Commercial Bedrock is omitted when
+# BEDROCK_AWS_ACCOUNT_ID is unset so empty {env:} ARNs never land in the live file.
 #
 # Usage: generate-opencode-config.sh <ai_dir> <opencode_config_dir>
 #
@@ -132,9 +132,6 @@ if [[ -f "$OC_TPL" ]]; then
     tpl_json="$(<"$OC_TPL")"
     if [[ -z "${BEDROCK_AWS_ACCOUNT_ID:-}" ]]; then
         tpl_json="$(jq 'del(.provider["amazon-bedrock"])' <<<"$tpl_json")"
-    fi
-    if [[ -z "${WORK_BEDROCK_AWS_ACCOUNT_ID:-}" ]]; then
-        tpl_json="$(jq 'del(.provider["amazon-bedrock-gov"])' <<<"$tpl_json")"
     fi
 else
     tpl_json='{}'
