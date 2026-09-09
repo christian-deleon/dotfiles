@@ -23,7 +23,7 @@ Create well-structured git commits following the [Conventional Commits](https://
 
 Also treat these as the same opt-out when the user says them in natural language: `no-verify`, `skip verify`, `skip verification`, `without verifying`, `don't verify`, `in a hurry`.
 
-**Default is verify.** Only skip when the user explicitly opts out. When skipping, say so once in the final summary (e.g. "skipped verification per --no-verify") — do not re-prompt or second-guess.
+**Default is verify.** Only skip the gates entirely when the user explicitly opts out. Reusing a passing run from this conversation is still verifying — do not treat it as `--no-verify`. When skipping or reusing, say so once in the final summary — do not re-prompt or second-guess.
 
 ## Commit Message Format
 
@@ -105,13 +105,22 @@ git log --oneline -10 # recent commits for style/scope reference
 
 If the user explicitly asks to commit these, **warn them** and ask for confirmation.
 
-### 3. Verify Before Commit — MANDATORY (unless `--no-verify`)
+### 3. Verify Before Commit — MANDATORY (unless `--no-verify` or already verified)
 
 > **CRITICAL: Never create a git commit until the pending changes are verified — unless the user explicitly passed `--no-verify` (or an equivalent phrase above).**
-> Do not commit broken, unformatted, or unlinted code. A clean `git status` is not enough —
-> the tree must pass this project's quality gates first.
+> A passing run from **this conversation** that covers the current tree counts — do not re-run it. A clean `git status` is not enough.
 
 **If `--no-verify` (or equivalent) was given:** skip this entire step and continue to step 4. Do not run formatters, linters, typechecks, or tests as part of this skill. Proceed immediately.
+
+**If this conversation already ran a gate on the pending tree:** do not run that gate again. Reuse it when all of these are true:
+
+- Tool output in this conversation shows that command passed (exit 0 or the project's success signal) — not a memory of an earlier session.
+- The pending paths are in scope for that run (same or broader than this step would run).
+- No edits to those files since that run.
+
+Reuse per gate. If tests already passed on this tree, do not test again; if format or lint never ran, still run those. This is not `--no-verify`. Say so once in the final summary (e.g. "reused this session's `cargo test`; ran `cargo fmt --check`").
+
+If any condition fails, or you cannot point at the passing output, run that gate now.
 
 **Otherwise, before drafting or creating any commits**, format and verify the changes. Scope verification to what actually changed when the project supports that; otherwise run the full project check.
 
@@ -132,7 +141,7 @@ For the paths touched by the pending changes, ensure all of the following that a
 - **Compiles / typechecks** — no syntax or type errors
 - **Tests** — run the relevant suite when the project expects tests before commit (or when logic changed and a fast targeted test exists)
 
-Use the **narrowest sufficient gate**: if the project has path-scoped recipes (e.g. only verify the crate or package you touched), use those. Do not skip gates the project marks as required for commit.
+Use the **narrowest sufficient gate**: if the project has path-scoped recipes (e.g. only verify the crate or package you touched), use those. Do not skip gates the project marks as required for commit, except to reuse a passing run from this conversation on the unchanged tree.
 
 #### On failure
 
@@ -141,9 +150,9 @@ Use the **narrowest sufficient gate**: if the project has path-scoped recipes (e
 3. Re-run the same verification until it passes.
 4. If a tool auto-fixed files, include those fixes in the appropriate logical commit group(s) later — never leave auto-fixes unstaged.
 
-Run verification **once** against the full pending tree before the first commit (not once per split commit), so later commits are not built on a broken intermediate state.
+Run verification **once** against the full pending tree — once this session, not once per split commit, and not again at `/commit` if this conversation already produced a passing run that covers the current tree.
 
-If the repo truly has no verify/format/test tooling and the change is docs-only or similarly inert, note that in the final summary and proceed. When in doubt, run something rather than nothing.
+If the repo truly has no verify/format/test tooling and the change is docs-only or similarly inert, note that in the final summary and proceed. When in doubt whether prior coverage matches the current tree, run the missing gates — do not re-run a passing coverage you can point to.
 
 ### 4. Identify Logical Groups — ALWAYS DO THIS
 
@@ -220,7 +229,7 @@ WIP                              # not a meaningful commit
 
 ### 6. Execute the Plan
 
-**Do not ask for confirmation — just create the commits.** The user trusts you to make good grouping decisions. Proceed directly to creating commits based on your analysis from step 4 — but only after step 3 verification passed (or was explicitly skipped via `--no-verify`).
+**Do not ask for confirmation — just create the commits.** The user trusts you to make good grouping decisions. Proceed directly to creating commits based on your analysis from step 4 — but only after step 3 verification passed, was reused from this session, or was explicitly skipped via `--no-verify`.
 
 - If you identified multiple logical groups, commit them in dependency order
 - If you identified only one logical group, commit it
@@ -248,7 +257,7 @@ If a commit fails due to a git pre-commit hook (linting, formatting, etc.):
 
 ## Rules
 
-- **Verify before commit** — format, lint, typecheck, and test as the project requires; only create commits after those gates pass — unless the user explicitly passed `--no-verify` (or equivalent)
+- **Verify before commit** — the pending tree must have passed the project's gates in this session. Reuse a passing run if nothing changed since; do not re-run it because this skill asked. Only skip entirely when the user passed `--no-verify`
 - **Never commit broken work** — unformatted code, lint failures, type errors, or failing tests must be fixed first (does not apply when `--no-verify` was requested)
 - **Honor `--no-verify`** — when the user opts out, skip verification without arguing; note the skip once in the summary
 - **Split by default** — multiple logical changes = multiple commits. Always. No exceptions.
@@ -263,7 +272,9 @@ If a commit fails due to a git pre-commit hook (linting, formatting, etc.):
 
 ### Anti-patterns — DO NOT do these
 
-- Committing without formatting or running the project's verify/check/test gates (unless the user explicitly passed `--no-verify`)
+- Committing without formatting or running the project's verify/check/test gates (unless the user explicitly passed `--no-verify`, or this session already produced a passing run that covers the current tree)
+- Re-running a passing format/lint/test gate on an unchanged tree because this skill's verify step asked again
+- Treating a failed, partial, or pre-edit run as "already verified"
 - Skipping verification on your own initiative, or because "CI will catch it" / "we're in a hurry" when the user did not ask to skip
 - Committing known-broken code "to fix later" without an explicit `--no-verify` from the user
 - Committing all changes as `chore: update files` or `feat: implement changes` — this is always wrong
