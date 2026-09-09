@@ -1,6 +1,6 @@
 ---
 name: test-driven-development
-description: Test-first bugfix and feature work. Use when implementing, fixing, or changing behavior in a tested codebase. Write the failing test first, confirm red for the right reason, freeze it, then implement. Triggers: implement, fix, add feature, regression, bug. Skip only when the project deliberately has no tests.
+description: Test-first for executable logic (branching, computation, contracts). Use when implementing or fixing behavior with inputs and outputs. Do not use for prompts, copy, docs, comments, formatting, or config literals. Triggers: implement, fix, add feature, regression, bug — if the change is logic. Skip content edits and no-tests projects.
 compatibility: opencode
 ---
 
@@ -21,8 +21,27 @@ recomputed the way the implementation computes it.
 
 ## First: is this even the right skill?
 
-- **If the project has no test suite and is untested on purpose**, stop — do
-  not use this skill to justify scaffolding a framework, test directory, or
+Decide in this order. Do not start the red/green cycle until the change
+clears the gate. Do not invent tests to satisfy this skill.
+
+| Stop — no new tests | Continue with TDD |
+|---|---|
+| Prompts, system prompts, copy, docs, comments | Branching, computation, state transitions |
+| Formatting, rename, import cleanup | Parsing, validation, error paths |
+| Theme/config literals whose value *is* the content | Input → output contracts the runtime enforces |
+| Wiring with no control-flow change | A bug in logic, or a new logical feature |
+| Project is untested on purpose | Project already has a suite for this kind of code |
+
+Do not add tests whose assertion is "this string contains / does not
+contain X" unless X is a **machine-parsed token** (a placeholder the
+runtime interpolates, a tag a parser reads) or a safety invariant the
+user asked to lock. If existing tests fail because they pinned copy,
+update or delete them — do not grow that suite.
+
+- **If none of the "continue" column applies**, stop. Edit the content;
+  prove it by reading or running the real surface.
+- **If the project has no test suite and is untested on purpose**, stop —
+  do not use this skill to justify scaffolding a framework, test directory, or
   test dependencies. A project-level "no tests" instruction always wins. Fall
   back to the manual discipline in the last section, or ask the user before
   adding tests.
@@ -48,6 +67,8 @@ are about to write, you don't yet understand the requirement — go get it
 before writing the test.
 
 ## Critical rules (both modes)
+
+These apply only after the gate above.
 
 1. **The test encodes desired behavior, not current or planned behavior.**
    Assert what *should* happen. For a bug, resist describing what the code
