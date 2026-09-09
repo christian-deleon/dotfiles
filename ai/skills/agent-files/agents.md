@@ -179,7 +179,7 @@ output a short markdown report with file:line refs.
 2. `dot update` — re-links Grok and regenerates OpenCode agent JSON. Or `dot install grok` / `dot install opencode` for one side.
 3. Verify with `grok inspect`.
 
-The JSON regeneration is non-destructive: `generate-opencode-config.sh` only touches managed keys (`.agent`, `.command`, `.instructions`, `.plugin`) and strips `.provider.anthropic`. Personal `opencode.json` is preserved.
+The JSON regeneration is non-destructive for personal keys (`mcp`, etc.). `generate-opencode-config.sh` rewrites `.agent`, `.command`, `.instructions`, `.plugin`, and `.provider` from `ai/agents` + `opencode.json.tpl`. Bedrock account IDs stay as `{env:…}` in the template.
 
 ## Common mistakes
 

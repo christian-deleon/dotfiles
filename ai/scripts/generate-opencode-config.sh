@@ -4,7 +4,9 @@
 #
 # Scans ai/agents/*.md for YAML frontmatter (name, description, model, tools)
 # and converts each to OpenCode JSON agent format. Collects ai/rules/**/*.md
-# as instruction paths. Merges the overlay into opencode.json (personal config wins).
+# as instruction paths. Re-applies opencode.json.tpl (providers, theme) each
+# run; personal keys (mcp, etc.) win. Bedrock providers whose account-id env
+# is unset are dropped so empty {env:} ARNs never land in the live file.
 #
 # Usage: generate-opencode-config.sh <ai_dir> <opencode_config_dir>
 #
@@ -15,6 +17,7 @@ set -e
 AI_DIR="${1:?Usage: generate-opencode-config.sh <ai_dir> <opencode_config_dir>}"
 OC_DIR="${2:?Usage: generate-opencode-config.sh <ai_dir> <opencode_config_dir>}"
 OC_CFG="$OC_DIR/opencode.json"
+OC_TPL="${OC_CFG%.json}.json.tpl"
 
 # Ensure jq is available
 if ! command -v jq &>/dev/null; then
@@ -22,14 +25,14 @@ if ! command -v jq &>/dev/null; then
     exit 1
 fi
 
-# Seed from template if opencode.json doesn't exist
-OC_TPL="${OC_CFG%.json}.json.tpl"
+# Account IDs for Bedrock ARNs live in ~/.localrc (untracked).
+if [[ -f "$HOME/.localrc" ]]; then
+    # shellcheck disable=SC1091
+    source "$HOME/.localrc" || true
+fi
+
 if [[ ! -f "$OC_CFG" ]]; then
-    if [[ -f "$OC_TPL" ]]; then
-        cp "$OC_TPL" "$OC_CFG"
-    else
-        printf '{}' > "$OC_CFG"
-    fi
+    printf '{}\n' > "$OC_CFG"
 fi
 
 # --- Parse agents ---
@@ -122,9 +125,25 @@ overlay="$(jq -n \
     '{agent: $agents, instructions: $instructions}')"
 
 # --- Merge into opencode.json ---
-# Strip keys managed by this script before merging so stale entries don't persist.
-# Personal config (everything else) wins on conflicts.
+# tpl (providers/theme) * overlay (agents/instructions) * personal (mcp, …).
+# Strip managed keys from personal so stale agents/providers don't persist.
 
-personal_clean="$(jq 'del(.agent, .command, .instructions, .plugin) | del(.provider.anthropic)' "$OC_CFG")"
-jq -s '.[0] * .[1]' <(echo "$overlay") <(echo "$personal_clean") > "$OC_CFG.tmp"
+if [[ -f "$OC_TPL" ]]; then
+    tpl_json="$(<"$OC_TPL")"
+    if [[ -z "${BEDROCK_AWS_ACCOUNT_ID:-}" ]]; then
+        tpl_json="$(jq 'del(.provider["amazon-bedrock"])' <<<"$tpl_json")"
+    fi
+    if [[ -z "${WORK_BEDROCK_AWS_ACCOUNT_ID:-}" ]]; then
+        tpl_json="$(jq 'del(.provider["amazon-bedrock-gov"])' <<<"$tpl_json")"
+    fi
+else
+    tpl_json='{}'
+fi
+
+personal_clean="$(jq 'del(.agent, .command, .instructions, .plugin, .provider)' "$OC_CFG")"
+jq -s '.[0] * .[1] * .[2]' \
+    <(printf '%s\n' "$tpl_json") \
+    <(printf '%s\n' "$overlay") \
+    <(printf '%s\n' "$personal_clean") > "$OC_CFG.tmp"
 mv "$OC_CFG.tmp" "$OC_CFG"
+chmod 600 "$OC_CFG"

@@ -49,7 +49,16 @@ Picking `opencode` stows the OpenCode package, then `install_ai_opencode()`:
 
 1. `~/.config/opencode/skills` → `~/.grok/skills` (one dir symlink)
 2. `~/.config/opencode/AGENTS.md` → `~/.grok/AGENTS.md` when that file exists
-3. `generate-opencode-config.sh` writes JSON `agent` + `instructions` (formats OpenCode cannot read from Grok)
+3. `generate-opencode-config.sh` writes JSON `agent` + `instructions` (formats OpenCode cannot read from Grok) and re-applies `.provider` from `opencode.json.tpl`
+
+Tracked template is `opencode/.config/opencode/opencode.json.tpl`. Live `opencode.json` is gitignored (MCP secrets). Bedrock inference-profile ARNs use OpenCode `{env:…}` substitution so account IDs never land in git:
+
+| Provider | Models | Region | `~/.localrc` |
+|---|---|---|---|
+| `amazon-bedrock` | `deleon-*` | `us-east-1` | `BEDROCK_AWS_ACCOUNT_ID` |
+| `amazon-bedrock-gov` | `work-*` | `us-gov-west-1` | `WORK_BEDROCK_AWS_ACCOUNT_ID` |
+
+A provider is omitted when its env var is unset. OpenCode substitutes `{env:}` at load time — set the vars before launching. `dot update` / `dot install opencode` regenerates the live file.
 
 ### MCP
 

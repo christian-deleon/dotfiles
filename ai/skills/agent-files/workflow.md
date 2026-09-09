@@ -24,6 +24,7 @@ Hard rule: source of truth is the dotfiles repo. Never edit the live targets:
 | `~/.grok/config.toml` work Bedrock model | `~/.dotfiles/grok/.grok/overlays/<profile>.toml` then `dot update` |
 | `~/.config/opencode/skills/<name>/SKILL.md` | same `ai/skills/` source (that's a dir symlink) |
 | `~/.config/opencode/opencode.json` (`agent.*` / `instructions` / `mcp`) | the `ai/` source, then `dot update` / `dot mcp-regen` |
+| `~/.config/opencode/opencode.json` `.provider` | `opencode/.config/opencode/opencode.json.tpl` (`{env:BEDROCK_AWS_ACCOUNT_ID}` / `{env:WORK_BEDROCK_AWS_ACCOUNT_ID}` in `~/.localrc`) |
 
 When the session is running outside `~/.dotfiles/`, `cd` there first or use absolute paths.
 
@@ -79,7 +80,7 @@ Handlers in `~/.dotfiles/scripts/handlers/ai.sh`:
 | Handler | Does |
 |---|---|
 | `install_ai_grok` | Links `ai/{skills,agents,hooks}` → `~/.grok/`; flattens `ai/rules/**` → `~/.grok/rules/`; seeds live `config.toml` if missing; forces `[compat.claude]` off; merges trusted folders; links `pager.toml` |
-| `install_ai_opencode` | `~/.config/opencode/skills` → `~/.grok/skills`; hops `AGENTS.md`; generates JSON agents + instructions |
+| `install_ai_opencode` | `~/.config/opencode/skills` → `~/.grok/skills`; hops `AGENTS.md`; generates JSON agents + instructions + `.provider` from the tpl |
 | `generate_mcp_configs` | Resolves 1Password refs; writes Grok `[mcp_servers.*]` and OpenCode `mcp` |
 
 ## Test
