@@ -4,10 +4,15 @@
 local home = os.getenv("HOME") or ""
 
 -- Browser profiles (stock SUPER+SHIFT+ALT+B is private mode).
+-- Skip omarchy-launch-browser: 4.0 systemd-runs the process (drops Hyprland's
+-- activation token) and treats --profile-directory as a URL, then focuses the
+-- first existing Chromium window. Pre-4.0 was uwsm-app, which still works.
+hl.unbind("SUPER + SHIFT + RETURN")
+o.bind("SUPER + SHIFT + RETURN", "Browser", { launch = 'chromium --new-window --profile-directory=Default' })
 hl.unbind("SUPER + SHIFT + B")
-o.bind("SUPER + SHIFT + B", "Browser", 'omarchy-launch-browser --profile-directory="Default"')
+o.bind("SUPER + SHIFT + B", "Browser", { launch = 'chromium --new-window --profile-directory=Default' })
 hl.unbind("SUPER + SHIFT + ALT + B")
-o.bind("SUPER + SHIFT + ALT + B", "Browser (Profile 1)", 'omarchy-launch-browser --profile-directory="Profile 1"')
+o.bind("SUPER + SHIFT + ALT + B", "Browser (Profile 1)", { launch = 'chromium --new-window --profile-directory="Profile 1"' })
 
 o.bind("SUPER + SHIFT + K", "K9s", { tui = "k9s" })
 o.bind("SUPER + SHIFT + V", "VMware Workstation", {
