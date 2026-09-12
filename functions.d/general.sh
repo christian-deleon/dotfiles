@@ -119,20 +119,26 @@ function histdedup() {
         return 1
     fi
 
+    local hf="${HISTFILE:-$HOME/.bash_history}"
+    local file_before file_after mem_before mem_after mem
+    file_before=$(wc -l <"$hf" 2>/dev/null || echo 0)
+
     # Clean the shared file so future shells load it dup-free.
-    _hist_dedup_file "${HISTFILE:-$HOME/.bash_history}"
+    _hist_dedup_file "$hf"
+    file_after=$(wc -l <"$hf" 2>/dev/null || echo 0)
 
     # Refresh THIS shell's recall too, but without importing other terminals:
     # de-dupe only the in-memory list (write it out, collapse it, read it back) —
     # we never re-read the shared file, so per-terminal recall is preserved.
-    local mem
     mem="$(mktemp)" || return 1
     history -w "$mem"
+    mem_before=$(wc -l <"$mem" 2>/dev/null || echo 0)
     _hist_dedup_file "$mem"
+    mem_after=$(wc -l <"$mem" 2>/dev/null || echo 0)
     history -c
     history -r "$mem"
     rm -f "$mem"
-    echo "history de-duplicated"
+    echo "history de-duplicated (file ${file_before// /}→${file_after// /} lines, session ${mem_before// /}→${mem_after// /})"
 }
 
 # Full OS package update (omarchy/brew/yay|pacman/apt)

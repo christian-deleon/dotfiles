@@ -88,8 +88,11 @@ fi
 if [[ -n "$BASH_VERSION" ]]; then
     export HISTSIZE=100000                    # in-memory entries
     export HISTFILESIZE=200000                # entries kept on disk
-    export HISTCONTROL=ignoreboth:erasedups   # drop space-prefixed, dup, older-dup lines
-    export HISTIGNORE='ls:ll:la:cd:..:up:up2:up3:up4:cdr:pwd:gs:tl:wl:wlf:wj:ws:wsc:wsr:wm:wmn:wms:wr:wrf:wxc:wxcs:wxs:wxr:wxp:wxf:wxfr:wxpr:wxprd:wtc:wtc *:wta:wtaa:stk:sta:stj:stn:stt:stp:kcg:kapi:kns:k9:k9s:nvim .:nvim *Snacks.lazygit*:tav:tav *:oc:gra:just:chromium-agent:clear:history:bg:fg:exit:&'
+    # ignoreboth: space-prefixed + consecutive dups. erasedups: drop older copies
+    # of the line being saved. strip: ble.sh trailing-space trim (bash ignores it).
+    export HISTCONTROL=ignoreboth:erasedups:strip
+    # `wt remove` / `wt remove *`: branch names are one-off and dangerous to replay.
+    export HISTIGNORE='ls:ll:la:cd:..:up:up2:up3:up4:cdr:pwd:gs:tl:wl:wlf:wj:ws:wsc:wsr:wm:wmn:wms:wr:wrf:wt remove:wt remove *:wxc:wxcs:wxs:wxr:wxp:wxf:wxfr:wxpr:wxprd:wtc:wtc *:wta:wtaa:stk:sta:stj:stn:stt:stp:kcg:kapi:kns:k9:k9s:nvim .:nvim *Snacks.lazygit*:tav:tav *:oc:gra:just:chromium-agent:clear:history:bg:fg:exit:&'
     export HISTTIMEFORMAT='%F %T  '           # record + show timestamps
     shopt -s histappend                       # append on exit instead of overwriting
     shopt -s cmdhist                          # multi-line command → one entry (joined with ;)
@@ -102,29 +105,81 @@ if [[ -n "$BASH_VERSION" ]]; then
     # erasedups (above) only de-dupes the in-memory list as you type — it never
     # rewrites the file, so history -a from every terminal lets the file pile up
     # stale copies that a fresh shell would bulk-load (bash de-dupes nothing on
-    # load). We rewrite the file HERE, during rc, which runs BEFORE the load:
-    # plain bash reads HISTFILE after sourcing rc, and ble.sh imports it at attach
-    # (end of this file). So no `history -r` reload is needed — one would
-    # double-load. Keeps the last occurrence of each command (with its timestamp)
-    # and only rewrites when something was actually removed, to limit churn and
-    # the race with sibling terminals appending via history -a.
+    # load). Called at the end of this file, immediately before ble-attach (and
+    # before bashrc returns, which is when plain bash reads HISTFILE). So no
+    # `history -r` reload is needed — one would double-load. Keeps the last
+    # occurrence of each command (trailing space ignored, timestamp preserved),
+    # drops HISTIGNORE matches, and only rewrites when the result differs.
+    _hist_cmd_ignored() {
+        local cmd=$1
+        [[ -n ${HISTIGNORE-} ]] || return 1
+        local -a pats
+        IFS=':' read -ra pats <<< "$HISTIGNORE"
+        local pat
+        for pat in "${pats[@]}"; do
+            [[ $pat == '&' || -z $pat ]] && continue
+            # shellcheck disable=SC2254 # glob match against HISTIGNORE patterns
+            [[ $cmd == $pat ]] && return 0
+        done
+        return 1
+    }
     _hist_dedup_file() {
-        local f="${1:-${HISTFILE:-$HOME/.bash_history}}" tmp
+        local f="${1:-${HISTFILE:-$HOME/.bash_history}}" tmp filtered
+        local pend= have=0 line
         [[ -s "$f" ]] || return 0
         tmp="$(mktemp "${f}.XXXXXX")" || return 0
-        if awk '
+        if ! awk '
                 /^#[0-9]+$/ { pend=$0; have=1; next }
-                { ts[$0]=(have?pend:""); have=0; order[++n]=$0; last[$0]=n }
-                END { for (i=1;i<=n;i++) { c=order[i]; if (last[c]==i) { if (ts[c]!="") print ts[c]; print c } } }
-            ' "$f" >"$tmp" 2>/dev/null && [[ -s "$tmp" ]] &&
-            (( $(wc -l <"$tmp") < $(wc -l <"$f") )); then
-            chmod --reference="$f" "$tmp" 2>/dev/null
-            mv -f "$tmp" "$f"
-        else
+                {
+                    c=$0
+                    gsub(/\033\[200~/, "", c)
+                    gsub(/\033\[201~/, "", c)
+                    sub(/^[ \t]+/, "", c)
+                    sub(/[ \t\r]+$/, "", c)
+                    if (c == "") { have=0; next }
+                    ts[c]=(have ? pend : "")
+                    have=0
+                    order[++n]=c
+                    last[c]=n
+                }
+                END {
+                    for (i=1; i<=n; i++) {
+                        c=order[i]
+                        if (last[c]==i) {
+                            if (ts[c] != "") print ts[c]
+                            print c
+                        }
+                    }
+                }
+            ' "$f" >"$tmp" 2>/dev/null || [[ ! -s "$tmp" ]]; then
             rm -f "$tmp"
+            return 0
+        fi
+        filtered="$(mktemp "${f}.XXXXXX")" || { rm -f "$tmp"; return 0; }
+        while IFS= read -r line || [[ -n $line ]]; do
+            if [[ $line =~ ^#[0-9]+$ ]]; then
+                pend=$line
+                have=1
+                continue
+            fi
+            if _hist_cmd_ignored "$line"; then
+                have=0
+                continue
+            fi
+            if ((have)); then
+                printf '%s\n' "$pend"
+                have=0
+            fi
+            printf '%s\n' "$line"
+        done <"$tmp" >"$filtered"
+        rm -f "$tmp"
+        if [[ -s "$filtered" ]] && ! cmp -s "$filtered" "$f"; then
+            chmod --reference="$f" "$filtered" 2>/dev/null
+            mv -f "$filtered" "$f"
+        else
+            rm -f "$filtered"
         fi
     }
-    _hist_dedup_file
     # Flush each command to the shared file as it runs (`history -a`) but never
     # read the file back into this session, so sibling terminals don't bleed into
     # each other's recall. With history_share OFF, ble.sh only adds commands to
@@ -133,7 +188,10 @@ if [[ -n "$BASH_VERSION" ]]; then
     # bug only struck when `-a` was paired with a read (`-n`/`-r`); `-a` alone is
     # safe. BLE_VERSION is already set here: ble.sh was sourced (--noattach) above.
     if [[ -n "${BLE_VERSION-}" ]]; then
-        bleopt history_share=0    # was 1: stop importing other live sessions
+        bleopt history_share=0
+        # Default 0 only erases dups among commands typed this session, so
+        # re-running an older command adds a second copy. Empty = whole history.
+        bleopt history_erasedups_limit=
     fi
     # Set before starship init, which preserves any existing PROMPT_COMMAND.
     PROMPT_COMMAND="history -a; ${PROMPT_COMMAND:+$PROMPT_COMMAND}"
@@ -148,7 +206,7 @@ elif [[ -n "$ZSH_VERSION" ]]; then
     setopt EXTENDED_HISTORY         # record timestamps
     setopt INC_APPEND_HISTORY       # flush each command to the file as it runs…
     unsetopt SHARE_HISTORY          # …but don't import other sessions (Oh My Zsh defaults this on)
-    HISTORY_IGNORE='(ls|ll|cd|pwd|exit|clear|history|bg|fg)'
+    HISTORY_IGNORE='(ls|ll|cd|pwd|exit|clear|history|bg|fg|wt remove *)'
 fi
 
 # ─── Aliases & Functions ──────────────────────────────────────────────────────
@@ -228,5 +286,11 @@ fi
 # ─── ble.sh attach (must stay last) ──────────────────────────────────────────
 # Attach now that prompt, completions, fzf, and PROMPT_COMMAND are configured.
 # No-op unless ble.sh was sourced above (sets BLE_VERSION); skipped on zsh.
+# Dedup HISTFILE immediately before the load: ble.sh imports it at attach,
+# plain bash reads it after bashrc returns. Doing this here (not mid-rc)
+# shortens the window where sibling `history -a` can re-append copies.
+if declare -F _hist_dedup_file >/dev/null 2>&1; then
+    _hist_dedup_file
+fi
 [[ -n "${BLE_VERSION-}" ]] && ble-attach
 unset _blesh
