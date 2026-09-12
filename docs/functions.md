@@ -60,7 +60,7 @@ hdf      # picker — TAB to mark lines, ENTER to delete them
 
 ### `histdedup` \*
 
-Collapse duplicate commands in your saved history, keeping the most recent copy of each (with its timestamp). New shells already load a de-duplicated file automatically — `~/.commonrc` rewrites `~/.bash_history` at startup, before the shell loads it — so this is only needed to clean a shell that was *already* open before the file was last de-duped. It cleans the shared file for future shells **and** refreshes the current shell's recall, de-duping only the in-memory list so other terminals' commands are never imported (per-terminal recall is preserved). bash only; zsh handles this natively via `HIST_SAVE_NO_DUPS`.
+Collapse duplicate commands in your saved history, keeping the most recent copy of each (with its timestamp; trailing space is ignored) and drop lines that match `HISTIGNORE` (so existing `wt remove -D <branch>` entries get purged, not just future ones). New shells already load a cleaned file automatically — `~/.commonrc` rewrites `~/.bash_history` at the end of rc, immediately before ble.sh/bash loads it — so this is only needed to clean a shell that was *already* open. Live typing is also de-duped against the whole in-memory list (`HISTCONTROL=erasedups` plus ble.sh `history_erasedups_limit=` so re-running an older command moves it to the end instead of adding a second copy). It cleans the shared file for future shells **and** refreshes the current shell's recall, de-duping only the in-memory list so other terminals' commands are never imported (per-terminal recall is preserved). bash only; zsh handles this natively via `HIST_SAVE_NO_DUPS`.
 
 ```bash
 histdedup
