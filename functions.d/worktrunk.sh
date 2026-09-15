@@ -1,5 +1,37 @@
 # Category: Worktrunk
 
+# internal: normalize wt list JSON to a worktree array
+function _wt_list_items() {
+    # Worktrunk 0.77+ emits schema 2 ({schema, items}); older versions a
+    # bare array. Flatten both to [{branch, path, is_main, dirty}, ...].
+    # `//` treats false as missing, so booleans use has()/type checks.
+    jq -c '
+      (if type == "array" then .
+       elif type == "object" and (.items | type) == "array" then .items
+       else [] end)
+      | map(select(type == "object"))
+      | map({
+          branch: .branch,
+          path: (.path // .worktree.path),
+          is_main: (if has("is_main") then .is_main
+                    elif (.worktree.main | type) == "boolean" then .worktree.main
+                    else false end),
+          dirty: (
+            (.working_tree.modified // false)
+            or (.working_tree.staged // false)
+            or (.working_tree.untracked // false)
+            or (.worktree.changes.modified // false)
+            or (.worktree.changes.staged // false)
+            or (.worktree.changes.untracked // false)
+          )
+        })
+      | map(select(
+          (.branch | type) == "string" and (.branch | length) > 0
+          and (.path | type) == "string" and (.path | length) > 0
+        ))
+    ' 2>/dev/null
+}
+
 # Remove worktrees with fzf multi-select (dirty/clean status)
 function wrf() {
     if ! command -v fzf &>/dev/null; then
@@ -8,8 +40,8 @@ function wrf() {
     fi
 
     local selections
-    selections=$(wt list --format json 2>/dev/null | \
-                 jq -r '.[] | select(.is_main | not) | "\(.branch)\t\(if (.working_tree.modified or .working_tree.staged or .working_tree.untracked) then "dirty" else "clean" end)"' | \
+    selections=$(wt list --format json 2>/dev/null | _wt_list_items | \
+                 jq -r '.[] | select(.is_main | not) | "\(.branch)\t\(if .dirty then "dirty" else "clean" end)"' | \
                  column -t -s $'\t' | \
                  fzf --multi --prompt="Cleanup: " --height=60% --reverse \
                      --header="TAB to multi-select, ENTER to remove")
@@ -196,7 +228,7 @@ function _wta_ensure_window() {
     # (`-r`) because `-c` continues the newest cwd session, empty ones included.
     # Main never resumes (home base). force_fresh does the same for any caller.
     if [[ -z "$force_fresh" ]]; then
-        is_main=$(wt list --format json 2>/dev/null | jq -r --arg b "$branch" \
+        is_main=$(wt list --format json 2>/dev/null | _wt_list_items | jq -r --arg b "$branch" \
             '.[] | select(.branch == $b) | .is_main')
         [[ "$is_main" == "true" ]] && force_fresh=1
     fi
@@ -342,7 +374,7 @@ function wtc() {
 
     # Resolve the new worktree's path (same query wta uses).
     local wt_path
-    wt_path=$(wt list --format json 2>/dev/null | jq -r --arg b "$branch" '.[] | select(.branch == $b) | .path')
+    wt_path=$(wt list --format json 2>/dev/null | _wt_list_items | jq -r --arg b "$branch" '.[] | select(.branch == $b) | .path')
     if [[ -z "$wt_path" || "$wt_path" == "null" ]]; then
         echo "Error: worktree for '$branch' not found after create"
         return 1
@@ -374,7 +406,7 @@ function wta() {
     fi
 
     local worktrees_json
-    worktrees_json=$(wt list --format json 2>/dev/null)
+    worktrees_json=$(wt list --format json 2>/dev/null | _wt_list_items)
     if [[ -z "$worktrees_json" || "$worktrees_json" == "null" || "$worktrees_json" == "[]" ]]; then
         echo "Error: no worktrees found (run from inside a worktrunk project)"
         return 1
@@ -434,7 +466,7 @@ function wtaa() {
     fi
 
     local worktrees_json
-    worktrees_json=$(wt list --format json 2>/dev/null)
+    worktrees_json=$(wt list --format json 2>/dev/null | _wt_list_items)
     if [[ -z "$worktrees_json" || "$worktrees_json" == "null" || "$worktrees_json" == "[]" ]]; then
         echo "Error: no worktrees found (run from inside a worktrunk project)"
         return 1

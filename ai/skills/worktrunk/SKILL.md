@@ -77,6 +77,7 @@ Conventions:
 
 | Don't | Do |
 |---|---|
+| `jq '.[] \| .is_main'` / `.path` on `wt list --format json` | `jq '.items[] \| .worktree.main'` / `.worktree.path` (schema 2 envelope since 0.77) |
 | Reach for `git worktree add/remove` directly | `wt switch --create` / `wt remove` |
 | `cd ../repo.feat` | `wt switch feat` (or `wt switch -` for previous) |
 | Hard-code a port per worktree | `{{ branch \| hash_port }}` in `[post-start]` and `[pre-remove]` (same value both sides) |

@@ -43,15 +43,20 @@ Status symbols (subset): `+` staged, `!` modified, `?` untracked, `↑/↓` ahea
 
 CI dots: green (passed), blue (running), red (failed), yellow (conflicts), gray (no CI), `⚠` (fetch error). Cached 30–60s; clickable links.
 
-JSON for scripts — every relation is a structured field, not a glyph:
+JSON for scripts — every relation is a structured field, not a glyph.
+Worktrunk 0.77+ emits a schema-2 envelope (`{schema, items}`), not a bare array.
+`.[]` on that object iterates values including the numeric `schema` field and
+errors with `Cannot index number with string`. Iterate `.items[]` instead:
 
 ```bash
 # Branches with content not yet in default — i.e. needs merging
-wt list --format=json | jq '.[] | select(.main.ahead > 0) | .branch'
+wt list --format=json | jq '.items[] | select(.default_branch.ahead > 0) | .branch'
 # Integrated branches safe to remove
-wt list --format=json | jq '.[] | select(.main_state == "integrated") | .branch'
+wt list --format=json | jq '.items[] | select(.display.state == "integrated" or .display.state == "empty") | .branch'
 # Current worktree path
-wt list --format=json | jq -r '.[] | select(.is_current) | .path'
+wt list --format=json | jq -r '.items[] | select(.worktree.current) | .worktree.path'
+# Main worktree path
+wt list --format=json | jq -r '.items[] | select(.worktree.main) | .worktree.path'
 ```
 
 ### `wt remove [BRANCHES]...`
