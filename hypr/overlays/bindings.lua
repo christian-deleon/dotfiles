@@ -20,6 +20,13 @@ o.bind("SUPER + SHIFT + V", "VMware Workstation", {
   launch = "env GDK_SCALE=1 GDK_DPI_SCALE=1 vmware",
 })
 
+-- Stock SUPER+SHIFT+G is Signal.
+hl.unbind("SUPER + SHIFT + G")
+o.bind("SUPER + SHIFT + G", "Grok Bot", {
+  focus = "^grok-bot$",
+  launch = home .. "/.local/share/grok-bot/appimage",
+})
+
 -- Stock binds SUPER+/ to monitor scale cycling; passwords stay on SUPER+SHIFT+/.
 hl.unbind("SUPER + SLASH")
 hl.unbind("SUPER + ALT + SLASH")
@@ -28,8 +35,8 @@ hl.unbind("SUPER + ALT + SLASH")
 o.bind("SUPER + A", "Grok", 'omarchy-launch-webapp "https://grok.com" --profile-directory="Default"')
 o.bind("SUPER + M", "Proton Mail", 'omarchy-launch-webapp "https://mail.proton.me/u/0/inbox" --profile-directory="Default"')
 o.bind("SUPER + SHIFT + T", "Todoist", 'omarchy-launch-webapp "https://app.todoist.com/app/today" --profile-directory="Default"')
+-- Stock SUPER+SHIFT+A is ChatGPT.
 hl.unbind("SUPER + SHIFT + A")
-o.bind("SUPER + SHIFT + A", "Claude", 'omarchy-launch-webapp "https://claude.ai/chat" --profile-directory="Default"')
 hl.unbind("SUPER + SHIFT + X")
 o.bind("SUPER + SHIFT + X", "X", 'omarchy-launch-webapp "https://x.com/" --profile-directory="Default"')
 hl.unbind("SUPER + SHIFT + Y")
