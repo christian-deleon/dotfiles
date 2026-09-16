@@ -37,3 +37,10 @@ o.window("^chromium-agent$", {
 	center = true,
 	tag = "+pop",
 })
+
+-- 1Password 8.12 app id is com.onepassword.OnePassword; stock Omarchy 4.0.4
+-- still matches only 1Password, so the main window tiles instead of floating.
+o.window("^(1[pP]assword|com\\.onepassword\\.OnePassword)$", {
+	no_screen_share = true,
+	tag = "+floating-window",
+})
