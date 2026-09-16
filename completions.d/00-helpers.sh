@@ -73,5 +73,6 @@ function _comp_tmux_sessions() {
 
 # internal: worktree branch names (worktrunk)
 function _comp_wt_branches() {
-    wt list --format json 2>/dev/null | jq -r '.[].branch' 2>/dev/null
+    wt list --format json 2>/dev/null | jq -r \
+        '(if type == "array" then . else (.items // []) end)[]? | .branch // empty' 2>/dev/null
 }
