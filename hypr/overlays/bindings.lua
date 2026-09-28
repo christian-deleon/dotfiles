@@ -45,6 +45,8 @@ hl.unbind("SUPER + SHIFT + ALT + A")
 o.bind("SUPER + SHIFT + ALT + A", "Athenis", 'omarchy-launch-webapp "https://app.athenis.io/" --profile-directory="Default"')
 o.bind("SUPER + SHIFT + ALT + T", "Twitch", 'omarchy-launch-webapp "https://www.twitch.tv/" --profile-directory="Profile 3"')
 o.bind("SUPER + SHIFT + ALT + K", "kick", 'omarchy-launch-webapp "https://www.kick.com/" --profile-directory="Profile 3"')
+-- Stock SUPER+ALT+SHIFT+F opens Files in the terminal's directory.
+hl.unbind("SUPER + ALT + SHIFT + F")
 o.bind("SUPER + SHIFT + ALT + F", "Dropbox", 'omarchy-launch-webapp "https://www.dropbox.com/home" --profile-directory="Default"')
 hl.unbind("SUPER + SHIFT + ALT + G")
 o.bind("SUPER + SHIFT + ALT + G", "Grafana", 'omarchy-launch-webapp "https://cedeleon.grafana.net" --profile-directory="Default"')
