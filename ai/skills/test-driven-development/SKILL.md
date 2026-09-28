@@ -1,6 +1,6 @@
 ---
 name: test-driven-development
-description: Test-first for executable logic (branching, computation, contracts). Use when implementing or fixing behavior with inputs and outputs. Do not use for prompts, copy, docs, comments, formatting, or config literals. Triggers: implement, fix, add feature, regression, bug — if the change is logic. Skip content edits and no-tests projects.
+description: Test-first for executable logic (branching, computation, contracts). Use when implementing or fixing behavior with inputs and outputs. Do not use for prompts, copy, docs, comments, formatting, config literals, or declarative desired-state (dashboards, alerts, Helm charts, Kubernetes manifests), including when that config is broken. Triggers: implement, fix, add feature, regression, bug — if the change is logic. Skip content edits and no-tests projects.
 compatibility: opencode
 ---
 
@@ -29,6 +29,7 @@ clears the gate. Do not invent tests to satisfy this skill.
 | Prompts, system prompts, copy, docs, comments | Branching, computation, state transitions |
 | Formatting, rename, import cleanup | Parsing, validation, error paths |
 | Theme/config literals whose value *is* the content | Input → output contracts the runtime enforces |
+| Declarative desired-state a platform loads as-is: dashboards, alerts, Helm charts and values, Kubernetes manifests. "It isn't working" does not move these into the other column | |
 | Wiring with no control-flow change | A bug in logic, or a new logical feature |
 | Project is untested on purpose | Project already has a suite for this kind of code |
 
@@ -38,8 +39,10 @@ runtime interpolates, a tag a parser reads) or a safety invariant the
 user asked to lock. If existing tests fail because they pinned copy,
 update or delete them — do not grow that suite.
 
-- **If none of the "continue" column applies**, stop. Edit the content;
-  prove it by reading or running the real surface.
+- **If none of the "continue" column applies**, stop. Edit the artifact
+  and prove it on the real surface (read it, render it, or load it).
+  A broken dashboard, alert, chart, or manifest is this case. Do not add
+  a test, snapshot, or unittest framework before the fix.
 - **If the project has no test suite and is untested on purpose**, stop —
   do not use this skill to justify scaffolding a framework, test directory, or
   test dependencies. A project-level "no tests" instruction always wins. Fall

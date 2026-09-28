@@ -63,7 +63,8 @@ For each issue:
 - **Executable logic** — load and follow the `test-driven-development` skill
   (red test from an independent expected value, then the fix).
 - **Non-logic** (copy, comments, formatting, wiring with no control-flow
-  change) — smallest edit; no test.
+  change, declarative desired-state such as dashboards, alerts, charts,
+  and manifests) — smallest edit; no test.
 - **Disagree** — set `Status: wontfix` with a technical reason. Do not
   implement a finding that would make the code worse.
 - **Already true in the tree** — set `Status: fixed` and note that; do not
