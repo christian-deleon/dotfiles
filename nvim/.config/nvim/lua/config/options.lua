@@ -4,6 +4,7 @@ require("config.remote_clipboard").setup()
 -- Add any additional options here
 vim.opt.relativenumber = false
 vim.opt.spell = false
+vim.opt.wrap = true
 
 -- AI completion mode:
 --   false = ghost text (inline suggestion, Tab to accept) — Copilot-native UX
