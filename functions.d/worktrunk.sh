@@ -177,6 +177,25 @@ function _wta_has_session_history() {
     esac
 }
 
+# internal: OpenCode harness launches as the oca alias
+function _wta_opencode_cmd() {
+    # oc is `opencode` with no --auto, so the pane blocks on permissions.
+    local cmd="$1"
+    local first=${cmd%% *}
+    case "$first" in
+        oc|opencode)
+            if [[ "$cmd" == *" "* ]]; then
+                printf 'oca %s\n' "${cmd#* }"
+            else
+                printf 'oca\n'
+            fi
+            ;;
+        *)
+            printf '%s\n' "$cmd"
+            ;;
+    esac
+}
+
 # Ensure a tav window exists for one worktree (wta helper)
 function _wta_ensure_window() {
     # Optional 3rd arg adopt_pane: a pane id to adopt as this worktree's window
@@ -184,7 +203,8 @@ function _wta_ensure_window() {
     # isn't inside a worktree.
     # Optional 4th arg prompt: an initial prompt forwarded to tav (wta/wtc).
     # Optional 5th arg force_fresh: non-empty skips history resume and
-    # always launches $AI_TOOL. The main worktree is always treated as
+    # always launches $AI_TOOL (oca when the harness is OpenCode). The main
+    # worktree is always treated as
     # force_fresh — it's a home base, not a task session.
     local branch="$1" wt_path="$2" adopt_pane="${3:-}" prompt="${4:-}" force_fresh="${5:-}"
     local session window cmd geo_x geo_y status_lines resume_id tool is_main
@@ -243,6 +263,7 @@ function _wta_ensure_window() {
     else
         cmd="$AI_TOOL"
     fi
+    cmd=$(_wta_opencode_cmd "$cmd")
 
     # Build a short tav invocation for tmux send-keys. Large -p handoffs must
     # NOT be shell-quoted into the key stream: ble.sh hangs on multi-KB input
