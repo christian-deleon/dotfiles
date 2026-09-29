@@ -192,6 +192,7 @@ Kubernetes development workflow tool shortcuts.
 ## OpenCode
 
 - `oc` - OpenCode CLI (`opencode`)
+- `oca` - OpenCode TUI with auto-approve (`opencode --auto`)
 
 ---
 
