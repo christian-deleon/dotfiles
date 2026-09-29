@@ -95,6 +95,10 @@ Each child gets a self-contained prompt with **no** access to this conversation:
 - <file:line or path anchors>
 - <error text, failing test, or observed behavior — exact quotes>
 - <anything already ruled out or confirmed>
+- Merged commits already on the base branch that the child must not redo: <sha and subject>. Do not re-implement that work.
+
+## Do not
+- Do not commit or push unless the owner asks.
 
 ## Done when
 <acceptance check — what "fixed" looks like>
