@@ -1,15 +1,17 @@
 ---
 name: bro
-description: Restate the last message in plain human language, with no jargon. Use when the user says /bro, 'say that simply', 'explain that in plain English', or 'what did you just say without the jargon'.
+description: Restate the last message in plain human language, with no jargon. Use when the user says /bro, 'say that simply', 'explain that in plain English', or 'what did you just say without the jargon'. Also use when they ask for a quick short high-level overview, a concise high-level overview, or concise reasoning — answer that way first.
 compatibility: opencode
-disable-model-invocation: true
+user-invocable: true
 ---
 
 # Bro
 
-Default replies are already supposed to sound like this. Use this skill only to rewrite a reply that still came out dense.
+Default replies are already supposed to sound like this. Use this skill to rewrite a reply that still came out dense, and to answer a short-overview ask the first time.
 
-Restate **your last message** only. Drop jargon, acronyms-without-expansion, and hedging. Speak like one person talking to another — short sentences, everyday words, same facts.
+When they ask for a short overview, a high-level overview, or concise reasoning, answer that way first: a few sentences, no design dump. Do not wait for /bro.
+
+Restate **your last message** only when they invoke /bro or ask what you just said. Drop jargon, acronyms-without-expansion, and hedging. Speak like one person talking to another — short sentences, everyday words, same facts.
 
 ## Rules
 
