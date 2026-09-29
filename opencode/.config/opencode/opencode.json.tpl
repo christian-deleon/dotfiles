@@ -58,11 +58,127 @@
         },
         "deleon-claude-sonnet-5.5": {
           "id": "arn:aws:bedrock:us-east-1:{env:BEDROCK_AWS_ACCOUNT_ID}:inference-profile/global.anthropic.claude-sonnet-5-5",
-          "name": "deleon-claude-sonnet-5.5"
+          "name": "deleon-claude-sonnet-5.5",
+          "reasoning": false,
+          "variants": {
+            "low": {
+              "additionalModelRequestFields": {
+                "thinking": {
+                  "type": "adaptive",
+                  "display": "summarized"
+                },
+                "output_config": {
+                  "effort": "low"
+                }
+              }
+            },
+            "medium": {
+              "additionalModelRequestFields": {
+                "thinking": {
+                  "type": "adaptive",
+                  "display": "summarized"
+                },
+                "output_config": {
+                  "effort": "medium"
+                }
+              }
+            },
+            "high": {
+              "additionalModelRequestFields": {
+                "thinking": {
+                  "type": "adaptive",
+                  "display": "summarized"
+                },
+                "output_config": {
+                  "effort": "high"
+                }
+              }
+            },
+            "xhigh": {
+              "additionalModelRequestFields": {
+                "thinking": {
+                  "type": "adaptive",
+                  "display": "summarized"
+                },
+                "output_config": {
+                  "effort": "xhigh"
+                }
+              }
+            },
+            "max": {
+              "additionalModelRequestFields": {
+                "thinking": {
+                  "type": "adaptive",
+                  "display": "summarized"
+                },
+                "output_config": {
+                  "effort": "max"
+                }
+              }
+            }
+          }
         },
         "deleon-claude-opus-5.5": {
           "id": "arn:aws:bedrock:us-east-1:{env:BEDROCK_AWS_ACCOUNT_ID}:inference-profile/us.anthropic.claude-opus-5-5",
-          "name": "deleon-claude-opus-5.5"
+          "name": "deleon-claude-opus-5.5",
+          "reasoning": false,
+          "variants": {
+            "low": {
+              "additionalModelRequestFields": {
+                "thinking": {
+                  "type": "adaptive",
+                  "display": "summarized"
+                },
+                "output_config": {
+                  "effort": "low"
+                }
+              }
+            },
+            "medium": {
+              "additionalModelRequestFields": {
+                "thinking": {
+                  "type": "adaptive",
+                  "display": "summarized"
+                },
+                "output_config": {
+                  "effort": "medium"
+                }
+              }
+            },
+            "high": {
+              "additionalModelRequestFields": {
+                "thinking": {
+                  "type": "adaptive",
+                  "display": "summarized"
+                },
+                "output_config": {
+                  "effort": "high"
+                }
+              }
+            },
+            "xhigh": {
+              "additionalModelRequestFields": {
+                "thinking": {
+                  "type": "adaptive",
+                  "display": "summarized"
+                },
+                "output_config": {
+                  "effort": "xhigh"
+                }
+              }
+            },
+            "max": {
+              "additionalModelRequestFields": {
+                "thinking": {
+                  "type": "adaptive",
+                  "display": "summarized"
+                },
+                "output_config": {
+                  "effort": "max"
+                }
+              }
+            }
+          }
         }
       }
     },

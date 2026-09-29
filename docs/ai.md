@@ -58,6 +58,8 @@ Tracked template is `opencode/.config/opencode/opencode.json.tpl`. Live `opencod
 | `amazon-bedrock` | `deleon-*` | OpenCode `/connect` amazon-bedrock (sets `AWS_BEARER_TOKEN_BEDROCK`) | Commercial `us-east-1`. ARNs use `{env:BEDROCK_AWS_ACCOUNT_ID}` from `~/.localrc`. Omitted when that var is unset. |
 | `amazon-bedrock-gov` | `work-*` | `WORK_BEDROCK_API_KEY` or `GROK_BEDROCK_API_KEY`, or `/connect` → Other → `amazon-bedrock-gov` | GovCloud OpenAI-compat endpoint. **Not** the native Bedrock SDK — a single `AWS_BEARER_TOKEN_BEDROCK` would send the personal key to GovCloud. |
 
+Claude models on `amazon-bedrock` declare explicit `low`…`max` variants that send `thinking: {type: adaptive}` plus `output_config.effort` through `additionalModelRequestFields`, with `reasoning: false` so OpenCode's own (ARN-blind) variant logic stays off. Grok variants use `reasoningConfig` instead; Claude rejects that shape.
+
 `dot update` / `dot install opencode` regenerates the live file.
 
 ### MCP
