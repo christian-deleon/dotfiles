@@ -21,8 +21,8 @@
       },
       "whitelist": [
         "deleon-grok-4.7",
-        "deleon-claude-sonnet-5-5",
-        "deleon-claude-opus-5-5"
+        "deleon-claude-sonnet-5.5",
+        "deleon-claude-opus-5.5"
       ],
       "models": {
         "deleon-grok-4.7": {
@@ -56,13 +56,13 @@
             }
           }
         },
-        "deleon-claude-sonnet-5-5": {
+        "deleon-claude-sonnet-5.5": {
           "id": "arn:aws:bedrock:us-east-1:{env:BEDROCK_AWS_ACCOUNT_ID}:inference-profile/global.anthropic.claude-sonnet-5-5",
-          "name": "deleon-claude-sonnet-5-5"
+          "name": "deleon-claude-sonnet-5.5"
         },
-        "deleon-claude-opus-5-5": {
+        "deleon-claude-opus-5.5": {
           "id": "arn:aws:bedrock:us-east-1:{env:BEDROCK_AWS_ACCOUNT_ID}:inference-profile/us.anthropic.claude-opus-5-5",
-          "name": "deleon-claude-opus-5-5"
+          "name": "deleon-claude-opus-5.5"
         }
       }
     },
