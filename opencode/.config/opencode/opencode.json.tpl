@@ -20,14 +20,14 @@
         "region": "us-east-1"
       },
       "whitelist": [
-        "deleon-grok-4.6",
-        "deleon-claude-sonnet-5",
-        "deleon-claude-opus-5"
+        "deleon-grok-4.7",
+        "deleon-claude-sonnet-5-5",
+        "deleon-claude-opus-5-5"
       ],
       "models": {
-        "deleon-grok-4.6": {
-          "id": "arn:aws:bedrock:us-east-1:{env:BEDROCK_AWS_ACCOUNT_ID}:inference-profile/us.xai.grok-4.6",
-          "name": "deleon-grok-4.6",
+        "deleon-grok-4.7": {
+          "id": "arn:aws:bedrock:us-east-1:{env:BEDROCK_AWS_ACCOUNT_ID}:inference-profile/us.xai.grok-4.7",
+          "name": "deleon-grok-4.7",
           "reasoning": true,
           "variants": {
             "low": {
@@ -56,13 +56,13 @@
             }
           }
         },
-        "deleon-claude-sonnet-5": {
-          "id": "arn:aws:bedrock:us-east-1:{env:BEDROCK_AWS_ACCOUNT_ID}:inference-profile/us.anthropic.claude-sonnet-5",
-          "name": "deleon-claude-sonnet-5"
+        "deleon-claude-sonnet-5-5": {
+          "id": "arn:aws:bedrock:us-east-1:{env:BEDROCK_AWS_ACCOUNT_ID}:inference-profile/global.anthropic.claude-sonnet-5-5",
+          "name": "deleon-claude-sonnet-5-5"
         },
-        "deleon-claude-opus-5": {
-          "id": "arn:aws:bedrock:us-east-1:{env:BEDROCK_AWS_ACCOUNT_ID}:inference-profile/us.anthropic.claude-opus-5",
-          "name": "deleon-claude-opus-5"
+        "deleon-claude-opus-5-5": {
+          "id": "arn:aws:bedrock:us-east-1:{env:BEDROCK_AWS_ACCOUNT_ID}:inference-profile/us.anthropic.claude-opus-5-5",
+          "name": "deleon-claude-opus-5-5"
         }
       }
     },
