@@ -1,7 +1,7 @@
 # Grok Build TUI — seed for a missing ~/.grok/config.toml.
 # The live file is NOT a symlink: Grok mutates it at runtime. install_ai_grok
-# copies this seed only when the live file is absent, then merges MCP and
-# [compat.claude] into the live file.
+# copies this seed only when the live file is absent, then merges
+# grok/.grok/base.toml, MCP, and [compat.claude] into the live file.
 #
 # Skills, agents, hooks, and rules live in ~/.dotfiles/ai/ and are symlinked
 # into ~/.grok/{skills,agents,hooks,rules}/.
