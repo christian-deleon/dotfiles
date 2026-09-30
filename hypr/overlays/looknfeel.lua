@@ -30,6 +30,11 @@ hl.config({
 -- Slightly less transparency than the default-opacity tag (0.985 / 0.96).
 o.window({ tag = "default-opacity" }, { opacity = "1.0 0.97" })
 
+-- Chromium's video wake lock often never reaches Hyprland: nothing owns
+-- org.freedesktop.ScreenSaver, and the Wayland idle inhibitor is not created.
+-- Fullscreen still means media is up.
+o.window("^(chromium|chrome-.+)$", { idle_inhibit = "fullscreen" })
+
 -- Agent Chromium: float overlay on the current workspace (do not pin).
 o.window("^chromium-agent$", {
 	float = true,
