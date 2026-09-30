@@ -159,7 +159,8 @@ Shared AI agent configuration owned by this dotfiles repo at `~/.dotfiles/ai/`. 
 - Flattens `ai/rules/**/*.md` into `~/.grok/rules/`
 - Seeds `~/.grok/config.toml` only if missing; never overwrites the live file
 - Forces `[compat.claude]` off and `[folder_trust] enabled = false`; merges trusted folders
-- If `grok/.grok/overlays/<active-profile>.toml` exists, upserts it into the live file (work Bedrock, work MCP launch overrides, etc.). `model.*` and `mcp_servers.<name>` overlay tables replace wholesale.
+- Always upserts `grok/.grok/base.toml` into the live file (every machine)
+- If `grok/.grok/overlays/<active-profile>.toml` exists, upserts it after the base (work Bedrock, work MCP launch overrides, etc.). Profile wins on conflict. `model.*` and `mcp_servers.<name>` overlay tables replace wholesale.
 - Symlinks `pager.toml`
 
 **What `install_ai_opencode()` does:**

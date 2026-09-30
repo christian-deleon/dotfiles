@@ -97,11 +97,13 @@ grok_profile_overlay() {
 
 # Seed live config.toml if missing; never symlink it (Grok mutates the file).
 # Always force [compat.claude] off and [folder_trust] enabled = false.
-# Work profiles may also merge grok/.grok/overlays/<profile>.toml.
+# Always upsert grok/.grok/base.toml. A profile may also merge
+# grok/.grok/overlays/<profile>.toml after that (profile wins on conflict).
 ensure_grok_config() {
     local seed="$DOTFILES_DIR/grok/.grok/config.toml"
     local dest="$HOME/.grok/config.toml"
     local merger="$DOTFILES_DIR/ai/scripts/merge-grok-mcp.py"
+    local base="$DOTFILES_DIR/grok/.grok/base.toml"
     local overlay=""
 
     mkdir -p "$HOME/.grok"
@@ -111,14 +113,21 @@ ensure_grok_config() {
         info "Seeded ~/.grok/config.toml from repo"
     fi
 
+    if [[ ! -f "$merger" ]]; then
+        return
+    fi
+
+    if [[ -f "$base" ]]; then
+        python3 "$merger" "$dest" --overlay "$base" \
+            || warn "Could not merge Grok base config"
+    else
+        python3 "$merger" "$dest" || warn "Could not merge Grok Claude-compat flags"
+    fi
+
     overlay=$(grok_profile_overlay) || overlay=""
-    if [[ -x "$merger" || -f "$merger" ]]; then
-        if [[ -n "$overlay" ]]; then
-            python3 "$merger" "$dest" --overlay "$overlay" \
-                || warn "Could not merge Grok profile overlay"
-        else
-            python3 "$merger" "$dest" || warn "Could not merge Grok Claude-compat flags"
-        fi
+    if [[ -n "$overlay" ]]; then
+        python3 "$merger" "$dest" --overlay "$overlay" \
+            || warn "Could not merge Grok profile overlay"
     fi
 }
 
