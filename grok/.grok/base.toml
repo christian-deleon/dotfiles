@@ -1,8 +1,12 @@
 # Merged into live ~/.grok/config.toml on every grok install. The catalog
-# advertises a single 256k window for grok-4.7, so /context-window stays
+# advertises a single 256k window for these models, so /context-window stays
 # hidden until both sizes are listed. The first entry is the default.
 # Quote the model id: a bare [model.grok-4.7] is TOML nesting, not this model.
 
 [model."grok-4.7"]
+context_window = 500000
+context_windows = [500000, 256000]
+
+[model."grok-4.7-build-fast"]
 context_window = 500000
 context_windows = [500000, 256000]
