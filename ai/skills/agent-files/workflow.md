@@ -143,7 +143,6 @@ Missing symlink → `dot update` (or `dot install grok`).
 1. `git status` and `git diff`.
 2. Group related changes (skill + docs = two commits if they're separable).
 3. Conventional Commits — see the `commit` skill.
-4. Don't add `Co-Authored-By` unless `git log` already uses it.
 
 For this skill itself, scope as `feat(ai)` or `docs(ai)`.
 
