@@ -1,6 +1,6 @@
 ---
 name: agent-files
-description: Author skills/agents/hooks/rules/MCP under ~/.dotfiles/ai/ for Grok (OpenCode is an adapter). Use for 'add a skill', 'new subagent', 'add a rule', 'add an MCP server', 'update the bash skill'. Not for `dot agent` project/env AGENTS overlays (see docs/dot-agent.md).
+description: Author skills/agents/hooks/rules/MCP under ~/.dotfiles/ai/ for Grok (OpenCode and Claude Code are adapters). Use for 'add a skill', 'new subagent', 'add a rule', 'add an MCP server', 'update the bash skill'. Not for `dot agent` project/env AGENTS overlays (see docs/dot-agent.md).
 compatibility: opencode
 ---
 
@@ -10,14 +10,15 @@ compatibility: opencode
 > Per-project / per-env AGENTS.md overlays are a different system — see
 > [docs/dot-agent.md](../../../docs/dot-agent.md) and `dot agent`.
 
-This repo is the **single source of truth** for Grok Build configuration. OpenCode is a second-class adapter: it links at Grok's live tree where the format matches, and generates JSON only for shapes it cannot read.
+This repo is the **single source of truth** for Grok Build configuration. OpenCode and Claude Code are second-class adapters. OpenCode links at Grok's live tree where the format matches, and generates JSON only for shapes it cannot read. Claude Code symlinks the same `ai/` sources into `~/.claude/` and merges the few files it owns. Claude is opt-in (`dot install claude`). Grok's `[compat.claude]` stays off so Grok does not also scan `~/.claude/`.
 
 | Tool | Live path | Mechanism |
 |---|---|---|
 | **Grok Build** (canonical) | `~/.grok/{skills,agents,hooks,rules}/`, `~/.grok/AGENTS.md`, `~/.grok/config.toml` | `install_ai_grok` + `generate_mcp_configs` |
 | **OpenCode** (adapter) | `~/.config/opencode/skills` → `~/.grok/skills`; `AGENTS.md` hops at Grok; `opencode.json` agents/instructions/mcp | `install_ai_opencode` + generate scripts |
+| **Claude Code** (adapter, opt-in) | `~/.claude/skills/<name>`, `agents/`, flattened `rules/`; `settings.json` hooks; `~/.claude.json` `mcpServers` | `install_ai_claude` when `claude` is installed |
 
-MCP roster: `~/.dotfiles/ai/mcp-servers.json.tpl` → live `~/.grok/config.toml` `[mcp_servers.*]` (canonical) and OpenCode `mcp` (adapter). Do not write `~/.claude.json`.
+MCP roster: `~/.dotfiles/ai/mcp-servers.json.tpl` → live `~/.grok/config.toml` `[mcp_servers.*]` (canonical), OpenCode `mcp`, and Claude `mcpServers` when the CLI is installed. Do not hand-edit `~/.claude.json`.
 
 ## Decision tree
 
@@ -38,21 +39,21 @@ Templates live in [`examples/`](examples/) — copy and edit, don't write from s
 
 ## Universal rules
 
-1. **Source of truth is always `~/.dotfiles/ai/`.** Never write to `~/.grok/skills` (etc.) or `~/.config/opencode/` directly — those are install targets. If you're not in `~/.dotfiles/`, `cd` there first.
+1. **Source of truth is always `~/.dotfiles/ai/`.** Never write to `~/.grok/skills` (etc.), `~/.config/opencode/`, or `~/.claude/` directly — those are install targets. If you're not in `~/.dotfiles/`, `cd` there first.
 
-2. **After authoring, reconcile with the normal project path.** Existing skill/rule/agent files are already symlinked — body edits are live (restart the session if you changed a skill *description* so catalogs reload). **New** skills/agents/hooks/rules need a re-link; `dot update` already does that (pull + `install_ai_grok` + OpenCode adapter). For MCP template changes only: `dot mcp-regen`.
+2. **After authoring, reconcile with the normal project path.** Existing skill/rule/agent files are already symlinked — body edits are live (restart the session if you changed a skill *description* so catalogs reload). **New** skills/agents/hooks/rules need a re-link; `dot update` already does that (pull + `install_ai_grok` + OpenCode adapter + Claude adapter when `claude` is installed). For MCP template changes only: `dot mcp-regen`.
 
 3. **Author for Grok.** The body of any skill/agent/rule must read naturally in Grok. OpenCode consumes the same files via the adapter. Specifically:
    - Don't reference tools by brand. Say "the Read tool" or "the Bash tool", not "Grok's Read" or "OpenCode's bash".
    - Don't reference brand-specific UI affordances unless it's the only way to express the idea — and then call out the tool (`grok inspect`, OpenCode Tab-cycle).
    - Don't pin to adapter config files in the prose body (e.g. don't say "edit `opencode.json`" when the user is on Grok).
    - Tool-specific **frontmatter** is fine. Use `compatibility: opencode` on skills so the adapter surfaces them. Use Grok-shaped `tools:` on subagents; add OpenCode `permission:` / `mode:` when the adapter needs them. Keep the body universal.
-   - **Hooks are Grok-only.** OpenCode has plugins, not hooks. Write the logic as a script under `ai/hooks/` with an event-prefixed filename.
+   - **Hooks are authored for Grok.** OpenCode has plugins, not hooks. Write the logic as a script under `ai/hooks/` with an event-prefixed filename. The Claude adapter registers the existing notify scripts; don't add a second hook tree.
 
 4. **Mind the asymmetries** — these bite people:
    - **OpenCode has no hooks.** `ai/hooks/` is ignored by OpenCode.
    - **Grok slash commands are skills.** Do not grow `ai/commands/`.
-   - **Grok and OpenCode both auto-load project `AGENTS.md`.** Env overlay lives at `~/.grok/AGENTS.md`; OpenCode hops at that file. Foreign repos may still have `CLAUDE.md` — migrate, don't author.
+   - **Grok, OpenCode, and Claude Code auto-load project `AGENTS.md`.** Env overlay lives at `~/.grok/AGENTS.md`; OpenCode hops at that file. Claude's user memory hops at `~/.claude/CLAUDE.md` only when the CLI is installed. Do not author a project `CLAUDE.md` — if one sits next to `AGENTS.md`, Claude reads only the `CLAUDE.md`. Foreign repos may still have `CLAUDE.md` — migrate, don't author.
 
 5. **Descriptions are triggers, not documentation.** Lead with the strongest use case, then 2–3 distinctive trigger phrases — not every variant. Aim for ~250–350 chars per skill. See [skills.md](skills.md).
 

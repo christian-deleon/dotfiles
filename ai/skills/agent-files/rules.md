@@ -15,13 +15,13 @@ The most common AI failure mode is putting skill-shaped content into rules. A ru
 | `opencode.json` `instructions: [...]` | no | yes (installer writes `ai/rules/**/*.md` paths) |
 | `~/.config/opencode/AGENTS.md` | no | yes (our hop at `~/.grok/AGENTS.md`) |
 
-Grok also still *recognizes* leftover `CLAUDE.md` / `.claude/rules/` when Claude compat is on. This repo forces `[compat.claude] rules/agents = false`. **Don't author `CLAUDE.md` hops.** Foreign repos may still have them — migrate to `AGENTS.md` (`dot agent` already does this).
+Grok's `[compat.claude]` stays off, so Grok does not read `~/.claude/rules/`. The Claude adapter flattens the same files into `~/.claude/rules/` when `claude` is installed. User memory may hop at `~/.claude/CLAUDE.md`. **Don't author a project `CLAUDE.md`.** If one sits beside `AGENTS.md`, Claude Code reads only the `CLAUDE.md`. Foreign repos may still have them — migrate to `AGENTS.md` (`dot agent` already does this).
 
 ## What this repo does
 
 `install_ai_grok` flattens `ai/rules/**/*.md` into `~/.grok/rules/<basename>.md` (Grok scans one level, not `rules/common/`). Basenames must be unique.
 
-OpenCode gets the same files as `opencode.json` `instructions: [...]` via `generate-opencode-config.sh`.
+OpenCode gets the same files as `opencode.json` `instructions: [...]` via `generate-opencode-config.sh`. Claude Code gets the flattened symlinks in `~/.claude/rules/` when it is installed. Files with no `paths:` frontmatter load in every Claude session.
 
 ```
 ~/.dotfiles/ai/rules/

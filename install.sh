@@ -746,7 +746,8 @@ install_ai_tool() {
         case "$interactive_arg" in
             gra|grok|gr)  ai_tool="gra"; ai_resume="gra -c" ;;
             oc|opencode)  ai_tool="oc";  ai_resume="oc -c" ;;
-            *)            error "Unknown AI tool: $interactive_arg (choose: gra, oc)"; return 1 ;;
+            cl|claude)    ai_tool="cl";  ai_resume="cl -c" ;;
+            *)            error "Unknown AI tool: $interactive_arg (choose: gra, oc, cl)"; return 1 ;;
         esac
     else
         if [[ -f "$localrc" ]] && grep -qE '^export AI_TOOL=' "$localrc" 2>/dev/null; then
@@ -760,7 +761,7 @@ install_ai_tool() {
         fi
 
         if ! command -v gum &>/dev/null; then
-            warn "gum not available — pass tool names directly: dot ai-tool {gra|oc} {grok|opencode}"
+            warn "gum not available — pass tool names directly: dot ai-tool {gra|oc|cl} {grok|opencode|claude}"
             return 0
         fi
 
@@ -772,11 +773,13 @@ install_ai_tool() {
         choice="$(printf '%s\n' \
             "Grok — gra (auto-approve), resume: gra -c" \
             "OpenCode — oc, resume: oc -c" \
-            | gum choose --height=5)" || { info "No selection — leaving AI_TOOL unchanged"; return 0; }
+            "Claude Code — cl, resume: cl -c" \
+            | gum choose --height=6)" || { info "No selection — leaving AI_TOOL unchanged"; return 0; }
 
         case "$choice" in
             Grok*)     ai_tool="gra"; ai_resume="gra -c" ;;
             OpenCode*) ai_tool="oc";  ai_resume="oc -c" ;;
+            Claude*)   ai_tool="cl";  ai_resume="cl -c" ;;
             *)         info "No selection — leaving AI_TOOL unchanged"; return 0 ;;
         esac
     fi
@@ -787,11 +790,13 @@ install_ai_tool() {
         case "$pipe_arg" in
             gra|grok|gr)  ai_pipe="grok" ;;
             oc|opencode)  ai_pipe="opencode" ;;
-            *)            error "Unknown pipe tool: $pipe_arg (choose: grok, opencode)"; return 1 ;;
+            cl|claude)    ai_pipe="claude" ;;
+            *)            error "Unknown pipe tool: $pipe_arg (choose: grok, opencode, claude)"; return 1 ;;
         esac
     elif [[ -n "$interactive_arg" ]] || ! command -v gum &>/dev/null; then
         case "$ai_tool" in
             oc)  ai_pipe="opencode" ;;
+            cl)  ai_pipe="claude" ;;
             *)   ai_pipe="grok" ;;
         esac
         info "Pipe tool defaulted to ${BOLD}$ai_pipe${RESET} (matches interactive). Pass arg2 to override."
@@ -804,14 +809,17 @@ install_ai_tool() {
         pipe_choice="$(printf '%s\n' \
             "Grok (grok -p)" \
             "OpenCode (opencode run)" \
-            | gum choose --height=5)" || { info "No selection — defaulting pipe tool to interactive choice"; pipe_choice=""; }
+            "Claude Code (claude -p)" \
+            | gum choose --height=6)" || { info "No selection — defaulting pipe tool to interactive choice"; pipe_choice=""; }
 
         case "$pipe_choice" in
             OpenCode*) ai_pipe="opencode" ;;
+            Claude*)   ai_pipe="claude" ;;
             Grok*)     ai_pipe="grok" ;;
             *)
                 case "$ai_tool" in
                     oc) ai_pipe="opencode" ;;
+                    cl) ai_pipe="claude" ;;
                     *)  ai_pipe="grok" ;;
                 esac
                 ;;
@@ -907,7 +915,7 @@ get_core_extra_label() {
         git-config)        echo "git-config — Symlink .gitconfig and set name/email/signing" ;;
         ssh-config)        echo "ssh-config — Generate ~/.ssh/config (1Password SSH agent)" ;;
         zsh-config)        echo "zsh-config — Oh My Zsh + Powerlevel10k + plugins + .zshrc" ;;
-        ai-tool)           echo "ai-tool — Choose preferred AI CLI (Grok / OpenCode)" ;;
+        ai-tool)           echo "ai-tool — Choose preferred AI CLI (Grok / OpenCode / Claude Code)" ;;
         omarchy-themes)    echo "omarchy-themes — Choose Omarchy theme submodules to install" ;;
         default-terminal)  echo "default-terminal — Set Alacritty as the Omarchy default terminal" ;;
         *)                 echo "$1" ;;

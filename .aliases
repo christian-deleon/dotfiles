@@ -101,6 +101,10 @@ alias tka='tmux kill-server'             # Kill the tmux server and all sessions
 alias oc='opencode'                      # OpenCode CLI
 alias oca='opencode --auto'              # OpenCode TUI, auto-approve permissions
 
+# Claude Code
+alias cl='claude'                                          # Claude Code CLI
+alias cca='claude --permission-mode bypassPermissions'     # Claude Code, skip permission prompts
+
 # Grok Build TUI
 alias gr='grok --trust'                   # Grok Build TUI, auto-trust cwd
 alias gra='grok --always-approve --trust' # Grok TUI, auto-approve + auto-trust cwd

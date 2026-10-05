@@ -8,6 +8,7 @@ The most common AI failure mode is treating hooks as one cross-tool concept. The
 |---|---|---|
 | **Grok Build** | Filename auto-register, JSON `hooks.json`, or TOML in `config.toml` | Canonical: `ai/hooks/<event>_<purpose>.sh` → `~/.grok/hooks/` |
 | **OpenCode** | **No hooks** — TypeScript plugins | Not synced. Don't author OpenCode plugins unless asked |
+| **Claude Code** | `hooks` in `~/.claude/settings.json` | Adapter registers the three notify scripts. Don't author a second set |
 
 `install_ai_grok` symlinks `~/.dotfiles/ai/hooks/*` into `~/.grok/hooks/`. **Dropping a script into `ai/hooks/` with an event-prefixed name is the path.** This repo already ships `stop_notify.sh`, `notification_notify.sh`, `user_prompt_submit_clear.sh`, and `notify_common.sh`.
 
@@ -173,6 +174,10 @@ printf '%s\n' '{"decision":"allow"}'
 ```
 
 Read **both** camelCase and snake_case if you share a script with older examples. New hooks should prefer camelCase.
+
+## Claude Code — the notify scripts only
+
+When `claude` is installed, `install_ai_claude` merges three command hooks into `~/.claude/settings.json`: `Stop` → `stop_notify.sh`, `Notification` (matcher `permission_prompt|elicitation_dialog`) → `notification_notify.sh`, `UserPromptSubmit` → `user_prompt_submit_clear.sh`. The command path is the script in `ai/hooks/`. The matcher skips `idle_prompt`, which would repeat the Stop toast about a minute after each turn. Re-running the installer replaces a stale entry for the same `command` instead of adding a second one. Other hooks stay Grok-only until someone asks to register them. `notification_notify.sh` still exits immediately when the parent process is Grok, because Grok also fires Notification on every turn end.
 
 ## OpenCode — plugins, not hooks
 

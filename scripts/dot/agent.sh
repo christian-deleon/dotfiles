@@ -1,7 +1,7 @@
 # shellcheck shell=bash
 # ─── Per-project agent files (AGENTS.md) ─────────────────────────────────────
 # Sourced by dot.sh. Requires DOTFILES_DIR and lib.sh helpers.
-# Grok convention is first-class. OpenCode is an adapter hop.
+# Grok convention is first-class. OpenCode and Claude Code are adapter hops.
 
 AGENT_FILES_DIR="$DOTFILES_DIR/agent-files"
 AGENT_FILES_BEGIN="# >>> dot-agent-files >>>"
@@ -12,7 +12,8 @@ AGENT_PROJECTS_DIR="$AGENT_FILES_DIR/projects"
 AGENT_ENV_DIR="$AGENT_FILES_DIR/env"
 
 # Targets that should symlink to the per-env AGENTS.md.
-# Grok's ~/.grok/AGENTS.md is canonical; OpenCode is an adapter hop.
+# Grok's ~/.grok/AGENTS.md is canonical. OpenCode always hops. Claude's
+# ~/.claude/CLAUDE.md is not listed: install_ai_claude owns that hop.
 AGENT_ENV_TARGETS=(
     "$HOME/.grok/AGENTS.md"
     "$HOME/.config/opencode/AGENTS.md"
@@ -186,7 +187,8 @@ agent_commit_in_submodule() {
 
 # ─── Per-env global agent files ──────────────────────────────────────────────
 # These live at agent-files/env/<name>/AGENTS.md and symlink into Grok's
-# global AGENTS.md (OpenCode hops at the same file). Designed for env-scoped
+# global AGENTS.md (OpenCode hops at the same file; Claude does too when
+# the CLI is installed). Designed for env-scoped
 # context — e.g. "this machine is a locked-down WSL VM behind a corp proxy."
 
 agent_list_envs() {
@@ -325,7 +327,8 @@ agent_env_link() {
 This file is a **per-environment agent overlay** managed by the \`dot agent env\` system in
 \`~/.dotfiles\`. It lives in the private \`agent-files\` submodule at
 \`agent-files/env/$name/AGENTS.md\` and is symlinked into the global config paths
-of Grok on this machine (\`~/.grok/AGENTS.md\`; OpenCode hops at the same file).
+of Grok on this machine (\`~/.grok/AGENTS.md\`; OpenCode hops at the same file,
+and Claude Code does too when \`claude\` is installed).
 
 Its purpose is to give every AI agent session on this machine persistent, automatic context
 about the environment — constraints, quirks, and capabilities — without having to re-explain
@@ -438,7 +441,8 @@ agent_env_help() {
     echo "Manage per-env global AGENTS.md — content that loads into every AI"
     echo "session on machines that have opted in. Source of truth lives in the"
     echo "agent-files submodule under env/<name>/AGENTS.md. Canonical live path"
-    echo "is Grok's ~/.grok/AGENTS.md; OpenCode gets a hop at the same file:"
+    echo "is Grok's ~/.grok/AGENTS.md. OpenCode hops at the same file."
+    echo "Claude Code's ~/.claude/CLAUDE.md hops at ~/.grok/AGENTS.md when installed."
     echo
     local target
     for target in "${AGENT_ENV_TARGETS[@]}"; do
@@ -747,7 +751,8 @@ agent_help() {
     echo "                Source: agent-files/projects/<project>/AGENTS.md"
     echo
     echo "  ${_BOLD}Per-env${_RESET}      — symlink into Grok's ~/.grok/AGENTS.md (OpenCode"
-    echo "                hops at the same file). Use for environment-scoped"
+    echo "                hops at the same file; Claude does when installed)."
+    echo "                Use for environment-scoped"
     echo "                context (locked-down VM, corp proxy, etc.)."
     echo "                Source: agent-files/env/<name>/AGENTS.md"
     echo

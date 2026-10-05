@@ -16,7 +16,7 @@ Source of truth in this repo:
 └── scripts/          # optional bundled scripts (executable via Bash)
 ```
 
-Installed by `install_ai_grok` to `~/.grok/skills/<name>/`. OpenCode sees the same tree via a directory symlink (`~/.config/opencode/skills` → `~/.grok/skills`).
+Installed by `install_ai_grok` to `~/.grok/skills/<name>/`. OpenCode sees the same tree via a directory symlink (`~/.config/opencode/skills` → `~/.grok/skills`). Claude Code gets one symlink per skill at `~/.claude/skills/<name>` when `claude` is installed.
 
 Directory name **must** match the `name` field in frontmatter, lowercase + digits + hyphens, max 64 chars. OpenCode enforces `^[a-z0-9]+(-[a-z0-9]+)*$`. Grok normalizes spaces and underscores to hyphens if you omit `name` (it then uses the directory name).
 
@@ -165,6 +165,11 @@ Summarize the changes above in two or three bullets.
 - `description` hard cap 1,024 chars.
 - `compatibility: opencode` is the documented opt-in flag.
 - Discovers `~/.config/opencode/skills/` (our dir symlink), plus `.opencode/skills/`, `.agents/skills/`, and leftover `.claude/skills/` if present.
+
+### Claude Code (adapter, opt-in)
+- Same `SKILL.md` files, one symlink per skill under `~/.claude/skills/`. Do not touch `skills/synced/`.
+- `compatibility: opencode` is accepted and ignored. Unknown keys are ignored, including Grok's `when-to-use`. Claude's extra trigger field is `when_to_use`. `description` still triggers the skill. Don't add `when_to_use` unless you are deliberately tuning Claude.
+- Listing truncates `description` + `when_to_use` at 1,536 characters. The ~250–350 budget still fits.
 
 ## Editing an existing skill
 

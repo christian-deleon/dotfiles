@@ -46,6 +46,7 @@ items: []
 #   - 1password-cli
 #   - bat
 #   - grok
+#   - claude          # opt-in; not on the stock profiles
 #   - delta
 #   - fd
 #   - fzf
