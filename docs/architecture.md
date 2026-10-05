@@ -173,6 +173,7 @@ Shared AI agent configuration owned by this dotfiles repo at `~/.dotfiles/ai/`. 
 - Symlinks `ai/skills/<name>` and `ai/agents/*` into `~/.claude/`; flattens rules the same way Grok does
 - Hops `~/.claude/CLAUDE.md` at `~/.grok/AGENTS.md` unless the destination is a regular file (the hop may dangle until `dot agent env link`)
 - Merges Stop / Notification (permission and elicitation prompts only) / UserPromptSubmit command hooks into `~/.claude/settings.json`
+- Sets `attribution` to `{commit: "", pr: "", sessionUrl: false}` in the same file so Claude never adds `Co-Authored-By` trailers, PR bylines, or session links
 
 **Shared MCP:** `generate_mcp_configs()` (post_install on `grok`, `opencode`, and `claude`, or `dot mcp-regen`) reads `~/.dotfiles/ai/mcp-servers.json.tpl`, resolves secrets via 1Password, and writes native `[mcp_servers.*]` into live `~/.grok/config.toml`, OpenCode `mcp`, and (when Claude is installed) `~/.claude.json` `mcpServers` for the enabled set.
 
