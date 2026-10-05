@@ -29,6 +29,7 @@ notify::collect_context() {
         case "$(ps -p "$pid" -o comm= 2>/dev/null | tr -d '[:space:]')" in
             grok)     tool="Grok";     break ;;
             opencode) tool="OpenCode"; break ;;
+            claude)   tool="Claude";   break ;;
         esac
         pid="$(ps -p "$pid" -o ppid= 2>/dev/null | tr -d '[:space:]')"
     done

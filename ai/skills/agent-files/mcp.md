@@ -8,8 +8,9 @@ This repo treats `~/.dotfiles/ai/mcp-servers.json.tpl` as the **single source of
 |---|---|---|
 | Grok | live `~/.grok/config.toml` `[mcp_servers.*]` | Canonical |
 | OpenCode | `~/.config/opencode/opencode.json` `mcp` | Adapter (JSON ≠ TOML) |
+| Claude Code | `~/.claude.json` `mcpServers` | Adapter, only when `claude` is installed. Enabled servers only. OAuth and UI keys in that file are left alone. |
 
-Don't edit the live files. Don't write `~/.claude.json`. The most common AI failure mode is editing `~/.grok/config.toml` MCP tables or `opencode.json` by hand — the next `dot mcp-regen` overwrites them.
+Don't edit the live files. Don't hand-edit `~/.claude.json`. The most common AI failure mode is editing `~/.grok/config.toml` MCP tables, `opencode.json`, or `~/.claude.json` by hand — the next `dot mcp-regen` overwrites the managed server keys.
 
 ## Source of truth
 
@@ -47,7 +48,7 @@ Format: a JSON object, one key per server. Author `command` / `args` / `env` / `
 
 ## Generated targets
 
-`dot mcp-regen` (or post_install on `grok` / `opencode`). Hash cache at `~/.cache/dotfiles/mcp-servers.hash` skips regeneration when the template is unchanged **and** live Grok `config.toml` already has `[mcp_servers.` tables. Set `FORCE_MCP_REGEN=true` to bypass.
+`dot mcp-regen` (or post_install on `grok` / `opencode` / `claude`). Hash cache at `~/.cache/dotfiles/mcp-servers.hash` skips regeneration when the template is unchanged, live Grok `config.toml` already has `[mcp_servers.` tables, and (when `claude` is installed) `~/.claude.json` still has every server listed in `~/.cache/dotfiles/claude-mcp-servers` (what the last regen wrote; servers dropped for a missing secret don't count). Set `FORCE_MCP_REGEN=true` to bypass.
 
 ## Docs / web split (current roster)
 
@@ -113,7 +114,7 @@ Any value (in `args`, `env`, or `headers`) can be a 1Password CLI reference:
 op://<vault>/<item>/<field>
 ```
 
-Secrets are pulled at generate time and written as plaintext into the **live** Grok config and OpenCode `opencode.json` (mode 600). Never into the tracked seed `grok/.grok/config.toml`. Sign into 1Password before `dot mcp-regen`.
+Secrets are pulled at generate time and written as plaintext into the **live** Grok config, OpenCode `opencode.json`, and (when Claude is installed) `~/.claude.json` (mode 600). Never into the tracked seed `grok/.grok/config.toml`. Sign into 1Password before `dot mcp-regen`.
 
 ```json
 "GITHUB_PERSONAL_ACCESS_TOKEN": "op://ujvoilqaehz2gozzpp2jqyhxsu/lcpymvki7xwdbvucadxiy2ukpa/token"

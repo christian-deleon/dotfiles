@@ -108,15 +108,16 @@ Stale `~/.config/<pkg>` symlinks from packages that have since been dropped are 
 
 ## AI Config
 
-Shared AI agent configuration for **Grok Build TUI** lives in `ai/` (plus `grok/.grok/` for native seed files). **OpenCode** is a second-class adapter.
+Shared AI agent configuration for **Grok Build TUI** lives in `ai/` (plus `grok/.grok/` for native seed files). **OpenCode** and **Claude Code** are second-class adapters. Claude is opt-in (`dot install claude`); it is not on a profile.
 
-Select `grok` or `opencode` from `dot install`:
+Select `grok`, `opencode`, or `claude` from `dot install`:
 
-- **Grok Build TUI** — skills/agents/hooks/rules linked into `~/.grok/`; pager.toml; config.toml seeded if missing; `grok/.grok/base.toml` merged on every machine; optional `grok/.grok/overlays/<profile>.toml` merged after that on matching machines; folder-trust disabled (and parent grants merged); MCP written as `[mcp_servers.*]`
+- **Grok Build TUI** — skills/agents/hooks/rules linked into `~/.grok/`; pager.toml; config.toml seeded if missing; `grok/.grok/base.toml` merged on every machine; optional `grok/.grok/overlays/<profile>.toml` merged after that on matching machines; folder-trust disabled (and parent grants merged); MCP written as `[mcp_servers.*]`. `[compat.claude]` stays off.
 - **OpenCode** — `skills` and `AGENTS.md` hop at Grok's live tree; agents/instructions/MCP generated into `opencode.json`. Personal Bedrock ARNs use `{env:BEDROCK_AWS_ACCOUNT_ID}`; work GovCloud uses `WORK_BEDROCK_API_KEY` (not the personal `/connect` key)
+- **Claude Code** — skills, agents, and flattened rules symlink into `~/.claude/`; notify hooks merge into `settings.json`; enabled MCP servers merge into `~/.claude.json`. Aliases: `cl`, `cca`.
 - **MCP servers** — defined once in `ai/mcp-servers.json.tpl`. 1Password secrets are injected; unresolved `op://` refs are dropped. Use `dot mcp-regen` to force re-injection.
 
-`dot update` refreshes Grok and the OpenCode adapter. See [docs/ai.md](docs/ai.md).
+`dot update` refreshes Grok, the OpenCode adapter, and the Claude adapter when `claude` is installed. See [docs/ai.md](docs/ai.md).
 
 ## Manifest and Profiles
 

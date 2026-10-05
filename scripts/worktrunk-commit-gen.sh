@@ -2,9 +2,10 @@
 # AI dispatcher for worktrunk commit-message generation.
 #
 # Reads the rendered prompt on stdin, runs whichever AI CLI is selected via
-# $AI_TOOL_PIPE (grok|opencode), validates the result against the
+# $AI_TOOL_PIPE (grok|opencode|claude), validates the result against the
 # Conventional Commits format, and prints the cleaned message on stdout.
 # With $AI_TOOL_PIPE unset, auto-detects in grok > opencode order.
+# Claude is never auto-selected; set AI_TOOL_PIPE=claude to use it.
 #
 # Failure handling:
 #   - Tool exits non-zero (auth, subscription, network): surface and exit 1
@@ -17,8 +18,9 @@
 #
 # Each tool gets its native stdin path — Grok reads directly from stdin
 # (no $(cat) round-trip), OpenCode takes the prompt as a file attach
-# (the only form `opencode run` reliably accepts). This avoids ARG_MAX and
-# shell-quoting issues with large diffs that contain backticks/dollar signs.
+# (the only form `opencode run` reliably accepts), Claude takes the prompt
+# on stdin with a short -p instruction (piped stdin is capped at 10MB).
+# This avoids ARG_MAX and shell-quoting issues with large diffs.
 
 set -euo pipefail
 
@@ -26,6 +28,7 @@ set -euo pipefail
 # OpenCode: set AI_PIPE_OPENCODE_MODEL to a full provider id to pin one.
 AI_PIPE_OPENCODE_MODEL="${AI_PIPE_OPENCODE_MODEL:-}"
 AI_PIPE_GROK_MODEL="${AI_PIPE_GROK_MODEL:-}"
+AI_PIPE_CLAUDE_MODEL="${AI_PIPE_CLAUDE_MODEL:-}"
 
 # Total attempts = AI_PIPE_RETRIES + 1. Set 0 to disable retry entirely.
 AI_PIPE_RETRIES="${AI_PIPE_RETRIES:-2}"
@@ -55,10 +58,11 @@ normalize_tool() {
     case "${1:-}" in
         grok|gra|gr) echo grok ;;
         opencode|oc) echo opencode ;;
+        claude|cl) echo claude ;;
         "") echo "" ;;
         *)
             echo "worktrunk-commit-gen: unknown AI_TOOL_PIPE value: $1" >&2
-            echo "  expected one of: grok, opencode" >&2
+            echo "  expected one of: grok, opencode, claude" >&2
             return 1
             ;;
     esac
@@ -151,6 +155,19 @@ invoke_tool() {
             local model_args=()
             [[ -n "$AI_PIPE_GROK_MODEL" ]] && model_args=(--model "$AI_PIPE_GROK_MODEL")
             printf '%s' "$prompt" | grok --prompt-file /dev/stdin "${model_args[@]}" | clean_output
+            ;;
+        claude)
+            # --bare would drop the subscription login, so turn off hooks and
+            # MCP explicitly: the notify hooks would toast and flag the user's
+            # tmux pane, and MCP servers add startup latency. The diff rides on
+            # stdin so the -p argument stays short.
+            local claude_args=(
+                -p "Follow the instructions on stdin exactly. Output only the raw commit message."
+                --strict-mcp-config
+                --settings '{"disableAllHooks":true}'
+            )
+            [[ -n "$AI_PIPE_CLAUDE_MODEL" ]] && claude_args+=(--model "$AI_PIPE_CLAUDE_MODEL")
+            printf '%s' "$prompt" | claude "${claude_args[@]}" | clean_output
             ;;
     esac
 }

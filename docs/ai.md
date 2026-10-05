@@ -1,6 +1,6 @@
 # AI Config (`ai/`)
 
-Shared AI agent configuration for **Grok Build TUI** (first-class) and **OpenCode** (adapter).
+Shared AI agent configuration for **Grok Build TUI** (first-class), **OpenCode** (adapter), and **Claude Code** (adapter, opt-in).
 
 Lives in `~/.dotfiles/ai/` (skills, agents, hooks, rules) and `~/.dotfiles/grok/.grok/` (native seed files). The installer links assets into Grok's live tree. OpenCode points at that tree.
 
@@ -63,12 +63,33 @@ Claude models on `amazon-bedrock` declare explicit `low`…`max` variants that s
 
 `dot update` / `dot install opencode` regenerates the live file.
 
+### Claude Code (adapter, opt-in)
+
+Not on any profile. `dot install claude` runs the native installer (`https://claude.ai/install.sh`) and `install_ai_claude()`. `dot update` refreshes the adapter only when `claude` is already on `PATH` (or `~/.local/bin/claude` exists). It does not create `~/.claude` on other machines.
+
+`[compat.claude]` stays **off** in Grok. Claude reads its own tree. Grok does not also scan it, so the same skills are not loaded twice.
+
+| Source | Target |
+|--------|--------|
+| `ai/skills/<name>/` | `~/.claude/skills/<name>` (per-directory symlink; `skills/synced/` is Claude's and is left alone) |
+| `ai/agents/*.md` | `~/.claude/agents/` |
+| `ai/rules/**/*.md` | `~/.claude/rules/<basename>.md` (same flatten as Grok) |
+| `~/.grok/AGENTS.md` | `~/.claude/CLAUDE.md` unless the destination is a regular file |
+| `ai/hooks/{stop,notification,user_prompt_submit}_*.sh` | merged into `~/.claude/settings.json` `hooks` |
+
+`dot agent env` never touches `~/.claude/CLAUDE.md`; it relinks `~/.grok/AGENTS.md`, which the hop follows. Do not add a project `CLAUDE.md`. Current Claude Code reads a repo `AGENTS.md` on its own, and ignores it when a `CLAUDE.md` is also present in that directory or a parent.
+
+User MCP is merged into `~/.claude.json` `mcpServers` (OAuth and UI state stay). Only the default-enabled servers (`context7`, `firecrawl`) are written. A roster server that is not enabled is omitted.
+
+`cl` is `claude`. `cca` is `claude --permission-mode bypassPermissions`. `dot ai-tool cl` switches the interactive default. Auto-detect for commit messages stays grok, then opencode.
+
 ### MCP
 
-Roster is `ai/mcp-servers.json.tpl`. `generate_mcp_configs()` (post_install on **`grok`** and **`opencode`**, or `dot mcp-regen`) resolves 1Password secrets and writes:
+Roster is `ai/mcp-servers.json.tpl`. `generate_mcp_configs()` (post_install on **`grok`**, **`opencode`**, and **`claude`**, or `dot mcp-regen`) resolves 1Password secrets and writes:
 
 - `~/.grok/config.toml` `[mcp_servers.*]` — canonical
 - `~/.config/opencode/opencode.json` `mcp` — adapter
+- `~/.claude.json` `mcpServers` — adapter, only when Claude Code is installed
 
 Unresolved `op://` refs are dropped when `op` is missing. Default-enabled: `context7`, `firecrawl`.
 
@@ -89,7 +110,7 @@ Unresolved `op://` refs are dropped when `op` is missing. Default-enabled: `cont
 Edits under `ai/` to files that are already linked are live immediately. After adding a **new** skill/agent/rule:
 
 ```bash
-dot update          # pull + re-link Grok + OpenCode adapter
+dot update          # pull + re-link Grok + OpenCode + Claude (if installed)
 ```
 
 MCP template only: `dot mcp-regen`. Restart the agent session after adding a skill or changing a skill *description*.

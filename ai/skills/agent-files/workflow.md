@@ -26,6 +26,7 @@ Hard rule: source of truth is the dotfiles repo. Never edit the live targets:
 | `~/.config/opencode/skills/<name>/SKILL.md` | same `ai/skills/` source (that's a dir symlink) |
 | `~/.config/opencode/opencode.json` (`agent.*` / `instructions` / `mcp`) | the `ai/` source, then `dot update` / `dot mcp-regen` |
 | `~/.config/opencode/opencode.json` `.provider` | `opencode/.config/opencode/opencode.json.tpl` (`BEDROCK_AWS_ACCOUNT_ID` for personal ARNs; `WORK_BEDROCK_API_KEY` or `/connect amazon-bedrock-gov` for work) |
+| `~/.claude/skills/`, `agents/`, `rules/`, `settings.json` hooks, `~/.claude.json` `mcpServers` | the `ai/` source, then `dot update` / `dot mcp-regen` (no-op until `dot install claude`) |
 
 When the session is running outside `~/.dotfiles/`, `cd` there first or use absolute paths.
 
@@ -65,7 +66,7 @@ python3 -c 'import sys, tomllib; tomllib.load(open(sys.argv[1], "rb"))' ~/.dotfi
 Body-only edits to already-linked skills/rules/agents are live via symlink. When you add a new skill/agent/hook/rule, or want this machine to match the repo after a pull:
 
 ```bash
-dot update    # pull + install_ai_grok + OpenCode adapter
+dot update    # pull + install_ai_grok + OpenCode adapter + Claude adapter if installed
 ```
 
 That is the normal path — do not invent extra AI-only install wrappers.
@@ -82,7 +83,8 @@ Handlers in `~/.dotfiles/scripts/handlers/ai.sh`:
 |---|---|
 | `install_ai_grok` | Links `ai/{skills,agents,hooks}` → `~/.grok/`; flattens `ai/rules/**` → `~/.grok/rules/`; seeds live `config.toml` if missing; merges `grok/.grok/base.toml` and any profile overlay; forces `[compat.claude]` off; merges trusted folders; links `pager.toml` |
 | `install_ai_opencode` | `~/.config/opencode/skills` → `~/.grok/skills`; hops `AGENTS.md`; generates JSON agents + instructions + `.provider` from the tpl |
-| `generate_mcp_configs` | Resolves 1Password refs; writes Grok `[mcp_servers.*]` and OpenCode `mcp` |
+| `install_ai_claude` | When `claude` is installed: per-skill and agent symlinks, flattened rules, user `CLAUDE.md` hop, notify hooks merged into `settings.json`. No-op otherwise |
+| `generate_mcp_configs` | Resolves 1Password refs; writes Grok `[mcp_servers.*]`, OpenCode `mcp`, and Claude `mcpServers` when installed |
 
 ## Test
 

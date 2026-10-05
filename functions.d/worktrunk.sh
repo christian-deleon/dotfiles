@@ -128,6 +128,28 @@ function _grok_trust_folder() {
     chmod 600 "$dest" 2>/dev/null || true
 }
 
+# internal: pre-accept Claude's trust dialog so a prompted pane doesn't stall
+function _claude_trust_folder() {
+    # Running sessions rewrite ~/.claude.json, so only swap in our copy when
+    # the file is unchanged since we read it.
+    local dir=$1 cfg="$HOME/.claude.json" before tmp
+    [[ -n $dir && -f $cfg ]] || return 0
+    command -v jq >/dev/null 2>&1 || return 0
+    dir=$(readlink -f -- "$dir" 2>/dev/null || printf '%s' "$dir")
+    [[ -n $dir && $dir != / && $dir != "$HOME" ]] || return 0
+    jq -e --arg d "$dir" '.projects[$d].hasTrustDialogAccepted == true' "$cfg" >/dev/null 2>&1 \
+        && return 0
+    before=$(cksum <"$cfg")
+    tmp=$(mktemp "$cfg.XXXXXX") || return 0
+    if jq --arg d "$dir" '.projects[$d].hasTrustDialogAccepted = true' "$cfg" >"$tmp" \
+        && [[ $(cksum <"$cfg") == "$before" ]]; then
+        chmod 600 "$tmp"
+        mv -- "$tmp" "$cfg"
+    else
+        rm -f -- "$tmp"
+    fi
+}
+
 # Grok session UUID to resume for this worktree, if any
 function _wta_grok_resume_id() {
     # grok -c continues the newest session for the cwd, including empty ones
@@ -177,22 +199,17 @@ function _wta_has_session_history() {
     esac
 }
 
-# internal: OpenCode harness launches as the oca alias
-function _wta_opencode_cmd() {
-    # oc is `opencode` with no --auto, so the pane blocks on permissions.
+# internal: launch OpenCode and Claude without a permission prompt
+function _wta_auto_cmd() {
+    # oc has no --auto, and cl asks before every tool. The pane would block.
     local cmd="$1"
     local first=${cmd%% *}
+    local rest=""
+    [[ "$cmd" == *" "* ]] && rest=" ${cmd#* }"
     case "$first" in
-        oc|opencode)
-            if [[ "$cmd" == *" "* ]]; then
-                printf 'oca %s\n' "${cmd#* }"
-            else
-                printf 'oca\n'
-            fi
-            ;;
-        *)
-            printf '%s\n' "$cmd"
-            ;;
+        oc|opencode) printf 'oca%s\n' "$rest" ;;
+        cl|claude)   printf 'cca%s\n' "$rest" ;;
+        *)           printf '%s\n' "$cmd" ;;
     esac
 }
 
@@ -203,7 +220,7 @@ function _wta_ensure_window() {
     # isn't inside a worktree.
     # Optional 4th arg prompt: an initial prompt forwarded to tav (wta/wtc).
     # Optional 5th arg force_fresh: non-empty skips history resume and
-    # always launches $AI_TOOL (oca when the harness is OpenCode). The main
+    # always launches $AI_TOOL (oca / cca when the harness asks for permission). The main
     # worktree is always treated as
     # force_fresh — it's a home base, not a task session.
     local branch="$1" wt_path="$2" adopt_pane="${3:-}" prompt="${4:-}" force_fresh="${5:-}"
@@ -212,6 +229,7 @@ function _wta_ensure_window() {
     session=$(_wt_session_for "$wt_path")
     window="${branch//\//-}"
     _grok_trust_folder "$wt_path"
+    _claude_trust_folder "$wt_path"
 
     # Resolve the geometry of the terminal/client this window will ultimately be
     # viewed at, and build every window at that exact size. tav bakes its 32%
@@ -263,7 +281,7 @@ function _wta_ensure_window() {
     else
         cmd="$AI_TOOL"
     fi
-    cmd=$(_wta_opencode_cmd "$cmd")
+    cmd=$(_wta_auto_cmd "$cmd")
 
     # Build a short tav invocation for tmux send-keys. Large -p handoffs must
     # NOT be shell-quoted into the key stream: ble.sh hangs on multi-KB input

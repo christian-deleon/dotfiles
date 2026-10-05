@@ -54,6 +54,15 @@ cargo:
     type: handler
     handler: install_cargo_config
 
+claude:
+  description: Claude Code CLI (second-class adapter over ai/)
+  install:
+    script: install-claude.sh
+  config:
+    type: handler
+    handler: install_ai_claude
+  post_install: [generate_mcp_configs]
+
 cloc:
   description: Count lines of code
   install:

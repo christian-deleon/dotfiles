@@ -196,6 +196,13 @@ Kubernetes development workflow tool shortcuts.
 
 ---
 
+## Claude Code
+
+- `cl` - Claude Code CLI (`claude`)
+- `cca` - Claude Code with permission prompts skipped (`claude --permission-mode bypassPermissions`)
+
+---
+
 ## Grok
 
 - `gr` - Grok Build TUI (`grok --trust`; auto-trusts the cwd)

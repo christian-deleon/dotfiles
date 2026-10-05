@@ -35,10 +35,3 @@ mako:
   description: Retired Quattro predecessor — notifications are now omarchy-shell
   requires: [omarchy]
   xdg_config: [mako]
-
-claude:
-  description: Retired Claude Code / Anthropic CLI
-  home: [.claude, .claude.json]
-  xdg_data: [claude]
-  xdg_state: [claude]
-  xdg_cache: [claude, claude-cli-nodejs]

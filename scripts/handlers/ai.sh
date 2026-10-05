@@ -1,12 +1,13 @@
 #!/bin/bash
 # AI config handlers — referenced from manifest.yaml.
-# Functions: install_ai_grok, install_ai_opencode, generate_mcp_configs.
+# Functions: install_ai_grok, install_ai_opencode, install_ai_claude, generate_mcp_configs.
 #
 # Sourced by install.sh. Uses helpers from install.sh: info/success/warn/error,
 # link_directory_contents, link_file, clean_ai_symlinks, op_inject_multi, ensure_jq.
 #
-# Grok is first-class. OpenCode is an adapter that links at Grok's live tree
-# and only generates JSON for shapes Grok does not share.
+# Grok is first-class. OpenCode and Claude Code are adapters. OpenCode links
+# at Grok's live tree and generates JSON for shapes it cannot read. Claude
+# Code symlinks the same sources into ~/.claude/ and merges settings it owns.
 
 # Flatten ai/rules/**/*.md into ~/.grok/rules/<basename>.md — Grok scans one
 # level of ~/.grok/rules/, not nested category dirs.
@@ -23,7 +24,7 @@ link_grok_rules() {
         base="$(basename "$f")"
         dest_file="$dest/$base"
         if [[ -e "$dest_file" && ! -L "$dest_file" ]]; then
-            warn "Grok rule name collision, skipping: $dest_file"
+            warn "Rule name collision, skipping: $dest_file"
             continue
         fi
         ln -snf "$f" "$dest_file"
@@ -199,16 +200,197 @@ install_ai_opencode() {
     success "Installed OpenCode adapter"
 }
 
+# True when the Claude Code CLI is on PATH or the native launcher exists.
+claude_installed() {
+    command -v claude >/dev/null 2>&1 && return 0
+    [[ -x "$HOME/.local/bin/claude" ]]
+}
+
+# Symlink each child of $1 into $2. Skip real (non-symlink) collisions and
+# Claude's reserved skills/synced directory.
+link_claude_entries() {
+    local src_dir="$1"
+    local dest_dir="$2"
+    local item name dest_item
+
+    [[ -d "$src_dir" ]] || return 0
+    mkdir -p "$dest_dir"
+    clean_ai_symlinks "$dest_dir"
+
+    for item in "$src_dir"/*; do
+        [[ -e "$item" ]] || continue
+        name="$(basename "$item")"
+        [[ "$name" == "synced" || "$name" == ".gitkeep" ]] && continue
+        dest_item="$dest_dir/$name"
+        if [[ -e "$dest_item" && ! -L "$dest_item" ]]; then
+            warn "Claude path already exists, skipping: $dest_item"
+            continue
+        fi
+        ln -snf "$item" "$dest_item"
+    done
+}
+
+# User memory hop. The sole owner of ~/.claude/CLAUDE.md: `dot agent env`
+# relinks ~/.grok/AGENTS.md underneath it, so the hop may dangle until then.
+# A real ~/.claude/CLAUDE.md is left alone.
+link_claude_user_memory() {
+    local src="$HOME/.grok/AGENTS.md"
+    local dest="$HOME/.claude/CLAUDE.md"
+
+    if [[ -e "$dest" && ! -L "$dest" ]]; then
+        warn "Leaving existing ~/.claude/CLAUDE.md in place"
+        return 0
+    fi
+    ln -snf "$src" "$dest"
+}
+
+# Merge the notify hooks into Claude's live settings.json. Idempotent.
+# Does not replace the file — Claude stores permissions and model choice there.
+# Notification skips idle_prompt: it repeats the Stop toast ~60s after a turn.
+ensure_claude_hooks() {
+    local dest="$HOME/.claude/settings.json"
+    local hooks_dir="$DOTFILES_DIR/ai/hooks"
+    local tmp
+
+    ensure_jq || return 0
+    if [[ ! -f "$dest" ]]; then
+        printf '{}\n' > "$dest"
+    elif ! jq -e 'type == "object"' "$dest" >/dev/null 2>&1; then
+        warn "Could not parse ~/.claude/settings.json — leaving Claude hooks unchanged"
+        return 0
+    fi
+
+    tmp="$(mktemp "$dest.XXXXXX")"
+    if ! jq \
+        --arg stop "$hooks_dir/stop_notify.sh" \
+        --arg notification "$hooks_dir/notification_notify.sh" \
+        --arg submit "$hooks_dir/user_prompt_submit_clear.sh" \
+        '
+        def ensure_hook($event; $matcher; $cmd):
+          ({hooks: [{type: "command", command: $cmd}]}
+            + (if $matcher == "" then {} else {matcher: $matcher} end)) as $group
+          | .hooks[$event] = (
+              (.hooks[$event] // []) as $groups
+              | if any($groups[]; . == $group) then $groups
+                else ($groups | map(select(any(.hooks[]?; .command == $cmd) | not))) + [$group]
+                end
+            );
+        ensure_hook("Stop"; ""; $stop)
+        | ensure_hook("Notification"; "permission_prompt|elicitation_dialog"; $notification)
+        | ensure_hook("UserPromptSubmit"; ""; $submit)
+        ' "$dest" > "$tmp"; then
+        warn "Could not merge Claude hooks into settings.json"
+        rm -f -- "$tmp"
+        return 0
+    fi
+    if jq -e --slurpfile new "$tmp" '. == $new[0]' "$dest" >/dev/null 2>&1; then
+        rm -f -- "$tmp"
+        return 0
+    fi
+    mv -- "$tmp" "$dest"
+}
+
+# Claude Code adapter. No-ops when the CLI is absent so `dot update` does
+# not create ~/.claude on machines that have not installed it.
+install_ai_claude() {
+    local ai_dir="$DOTFILES_DIR/ai"
+    [[ -d "$ai_dir" ]] || { warn "ai/ directory not found"; return; }
+    claude_installed || return 0
+
+    info "Installing Claude Code adapter (links at ai/)..."
+    mkdir -p "$HOME/.claude"
+
+    link_claude_entries "$ai_dir/skills" "$HOME/.claude/skills"
+    link_claude_entries "$ai_dir/agents" "$HOME/.claude/agents"
+    link_grok_rules "$ai_dir/rules" "$HOME/.claude/rules"
+    link_claude_user_memory
+    ensure_claude_hooks
+
+    success "Installed Claude Code adapter"
+}
+
+# Merge enabled roster servers into ~/.claude.json mcpServers and list the
+# merged names in $3. Running Claude sessions rewrite this file (OAuth, project
+# state) and it outgrows ARG_MAX, so stream it through jq, skip no-op writes,
+# and give up if it changed mid-merge rather than clobber Claude's write.
+write_claude_mcp() {
+    local resolved="$1"
+    local enabled_json="$2"
+    local written_file="$3"
+    local cfg="$HOME/.claude.json"
+    local before="" tmp
+
+    claude_installed || return 0
+
+    if [[ -f "$cfg" ]]; then
+        if ! jq -e 'type == "object"' "$cfg" >/dev/null 2>&1; then
+            warn "Could not parse ~/.claude.json — leaving Claude MCP unchanged"
+            return 0
+        fi
+        before="$(sha256sum < "$cfg")"
+    fi
+
+    tmp="$(mktemp "$cfg.XXXXXX")"
+    if ! { if [[ -f "$cfg" ]]; then cat -- "$cfg"; else printf '{}'; fi; } | jq \
+        --slurpfile roster "$resolved" \
+        --argjson enabled "$enabled_json" \
+        '
+        $roster[0] as $roster
+        | ($roster | keys) as $managed
+        | .mcpServers = (
+            ((.mcpServers // {}) | with_entries(select(.key as $k | ($managed | index($k)) | not)))
+            + (
+                $roster
+                | with_entries(select(.key as $k | $enabled | index($k)))
+                | map_values(
+                    (.type // (if .url then "http" else "stdio" end)) as $t
+                    | if $t == "sse" or $t == "http" or $t == "streamable-http" or $t == "remote" then
+                        {type: (if $t == "sse" then "sse" else "http" end), url}
+                        + (if .headers then {headers} else {} end)
+                      else
+                        {type: "stdio", command}
+                        + (if .args then {args} else {} end)
+                        + (if .env then {env} else {} end)
+                      end
+                  )
+              )
+          )
+        ' > "$tmp"; then
+        warn "Failed to merge Claude MCP servers into ~/.claude.json"
+        rm -f -- "$tmp"
+        return 0
+    fi
+
+    if [[ -f "$cfg" ]] && jq -e --slurpfile new "$tmp" \
+        '.mcpServers == $new[0].mcpServers' "$cfg" >/dev/null 2>&1; then
+        rm -f -- "$tmp"
+    elif [[ -n "$before" && "$(sha256sum < "$cfg")" != "$before" ]]; then
+        warn "~/.claude.json changed during the merge — rerun 'dot mcp-regen'"
+        rm -f -- "$tmp"
+        return 0
+    else
+        chmod 600 "$tmp"
+        mv -- "$tmp" "$cfg"
+        success "Updated Claude MCP servers in ~/.claude.json"
+    fi
+
+    jq -r --argjson enabled "$enabled_json" \
+        'keys[] | select(. as $k | $enabled | index($k))' "$resolved" > "$written_file"
+}
+
 # Generate MCP configs from the shared roster.
 # Source: ~/.dotfiles/ai/mcp-servers.json.tpl (command/args/env/url JSON, op:// refs)
 # Targets:
 #   Grok:     ~/.grok/config.toml [mcp_servers.*]  (canonical)
 #   OpenCode: ~/.config/opencode/opencode.json mcp (adapter; JSON ≠ TOML)
+#   Claude:   ~/.claude.json mcpServers            (adapter; only if installed)
 generate_mcp_configs() {
     local mcp_src="$DOTFILES_DIR/ai/mcp-servers.json.tpl"
     local force="${FORCE_MCP_REGEN:-false}"
     local merger="$DOTFILES_DIR/ai/scripts/merge-grok-mcp.py"
     local grok_cfg="$HOME/.grok/config.toml"
+    local enabled_mcp_servers=("context7" "firecrawl")
+    local claude_mcp_ok=1
 
     if [[ ! -f "$mcp_src" ]]; then
         warn "Shared MCP config not found: $mcp_src"
@@ -219,15 +401,36 @@ generate_mcp_configs() {
 
     local cache_dir="$HOME/.cache/dotfiles"
     local hash_file="$cache_dir/mcp-servers.hash"
+    local claude_written="$cache_dir/claude-mcp-servers"
     local current_hash
     current_hash="$(sha256sum "$mcp_src" | awk '{print $1}')"
+
+    # Skip the 1Password round-trip only when Claude, once installed, still
+    # has every server the last regen gave it. A server dropped for a missing
+    # secret was never written, so it must not force a rerun.
+    if claude_installed; then
+        claude_mcp_ok=0
+        if [[ -f "$claude_written" && -f "$HOME/.claude.json" ]]; then
+            claude_mcp_ok=1
+            local mcp_name
+            while IFS= read -r mcp_name; do
+                [[ -n "$mcp_name" ]] || continue
+                if ! jq -e --arg n "$mcp_name" '.mcpServers[$n] != null' \
+                    "$HOME/.claude.json" >/dev/null 2>&1; then
+                    claude_mcp_ok=0
+                    break
+                fi
+            done < "$claude_written"
+        fi
+    fi
 
     if [[ "$force" != true && -f "$hash_file" ]]; then
         local cached_hash
         cached_hash="$(cat "$hash_file")"
         if [[ "$current_hash" == "$cached_hash" ]] \
             && [[ -f "$grok_cfg" ]] \
-            && grep -q '^\[mcp_servers\.' "$grok_cfg" 2>/dev/null; then
+            && grep -q '^\[mcp_servers\.' "$grok_cfg" 2>/dev/null \
+            && [[ "$claude_mcp_ok" -eq 1 ]]; then
             info "MCP config unchanged — skipping 1Password injection"
             return 0
         fi
@@ -267,7 +470,6 @@ generate_mcp_configs() {
         rm -f "$resolved.exp"
     fi
 
-    local enabled_mcp_servers=("context7" "firecrawl")
     local enabled_json
     enabled_json="$(printf '%s\n' "${enabled_mcp_servers[@]}" | jq -R . | jq -s .)"
 
@@ -323,5 +525,6 @@ generate_mcp_configs() {
     fi
 
     mkdir -p "$cache_dir"
+    write_claude_mcp "$resolved" "$enabled_json" "$claude_written"
     printf '%s' "$current_hash" > "$hash_file"
 }

@@ -55,7 +55,7 @@ Schema references: [manifest.md](manifest.md) for item entries, [profiles.md](pr
 
 **Failed installs don't abort the rest** — `install_tools` collects failures and warns at the end.
 
-**MCP / 1Password graceful degradation:** `generate_mcp_configs` (the post-install hook for `grok` and `opencode`) drops any MCP server whose JSON contains an unresolved `op://` reference when `op` is missing or fails to connect. The remaining keyless servers are still configured. If you don't want any MCP at all, skip `grok` / `opencode` in the profile.
+**MCP / 1Password graceful degradation:** `generate_mcp_configs` (the post-install hook for `grok`, `opencode`, and `claude`) drops any MCP server whose JSON contains an unresolved `op://` reference when `op` is missing or fails to connect. The remaining keyless servers are still configured. If you don't want any MCP at all, skip `grok` / `opencode` / `claude` in the profile. Claude is opt-in and is not on a profile by default.
 
 ## App config management (Stow + omadot)
 
@@ -68,6 +68,7 @@ App configs in `~/.config/` are managed via [GNU Stow](https://www.gnu.org/softw
 
 **Special configs** (manifest `config.type: handler`, dispatched to functions in `scripts/handlers/*.sh`):
 - `grok` — Grok Build TUI native config from `ai/` + `grok/.grok/` (`install_ai_grok`); MCP is merged into live `~/.grok/config.toml`
+- `claude` — Claude Code native installer plus adapter (`install_ai_claude`); skills/agents/rules symlink into `~/.claude/`; hooks merge into `settings.json`; MCP merges into `~/.claude.json`. Not on a profile. `[compat.claude]` in Grok stays off.
 - `cargo` — links `cargo/.cargo/config.toml` into `~/.cargo/config.toml` (`install_cargo_config`)
 - `lid-check` — Linux+fprintd PAM patch (`install_lid_check`)
 - `windows-terminal` — WSL-side script wrapper (`install_windows_terminal_config`)
@@ -151,7 +152,7 @@ Custom config handlers live in `scripts/handlers/*.sh` (`ai.sh`, `cargo.sh`, `li
 
 ## AI config (`ai/`)
 
-Shared AI agent configuration owned by this dotfiles repo at `~/.dotfiles/ai/`. Grok is first-class; OpenCode is an adapter. For directory layout and how to add skills/agents/rules, see [ai.md](ai.md).
+Shared AI agent configuration owned by this dotfiles repo at `~/.dotfiles/ai/`. Grok is first-class; OpenCode and Claude Code are adapters. For directory layout and how to add skills/agents/rules, see [ai.md](ai.md).
 
 **What `install_ai_grok()` does:**
 - Cleans stale symlinks via `clean_ai_symlinks()`
@@ -168,7 +169,12 @@ Shared AI agent configuration owned by this dotfiles repo at `~/.dotfiles/ai/`. 
 - Hops `AGENTS.md` at `~/.grok/AGENTS.md` when present
 - Runs `ai/scripts/generate-opencode-config.sh` for JSON agents + instructions and re-applies `.provider` from `opencode.json.tpl`
 
-**Shared MCP:** `generate_mcp_configs()` (post_install on `grok` and `opencode`, or `dot mcp-regen`) reads `~/.dotfiles/ai/mcp-servers.json.tpl`, resolves secrets via 1Password, and writes native `[mcp_servers.*]` into live `~/.grok/config.toml` plus OpenCode `mcp`.
+**What `install_ai_claude()` does** (no-op unless `claude` is installed):
+- Symlinks `ai/skills/<name>` and `ai/agents/*` into `~/.claude/`; flattens rules the same way Grok does
+- Hops `~/.claude/CLAUDE.md` at `~/.grok/AGENTS.md` unless the destination is a regular file (the hop may dangle until `dot agent env link`)
+- Merges Stop / Notification (permission and elicitation prompts only) / UserPromptSubmit command hooks into `~/.claude/settings.json`
+
+**Shared MCP:** `generate_mcp_configs()` (post_install on `grok`, `opencode`, and `claude`, or `dot mcp-regen`) reads `~/.dotfiles/ai/mcp-servers.json.tpl`, resolves secrets via 1Password, and writes native `[mcp_servers.*]` into live `~/.grok/config.toml`, OpenCode `mcp`, and (when Claude is installed) `~/.claude.json` `mcpServers` for the enabled set.
 
 **Idempotency:** `clean_ai_symlinks()` runs before every install, removing any symlinks in the target directory that point into `~/.dotfiles/ai/` (or legacy `ecc/`).
 
@@ -189,6 +195,7 @@ When two sources contribute to a single config file (e.g., generated AI agents +
 MCP servers are defined once in `~/.dotfiles/ai/mcp-servers.json.tpl` (`command`/`args`/`env`/`url` JSON with `op://` secret references) and generated into tool-specific formats at install time:
 - **Grok**: merged into live `~/.grok/config.toml` as `[mcp_servers.*]`
 - **OpenCode**: converted and merged into `~/.config/opencode/opencode.json` as `mcp`
+- **Claude Code**: enabled servers merged into `~/.claude.json` `mcpServers` when the CLI is installed
 
 Secrets are resolved via `op_inject_multi()` during generation. Add/remove servers by editing `ai/mcp-servers.json.tpl` and running `dot update` or `./install.sh`.
 
