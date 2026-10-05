@@ -9,4 +9,7 @@ if command -v grok &>/dev/null; then
 fi
 
 mkdir -p "$HOME/.local/bin"
-GROK_BIN_DIR="$HOME/.local/bin" bash <(curl -fsSL https://x.ai/cli/install.sh)
+installer="$(mktemp)"
+trap 'rm -f -- "$installer"' EXIT
+curl -fsSL -o "$installer" https://x.ai/cli/install.sh
+GROK_BIN_DIR="$HOME/.local/bin" bash "$installer"
