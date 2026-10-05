@@ -244,10 +244,12 @@ link_claude_user_memory() {
     ln -snf "$src" "$dest"
 }
 
-# Merge the notify hooks into Claude's live settings.json. Idempotent.
-# Does not replace the file — Claude stores permissions and model choice there.
-# Notification skips idle_prompt: it repeats the Stop toast ~60s after a turn.
-ensure_claude_hooks() {
+# Merge the notify hooks and blank attribution into Claude's live settings.json.
+# Idempotent. Does not replace the file — Claude stores permissions and model
+# choice there. Notification skips idle_prompt: it repeats the Stop toast ~60s
+# after a turn. Empty attribution strings keep Claude out of commit trailers and
+# PR bodies; sessionUrl drops the Claude-Session trailer from cloud sessions.
+ensure_claude_settings() {
     local dest="$HOME/.claude/settings.json"
     local hooks_dir="$DOTFILES_DIR/ai/hooks"
     local tmp
@@ -256,7 +258,7 @@ ensure_claude_hooks() {
     if [[ ! -f "$dest" ]]; then
         printf '{}\n' > "$dest"
     elif ! jq -e 'type == "object"' "$dest" >/dev/null 2>&1; then
-        warn "Could not parse ~/.claude/settings.json — leaving Claude hooks unchanged"
+        warn "Could not parse ~/.claude/settings.json — leaving Claude settings unchanged"
         return 0
     fi
 
@@ -278,8 +280,9 @@ ensure_claude_hooks() {
         ensure_hook("Stop"; ""; $stop)
         | ensure_hook("Notification"; "permission_prompt|elicitation_dialog"; $notification)
         | ensure_hook("UserPromptSubmit"; ""; $submit)
+        | .attribution = ((.attribution // {}) + {commit: "", pr: "", sessionUrl: false})
         ' "$dest" > "$tmp"; then
-        warn "Could not merge Claude hooks into settings.json"
+        warn "Could not merge Claude settings into settings.json"
         rm -f -- "$tmp"
         return 0
     fi
@@ -304,7 +307,7 @@ install_ai_claude() {
     link_claude_entries "$ai_dir/agents" "$HOME/.claude/agents"
     link_grok_rules "$ai_dir/rules" "$HOME/.claude/rules"
     link_claude_user_memory
-    ensure_claude_hooks
+    ensure_claude_settings
 
     success "Installed Claude Code adapter"
 }
