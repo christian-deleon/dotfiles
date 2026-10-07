@@ -96,20 +96,36 @@ hl.layout.register("scratchpad", {
 hl.workspace_rule({ workspace = SCRATCHPAD, layout = "lua:scratchpad" })
 
 local routing = false
+-- slot -> address of the window routed into it. Only one window per app is
+-- routed; a second copy (e.g. two launchers racing) would push the layout
+-- into its grid fallback.
+local routed = {}
 
--- Spotify (XWayland) can map before its class is set, so also route on class change.
+-- Spotify (XWayland) can map before its class is set, so also route on class
+-- change. window.class also fires before a window maps; skip that one and let
+-- window.open route it.
 local function route(window)
-  if not routing or not window or not slot_of[window.class] then
+  local slot = routing and window and window.mapped and slot_of[window.class]
+  if not slot or routed[slot] then
     return
   end
-  if window.workspace and window.workspace.name == SCRATCHPAD then
-    return
+  routed[slot] = window.address
+  if not (window.workspace and window.workspace.name == SCRATCHPAD) then
+    hl.dispatch(hl.dsp.window.move({ workspace = SCRATCHPAD, follow = false, window = window }))
   end
-  hl.dispatch(hl.dsp.window.move({ workspace = SCRATCHPAD, follow = false, window = window }))
+end
+
+-- Free the slot if its window closes during login, so a replacement still routes.
+local function release(window)
+  local slot = window and slot_of[window.class]
+  if slot and routed[slot] == window.address then
+    routed[slot] = nil
+  end
 end
 
 hl.on("window.open", route)
 hl.on("window.class", route)
+hl.on("window.close", release)
 
 hl.on("hyprland.start", function()
   routing = true
