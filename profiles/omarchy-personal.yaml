@@ -41,7 +41,6 @@ items:
   - k9s
   - kubectl
   - lazygit
-  - lid-check
   - makima
   - mise
   - mold
