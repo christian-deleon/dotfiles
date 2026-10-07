@@ -198,13 +198,6 @@ lazygit:
   config:
     type: stow
 
-lid-check:
-  description: Skip fingerprint auth when lid is closed
-  config:
-    type: handler
-    handler: install_lid_check
-  requires: [linux, fprintd]
-
 makima:
   description: Key remapping daemon config
   config:

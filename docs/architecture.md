@@ -70,7 +70,6 @@ App configs in `~/.config/` are managed via [GNU Stow](https://www.gnu.org/softw
 - `grok` — Grok Build TUI native config from `ai/` + `grok/.grok/` (`install_ai_grok`); MCP is merged into live `~/.grok/config.toml`
 - `claude` — Claude Code native installer plus adapter (`install_ai_claude`); skills/agents/rules symlink into `~/.claude/`; hooks merge into `settings.json`; MCP merges into `~/.claude.json`. Not on a profile. `[compat.claude]` in Grok stays off.
 - `cargo` — links `cargo/.cargo/config.toml` into `~/.cargo/config.toml` (`install_cargo_config`)
-- `lid-check` — Linux+fprintd PAM patch (`install_lid_check`)
 - `windows-terminal` — WSL-side script wrapper (`install_windows_terminal_config`)
 - `hypr` / `omarchy` — copy personal overlays into Omarchy-owned real directories (`install_hypr_config`, `install_omarchy_config` in `scripts/handlers/desktop.sh`)
 
