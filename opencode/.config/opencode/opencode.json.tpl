@@ -210,6 +210,31 @@
           }
         }
       }
+    },
+    "genai-mil": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "GenAI.mil",
+      "env": ["GENAI_MIL_API_KEY"],
+      "options": {
+        "baseURL": "https://api.genai.mil/v1"
+      },
+      "models": {
+        "gemini-2.5-pro": {
+          "name": "Gemini 2.5 Pro"
+        },
+        "gemini-3.1-pro-preview": {
+          "name": "Gemini 3.1 Pro Preview"
+        },
+        "gemini-3.5-flash": {
+          "name": "Gemini 3.5 Flash"
+        },
+        "gemini-3.7-flash": {
+          "name": "Gemini 3.7 Flash"
+        },
+        "gemini-3.8-flash": {
+          "name": "Gemini 3.8 Flash"
+        }
+      }
     }
   },
   "instructions": []
