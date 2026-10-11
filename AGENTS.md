@@ -113,7 +113,7 @@ Before committing:
 | Yours (tracked) | Lands on disk |
 |-----------------|---------------|
 | `hypr/overlays/*.lua` | `~/.config/hypr/` |
-| `hypr/scripts/{monitor-setup,monitor-listener,screen-rescue,square-tile-toggle}.sh` | `~/.config/hypr/` |
+| `hypr/scripts/{monitor-setup,monitor-listener,screen-rescue,square-tile-toggle,airpods-autoconnect}.sh` | `~/.config/hypr/` |
 | `omarchy/.config/omarchy/themes/<name>` | `~/.config/omarchy/themes/<name>` (symlink) |
 | `omarchy/.config/omarchy/branding/` | `~/.config/omarchy/branding/` |
 | `omarchy/.config/omarchy/extensions/` | `~/.config/omarchy/extensions/` |

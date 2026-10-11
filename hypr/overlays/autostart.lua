@@ -4,4 +4,5 @@ local home = os.getenv("HOME") or ""
 
 o.exec_on_start(home .. "/.config/hypr/monitor-listener.sh")
 o.exec_on_start(home .. "/.config/hypr/monitor-setup.sh --startup")
+o.exec_on_start(home .. "/.config/hypr/airpods-autoconnect.sh")
 require("hypr.scratchpad")
