@@ -4,7 +4,7 @@
 #
 # Scans ai/agents/*.md for YAML frontmatter (name, description, model, tools)
 # and converts each to OpenCode JSON agent format. Collects ai/rules/**/*.md
-# as instruction paths. Re-applies opencode.json.tpl (providers, theme) each
+# as instruction paths. Re-applies opencode.json.tpl (providers, plugins) each
 # run; personal keys (mcp, etc.) win. Commercial Bedrock is omitted when
 # BEDROCK_AWS_ACCOUNT_ID is unset so empty {env:} ARNs never land in the live file.
 #
@@ -125,7 +125,7 @@ overlay="$(jq -n \
     '{agent: $agents, instructions: $instructions}')"
 
 # --- Merge into opencode.json ---
-# tpl (providers/theme) * overlay (agents/instructions) * personal (mcp, …).
+# tpl (providers/plugins) * overlay (agents/instructions) * personal (mcp, …).
 # Strip managed keys from personal so stale agents/providers don't persist.
 
 if [[ -f "$OC_TPL" ]]; then
@@ -137,7 +137,7 @@ else
     tpl_json='{}'
 fi
 
-personal_clean="$(jq 'del(.agent, .command, .instructions, .plugin, .provider)' "$OC_CFG")"
+personal_clean="$(jq 'del(.agent, .command, .instructions, .plugins, .provider)' "$OC_CFG")"
 jq -s '.[0] * .[1] * .[2]' \
     <(printf '%s\n' "$tpl_json") \
     <(printf '%s\n' "$overlay") \
