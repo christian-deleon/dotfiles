@@ -14,3 +14,6 @@ skills/
 
 # Per-env global agent file (managed by `dot agent env`, not tracked)
 AGENTS.md
+
+# Background service password (written by OpenCode 2)
+service.json
