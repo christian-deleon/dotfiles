@@ -1,6 +1,18 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "autoupdate": false,
+  "plugins": [
+    {
+      "package": "./plugins/model-allowlist",
+      "options": {
+        "amazon-bedrock": [
+          "deleon-grok-4.7",
+          "deleon-claude-sonnet-5.5",
+          "deleon-claude-opus-5.5"
+        ]
+      }
+    }
+  ],
   "provider": {
     "ollama": {
       "npm": "@ai-sdk/openai-compatible",
@@ -18,11 +30,6 @@
       "options": {
         "region": "us-east-1"
       },
-      "whitelist": [
-        "deleon-grok-4.7",
-        "deleon-claude-sonnet-5.5",
-        "deleon-claude-opus-5.5"
-      ],
       "models": {
         "deleon-grok-4.7": {
           "id": "arn:aws:bedrock:us-east-1:{env:BEDROCK_AWS_ACCOUNT_ID}:inference-profile/us.xai.grok-4.7",
