@@ -27,7 +27,6 @@
         "deleon-grok-4.7": {
           "id": "arn:aws:bedrock:us-east-1:{env:BEDROCK_AWS_ACCOUNT_ID}:inference-profile/us.xai.grok-4.7",
           "name": "deleon-grok-4.7",
-          "reasoning": true,
           "variants": {
             "low": {
               "reasoningConfig": {
@@ -58,7 +57,6 @@
         "deleon-claude-sonnet-5.5": {
           "id": "arn:aws:bedrock:us-east-1:{env:BEDROCK_AWS_ACCOUNT_ID}:inference-profile/global.anthropic.claude-sonnet-5-5",
           "name": "deleon-claude-sonnet-5.5",
-          "reasoning": false,
           "variants": {
             "low": {
               "additionalModelRequestFields": {
@@ -120,7 +118,6 @@
         "deleon-claude-opus-5.5": {
           "id": "arn:aws:bedrock:us-east-1:{env:BEDROCK_AWS_ACCOUNT_ID}:inference-profile/us.anthropic.claude-opus-5-5",
           "name": "deleon-claude-opus-5.5",
-          "reasoning": false,
           "variants": {
             "low": {
               "additionalModelRequestFields": {
@@ -192,7 +189,6 @@
         "work-grok-4.6": {
           "id": "us-gov.xai.grok-4.6",
           "name": "work-grok-4.6",
-          "reasoning": true,
           "variants": {
             "low": {
               "reasoningEffort": "low"
