@@ -50,9 +50,19 @@ Picking `opencode` stows the OpenCode package, then `install_ai_opencode()`:
 
 1. `~/.config/opencode/skills` → `~/.grok/skills` (one dir symlink)
 2. `~/.config/opencode/AGENTS.md` → `~/.grok/AGENTS.md` when that file exists
-3. `generate-opencode-config.sh` writes JSON `agent` + `instructions` (formats OpenCode cannot read from Grok) and re-applies `.provider` from `opencode.json.tpl`
+3. `generate-opencode-config.sh` writes JSON `agent` + `instructions` (formats OpenCode cannot read from Grok) and re-applies `.provider` and `.plugins` from `opencode.json.tpl`
 
-Tracked template is `opencode/.config/opencode/opencode.json.tpl`. Live `opencode.json` is gitignored (MCP secrets).
+Tracked template is `opencode/.config/opencode/opencode.json.tpl`. Live `opencode.json` is gitignored (MCP secrets). It uses the 1.x key names, which OpenCode 2 reads without warnings; 1.x-only fields such as `whitelist` and model `reasoning` are ignored by 2.0, so don't add them.
+
+Other tracked OpenCode 2 files:
+
+| File | Role |
+|---|---|
+| `cli.json` | TUI settings (theme, diff view, sidebar). Replaced `tui.json` in 2.0; the TUI writes to it from Ctrl+P → Open settings. |
+| `plugins/model-allowlist/index.js` | 2.0 config has no per-provider model allow-list. The template's `plugins` entry passes provider ID → model IDs to keep (the three `deleon-*` Bedrock profiles); this server plugin hides the rest of that provider's catalog. |
+| `plugins/notify-sound/tui.js` | Runs `ai/hooks/stop_notify.sh` when a root session this TUI shows goes idle. A TUI plugin because the 2.0 server is one shared background process with the wrong `TMUX_PANE`. |
+
+On Omarchy the binary comes from its `~/.local/bin/opencode` mise wrapper. 2.0 is not on the aqua/GitHub-releases backend Omarchy uses, so switch the wrapper with `omarchy-mise-install npm:@opencode/cli opencode`, then set `"npm:@opencode/cli" = { version = "latest", allow_builds = ["@opencode/cli"] }` in `~/.config/mise/config.toml` (its postinstall fetches the native binary) and `mise unuse --no-prune -g opencode`.
 
 | Provider | Models | Auth | Notes |
 |---|---|---|---|
@@ -60,9 +70,9 @@ Tracked template is `opencode/.config/opencode/opencode.json.tpl`. Live `opencod
 | `amazon-bedrock-gov` | `work-*` | `WORK_BEDROCK_API_KEY` or `GROK_BEDROCK_API_KEY`, or `/connect` → Other → `amazon-bedrock-gov` | GovCloud OpenAI-compat endpoint. **Not** the native Bedrock SDK — a single `AWS_BEARER_TOKEN_BEDROCK` would send the personal key to GovCloud. |
 | `genai-mil` | `gemini-*` (copied from the GenAI.mil model catalog) | `GENAI_MIL_API_KEY` in `~/.localrc` on the work machine, or `/connect` → Other → `genai-mil` | OpenAI-compat endpoint `https://api.genai.mil/v1`. |
 
-Claude models on `amazon-bedrock` declare explicit `low`…`max` variants that send `thinking: {type: adaptive}` plus `output_config.effort` through `additionalModelRequestFields`, with `reasoning: false` so OpenCode's own (ARN-blind) variant logic stays off. Grok variants use `reasoningConfig` instead; Claude rejects that shape.
+Claude models on `amazon-bedrock` declare explicit `low`…`max` variants that send `thinking: {type: adaptive}` plus `output_config.effort` through `additionalModelRequestFields`. The ARN models are not in OpenCode's catalog, so only the declared variants exist. Grok variants use `reasoningConfig` instead; Claude rejects that shape.
 
-`dot update` / `dot install opencode` regenerates the live file.
+`dot update` / `dot install opencode` regenerates the live file. The 2.0 background service cannot watch `~/.config/opencode` because it is a stow symlink, so run `opencode reload` after regenerating.
 
 ### Claude Code (adapter, opt-in)
 
