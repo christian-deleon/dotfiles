@@ -48,7 +48,7 @@ Format: a JSON object, one key per server. Author `command` / `args` / `env` / `
 
 ## Generated targets
 
-`dot mcp-regen` (or post_install on `grok` / `opencode` / `claude`). Hash cache at `~/.cache/dotfiles/mcp-servers.hash` skips regeneration when the template is unchanged, live Grok `config.toml` already has `[mcp_servers.` tables, and (when `claude` is installed) `~/.claude.json` still has every server listed in `~/.cache/dotfiles/claude-mcp-servers` (what the last regen wrote; servers dropped for a missing secret don't count). Set `FORCE_MCP_REGEN=true` to bypass.
+`dot mcp-regen` (or post_install on `grok` / `opencode` / `claude`). Hash cache at `~/.cache/dotfiles/mcp-servers.hash` skips regeneration when the template *and* the active profile overlay are unchanged, live Grok `config.toml` already has `[mcp_servers.` tables, and (when `claude` is installed) `~/.claude.json` still has every server listed in `~/.cache/dotfiles/claude-mcp-servers` (what the last regen wrote; servers dropped for a missing secret don't count). Set `FORCE_MCP_REGEN=true` to bypass.
 
 ## Docs / web split (current roster)
 
@@ -61,7 +61,7 @@ Do **not** stack multiple general-purpose search servers. The intentional pair:
 
 Domain servers own their own docs when relevant (`terraform` registry, `aws` docs tools, `flux` docs search). Routing for agents lives in `ai/rules/common/prefer-mcp.md` — keep that rule and this table aligned when you add or remove a docs/web server.
 
-**Default-enabled** (see `enabled_mcp_servers` in `scripts/handlers/ai.sh`): only `context7` and `firecrawl`. Everything else is installed with `enabled = false`. When adding a server you expect always-on, update that list too.
+**Default-enabled** (see `enabled_mcp_servers` in `scripts/handlers/ai.sh`): only `context7` and `firecrawl`. Everything else is installed with `enabled = false`. When adding a server you expect always-on on every machine, update that list. For one machine class only, set `enabled = true` on `[mcp_servers.<name>]` in `grok/.grok/overlays/<profile>.toml` — `generate_mcp_configs` applies that to Grok and OpenCode (and Claude, when installed). `wsl-work` does this for `kubernetes`.
 
 ## Server schema (roster JSON)
 
@@ -126,11 +126,13 @@ To find a vault/item ID: `op item list --format=json | jq '.[] | {title, id}'`.
 
 | Roster field | OpenCode field |
 |---|---|
+| server key | `mcp.servers.<name>` (OpenCode 2; not a top-level `mcp.<name>`) |
 | `type: "stdio"` (or omitted) | `type: "local"` |
 | `type: "http"` / `"sse"` | `type: "remote"` |
 | `command: "npx"` + `args: [...]` | `command: ["npx", ...]` (single array) |
 | `env: {...}` | `environment: {...}` |
 | `headers` / `url` | same |
+| not in `enabled_mcp_servers` / overlay | `disabled: true` (do not emit `enabled`) |
 
 Author the template in the roster shape — don't mix in OpenCode keys.
 
@@ -148,7 +150,7 @@ Author the template in the roster shape — don't mix in OpenCode keys.
 1. **Delete the entry** from the template. Next generate drops it.
 2. **Rename the key** e.g. `"github"` → `"_disabled_github"` (JSON has no comments). The installer still writes it; it won't be picked up by the old name.
 
-Don't edit live `config.toml` MCP tables as the long-term fix — `merge-grok-mcp.py` replaces `[mcp_servers.*]` on the next regen. Servers already `enabled = true` in the live file stay enabled (unioned with `enabled_mcp_servers`). A profile overlay (`grok/.grok/overlays/<profile>.toml`) can replace a whole `[mcp_servers.<name>]` table after that write — use it for machine-class launch differences (work WSL vs personal), not instead of the roster.
+Don't edit live `config.toml` MCP tables as the long-term fix — `merge-grok-mcp.py` replaces `[mcp_servers.*]` on the next regen. Servers already `enabled = true` in the live file stay enabled (unioned with `enabled_mcp_servers`). A profile overlay (`grok/.grok/overlays/<profile>.toml`) can replace a whole `[mcp_servers.<name>]` table after that write — use it for machine-class launch differences (work WSL vs personal), not instead of the roster. Overlay `enabled = true` and command/args/env also flow into OpenCode's `mcp` block so a new session or worktree does not start with that server off.
 
 ## Common patterns
 
@@ -225,8 +227,8 @@ Use absolute mise shims when the server needs a specific Python/uv. Bare `uvx` w
 - Claude compat MCP scan is **off** (`[compat.claude] mcps = false`).
 
 ### OpenCode
-- `enabled: false` on a server entry disables it without removing config.
-- `timeout: 5000` (milliseconds) per server is supported but not emitted by our generator.
+- Servers live under `mcp.servers`. `disabled: true` keeps one configured without connecting it. Do not write `enabled`.
+- `timeout` objects (startup/catalog/execution) are supported but not emitted by our generator.
 - `oauth` on remote servers exists; rarely needed.
 
 ## After authoring

@@ -39,7 +39,7 @@ Picking `grok` runs `install_ai_grok()` + `generate_mcp_configs`:
 | `grok/.grok/pager.toml` | `~/.grok/pager.toml` (symlink) |
 | `grok/.grok/config.toml` | seed `~/.grok/config.toml` **only if missing** (live file is Grok-owned) |
 | `grok/.grok/base.toml` | merged into live config on every grok install (all machines) |
-| `grok/.grok/overlays/<profile>.toml` | merged after the base when `DOTFILES_PROFILE` matches (e.g. `wsl-work` Bedrock + kubernetes MCP binary); profile wins on conflict |
+| `grok/.grok/overlays/<profile>.toml` | merged after the base when `DOTFILES_PROFILE` matches (e.g. `wsl-work` Bedrock + kubernetes MCP on for Grok and OpenCode); profile wins on conflict |
 | `grok/.grok/trusted_folders.toml` | merged into live `~/.grok/trusted_folders.toml` |
 
 `[compat.claude]` is forced off in the live config so leftover `~/.claude` paths are ignored. `[folder_trust] enabled = false` is forced the same way (and `GROK_FOLDER_TRUST=0` in `.commonrc`) so Grok does not block on the per-directory trust modal. Each git worktree is a separate workspace; parent grants do not cover `wtc` windows. `gra` / `tav` also pass `--trust`.
@@ -52,7 +52,7 @@ Picking `opencode` stows the OpenCode package, then `install_ai_opencode()`:
 2. `~/.config/opencode/AGENTS.md` → `~/.grok/AGENTS.md` when that file exists
 3. `generate-opencode-config.sh` writes JSON `agent` + `instructions` (formats OpenCode cannot read from Grok) and re-applies `.provider` and `.plugins` from `opencode.json.tpl`
 
-Tracked template is `opencode/.config/opencode/opencode.json.tpl`. Live `opencode.json` is gitignored (MCP secrets). It uses the 1.x key names, which OpenCode 2 reads without warnings; 1.x-only fields such as `whitelist` and model `reasoning` are ignored by 2.0, so don't add them.
+Tracked template is `opencode/.config/opencode/opencode.json.tpl`. Live `opencode.json` is gitignored (MCP secrets). Agent/provider keys still use the 1.x names OpenCode 2 accepts; MCP is written in the 2.0 shape (`mcp.servers`, `disabled` not `enabled`). 1.x-only fields such as `whitelist` and model `reasoning` are ignored by 2.0, so don't add them.
 
 Other tracked OpenCode 2 files:
 
@@ -102,7 +102,7 @@ Roster is `ai/mcp-servers.json.tpl`. `generate_mcp_configs()` (post_install on *
 - `~/.config/opencode/opencode.json` `mcp` — adapter
 - `~/.claude.json` `mcpServers` — adapter, only when Claude Code is installed
 
-Unresolved `op://` refs are dropped when `op` is missing. Default-enabled: `context7`, `firecrawl`.
+Unresolved `op://` refs are dropped when `op` is missing. Default-enabled: `context7`, `firecrawl`. A profile overlay (`grok/.grok/overlays/<profile>.toml`) can also enable a server and replace its launch command — `wsl-work` turns `kubernetes` on and runs the local `kubernetes-mcp-server` binary (npm/`npx` is blocked here). That overlay is applied to both Grok and the OpenCode adapter.
 
 ## Adding Content
 
