@@ -26,10 +26,14 @@ function _tav_expand_launch() {
         expanded+=' --trust'
     fi
 
-    if [[ -n $prompt ]]; then
-        printf '%s %q' "$expanded" "$prompt"
-    else
+    if [[ -z $prompt ]]; then
         printf '%s' "$expanded"
+    elif [[ $bin == opencode ]]; then
+        # OpenCode's positional arg is the directory to open, not a prompt.
+        # `=` form: `--prompt -x` is rejected as a missing value.
+        printf '%s --prompt=%q' "$expanded" "$prompt"
+    else
+        printf '%s %q' "$expanded" "$prompt"
     fi
 }
 
