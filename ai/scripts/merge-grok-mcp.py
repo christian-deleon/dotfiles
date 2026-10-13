@@ -7,6 +7,7 @@
 #   merge-grok-mcp.py <config.toml>
 #   merge-grok-mcp.py <config.toml> --mcp <resolved.json> --enabled <enabled.json>
 #   merge-grok-mcp.py <config.toml> --overlay <profile.toml>
+#   merge-grok-mcp.py /dev/null --overlay <profile.toml> --print-overlay-mcp
 #
 # Stdlib only. Splices [mcp_servers.*], [compat.claude], and [folder_trust]
 # so the rest of the live file (which Grok mutates) is left byte-for-byte intact.
@@ -112,84 +113,19 @@ def emit_inline_table(mapping: dict) -> str:
     return "{ " + ", ".join(parts) + " }"
 
 
+MCP_OVERLAY_KEYS = ("command", "args", "env", "url", "headers", "enabled")
+
+
 def overlay_mcp_specs(overlay_text: str) -> dict[str, dict]:
-    """Parse [mcp_servers.<name>] tables from a profile overlay.
+    """Launch/enable fields of each [mcp_servers.<name>] table in a profile overlay."""
+    import tomllib  # 3.11+; deferred so overlay-less callers keep older Pythons
 
-    Only top-level server tables are returned (not .env subtables). Values are
-    the subset OpenCode/Grok adapters need: command, args, env, url, headers,
-    enabled. Missing keys stay absent so the roster can fill them in.
-    """
-    _, tables = parse_tables(overlay_text)
-    specs: dict[str, dict] = {}
-    for header, _aot, lines in tables:
-        if header is None or not header.startswith("mcp_servers."):
-            continue
-        name = header.removeprefix("mcp_servers.")
-        if not name or "." in name:
-            continue
-        spec: dict = {}
-        for line in lines[1:]:
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-            m = KV_RE.match(stripped)
-            if not m:
-                continue
-            key = m.group(1)
-            rhs = stripped.split("=", 1)[1].strip()
-            if key == "enabled":
-                spec[key] = rhs == "true"
-            elif key in {"command", "url"}:
-                spec[key] = _unquote_toml_str(rhs)
-            elif key == "args" and rhs.startswith("[") and rhs.endswith("]"):
-                inner = rhs[1:-1].strip()
-                spec[key] = (
-                    [_unquote_toml_str(part.strip()) for part in inner.split(",")]
-                    if inner
-                    else []
-                )
-            elif key in {"env", "headers"} and rhs.startswith("{") and rhs.endswith("}"):
-                inner = rhs[1:-1].strip()
-                mapping: dict[str, str] = {}
-                if inner:
-                    for part in inner.split(","):
-                        if "=" not in part:
-                            continue
-                        mk, mv = part.split("=", 1)
-                        mapping[mk.strip()] = _unquote_toml_str(mv.strip())
-                spec[key] = mapping
-        specs[name] = spec
-    return specs
-
-
-def apply_overlay_mcp(servers: dict, overlay_specs: dict[str, dict]) -> dict:
-    """Overlay command/args/env/url/headers onto roster servers; skip unknowns."""
-    out = dict(servers)
-    for name, spec in overlay_specs.items():
-        if name not in out or not isinstance(out[name], dict):
-            continue
-        merged = dict(out[name])
-        if "command" in spec and "args" not in spec:
-            merged.pop("args", None)
-        for key in ("command", "args", "env", "url", "headers"):
-            if key in spec:
-                merged[key] = spec[key]
-        out[name] = merged
-    return out
-
-
-def overlay_enabled_servers(overlay_specs: dict[str, dict]) -> set[str]:
-    return {name for name, spec in overlay_specs.items() if spec.get("enabled") is True}
-
-
-def _unquote_toml_str(value: str) -> str:
-    if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
-        return (
-            value[1:-1]
-            .replace('\\"', '"')
-            .replace("\\\\", "\\")
-        )
-    return value
+    servers = tomllib.loads(overlay_text).get("mcp_servers", {})
+    return {
+        name: {k: spec[k] for k in MCP_OVERLAY_KEYS if k in spec}
+        for name, spec in servers.items()
+        if isinstance(spec, dict)
+    }
 
 
 def emit_mcp_tables(servers: dict, enabled: set[str]) -> str:
@@ -367,18 +303,10 @@ def apply_overlay(config_path: Path, overlay_path: Path) -> None:
     config_path.chmod(0o600)
 
 
-def merge(
-    config_path: Path,
-    mcp_path: Path | None,
-    enabled_path: Path | None,
-    overlay_path: Path | None = None,
-) -> None:
+def merge(config_path: Path, mcp_path: Path | None, enabled_path: Path | None) -> None:
     original = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
     preamble, tables = parse_tables(original)
     preserved_enabled = live_enabled_servers(tables)
-    overlay_specs: dict[str, dict] = {}
-    if overlay_path is not None:
-        overlay_specs = overlay_mcp_specs(overlay_path.read_text(encoding="utf-8"))
 
     kept = [
         (h, aot, lines)
@@ -397,13 +325,11 @@ def merge(
     extras: list[str] = [COMPAT_CLAUDE, FOLDER_TRUST_OFF]
     if mcp_path is not None:
         servers = json.loads(mcp_path.read_text(encoding="utf-8"))
-        servers = apply_overlay_mcp(servers, overlay_specs)
         enabled: set[str] = set()
         if enabled_path is not None:
             raw = json.loads(enabled_path.read_text(encoding="utf-8"))
             enabled = set(raw)
         enabled |= preserved_enabled
-        enabled |= overlay_enabled_servers(overlay_specs)
         mcp_block = emit_mcp_tables(servers, enabled)
         if mcp_block:
             extras.append(mcp_block)
@@ -447,10 +373,9 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
-    overlay = Path(args.overlay) if args.overlay else None
-    merge(Path(args.config), mcp, enabled, overlay)
-    if overlay is not None:
-        apply_overlay(Path(args.config), overlay)
+    merge(Path(args.config), mcp, enabled)
+    if args.overlay:
+        apply_overlay(Path(args.config), Path(args.overlay))
     return 0
 
 
