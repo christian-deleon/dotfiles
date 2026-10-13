@@ -47,10 +47,17 @@ export XDG_STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
 
 # WSL2: PAM sets XDG_RUNTIME_DIR=/run/user/<uid> but systemd never creates it
-# and /run/user/ is root-owned, so mkdir fails. Unset it so tools fall back to
-# their defaults rather than warning about a missing directory.
-if [[ -n "$XDG_RUNTIME_DIR" && ! -d "$XDG_RUNTIME_DIR" ]]; then
-    unset XDG_RUNTIME_DIR
+# and /run/user/ is root-owned, so mkdir fails. WSLg still sets WAYLAND_DISPLAY
+# and keeps the compositor socket under /mnt/wslg/runtime-dir. Point at that
+# when the PAM path is missing (or already unset, as in inherited tmux panes)
+# so Wayland clients can connect; otherwise drop WAYLAND_DISPLAY too so they
+# do not print "XDG_RUNTIME_DIR is invalid or not set".
+if [[ -z "${XDG_RUNTIME_DIR-}" || ! -d "$XDG_RUNTIME_DIR" ]]; then
+    if [[ -d /mnt/wslg/runtime-dir ]]; then
+        export XDG_RUNTIME_DIR=/mnt/wslg/runtime-dir
+    else
+        unset XDG_RUNTIME_DIR WAYLAND_DISPLAY
+    fi
 fi
 
 # ─── ble.sh (Bash Line Editor) ──────────────────────────────────────────────
