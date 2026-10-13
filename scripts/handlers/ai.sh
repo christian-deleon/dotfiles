@@ -484,27 +484,26 @@ generate_mcp_configs() {
     local enabled_json overlay_mcp="{}"
     enabled_json="$(printf '%s\n' "${enabled_mcp_servers[@]}" | jq -R . | jq -s .)"
     if [[ -n "$overlay" ]]; then
-        overlay_mcp="$(python3 "$merger" /dev/null --print-overlay-mcp --overlay "$overlay")" \
-            || overlay_mcp="{}"
+        if ! overlay_mcp="$(python3 "$merger" /dev/null --print-overlay-mcp --overlay "$overlay")"; then
+            warn "Could not read MCP overrides from $overlay — using the shared roster"
+            overlay_mcp="{}"
+        fi
         enabled_json="$(jq -n --argjson enabled "$enabled_json" --argjson overlay "$overlay_mcp" '
             ($enabled + [($overlay | to_entries[] | select(.value.enabled == true) | .key)])
             | unique
         ')"
-        if jq -e 'type == "object"' <<<"$overlay_mcp" >/dev/null 2>&1; then
-            jq --argjson overlay "$overlay_mcp" '
-                . as $roster
-                | reduce ($overlay | to_entries[]) as $e ($roster;
-                    if has($e.key) then
-                        .[$e.key] = (
-                            .[$e.key]
-                            | (if ($e.value | has("command")) and ($e.value | has("args") | not)
-                               then del(.args) else . end)
-                            + ($e.value | del(.enabled))
-                        )
-                    else . end)
-            ' "$resolved" > "$resolved.ovl"
-            mv "$resolved.ovl" "$resolved"
-        fi
+        jq --argjson overlay "$overlay_mcp" '
+            reduce ($overlay | to_entries[]) as $e (.;
+                if has($e.key) then
+                    .[$e.key] = (
+                        .[$e.key]
+                        | (if ($e.value | has("command")) and ($e.value | has("args") | not)
+                           then del(.args) else . end)
+                        + ($e.value | del(.enabled))
+                    )
+                else . end)
+        ' "$resolved" > "$resolved.ovl"
+        mv "$resolved.ovl" "$resolved"
     fi
 
     mkdir -p "$HOME/.grok"

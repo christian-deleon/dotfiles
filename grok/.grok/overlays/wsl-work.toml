@@ -28,7 +28,7 @@ max_retries = 2
 stream_tool_calls = false
 
 # Ubuntu npm 9.2.0 wedges `npx @latest` (ENOTEMPTY leftover rename).
-# generate_mcp_configs also applies this to OpenCode (local binary, enabled).
+# generate_mcp_configs also applies this to OpenCode and Claude.
 [mcp_servers.kubernetes]
 command = "kubernetes-mcp-server"
 enabled = true
