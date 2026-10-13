@@ -405,8 +405,16 @@ generate_mcp_configs() {
     local cache_dir="$HOME/.cache/dotfiles"
     local hash_file="$cache_dir/mcp-servers.hash"
     local claude_written="$cache_dir/claude-mcp-servers"
+    local overlay=""
+    overlay=$(grok_profile_overlay) || overlay=""
+
     local current_hash
-    current_hash="$(sha256sum "$mcp_src" | awk '{print $1}')"
+    current_hash="$(
+        {
+            sha256sum "$mcp_src"
+            [[ -n "$overlay" ]] && sha256sum "$overlay"
+        } | sha256sum | awk '{print $1}'
+    )"
 
     # Skip the 1Password round-trip only when Claude, once installed, still
     # has every server the last regen gave it. A server dropped for a missing
@@ -473,14 +481,36 @@ generate_mcp_configs() {
         rm -f "$resolved.exp"
     fi
 
-    local enabled_json
+    local enabled_json overlay_mcp="{}"
     enabled_json="$(printf '%s\n' "${enabled_mcp_servers[@]}" | jq -R . | jq -s .)"
+    if [[ -n "$overlay" ]]; then
+        overlay_mcp="$(python3 "$merger" /dev/null --print-overlay-mcp --overlay "$overlay")" \
+            || overlay_mcp="{}"
+        enabled_json="$(jq -n --argjson enabled "$enabled_json" --argjson overlay "$overlay_mcp" '
+            ($enabled + [($overlay | to_entries[] | select(.value.enabled == true) | .key)])
+            | unique
+        ')"
+        if jq -e 'type == "object"' <<<"$overlay_mcp" >/dev/null 2>&1; then
+            jq --argjson overlay "$overlay_mcp" '
+                . as $roster
+                | reduce ($overlay | to_entries[]) as $e ($roster;
+                    if has($e.key) then
+                        .[$e.key] = (
+                            .[$e.key]
+                            | (if ($e.value | has("command")) and ($e.value | has("args") | not)
+                               then del(.args) else . end)
+                            + ($e.value | del(.enabled))
+                        )
+                    else . end)
+            ' "$resolved" > "$resolved.ovl"
+            mv "$resolved.ovl" "$resolved"
+        fi
+    fi
 
     mkdir -p "$HOME/.grok"
-    local enabled_file overlay=""
+    local enabled_file
     enabled_file="$(mktemp)"
     printf '%s' "$enabled_json" > "$enabled_file"
-    overlay=$(grok_profile_overlay) || overlay=""
     local -a merge_args=("$grok_cfg" --mcp "$resolved" --enabled "$enabled_file")
     [[ -n "$overlay" ]] && merge_args+=(--overlay "$overlay")
     if python3 "$merger" "${merge_args[@]}"; then
@@ -502,9 +532,11 @@ generate_mcp_configs() {
             to_entries
             | map(
                 (.key as $name | ($enabled | contains([$name]))) as $is_enabled
-                | if .value.type == "http" then
+                | if (.value.type == "http" or .value.type == "sse"
+                      or .value.type == "streamable-http" or .value.type == "remote") then
                     {key: .key, value: ({type: "remote", url: .value.url}
-                        + if $is_enabled then {} else {enabled: false} end)}
+                        + (if .value.headers then {headers: .value.headers} else {} end)
+                        + if $is_enabled then {} else {disabled: true} end)}
                 else
                     {key: .key, value: ({
                         type: "local",
@@ -516,10 +548,10 @@ generate_mcp_configs() {
                             end
                         )
                     } + (if .value.env then {environment: .value.env} else {} end)
-                      + (if $is_enabled then {} else {enabled: false} end))}
+                      + (if $is_enabled then {} else {disabled: true} end))}
                 end
             )
-            | from_entries | {mcp: .}
+            | from_entries | {mcp: {servers: .}}
         ' "$resolved")"
         jq -s '(.[0] | del(.mcp)) * .[1]' "$oc_cfg" <(echo "$oc_mcp") > "$oc_cfg.tmp"
         mv "$oc_cfg.tmp" "$oc_cfg"

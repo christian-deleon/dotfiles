@@ -41,4 +41,4 @@ in the current conversation. Availability is not permission.
 
 ## Disabled servers
 
-Only `context7` and `firecrawl` are enabled by default. Domain servers (`kubernetes`, `flux`, `aws`, `terraform`, etc.) often ship disabled. If a needed server is configured but disabled, **ask the user to enable it** before falling back to Bash/CLI or guessing.
+Only `context7` and `firecrawl` are enabled by default on every machine. A profile overlay can turn a domain server on for this host — on `wsl-work`, `kubernetes` is one of those. Other domain servers (`flux`, `aws`, `terraform`, etc.) often ship disabled. If a needed server is configured but disabled, **ask the user to enable it** before falling back to Bash/CLI or guessing.
