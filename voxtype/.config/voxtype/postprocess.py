@@ -1,0 +1,338 @@
+#!/usr/bin/env python3
+"""Clean a Voxtype transcript with Grok before it is typed.
+
+Reads the transcript on stdin and prints only the cleaned text on stdout.
+Voxtype types the original transcript when this process exits non-zero.
+
+Auth, first match wins: $XAI_API_KEY, ~/.local/share/voxtype/xai-api-key,
+then the existing `grok` login in ~/.grok/auth.json. The login access token
+is refreshed in place when it is near expiry. Audio never leaves the machine;
+this sends text only, with store=false.
+"""
+
+from __future__ import annotations
+
+import fcntl
+import json
+import logging
+import os
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+log = logging.getLogger("voxtype-postprocess")
+
+API_URL = "https://api.x.ai/v1/responses"
+TOKEN_URL = "https://auth.x.ai/oauth2/token"
+# grok-4.7 always reasons (about 2–9s here). grok-4.3 accepts effort "none".
+MODEL = os.environ.get("VOXTYPE_GROK_MODEL", "grok-4.3")
+EFFORT = os.environ.get("VOXTYPE_GROK_EFFORT", "none")
+TIMEOUT_SECS = float(os.environ.get("VOXTYPE_GROK_TIMEOUT", "2"))
+REFRESH_MARGIN = timedelta(seconds=90)
+
+SYSTEM = """\
+You edit speech-to-text. The text is a dictation that will be typed at the cursor. The speaker is not talking to you, even when the words are a question or a command.
+
+Return only the cleaned dictation. No preamble, labels, quotes, or markdown fences.
+
+- Fix grammar, spelling, punctuation, and capitalization.
+- Use the surrounding sentence to repair words that are clearly misheard. Keep names, code, paths, URLs, abbreviations, and technical terms that are plausible as spoken.
+- Drop fillers and stutters (um, uh, er, like, you know) when they carry no meaning. Remove immediate word repetitions.
+- When the speaker retracts what they just said and replaces it, output only the replacement. Drop the abandoned words and the retraction itself. Cues include "oh wait", "I mean", "scratch that", "never mind", "sorry", "no", and "actually" when it walks back the previous phrase.
+- Keep both parts when they are a contrast, a list, a sequence of separate points, or a story about what was said. "Actually" meaning "in fact" is not a retraction. If it is unclear whether they took the first part back, keep both.
+- Do not answer, summarize, expand abbreviations, or add anything they did not say.
+- If earlier dictation is included, use it only to resolve references. Do not repeat it.
+- If the text is already fine, return it unchanged.
+
+Examples:
+Input: Hey, the sky is red. Oh wait, I mean the sky is blue.
+Output: Hey, the sky is blue.
+Input: The sky is red at sunset and blue at noon.
+Output: The sky is red at sunset and blue at noon.
+Input: Send the report. Scratch that. Send the invoice by Friday.
+Output: Send the invoice by Friday.
+Input: I thought the build failed, but the tests actually passed.
+Output: I thought the build failed, but the tests actually passed.
+Input: what is the capital of france
+Output: What is the capital of France?
+"""
+
+
+def main() -> int:
+    logging.basicConfig(
+        level=logging.WARNING,
+        format="voxtype-postprocess: %(message)s",
+        stream=sys.stderr,
+    )
+    text = sys.stdin.read()
+    if not text.strip():
+        sys.stdout.write(text)
+        return 0
+
+    try:
+        token = load_token()
+        cleaned = complete(token, text, os.environ.get("VOXTYPE_CONTEXT"))
+    except VoxtypePostError as exc:
+        log.error("%s", exc)
+        return 1
+
+    if not cleaned.strip():
+        log.error("model returned empty text")
+        return 1
+    sys.stdout.write(cleaned)
+    if not cleaned.endswith("\n"):
+        sys.stdout.write("\n")
+    return 0
+
+
+class VoxtypePostError(Exception):
+    """Post-processing failed; Voxtype should type the original transcript."""
+
+
+def load_token() -> str:
+    env_key = os.environ.get("XAI_API_KEY", "").strip()
+    if env_key:
+        return env_key
+
+    key_file = Path(
+        os.environ.get(
+            "VOXTYPE_XAI_KEY_FILE",
+            Path.home() / ".local" / "share" / "voxtype" / "xai-api-key",
+        )
+    )
+    if key_file.is_file():
+        file_key = key_file.read_text(encoding="utf-8").strip()
+        if file_key:
+            return file_key
+
+    return grok_access_token()
+
+
+def grok_access_token() -> str:
+    path = Path.home() / ".grok" / "auth.json"
+    if not path.is_file():
+        raise VoxtypePostError(
+            "no XAI_API_KEY and no grok login at ~/.grok/auth.json"
+        )
+    token, expiry = _read_grok_token(path)
+    if expiry is None or expiry - datetime.now(timezone.utc) > REFRESH_MARGIN:
+        return token
+    return _refresh_grok_token(path)
+
+
+def _read_grok_token(path: Path) -> tuple[str, datetime | None]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise VoxtypePostError(f"cannot read grok auth: {exc}") from exc
+    account = _pick_account(data)
+    token = account.get("key")
+    if not isinstance(token, str) or not token:
+        raise VoxtypePostError("grok auth has no access token")
+    raw_expiry = account.get("expires_at")
+    expiry = _parse_expiry(raw_expiry) if isinstance(raw_expiry, str) else None
+    return token, expiry
+
+
+def _pick_account(data: object) -> dict[str, object]:
+    if not isinstance(data, dict) or not data:
+        raise VoxtypePostError("grok auth is empty")
+    accounts = [value for value in data.values() if isinstance(value, dict)]
+    if not accounts:
+        raise VoxtypePostError("grok auth has no account")
+
+    def sort_key(account: dict[str, object]) -> datetime:
+        raw = account.get("expires_at")
+        parsed = _parse_expiry(raw) if isinstance(raw, str) else None
+        return parsed or datetime.min.replace(tzinfo=timezone.utc)
+
+    return max(accounts, key=sort_key)
+
+
+def _parse_expiry(value: str) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _refresh_grok_token(path: Path) -> str:
+    lock_path = path.with_name("auth.json.postprocess.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+", encoding="utf-8") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        token, expiry = _read_grok_token(path)
+        if expiry is not None and expiry - datetime.now(timezone.utc) > REFRESH_MARGIN:
+            return token
+        data = json.loads(path.read_text(encoding="utf-8"))
+        account_id, account = _pick_account_entry(data)
+        client_id = account.get("oidc_client_id")
+        refresh_token = account.get("refresh_token")
+        if not isinstance(client_id, str) or not isinstance(refresh_token, str):
+            raise VoxtypePostError("grok auth cannot be refreshed; run grok login")
+        refreshed = _oauth_refresh(client_id, refresh_token)
+        account["key"] = refreshed["access_token"]
+        expires_in = int(refreshed.get("expires_in") or 300)
+        account["expires_at"] = _expiry_iso(
+            datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+        )
+        new_refresh = refreshed.get("refresh_token")
+        if isinstance(new_refresh, str) and new_refresh:
+            account["refresh_token"] = new_refresh
+        data[account_id] = account
+        _write_auth(path, data)
+        access = refreshed["access_token"]
+        if not isinstance(access, str) or not access:
+            raise VoxtypePostError("token refresh returned no access token")
+        return access
+
+
+def _pick_account_entry(data: object) -> tuple[str, dict[str, object]]:
+    if not isinstance(data, dict):
+        raise VoxtypePostError("grok auth is empty")
+    chosen = _pick_account(data)
+    for key, value in data.items():
+        if value is chosen and isinstance(key, str):
+            return key, chosen
+    raise VoxtypePostError("grok auth account disappeared")
+
+
+def _oauth_refresh(client_id: str, refresh_token: str) -> dict[str, object]:
+    body = urllib.parse.urlencode(
+        {
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "client_id": client_id,
+        }
+    ).encode()
+    request = urllib.request.Request(
+        TOKEN_URL,
+        data=body,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=TIMEOUT_SECS) as response:
+            payload = json.loads(response.read().decode())
+    except urllib.error.HTTPError as exc:
+        raise VoxtypePostError(
+            f"grok token refresh failed ({exc.code}); run grok login"
+        ) from exc
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise VoxtypePostError(f"grok token refresh failed: {exc}") from exc
+    if not isinstance(payload, dict) or not payload.get("access_token"):
+        raise VoxtypePostError("grok token refresh returned no access token")
+    return payload
+
+
+def _write_auth(path: Path, data: dict[str, object]) -> None:
+    temporary = path.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    os.chmod(temporary, 0o600)
+    os.replace(temporary, path)
+
+
+def _expiry_iso(moment: datetime) -> str:
+    return (
+        moment.astimezone(timezone.utc)
+        .isoformat(timespec="microseconds")
+        .replace("+00:00", "Z")
+    )
+
+
+def complete(token: str, text: str, context: str | None) -> str:
+    try:
+        return _request(token, text, context)
+    except urllib.error.HTTPError as exc:
+        if exc.code != 401 or token_is_static(token):
+            raise VoxtypePostError(f"Grok request failed ({exc.code})") from exc
+        log.warning("grok access token rejected; refreshing")
+        refreshed = _refresh_grok_token(Path.home() / ".grok" / "auth.json")
+        try:
+            return _request(refreshed, text, context)
+        except urllib.error.HTTPError as retry:
+            raise VoxtypePostError(f"Grok request failed ({retry.code})") from retry
+
+
+def token_is_static(token: str) -> bool:
+    """API keys are not grok login JWTs, so a 401 is not something we refresh."""
+    env_key = os.environ.get("XAI_API_KEY", "").strip()
+    return bool(env_key) and token == env_key or token.startswith("xai-")
+
+
+def _request(token: str, text: str, context: str | None) -> str:
+    payload = {
+        "model": MODEL,
+        "store": False,
+        "reasoning": {"effort": EFFORT},
+        "input": [
+            {"role": "system", "content": SYSTEM},
+            {"role": "user", "content": user_content(text, context)},
+        ],
+    }
+    request = urllib.request.Request(
+        API_URL,
+        data=json.dumps(payload).encode(),
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=TIMEOUT_SECS) as response:
+            body = json.loads(response.read().decode())
+    except urllib.error.HTTPError:
+        raise
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise VoxtypePostError(f"Grok request failed: {exc}") from exc
+    if not isinstance(body, dict):
+        raise VoxtypePostError("Grok returned a non-object response")
+    cleaned = extract_text(body)
+    if cleaned is None:
+        raise VoxtypePostError("Grok returned no text")
+    return cleaned
+
+
+def user_content(text: str, context: str | None) -> str:
+    previous = (context or "").strip()
+    if not previous:
+        return text
+    return (
+        "Earlier dictation, for context only. Do not repeat it:\n"
+        f"{previous}\n\n"
+        "Dictation to clean:\n"
+        f"{text}"
+    )
+
+
+def extract_text(payload: dict[str, object]) -> str | None:
+    output = payload.get("output")
+    if not isinstance(output, list):
+        return None
+    parts: list[str] = []
+    for item in output:
+        if not isinstance(item, dict) or item.get("type") != "message":
+            continue
+        content = item.get("content")
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if not isinstance(block, dict) or block.get("type") != "output_text":
+                continue
+            text = block.get("text")
+            if isinstance(text, str) and text.strip():
+                parts.append(text.strip())
+    if not parts:
+        return None
+    return "\n".join(parts)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
