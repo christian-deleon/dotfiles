@@ -83,7 +83,7 @@ append_text = " "
 # A change here is read on daemon start: systemctl --user restart voxtype
 [output.post_process]
 command = "/usr/bin/python3 \"$HOME/.config/voxtype/postprocess.py\""
-timeout_ms = 2000
+timeout_ms = 3500
 
 [output.notification]
 # Show notification when recording starts (hotkey pressed)
