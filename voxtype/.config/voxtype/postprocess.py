@@ -30,7 +30,7 @@ TOKEN_URL = "https://auth.x.ai/oauth2/token"
 # grok-4.7 always reasons (about 2–9s here). grok-4.3 accepts effort "none".
 MODEL = os.environ.get("VOXTYPE_GROK_MODEL", "grok-4.3")
 EFFORT = os.environ.get("VOXTYPE_GROK_EFFORT", "none")
-TIMEOUT_SECS = float(os.environ.get("VOXTYPE_GROK_TIMEOUT", "2"))
+TIMEOUT_SECS = float(os.environ.get("VOXTYPE_GROK_TIMEOUT", "3.5"))
 REFRESH_MARGIN = timedelta(seconds=90)
 
 SYSTEM = """\
