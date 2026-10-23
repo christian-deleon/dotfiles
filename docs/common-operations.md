@@ -73,7 +73,7 @@ foo:
 
 Personal desktop files (not the Omarchy package):
 
-- Binds, monitors, input, looknfeel, autostart, scratchpad layout → `hypr/overlays/<file>.lua`
+- Binds, monitors, input, looknfeel, autostart, scratchpad layout, work layout → `hypr/overlays/<file>.lua`
 - Desktop helper scripts → `hypr/scripts/` (`monitor-setup.sh`, `monitor-listener.sh`, `screen-rescue.sh`, `square-tile-toggle.sh`, `airpods-autoconnect.sh` are installed; `lid-handler.sh` / `lock-session.sh` are kept in-repo only)
 - Custom themes → `omarchy/.config/omarchy/themes/<name>/` (git submodules)
 - Branding → `omarchy/.config/omarchy/branding/`
