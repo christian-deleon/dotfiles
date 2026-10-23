@@ -1,0 +1,13 @@
+{
+  "idle": {
+    "screensaver": 300,
+    "lock": 600
+  },
+  "plugins": [
+    {
+      "id": "io.github.sirjul1337.lock-explorer",
+      "design": "calendar",
+      "blankMs": 30000
+    }
+  ]
+}
