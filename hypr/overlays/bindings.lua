@@ -73,3 +73,5 @@ o.bind("SUPER + CTRL + R", "Rescue displays (force on)", home .. "/.config/hypr/
 -- Stock bind reloads Hyprland (flashes eDP-1 / reshuffles desk OLEDs).
 hl.unbind("SUPER + CTRL + BACKSPACE")
 o.bind("SUPER + CTRL + BACKSPACE", "Square focused window", home .. "/.config/hypr/square-tile-toggle.sh")
+
+o.bind("SUPER + CTRL + SHIFT + W", "Work layout (workspaces 6 + 7)", require("hypr.worklayout").apply)
