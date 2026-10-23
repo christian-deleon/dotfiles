@@ -21,7 +21,8 @@ Guidelines for AI coding agents working in this personal dotfiles repo. Manages 
 3. **Idempotent.** Every install module must be safe to re-run. Use `ln -snf`, check before stowing, clean stale symlinks.
 4. **OS-aware.** Detect with `$OSTYPE` and `requires:` predicates. Supports macOS, Omarchy/Arch, Ubuntu/Pop!_OS, Debian. Omarchy is documented heavily because of its unique integration points — that does **not** mean the user is on Omarchy. Always check the actual environment.
 5. **Privacy.** Never commit secrets, tokens, or credentials.
-6. **No TDD.** Do not add tests, a test runner, or a red/green cycle. Prove changes by running the real command (`bash -n`, `dot`, `grok mcp doctor`, a new shell). Leave existing `ai/scripts/test_*.py` files alone unless asked.
+6. **Persist OS settings in the repo.** When you change an Omarchy/Hyprland default or a hardware-specific setting, put it in a tracked file that the installer applies. Don't leave it only in `~/.config` or a live IPC call. Omarchy shell settings (`~/.config/omarchy/shell.json`: idle timings, plugin settings such as `omarchy-shell lock setBlankDelay`) go in `omarchy/shell.overlay.json`, which is merged by key; plugin entries are matched by `id`. After changing a setting live, copy it into the overlay as well. If a setting has no tracked home yet, add one or ask the user.
+7. **No TDD.** Do not add tests, a test runner, or a red/green cycle. Prove changes by running the real command (`bash -n`, `dot`, `grok mcp doctor`, a new shell). Leave existing `ai/scripts/test_*.py` files alone unless asked.
 
 ## Files symlinked to $HOME
 
@@ -118,6 +119,7 @@ Before committing:
 | `omarchy/.config/omarchy/branding/` | `~/.config/omarchy/branding/` |
 | `omarchy/.config/omarchy/extensions/` | `~/.config/omarchy/extensions/` |
 | `omarchy/hooks/post-update.d/reapply-desktop-overlays` | same path under `~/.config/omarchy/` |
+| `omarchy/shell.overlay.json` | merged into `~/.config/omarchy/shell.json` (keys only; never replaces the file) |
 
 Do **not** `omadot put hypr` or `omadot put omarchy`. Do **not** commit files just because they appeared under `~/.config/hypr` or `~/.config/omarchy` after an Omarchy update. Stock templates stay in `/usr/share/omarchy/config/`. `omarchy refresh hyprland` is safe; `dot update` / the post-update hook re-applies overlays.
 

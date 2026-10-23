@@ -90,6 +90,46 @@ desktop_ensure_real_dir() {
     desktop_seed_stock_tree "$dest" "$rel"
 }
 
+# Omarchy treats shell.json as authoritative (no defaults merged back in), so
+# overlay only our keys instead of replacing the file. Plugin entries merge by
+# id and only into plugins already enabled: adding one would enable a plugin
+# that may not be installed on this machine.
+desktop_apply_shell_overlay() {
+    local dest=$1/shell.json overlay=$2
+    [[ -f $dest && -f $overlay ]] || return 0
+    python3 - "$dest" "$overlay" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+try:
+    data = json.loads(path.read_text())
+    overlay = json.loads(Path(sys.argv[2]).read_text())
+except (OSError, ValueError) as err:
+    print(f"shell overlay skipped: {err}", file=sys.stderr)
+    sys.exit(0)
+
+def merge(base, over):
+    for key, value in over.items():
+        current = base.get(key)
+        if key == "plugins" and isinstance(value, list) and isinstance(current, list):
+            by_id = {e.get("id"): e for e in current if isinstance(e, dict)}
+            for entry in value:
+                if isinstance(entry, dict) and entry.get("id") in by_id:
+                    by_id[entry["id"]].update(entry)
+        elif isinstance(value, dict) and isinstance(current, dict):
+            merge(current, value)
+        else:
+            base[key] = value
+
+before = json.dumps(data, sort_keys=True)
+merge(data, overlay)
+if json.dumps(data, sort_keys=True) != before:
+    path.write_text(json.dumps(data, indent=2) + "\n")
+PY
+}
+
 desktop_ensure_dropbox_widget() {
     local dest=$1/shell.json
     [[ -f $dest ]] || return 0
@@ -181,6 +221,7 @@ apply_omarchy_overlays() {
         chmod +x -- "$dest/hooks/post-update.d/reapply-desktop-overlays"
     fi
 
+    desktop_apply_shell_overlay "$dest" "$repo/omarchy/shell.overlay.json"
     desktop_ensure_dropbox_widget "$dest"
     _desktop_log success "Applied Omarchy overlays"
 }
