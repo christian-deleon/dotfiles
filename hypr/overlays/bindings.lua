@@ -55,14 +55,15 @@ o.bind("SUPER + SHIFT + ALT + S", "Slack", 'omarchy-launch-webapp "https://app.s
 o.bind("SUPER + SHIFT + ALT + V", "TradingView", 'omarchy-launch-webapp "https://www.tradingview.com/chart/" --profile-directory="Default"')
 
 -- Copilot key / SUPER+CTRL+X: push-to-talk (stock is menu + toggle).
+-- voxbridge-dictate sends to the Windows VM when VMware has focus, else types
+-- locally; hosts without voxbridge get plain Voxtype.
+local dictate = "if command -v voxbridge-dictate >/dev/null; then voxbridge-dictate; else voxtype record start; fi"
 hl.unbind("SUPER + SHIFT + code:201")
-o.bind("SUPER + SHIFT + code:201", "Dictation (start)", "voxtype record start")
+o.bind("SUPER + SHIFT + code:201", "Dictation (start)", dictate)
 o.bind("SUPER + SHIFT + code:201", "Dictation (stop)", "voxtype record stop", { release = true })
 hl.unbind("SUPER + CTRL + X")
-o.bind("SUPER + CTRL + X", "Dictation (start)", "voxtype record start")
+o.bind("SUPER + CTRL + X", "Dictation (start)", dictate)
 o.bind("SUPER + CTRL + X", "Dictation (stop)", "voxtype record stop", { release = true })
-o.bind("SUPER + CTRL + SHIFT + X", "Dictation VM (start)", "voxtype record start --file=/run/user/1000/voxbridge.fifo")
-o.bind("SUPER + CTRL + SHIFT + X", "Dictation VM (stop)", "voxtype record stop", { release = true })
 
 o.bind("SUPER + CTRL + M", "Cycle monitor arrangement", home .. "/.config/hypr/monitor-setup.sh --swap")
 
