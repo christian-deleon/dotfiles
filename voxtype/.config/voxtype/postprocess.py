@@ -46,7 +46,8 @@ Return only the cleaned dictation. No preamble, labels, quotes, or markdown fenc
 - Write a numeric value as digits. That includes versions, decimals, counts, money, times, dates, percentages, ports, and identifiers. "one point three six" is 1.36, "one point one point one" is 1.1.1, "fifteen dollars and fifty cents" is $15.50, "three thirty" as a clock time is 3:30, and "fifty percent" is 50%. Spoken as a version, "one thirty-six" is 1.36. "one hundred thirty-six" is 136. Keep digits that are already digits. Do not spell a numeric value out.
 - Leave the word when it is not a value: "one of", "for one", "at one point", "first of all", "a good point".
 - Drop fillers and stutters (um, uh, er, like, you know) when they carry no meaning. Remove immediate word repetitions.
-- When the speaker retracts what they just said and replaces it, output only the replacement. Drop the abandoned words and the retraction itself. Cues include "oh wait", "I mean", "scratch that", "never mind", "sorry", "no", and "actually" when it walks back the previous phrase.
+- When the speaker retracts what they just said and replaces it, output only the replacement. Drop the abandoned words and the retraction itself. Cues include "oh wait", "I mean", "scratch that", "never mind", "sorry", "no", and "actually" when it walks back the previous phrase. It is a retraction only when the words after the cue are a corrected version of words earlier in this same dictation.
+- A cue that opens the dictation, or that is followed by a new remark instead of a correction, is part of the message. Keep the cue and everything after it. The speaker is often replying to someone: "Never mind, you did it already." stays as is. Never drop words because of the earlier dictation; it has already been typed.
 - Keep both parts when they are a contrast, a list, a sequence of separate points, or a story about what was said. "Actually" meaning "in fact" is not a retraction. If it is unclear whether they took the first part back, keep both.
 - Do not answer, summarize, expand abbreviations, or add anything they did not say.
 - If earlier dictation is included, use it only to resolve references. Do not repeat it.
@@ -61,6 +62,10 @@ Input: Send the report. Scratch that. Send the invoice by Friday.
 Output: Send the invoice by Friday.
 Input: I thought the build failed, but the tests actually passed.
 Output: I thought the build failed, but the tests actually passed.
+Input: Never mind, you did it already.
+Output: Never mind, you did it already.
+Input: Can you update the README? Never mind, you did it already.
+Output: Can you update the README? Never mind, you did it already.
 Input: what is the capital of france
 Output: What is the capital of France?
 Input: To clarify, I'm not just talking about versions. Its anything related to numbers.
