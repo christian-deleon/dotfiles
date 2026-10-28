@@ -15,5 +15,8 @@
   "tabs": {
     "mode": "off"
   },
-  "animations": true
+  "animations": true,
+  "keybinds": {
+    "session.background": "<leader>z"
+  }
 }
