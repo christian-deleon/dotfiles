@@ -65,7 +65,8 @@ _submodule_configured_branch() {
 
 # Fast-forward a branch-tracking submodule to origin/<branch>, staying on
 # the branch (no detached HEAD). Returns 1 if the submodule isn't
-# initialized or has no `branch =` configured.
+# initialized, has no `branch =` configured, or the SHA recorded in the
+# parent is missing from origin (parent bumped, submodule never pushed).
 # Usage: _submodule_pull_branch <path-relative-to-dotfiles>
 _submodule_pull_branch() {
     local path="$1"
@@ -86,6 +87,17 @@ _submodule_pull_branch() {
     git -C "$sub_dir" fetch origin "$branch" 2>&1 || return 1
     git -C "$sub_dir" checkout "$branch" 2>&1 || return 1
     git -C "$sub_dir" pull --ff-only origin "$branch" 2>&1 || return 1
+
+    # Parent gitlink can be ahead of origin/<branch> when someone committed
+    # in the submodule, bumped the pointer, and pushed only the parent.
+    # `pull --ff-only` succeeds against the old tip and looks like an update.
+    local expected
+    expected="$(git -C "$DOTFILES_DIR" rev-parse "HEAD:$path" 2>/dev/null)" || expected=""
+    if [[ -n "$expected" ]] && ! git -C "$sub_dir" cat-file -e "${expected}^{commit}" 2>/dev/null; then
+        _error "Submodule $path: recorded commit ${expected:0:12} is not on origin/$branch"
+        _info "Push it from the machine that created it: ${_BOLD}cd $sub_dir && git push${_RESET}"
+        return 1
+    fi
     return 0
 }
 

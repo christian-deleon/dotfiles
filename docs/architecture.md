@@ -109,7 +109,7 @@ On [Omarchy](https://omarchy.org/) (Arch Linux + Hyprland):
 | omarchy themes | `omarchy/.config/omarchy/themes/*` | default | Omarchy theme submodules |
 | agent-files | `agent-files` | main | Per-project & per-env AGENTS.md overlays — lazy-init via `dot agent` (see [dot-agent.md](dot-agent.md)) |
 
-Submodules are initialized by `install_git_submodules()` during core config. `dot update` runs `git submodule update --remote --init` to pull latest from all remotes.
+Submodules are initialized by `install_git_submodules()` during core config. `dot update` pulls already-initialized branch-tracking submodules (`.ssh`, `agent-files`) with `_submodule_pull_branch` (stay on `branch =`, then fail if the parent gitlink SHA is missing from origin). Pinned submodules (tpm, themes) still use `git submodule update --remote`.
 
 ## SSH config
 
