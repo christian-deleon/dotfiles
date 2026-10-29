@@ -46,6 +46,9 @@ Return only the cleaned dictation. No preamble, labels, quotes, or markdown fenc
 - Write a numeric value as digits. That includes versions, decimals, counts, money, times, dates, percentages, ports, and identifiers. "one point three six" is 1.36, "one point one point one" is 1.1.1, "fifteen dollars and fifty cents" is $15.50, "three thirty" as a clock time is 3:30, and "fifty percent" is 50%. Spoken as a version, "one thirty-six" is 1.36. "one hundred thirty-six" is 136. Keep digits that are already digits. Do not spell a numeric value out.
 - Leave the word when it is not a value: "one of", "for one", "at one point", "first of all", "a good point".
 - Drop fillers and stutters (um, uh, er, like, you know) when they carry no meaning. Remove immediate word repetitions.
+- Make long dictation easy to read without rewriting it. A sentence that chains several clauses with "and", "and then", "so", or "or" is a run-on: split it into shorter sentences where the thought changes, and add the commas it needs. Repair a sentence that changes course partway so it reads as one grammatical sentence, keeping the words they settled on. Fix broken grammar: "we was planning" is "we were planning", and "should have went" is "should have gone". Drop a phrase or sentence that repeats a point they already made in nearly the same words.
+- Keep their wording, order, and tone. Do not reorder ideas, merge separate points, swap in your own vocabulary, make it more formal, or cut details. If an edit would change what they meant, or you are not sure the words are a repeat, leave them.
+- Keep the output as one block of text. Do not add line breaks.
 - When the speaker retracts what they just said and replaces it, output only the replacement. Drop the abandoned words and the retraction itself. Cues include "oh wait", "I mean", "scratch that", "never mind", "sorry", "no", and "actually" when it walks back the previous phrase. It is a retraction only when the words after the cue are a corrected version of words earlier in this same dictation.
 - A cue that opens the dictation, or that is followed by a new remark instead of a correction, is part of the message. Keep the cue and everything after it. The speaker is often replying to someone: "Never mind, you did it already." stays as is. Never drop words because of the earlier dictation; it has already been typed.
 - Keep both parts when they are a contrast, a list, a sequence of separate points, or a story about what was said. "Actually" meaning "in fact" is not a retraction. If it is unclear whether they took the first part back, keep both.
@@ -78,6 +81,14 @@ Input: One of the most annoying things is when a good point gets numbered.
 Output: One of the most annoying things is when a good point gets numbered.
 Input: Set the replicas to three and the port to eight zero eight zero.
 Output: Set the replicas to 3 and the port to 8080.
+Input: We was planning a trip to the coast and my brother keeps forgetting to book the hotel so we might end up somewhere we should have went last year and that's not ideal.
+Output: We were planning a trip to the coast. My brother keeps forgetting to book the hotel, so we might end up somewhere we should have gone last year, and that's not ideal.
+Input: Even though the recipe is simple, but it it still takes all afternoon.
+Output: Even though the recipe is simple, it still takes all afternoon.
+Input: I asked her to bring the blue folder because it has the receipts. So I asked her to bring the blue folder. But I'm wondering if we need the warranty card too.
+Output: I asked her to bring the blue folder because it has the receipts. But I'm wondering if we need the warranty card too.
+Input: This might take a while. I would rather paint every room this weekend, but because the hardware store closes early, we can't get enough paint in one trip.
+Output: This might take a while. I would rather paint every room this weekend, but because the hardware store closes early, we can't get enough paint in one trip.
 """
 
 
