@@ -124,6 +124,13 @@ gh:
     brew: gh
     script: install-gh.sh
 
+glab:
+  description: GitLab CLI
+  install:
+    arch: glab
+    brew: glab
+    script: install-glab.sh
+
 granted:
   description: AWS SSO profile switcher with shell env export
   install:
