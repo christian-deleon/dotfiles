@@ -254,6 +254,11 @@ update_dotfiles() {
             install_ai_grok 2>/dev/null || _warn "Failed to install Grok AI config"
             install_ai_opencode 2>/dev/null || _warn "Failed to install OpenCode adapter"
             install_ai_claude 2>/dev/null || _warn "Failed to install Claude Code adapter"
+
+            local env_name
+            if env_name="$(agent_env_current_name)"; then
+                agent_env_link_skills "$env_name"
+            fi
         fi
 
         # Reconcile stale symlinks left by dropped stow packages

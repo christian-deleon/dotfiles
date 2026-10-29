@@ -56,7 +56,7 @@ Two scopes of overlay agent files, sourced from the private `agent-files` submod
 
 **Per-project — `dot agent link`.** For projects where `AGENTS.md` can't be committed and `.gitignore` can't be modified. Content lives in `agent-files/projects/<project>/AGENTS.md`; the project gets a symlink excluded via the shared `.git/info/exclude`. An untracked leftover `CLAUDE.md` is migrated to `AGENTS.md`. A worktrunk `post-start` hook auto-links every newly created worktree.
 
-**Per-environment — `dot agent env link <name>`.** For machine- or environment-scoped context. Content lives in `agent-files/env/<env>/AGENTS.md` and is symlinked into Grok's `~/.grok/AGENTS.md` (OpenCode hops at the same file). The symlinks themselves are the state. Opt out with `dot agent env unlink`.
+**Per-environment — `dot agent env link <name>`.** For machine- or environment-scoped context. Content lives in `agent-files/env/<env>/AGENTS.md` and is symlinked into Grok's `~/.grok/AGENTS.md` (OpenCode hops at the same file). Machine-only skills in `agent-files/env/<env>/skills/` link into the skill dirs alongside it. The symlinks themselves are the state. Opt out with `dot agent env unlink`.
 
 ## Windows bootstrap
 

@@ -11,6 +11,7 @@
 agent-files/
   projects/<project-name>/AGENTS.md   # per-project (symlinked into project worktrees)
   env/<env-name>/AGENTS.md            # per-env global (symlinked into Grok, OpenCode hops)
+  env/<env-name>/skills/<skill>/      # per-env skills (symlinked into the skill dirs)
 ```
 
 Commits inside the submodule are made automatically with a generated message; **push is always manual** (`cd ~/.dotfiles/agent-files && git push`) so remote sync stays an explicit decision.
@@ -61,7 +62,10 @@ For environment-scoped context that isn't tied to a single project — e.g. "thi
 2. If `env/<name>/AGENTS.md` doesn't exist: migrate the first existing target file we find, else create an empty stub with a header comment. Either way, commit in the submodule.
 3. Refuse to clobber any unmanaged regular file at a target path.
 4. Drop symlinks at every target → `agent-files/env/<name>/AGENTS.md` (one source, N symlinks).
+5. Symlink each `env/<name>/skills/<skill>/` (one with a `SKILL.md`) into `~/.grok/skills/` — OpenCode reads that dir — and into `~/.claude/skills/` when `~/.claude` exists. Links from a previously linked env are dropped first. A same-named skill from `ai/skills/` wins and the env one is skipped with a warning.
 
-`dot agent env link` (no arg) re-links the currently linked env — derives the name from the existing symlink, so it's a safe no-op refresh.
+`dot agent env link` (no arg) re-links the currently linked env — derives the name from the existing symlink, so it's a safe no-op refresh. `dot update` re-links the current env's skills after refreshing `ai/` links, so a skill added to the submodule shows up on the next update. `clean_ai_symlinks` only removes links into `ai/`, so env skill links survive it.
+
+Use env skills for workflows that only make sense on one machine (e.g. a GitLab MR skill on the work box). Author them like any skill — see the `agent-files` skill — but keep them in the private submodule, not `ai/skills/`.
 
 **The symlinks themselves are the state.** No `.localrc` flag, no marker file — `dot agent env status` resolves the symlinks to report which env is active. To opt out: `dot agent env unlink`.
