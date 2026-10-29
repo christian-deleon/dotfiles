@@ -18,6 +18,8 @@ Source of truth in this repo:
 
 Installed by `install_ai_grok` to `~/.grok/skills/<name>/`. OpenCode sees the same tree via a directory symlink (`~/.config/opencode/skills` → `~/.grok/skills`). Claude Code gets one symlink per skill at `~/.claude/skills/<name>` when `claude` is installed.
 
+**Machine-only skills** (e.g. work-only workflows) go in the private submodule at `~/.dotfiles/agent-files/env/<env>/skills/<name>/` instead. `dot agent env link` links them; see [docs/dot-agent.md](../../../docs/dot-agent.md).
+
 Directory name **must** match the `name` field in frontmatter, lowercase + digits + hyphens, max 64 chars. OpenCode enforces `^[a-z0-9]+(-[a-z0-9]+)*$`. Grok normalizes spaces and underscores to hyphens if you omit `name` (it then uses the directory name).
 
 ## Frontmatter schema

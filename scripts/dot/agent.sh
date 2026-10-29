@@ -251,6 +251,66 @@ agent_env_check_safe() {
     return 1
 }
 
+# Skill dirs that env/<name>/skills/* link into. OpenCode reads ~/.grok/skills
+# through its own dir symlink. ~/.claude exists only once install_ai_claude ran.
+agent_env_skill_dirs() {
+    printf '%s\n' "$HOME/.grok/skills"
+    [[ -d "$HOME/.claude" ]] && printf '%s\n' "$HOME/.claude/skills"
+    return 0
+}
+
+# Raw readlink, not -f: a skill dropped from the submodule leaves a dangling
+# link that must still count as ours so it gets cleaned.
+agent_env_is_skill_link() {
+    [[ -L "$1" && "$(readlink "$1")" == "$AGENT_ENV_DIR/"* ]]
+}
+
+agent_env_unlink_skills() {
+    local dir link removed=0
+    while IFS= read -r dir; do
+        [[ -d "$dir" ]] || continue
+        for link in "$dir"/*; do
+            agent_env_is_skill_link "$link" || continue
+            rm "$link"
+            removed=$((removed + 1))
+        done
+    done < <(agent_env_skill_dirs)
+    printf '%s\n' "$removed"
+}
+
+# Link env/<name>/skills/* into every skill dir, dropping links left by this or
+# a previously linked env first. A same-named skill from ai/ wins.
+agent_env_link_skills() {
+    local name="$1"
+    local src_dir="$AGENT_ENV_DIR/$name/skills"
+    local skill dir dest linked
+    local -a names=()
+
+    agent_env_unlink_skills >/dev/null
+    [[ -d "$src_dir" ]] || return 0
+
+    for skill in "$src_dir"/*/; do
+        [[ -f "${skill}SKILL.md" ]] || continue
+        skill="${skill%/}"
+        linked=0
+        while IFS= read -r dir; do
+            dest="$dir/$(basename "$skill")"
+            if [[ -e "$dest" || -L "$dest" ]]; then
+                _warn "Skill already exists, skipping: $dest"
+                continue
+            fi
+            mkdir -p "$dir"
+            ln -s "$skill" "$dest"
+            linked=1
+        done < <(agent_env_skill_dirs)
+        ((linked)) && names+=("$(basename "$skill")")
+    done
+
+    if ((${#names[@]} > 0)); then
+        _success "Linked env skill(s): ${_BOLD}${names[*]}${_RESET}"
+    fi
+}
+
 # Set up per-env global agent files. $1 = env name (optional — defaults to the
 # current linked env if any).
 #
@@ -366,10 +426,12 @@ EOF
         printf "  ${_DIM}%s${_RESET}\n" "$target"
     done
     _info "Edit the file via any of those paths (or ${_DIM}$src${_RESET} directly)"
+
+    agent_env_link_skills "$name"
 }
 
 agent_env_unlink() {
-    local removed=0 target
+    local removed=0 target skills
     for target in "${AGENT_ENV_TARGETS[@]}"; do
         if agent_env_is_managed_link "$target"; then
             rm "$target"
@@ -377,6 +439,12 @@ agent_env_unlink() {
             removed=$((removed + 1))
         fi
     done
+
+    skills="$(agent_env_unlink_skills)"
+    if ((skills > 0)); then
+        _success "Removed $skills env skill link(s)"
+        removed=$((removed + skills))
+    fi
 
     if [[ "$removed" -eq 0 ]]; then
         _info "Nothing to unlink (no managed env symlinks found)"
@@ -433,6 +501,18 @@ agent_env_status() {
             printf "    ${_DIM}-${_RESET} %s ${_DIM}(absent)${_RESET}\n" "$target"
         fi
     done
+
+    local dir link
+    while IFS= read -r dir; do
+        for link in "$dir"/*; do
+            agent_env_is_skill_link "$link" || continue
+            if [[ -e "$link" ]]; then
+                printf "    ${_GREEN}✓${_RESET} %s → %s\n" "$link" "$(readlink "$link")"
+            else
+                printf "    ${_YELLOW}!${_RESET} %s → %s ${_DIM}(dangling)${_RESET}\n" "$link" "$(readlink "$link")"
+            fi
+        done
+    done < <(agent_env_skill_dirs)
     echo
 }
 
@@ -449,14 +529,18 @@ agent_env_help() {
         echo "  • $target"
     done
     echo
+    echo "Skills under env/<name>/skills/ link into ~/.grok/skills/ and, when"
+    echo "Claude Code is installed, ~/.claude/skills/."
+    echo
     echo "Usage: dot agent env <subcommand>"
     echo
     echo "Subcommands:"
-    echo "  link [name]   Link env/<name>/AGENTS.md into every target. If the"
-    echo "                source doesn't exist yet, migrates the first existing"
+    echo "  link [name]   Link env/<name>/AGENTS.md into every target and its"
+    echo "                skills into the skill dirs. If the AGENTS.md source"
+    echo "                doesn't exist yet, migrates the first existing"
     echo "                target file into the submodule, or creates a stub."
     echo "                With no [name], re-links the currently linked env."
-    echo "  unlink        Remove the managed global symlinks."
+    echo "  unlink        Remove the managed global symlinks and env skills."
     echo "  list          List envs available in agent-files."
     echo "  status        Show what's linked into the global target paths."
     echo "  help          Show this message."
