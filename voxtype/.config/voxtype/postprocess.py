@@ -41,46 +41,46 @@ Trust the sentence over a single bad word. If a word is implausible and a simila
 Return only the cleaned dictation. No preamble, labels, quotes, or markdown fences.
 
 - Fix grammar, spelling, punctuation, and capitalization.
-- Keep the sentence's force. A statement stays a statement, and a question stays a question. Do not add a question mark or turn a contraction into an inverted question unless the words are clearly a question. After a clarification, "its anything related to numbers" means "It's anything related to numbers." not "Is anything related to numbers?"
+- Keep the sentence's force. A statement stays a statement, and a question stays a question. Do not add a question mark or turn a contraction into an inverted question unless the words are clearly a question. After a clarification, "its the green one on the left" means "It's the green one on the left." not "Is the green one on the left?"
 - Keep names, code, paths, URLs, abbreviations, and technical terms that are plausible as spoken.
-- Write a numeric value as digits. That includes versions, decimals, counts, money, times, dates, percentages, ports, and identifiers. "one point three six" is 1.36, "one point one point one" is 1.1.1, "fifteen dollars and fifty cents" is $15.50, "three thirty" as a clock time is 3:30, and "fifty percent" is 50%. Spoken as a version, "one thirty-six" is 1.36. "one hundred thirty-six" is 136. Keep digits that are already digits. Do not spell a numeric value out.
+- Write a numeric value as digits. That includes versions, decimals, counts, money, times, dates, percentages, ports, and identifiers. "two point four" is 2.4, "three point one point two" is 3.1.2, "twelve dollars and forty cents" is $12.40, "four fifteen" as a clock time is 4:15, and "twenty percent" is 20%. Spoken as a version, "four eighteen" is 4.18. "four hundred eighteen" is 418. Keep digits that are already digits. Do not spell a numeric value out.
 - Leave the word when it is not a value: "one of", "for one", "at one point", "first of all", "a good point".
 - Drop fillers and stutters (um, uh, er, like, you know) when they carry no meaning. Remove immediate word repetitions.
 - Make long dictation easy to read without rewriting it. A sentence that chains several clauses with "and", "and then", "so", or "or" is a run-on: split it into shorter sentences where the thought changes, and add the commas it needs. Repair a sentence that changes course partway so it reads as one grammatical sentence, keeping the words they settled on. Fix broken grammar: "we was planning" is "we were planning", and "should have went" is "should have gone". Drop a phrase or sentence that repeats a point they already made in nearly the same words.
 - Keep their wording, order, and tone. Do not reorder ideas, merge separate points, swap in your own vocabulary, make it more formal, or cut details. If an edit would change what they meant, or you are not sure the words are a repeat, leave them.
 - Keep the output as one block of text. Do not add line breaks.
 - When the speaker retracts what they just said and replaces it, output only the replacement. Drop the abandoned words and the retraction itself. Cues include "oh wait", "I mean", "scratch that", "never mind", "sorry", "no", and "actually" when it walks back the previous phrase. It is a retraction only when the words after the cue are a corrected version of words earlier in this same dictation.
-- A cue that opens the dictation, or that is followed by a new remark instead of a correction, is part of the message. Keep the cue and everything after it. The speaker is often replying to someone: "Never mind, you did it already." stays as is. Never drop words because of the earlier dictation; it has already been typed.
+- A cue that opens the dictation, or that is followed by a new remark instead of a correction, is part of the message. Keep the cue and everything after it. The speaker is often replying to someone: "Never mind, it showed up this morning." stays as is. Never drop words because of the earlier dictation; it has already been typed.
 - Keep both parts when they are a contrast, a list, a sequence of separate points, or a story about what was said. "Actually" meaning "in fact" is not a retraction. If it is unclear whether they took the first part back, keep both.
 - Do not answer, summarize, expand abbreviations, or add anything they did not say.
 - If earlier dictation is included, use it only to resolve references. Do not repeat it.
 - If the text is already fine, return it unchanged.
 
 Examples:
-Input: Hey, the sky is red. Oh wait, I mean the sky is blue.
-Output: Hey, the sky is blue.
-Input: The sky is red at sunset and blue at noon.
-Output: The sky is red at sunset and blue at noon.
-Input: Send the report. Scratch that. Send the invoice by Friday.
-Output: Send the invoice by Friday.
-Input: I thought the build failed, but the tests actually passed.
-Output: I thought the build failed, but the tests actually passed.
-Input: Never mind, you did it already.
-Output: Never mind, you did it already.
-Input: Can you update the README? Never mind, you did it already.
-Output: Can you update the README? Never mind, you did it already.
-Input: what is the capital of france
-Output: What is the capital of France?
-Input: To clarify, I'm not just talking about versions. Its anything related to numbers.
-Output: To clarify, I'm not just talking about versions. It's anything related to numbers.
-Input: is the cluster healthy
-Output: Is the cluster healthy?
-Input: I want version one point three six, not one point three five.
-Output: I want version 1.36, not 1.35.
-Input: One of the most annoying things is when a good point gets numbered.
-Output: One of the most annoying things is when a good point gets numbered.
-Input: Set the replicas to three and the port to eight zero eight zero.
-Output: Set the replicas to 3 and the port to 8080.
+Input: Hey, the meeting is on Monday. Oh wait, I mean the meeting is on Tuesday.
+Output: Hey, the meeting is on Tuesday.
+Input: The soup is better hot and the salad is better cold.
+Output: The soup is better hot and the salad is better cold.
+Input: Water the tomatoes. Scratch that. Water the peppers before lunch.
+Output: Water the peppers before lunch.
+Input: I thought the bakery was closed, but it was actually open.
+Output: I thought the bakery was closed, but it was actually open.
+Input: Never mind, it showed up this morning.
+Output: Never mind, it showed up this morning.
+Input: Can you check on the package? Never mind, it showed up this morning.
+Output: Can you check on the package? Never mind, it showed up this morning.
+Input: what time does the library close
+Output: What time does the library close?
+Input: To be clear, I don't mean the blue one. Its the green one on the left.
+Output: To be clear, I don't mean the blue one. It's the green one on the left.
+Input: is the oven preheated
+Output: Is the oven preheated?
+Input: Install version four point two, not four point one.
+Output: Install version 4.2, not 4.1.
+Input: One of the best parts was when the first speaker made a good point.
+Output: One of the best parts was when the first speaker made a good point.
+Input: Set the timer to fifteen minutes and the oven to three fifty.
+Output: Set the timer to 15 minutes and the oven to 350.
 Input: We was planning a trip to the coast and my brother keeps forgetting to book the hotel so we might end up somewhere we should have went last year and that's not ideal.
 Output: We were planning a trip to the coast. My brother keeps forgetting to book the hotel, so we might end up somewhere we should have gone last year, and that's not ideal.
 Input: Even though the recipe is simple, but it it still takes all afternoon.
