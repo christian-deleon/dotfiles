@@ -77,12 +77,12 @@ type_delay_ms = 1
 append_text = "  "
 
 # Cleanup pass after local transcription. Parakeet still does the speech-to-text
-# on this machine; only the resulting text is sent to Grok. If that command is
-# still running after timeout_ms, or it errors, Voxtype types the original
-# transcript. The prompt lives in postprocess.py. It gives up at
-# VOXTYPE_GROK_TIMEOUT (3.5s) and shows a notification; timeout_ms is the
-# 0.5s-later backstop, so it must stay above that.
-# Auth: $XAI_API_KEY, else ~/.local/share/voxtype/xai-api-key, else `grok` login.
+# on this machine; only the resulting text is sent to Claude Haiku on Amazon
+# Bedrock. If that command is still running after timeout_ms, or it errors,
+# Voxtype types the original transcript. The prompt lives in postprocess.py. It
+# gives up at VOXTYPE_BEDROCK_TIMEOUT (3.5s) and shows a notification;
+# timeout_ms is the 0.5s-later backstop, so it must stay above that.
+# Auth: $VOXTYPE_BEDROCK_API_KEY, else ~/.local/share/voxtype/bedrock-api-key.
 # A change here is read on daemon start: systemctl --user restart voxtype
 [output.post_process]
 command = "/usr/bin/python3 \"$HOME/.config/voxtype/postprocess.py\""
