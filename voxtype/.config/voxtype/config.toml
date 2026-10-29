@@ -72,8 +72,9 @@ fallback_to_clipboard = true
 # 0 = fastest possible, increase if characters are dropped
 type_delay_ms = 1
 
-# Append after each transcription (space separates back-to-back PTT utterances)
-append_text = " "
+# Append after each transcription. Two spaces, matching the gap postprocess.py
+# puts between sentences, so the next sentence typed or dictated needs none.
+append_text = "  "
 
 # Cleanup pass after local transcription. Parakeet still does the speech-to-text
 # on this machine; only the resulting text is sent to Grok. If that command is
