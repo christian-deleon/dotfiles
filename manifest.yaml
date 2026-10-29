@@ -315,6 +315,7 @@ voxtype:
   description: Push-to-talk voice-to-text config
   config:
     type: stow
+  post_install: [install_voxtype_systemd]
   requires: [linux]
 
 windows-terminal:

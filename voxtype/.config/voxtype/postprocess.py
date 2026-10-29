@@ -17,6 +17,8 @@ import json
 import logging
 import os
 import re
+import signal
+import subprocess
 import sys
 import urllib.error
 import urllib.parse
@@ -108,20 +110,48 @@ def main() -> int:
         return 0
 
     try:
-        token = load_token()
-        cleaned = complete(token, text, os.environ.get("VOXTYPE_CONTEXT"))
+        cleaned = clean(text)
     except VoxtypePostError as exc:
-        log.error("%s", exc)
-        return 1
+        return fail(str(exc))
+    except Exception as exc:
+        log.exception("unexpected error")
+        return fail(f"{type(exc).__name__}: {exc}")
 
     if not cleaned.strip():
-        log.error("model returned empty text")
-        return 1
+        return fail("model returned empty text")
     cleaned = double_space_sentences(cleaned)
     sys.stdout.write(cleaned)
     if not cleaned.endswith("\n"):
         sys.stdout.write("\n")
     return 0
+
+
+def clean(text: str) -> str:
+    # Give up before Voxtype's own timeout kills us, so fail() can still notify.
+    signal.signal(signal.SIGALRM, _out_of_time)
+    signal.setitimer(signal.ITIMER_REAL, TIMEOUT_SECS)
+    try:
+        token = load_token()
+        return complete(token, text, os.environ.get("VOXTYPE_CONTEXT"))
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+
+
+def _out_of_time(signum: int, frame: object) -> None:
+    raise VoxtypePostError(f"Grok took longer than {TIMEOUT_SECS:g}s")
+
+
+def fail(reason: str) -> int:
+    log.error("%s", reason)
+    try:
+        subprocess.run(
+            ["notify-send", "-a", "Voxtype", "Dictation typed without cleanup", reason],
+            timeout=1,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return 1
 
 
 def double_space_sentences(text: str) -> str:

@@ -60,6 +60,7 @@ Handlers live in `scripts/handlers/*.sh`, organized by domain:
 | `scripts/handlers/alacritty.sh` | `alacritty_setup` (theme shim + macOS Nerd Font) |
 | `scripts/handlers/neovim.sh` | `install_neovim_extras` |
 | `scripts/handlers/desktop.sh` | `install_hypr_config`, `install_omarchy_config` |
+| `scripts/handlers/voxtype.sh` | `install_voxtype_systemd` (crash-notification drop-in; voxtype `post_install`) |
 
 ## CLI aliases
 
