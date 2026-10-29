@@ -223,7 +223,7 @@ update_dotfiles() {
             if _submodule_pull_branch agent-files; then
                 _success "agent-files updated"
             else
-                _warn "agent-files failed to update"
+                _error "Could not update agent-files"
             fi
         fi
 

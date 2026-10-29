@@ -816,7 +816,7 @@ agent_update() {
     agent_ensure_submodule || return 1
 
     _info "Updating agent-files submodule..."
-    if git -C "$DOTFILES_DIR" submodule update --remote --init agent-files 2>&1; then
+    if _submodule_pull_branch agent-files; then
         _success "agent-files updated"
     else
         _error "Could not update agent-files submodule"
