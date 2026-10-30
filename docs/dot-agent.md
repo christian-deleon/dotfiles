@@ -14,7 +14,7 @@ agent-files/
   env/<env-name>/skills/<skill>/      # per-env skills (symlinked into the skill dirs)
 ```
 
-Commits inside the submodule are made automatically with a generated message; **push is always manual** (`cd ~/.dotfiles/agent-files && git push`) so remote sync stays an explicit decision. Push the submodule **before** (or with) the parent pointer bump — `dot update` on another machine fast-forwards `origin/main` and then checks that the recorded SHA exists. A parent-only push used to look like a successful update while the new skill/overlay never appeared.
+Commits inside the submodule are made automatically with a generated message; **push is always manual** (`cd ~/.dotfiles/agent-files && git push`) so remote sync stays an explicit decision. Once you bump the pointer, `git push` in `~/.dotfiles` pushes the submodule commits first (`push.recurseSubmodules=on-demand`, set repo-locally by the installer and `dot update`). If the parent still reaches origin ahead of the submodule (e.g. pushed from a machine without that setting), `dot update` elsewhere stops with "recorded commit … is not on origin/main" instead of silently missing the new skill or overlay.
 
 The implementation for both scopes lives in `scripts/dot/agent.sh` (`manage_agent_files`, `agent_*`, `agent_env_*` helpers) — sourced by `dot.sh`.
 
