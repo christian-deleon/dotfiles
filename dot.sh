@@ -186,6 +186,8 @@ update_dotfiles() {
     fi
 
     if [[ -d "$DOTFILES_DIR/.git" ]]; then
+        _dotfiles_push_submodules_on_demand
+
         _info "Pulling latest dotfiles..."
         if ! git -C "$DOTFILES_DIR" pull --rebase --autostash 2>&1; then
             _error "Could not pull dotfiles"

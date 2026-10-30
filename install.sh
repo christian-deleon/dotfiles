@@ -904,6 +904,8 @@ run_core_config() {
     echo
     info "Dot CLI..."
     install_dot_cli
+
+    _dotfiles_push_submodules_on_demand
 }
 
 # ─── Core extras ──────────────────────────────────────────────────────────────

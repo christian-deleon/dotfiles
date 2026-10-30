@@ -58,6 +58,14 @@ fi
 # Submodules without a `branch =` entry in .gitmodules (tpm, themes) are
 # intentionally pinned and should keep using `submodule update --remote`.
 
+# `git push` in the dotfiles repo pushes referenced submodule commits first,
+# so a pointer bump never lands on origin ahead of the commit it names.
+# Repo-local on purpose: globally it would auto-push submodules in every repo.
+_dotfiles_push_submodules_on_demand() {
+    [[ -d "$DOTFILES_DIR/.git" ]] || return 0
+    git -C "$DOTFILES_DIR" config push.recurseSubmodules on-demand
+}
+
 # Read submodule.<path>.branch from .gitmodules. Empty if unset.
 _submodule_configured_branch() {
     git -C "$DOTFILES_DIR" config --file .gitmodules --get "submodule.$1.branch" 2>/dev/null
