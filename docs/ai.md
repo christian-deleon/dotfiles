@@ -90,7 +90,7 @@ Not on any profile. `dot install claude` runs the native installer (`https://cla
 
 `dot agent env` never touches `~/.claude/CLAUDE.md`; it relinks `~/.grok/AGENTS.md`, which the hop follows. Do not add a project `CLAUDE.md`. Current Claude Code reads a repo `AGENTS.md` on its own, and ignores it when a `CLAUDE.md` is also present in that directory or a parent.
 
-User MCP is merged into `~/.claude.json` `mcpServers` (OAuth and UI state stay). Only the default-enabled servers (`context7`, `firecrawl`) are written. A roster server that is not enabled is omitted.
+User MCP is merged into `~/.claude.json` `mcpServers` (OAuth and UI state stay). Claude mirrors Grok: every roster server enabled in live `~/.grok/config.toml` is written, including ones switched on in Grok by hand. The rest are omitted. A server toggled in Grok reaches Claude on the next `dot update`.
 
 `cl` is `claude`. `cca` is `claude --permission-mode bypassPermissions`. `dot ai-tool cl` switches the interactive default. Auto-detect for commit messages stays grok, then opencode.
 

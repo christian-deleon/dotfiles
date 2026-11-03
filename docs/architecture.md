@@ -174,7 +174,7 @@ Shared AI agent configuration owned by this dotfiles repo at `~/.dotfiles/ai/`. 
 - Merges Stop / Notification (permission and elicitation prompts only) / UserPromptSubmit command hooks into `~/.claude/settings.json`
 - Sets `attribution` to `{commit: "", pr: "", sessionUrl: false}` in the same file so Claude never adds `Co-Authored-By` trailers, PR bylines, or session links
 
-**Shared MCP:** `generate_mcp_configs()` (post_install on `grok`, `opencode`, and `claude`, or `dot mcp-regen`) reads `~/.dotfiles/ai/mcp-servers.json.tpl`, resolves secrets via 1Password, and writes native `[mcp_servers.*]` into live `~/.grok/config.toml`, OpenCode `mcp`, and (when Claude is installed) `~/.claude.json` `mcpServers` for the enabled set.
+**Shared MCP:** `generate_mcp_configs()` (post_install on `grok`, `opencode`, and `claude`, or `dot mcp-regen`) reads `~/.dotfiles/ai/mcp-servers.json.tpl`, resolves secrets via 1Password, and writes native `[mcp_servers.*]` into live `~/.grok/config.toml`, OpenCode `mcp`, and (when Claude is installed) `~/.claude.json` `mcpServers` for the servers enabled in Grok.
 
 **Idempotency:** `clean_ai_symlinks()` runs before every install, removing any symlinks in the target directory that point into `~/.dotfiles/ai/` (or legacy `ecc/`).
 
@@ -195,7 +195,7 @@ When two sources contribute to a single config file (e.g., generated AI agents +
 MCP servers are defined once in `~/.dotfiles/ai/mcp-servers.json.tpl` (`command`/`args`/`env`/`url` JSON with `op://` secret references) and generated into tool-specific formats at install time:
 - **Grok**: merged into live `~/.grok/config.toml` as `[mcp_servers.*]`
 - **OpenCode**: converted and merged into `~/.config/opencode/opencode.json` as `mcp`
-- **Claude Code**: enabled servers merged into `~/.claude.json` `mcpServers` when the CLI is installed
+- **Claude Code**: servers enabled in live Grok config merged into `~/.claude.json` `mcpServers` when the CLI is installed
 
 Secrets are resolved via `op_inject_multi()` during generation. Add/remove servers by editing `ai/mcp-servers.json.tpl` and running `dot update` or `./install.sh`.
 

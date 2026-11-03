@@ -381,12 +381,30 @@ write_claude_mcp() {
         'keys[] | select(. as $k | $enabled | index($k))' "$resolved" > "$written_file"
 }
 
+# JSON array of servers enabled in live ~/.grok/config.toml.
+grok_enabled_mcp() {
+    local cfg="$HOME/.grok/config.toml"
+    [[ -f "$cfg" ]] || { printf '[]\n'; return 0; }
+    python3 "$DOTFILES_DIR/ai/scripts/merge-grok-mcp.py" "$cfg" --print-enabled-mcp
+}
+
+# Regen cache key: roster + overlay, plus Grok's enabled set when Claude is
+# installed so a server toggled on in Grok reaches Claude on the next update.
+mcp_regen_hash() {
+    local src="$1" overlay="$2"
+    {
+        sha256sum "$src"
+        [[ -n "$overlay" ]] && sha256sum "$overlay"
+        claude_installed && grok_enabled_mcp
+    } | sha256sum | awk '{print $1}'
+}
+
 # Generate MCP configs from the shared roster.
 # Source: ~/.dotfiles/ai/mcp-servers.json.tpl (command/args/env/url JSON, op:// refs)
 # Targets:
 #   Grok:     ~/.grok/config.toml [mcp_servers.*]  (canonical)
 #   OpenCode: ~/.config/opencode/opencode.json mcp (adapter; JSON ≠ TOML)
-#   Claude:   ~/.claude.json mcpServers            (adapter; only if installed)
+#   Claude:   ~/.claude.json mcpServers            (adapter; mirrors Grok's enabled set; only if installed)
 generate_mcp_configs() {
     local mcp_src="$DOTFILES_DIR/ai/mcp-servers.json.tpl"
     local force="${FORCE_MCP_REGEN:-false}"
@@ -409,12 +427,7 @@ generate_mcp_configs() {
     overlay=$(grok_profile_overlay) || overlay=""
 
     local current_hash
-    current_hash="$(
-        {
-            sha256sum "$mcp_src"
-            [[ -n "$overlay" ]] && sha256sum "$overlay"
-        } | sha256sum | awk '{print $1}'
-    )"
+    current_hash="$(mcp_regen_hash "$mcp_src" "$overlay")"
 
     # Skip the 1Password round-trip only when Claude, once installed, still
     # has every server the last regen gave it. A server dropped for a missing
@@ -512,8 +525,10 @@ generate_mcp_configs() {
     printf '%s' "$enabled_json" > "$enabled_file"
     local -a merge_args=("$grok_cfg" --mcp "$resolved" --enabled "$enabled_file")
     [[ -n "$overlay" ]] && merge_args+=(--overlay "$overlay")
+    local claude_enabled_json="$enabled_json"
     if python3 "$merger" "${merge_args[@]}"; then
         success "Updated Grok MCP servers in ~/.grok/config.toml"
+        claude_enabled_json="$(grok_enabled_mcp)" || claude_enabled_json="$enabled_json"
     else
         warn "Failed to merge Grok MCP servers into ~/.grok/config.toml"
     fi
@@ -559,6 +574,7 @@ generate_mcp_configs() {
     fi
 
     mkdir -p "$cache_dir"
-    write_claude_mcp "$resolved" "$enabled_json" "$claude_written"
-    printf '%s' "$current_hash" > "$hash_file"
+    write_claude_mcp "$resolved" "$claude_enabled_json" "$claude_written"
+    # Rehash: the merge may have grown Grok's enabled set.
+    printf '%s' "$(mcp_regen_hash "$mcp_src" "$overlay")" > "$hash_file"
 }
