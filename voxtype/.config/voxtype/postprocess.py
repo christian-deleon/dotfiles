@@ -32,7 +32,7 @@ MODEL = os.environ.get("VOXTYPE_BEDROCK_MODEL", "us.anthropic.claude-haiku-5-5")
 # Haiku rarely uses adaptive thinking on this task, even at "high", so a hard
 # edit gets worked out in a visible note before the <cleaned> tags instead.
 EFFORT = os.environ.get("VOXTYPE_BEDROCK_EFFORT", "low")
-TIMEOUT_SECS = float(os.environ.get("VOXTYPE_BEDROCK_TIMEOUT", "3.5"))
+TIMEOUT_SECS = float(os.environ.get("VOXTYPE_BEDROCK_TIMEOUT", "5"))
 KEY_FILE = Path(
     os.environ.get(
         "VOXTYPE_BEDROCK_KEY_FILE",
