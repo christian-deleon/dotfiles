@@ -8,6 +8,7 @@
 #   merge-grok-mcp.py <config.toml> --mcp <resolved.json> --enabled <enabled.json>
 #   merge-grok-mcp.py <config.toml> --overlay <profile.toml>
 #   merge-grok-mcp.py /dev/null --overlay <profile.toml> --print-overlay-mcp
+#   merge-grok-mcp.py <config.toml> --print-enabled-mcp
 #
 # Stdlib only. Splices [mcp_servers.*], [compat.claude], and [folder_trust]
 # so the rest of the live file (which Grok mutates) is left byte-for-byte intact.
@@ -351,7 +352,18 @@ def main() -> int:
         action="store_true",
         help="print overlay MCP patches as JSON and exit (no live-config write)",
     )
+    parser.add_argument(
+        "--print-enabled-mcp",
+        action="store_true",
+        help="print servers enabled in the live config as a JSON array and exit",
+    )
     args = parser.parse_args()
+
+    if args.print_enabled_mcp:
+        _, tables = parse_tables(Path(args.config).read_text(encoding="utf-8"))
+        json.dump(sorted(live_enabled_servers(tables)), sys.stdout)
+        sys.stdout.write("\n")
+        return 0
 
     if args.print_overlay_mcp:
         if not args.overlay:
