@@ -193,9 +193,9 @@
         "baseURL": "https://bedrock-runtime.us-gov-west-1.amazonaws.com/openai/v1"
       },
       "models": {
-        "work-grok-4.6": {
-          "id": "us-gov.xai.grok-4.6",
-          "name": "work-grok-4.6",
+        "work-grok-4.7": {
+          "id": "us-gov.xai.grok-4.7",
+          "name": "work-grok-4.7",
           "variants": {
             "low": {
               "reasoningEffort": "low"
