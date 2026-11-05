@@ -196,8 +196,17 @@ install_ai_opencode() {
     if [[ -x "$ai_dir/scripts/generate-opencode-config.sh" ]]; then
         "$ai_dir/scripts/generate-opencode-config.sh" "$ai_dir" "$oc_dir"
     fi
+    reload_opencode_service
 
     success "Installed OpenCode adapter"
+}
+
+# The background `opencode serve --service` outlives config rewrites; without
+# a reload every TUI keeps the old provider/model catalog.
+reload_opencode_service() {
+    command -v opencode >/dev/null 2>&1 || return 0
+    opencode service status >/dev/null 2>&1 || return 0
+    opencode reload >/dev/null 2>&1 || warn "Could not reload OpenCode service; run: opencode service restart"
 }
 
 # True when the Claude Code CLI is on PATH or the native launcher exists.
@@ -570,6 +579,7 @@ generate_mcp_configs() {
         jq -s '(.[0] | del(.mcp)) * .[1]' "$oc_cfg" <(echo "$oc_mcp") > "$oc_cfg.tmp"
         mv "$oc_cfg.tmp" "$oc_cfg"
         chmod 600 "$oc_cfg"
+        reload_opencode_service
         success "Updated OpenCode MCP servers in opencode.json"
     fi
 
