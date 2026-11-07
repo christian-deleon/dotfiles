@@ -102,7 +102,7 @@ Roster is `ai/mcp-servers.json.tpl`. `generate_mcp_configs()` (post_install on *
 - `~/.config/opencode/opencode.json` `mcp` — adapter
 - `~/.claude.json` `mcpServers` — adapter, only when Claude Code is installed
 
-Unresolved `op://` refs are dropped when `op` is missing. Default-enabled: `context7`, `firecrawl`. A profile overlay (`grok/.grok/overlays/<profile>.toml`) can also enable a server and replace its launch command — `wsl-work` turns `kubernetes` on and runs the local `kubernetes-mcp-server` binary (npm/`npx` is blocked here). That overlay is applied to both Grok and the OpenCode adapter.
+Unresolved `op://` refs are dropped when `op` is missing. Default-enabled: `context7`, `firecrawl`, plus `gitea` on any machine where `gitea-mcp` is installed (the personal profiles; `wsl-work` never installs it). The `gitea` entry reads host and token from one 1Password item and is for the personal Netbird-only Gitea; see `ai/rules/common/gitea.md`. `tea` logs in from the same item (`install_tea_login`, `dot install tea`). A profile overlay (`grok/.grok/overlays/<profile>.toml`) can also enable a server and replace its launch command — `wsl-work` turns `kubernetes` on and runs the local `kubernetes-mcp-server` binary (npm/`npx` is blocked here). That overlay is applied to both Grok and the OpenCode adapter.
 
 ## Adding Content
 
