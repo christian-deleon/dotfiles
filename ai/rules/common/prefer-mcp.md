@@ -12,10 +12,8 @@ web scraping by hand, or training-data recall whenever one matches the task.
 | Kubernetes cluster state (pods, logs, events) | `kubernetes` |
 | Flux GitOps state and reconcile ops | `flux` |
 | AWS account state *and* AWS docs/skills | `aws` |
-| Terraform/OpenTofu provider/module registry docs | `terraform` |
 | Grafana dashboards / observability | `grafana` |
 | Docker engine / containers | `docker` |
-| GitHub PRs, issues, repos | `github` |
 | Personal self-hosted Gitea repos, issues, PRs (see `gitea.md`) | `gitea` |
 | Browser automation / UI screenshots | `playwright` |
 
@@ -32,7 +30,6 @@ web scraping by hand, or training-data recall whenever one matches the task.
 2. **Context7 is for packages; Firecrawl is for the open web.** Do not use Firecrawl as a first-line substitute for library docs, and do not use Context7 for general news or arbitrary URLs.
 3. **If Context7 misses a library** (empty/wrong index), fall back to Firecrawl against the *official* docs URL — not random blog posts.
 4. **AWS docs** go through the `aws` server's documentation tools when available, not Context7 or Firecrawl.
-5. **Terraform provider/module schemas** go through `terraform`, not Context7 or Firecrawl.
 
 ## Live systems: read free, mutate only when authorized
 
@@ -42,4 +39,4 @@ in the current conversation. Availability is not permission.
 
 ## Disabled servers
 
-Only `context7` and `firecrawl` are enabled by default on every machine. A profile overlay can turn a domain server on for this host — on `wsl-work`, `kubernetes` is one of those. Other domain servers (`flux`, `aws`, `terraform`, etc.) often ship disabled. If a needed server is configured but disabled, **ask the user to enable it** before falling back to Bash/CLI or guessing.
+Only `context7` and `firecrawl` are enabled by default on every machine. A profile overlay can turn a domain server on for this host — on `wsl-work`, `kubernetes` is one of those. Other domain servers (`flux`, `aws`, etc.) often ship disabled. If a needed server is configured but disabled, **ask the user to enable it** before falling back to Bash/CLI or guessing.

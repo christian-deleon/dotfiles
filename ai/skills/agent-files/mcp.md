@@ -27,13 +27,13 @@ Format: a JSON object, one key per server. Author `command` / `args` / `env` / `
     "args": ["-y", "@upstash/context7-mcp", "--api-key", "op://vault/item/credential"],
     "description": "Live documentation lookup"
   },
-  "github": {
+  "example-stdio": {
     "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-github"],
+    "args": ["-y", "example-mcp-server"],
     "env": {
-      "GITHUB_PERSONAL_ACCESS_TOKEN": "op://vault/item/token"
+      "EXAMPLE_API_TOKEN": "op://vault/item/token"
     },
-    "description": "GitHub operations - PRs, issues, repos"
+    "description": "Stdio server with a 1Password secret"
   },
   "remote-api": {
     "type": "http",
@@ -59,7 +59,7 @@ Do **not** stack multiple general-purpose search servers. The intentional pair:
 | `context7` | Library/SDK/framework package docs (RAG over curated indexes) |
 | `firecrawl` | Open-web search, scrape known URLs, multi-page research |
 
-Domain servers own their own docs when relevant (`terraform` registry, `aws` docs tools, `flux` docs search). Routing for agents lives in `ai/rules/common/prefer-mcp.md` — keep that rule and this table aligned when you add or remove a docs/web server.
+Domain servers own their own docs when relevant (`aws` docs tools, `flux` docs search). Routing for agents lives in `ai/rules/common/prefer-mcp.md` — keep that rule and this table aligned when you add or remove a docs/web server.
 
 **Default-enabled** (see `enabled_mcp_servers` in `scripts/handlers/ai.sh`): only `context7` and `firecrawl`. Everything else is installed with `enabled = false`. When adding a server you expect always-on on every machine, update that list. For one machine class only, set `enabled = true` on `[mcp_servers.<name>]` in `grok/.grok/overlays/<profile>.toml` — `generate_mcp_configs` applies that to Grok and OpenCode (and Claude, when installed). `wsl-work` does this for `kubernetes`.
 
@@ -117,7 +117,7 @@ op://<vault>/<item>/<field>
 Secrets are pulled at generate time and written as plaintext into the **live** Grok config, OpenCode `opencode.json`, and (when Claude is installed) `~/.claude.json` (mode 600). Never into the tracked seed `grok/.grok/config.toml`. Sign into 1Password before `dot mcp-regen`.
 
 ```json
-"GITHUB_PERSONAL_ACCESS_TOKEN": "op://ujvoilqaehz2gozzpp2jqyhxsu/lcpymvki7xwdbvucadxiy2ukpa/token"
+"EXAMPLE_API_TOKEN": "op://<vault>/<item>/<field>"
 ```
 
 To find a vault/item ID: `op item list --format=json | jq '.[] | {title, id}'`.
@@ -148,7 +148,7 @@ Author the template in the roster shape — don't mix in OpenCode keys.
 ## Removing or disabling
 
 1. **Delete the entry** from the template. Next generate drops it.
-2. **Rename the key** e.g. `"github"` → `"_disabled_github"` (JSON has no comments). The installer still writes it; it won't be picked up by the old name.
+2. **Rename the key** e.g. `"playwright"` → `"_disabled_playwright"` (JSON has no comments). The installer still writes it; it won't be picked up by the old name.
 
 Don't edit live `config.toml` MCP tables as the long-term fix — `merge-grok-mcp.py` replaces `[mcp_servers.*]` on the next regen. Servers already `enabled = true` in the live file stay enabled (unioned with `enabled_mcp_servers`). A profile overlay (`grok/.grok/overlays/<profile>.toml`) can replace a whole `[mcp_servers.<name>]` table after that write — use it for machine-class launch differences (work WSL vs personal), not instead of the roster. Overlay `enabled = true` and command/args/env also flow into OpenCode's `mcp` block so a new session or worktree does not start with that server off.
 
@@ -191,15 +191,15 @@ Pin the proxy version. Do **not** re-add `--read-only` unless intentionally hidi
 ### Docker-based local MCP server
 
 ```json
-"terraform": {
+"example-docker": {
   "command": "docker",
   "args": [
     "run",
     "-i",
     "--rm",
-    "hashicorp/terraform-mcp-server:1.1.0"
+    "example/mcp-server:1.0.0"
   ],
-  "description": "HashiCorp Terraform Registry MCP"
+  "description": "Containerised stdio server"
 }
 ```
 

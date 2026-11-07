@@ -43,16 +43,6 @@
     ],
     "description": "AWS API, docs, and skills (managed; shim strips aws___ names for Grok)"
   },
-  "terraform": {
-    "command": "docker",
-    "args": [
-      "run",
-      "-i",
-      "--rm",
-      "hashicorp/terraform-mcp-server:1.1.0"
-    ],
-    "description": "HashiCorp Terraform MCP (Registry + optional HCP/TFE)"
-  },
   "playwright": {
     "command": "npx",
     "args": [
@@ -66,14 +56,6 @@
       "--ignore-https-errors"
     ],
     "description": "Browser automation in a dedicated Chromium profile (runs alongside daily Chromium)"
-  },
-  "github": {
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-github"],
-    "env": {
-      "GITHUB_PERSONAL_ACCESS_TOKEN": "op://ujvoilqaehz2gozzpp2jqyhxsu/lcpymvki7xwdbvucadxiy2ukpa/token"
-    },
-    "description": "GitHub operations - PRs, issues, repos"
   },
   "gitea": {
     "command": "gitea-mcp",

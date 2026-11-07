@@ -1,6 +1,6 @@
 # Live system mutations require explicit authorization
 
-MCP servers for live systems (AWS, Flux, Kubernetes, Docker, Grafana, GitHub,
+MCP servers for live systems (AWS, Flux, Kubernetes, Docker, Grafana, Gitea,
 and similar) may expose write-capable tools. **Availability is not permission.**
 
 - **Read freely** — list, get, describe, logs, metrics, docs, status.
