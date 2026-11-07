@@ -31,6 +31,7 @@ items:
   - flux-operator-mcp
   - fzf
   - gh
+  - gitea-mcp
   - granted
   - grok
   - gum
@@ -52,6 +53,7 @@ items:
   - sccache
   - skaffold
   - starship
+  - tea
   - terraform
   - tmux
   - uv
