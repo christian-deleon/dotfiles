@@ -124,6 +124,11 @@ gh:
     brew: gh
     script: install-gh.sh
 
+gitea-mcp:
+  description: Gitea MCP server (personal Gitea over Netbird)
+  install:
+    script: install-gitea-mcp.sh
+
 glab:
   description: GitLab CLI
   install:
@@ -294,6 +299,16 @@ starship:
     script: install-starship.sh
   config:
     type: stow
+
+tea:
+  description: Gitea CLI (personal Gitea over Netbird)
+  install:
+    arch: tea
+    brew: tea
+    script: install-tea.sh
+  config:
+    type: handler
+    handler: install_tea_login
 
 terraform:
   description: Infrastructure as code
