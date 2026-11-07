@@ -75,6 +75,15 @@
     },
     "description": "GitHub operations - PRs, issues, repos"
   },
+  "gitea": {
+    "command": "gitea-mcp",
+    "args": ["-t", "stdio"],
+    "env": {
+      "GITEA_HOST": "op://ujvoilqaehz2gozzpp2jqyhxsu/5u3m57x7mqfutefx7vlovda7zq/hostname",
+      "GITEA_ACCESS_TOKEN": "op://ujvoilqaehz2gozzpp2jqyhxsu/5u3m57x7mqfutefx7vlovda7zq/credential"
+    },
+    "description": "Personal self-hosted Gitea (Netbird only; not for work)"
+  },
   "firecrawl": {
     "command": "npx",
     "args": ["-y", "firecrawl-mcp"],

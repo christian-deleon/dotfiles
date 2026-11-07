@@ -404,6 +404,7 @@ mcp_regen_hash() {
     {
         sha256sum "$src"
         [[ -n "$overlay" ]] && sha256sum "$overlay"
+        command -v gitea-mcp &>/dev/null && echo gitea-mcp
         claude_installed && grok_enabled_mcp
     } | sha256sum | awk '{print $1}'
 }
@@ -420,6 +421,8 @@ generate_mcp_configs() {
     local merger="$DOTFILES_DIR/ai/scripts/merge-grok-mcp.py"
     local grok_cfg="$HOME/.grok/config.toml"
     local enabled_mcp_servers=("context7" "firecrawl")
+    # Installed only by the personal profiles; wsl-work never gets the binary.
+    command -v gitea-mcp &>/dev/null && enabled_mcp_servers+=("gitea")
     local claude_mcp_ok=1
 
     if [[ ! -f "$mcp_src" ]]; then
