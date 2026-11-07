@@ -330,9 +330,13 @@ write_claude_mcp() {
     local enabled_json="$2"
     local written_file="$3"
     local cfg="$HOME/.claude.json"
-    local before="" tmp
+    local before="" tmp prev_json="[]"
 
     claude_installed || return 0
+
+    if [[ -f "$written_file" ]]; then
+        prev_json="$(jq -R . "$written_file" | jq -s .)"
+    fi
 
     if [[ -f "$cfg" ]]; then
         if ! jq -e 'type == "object"' "$cfg" >/dev/null 2>&1; then
@@ -346,9 +350,10 @@ write_claude_mcp() {
     if ! { if [[ -f "$cfg" ]]; then cat -- "$cfg"; else printf '{}'; fi; } | jq \
         --slurpfile roster "$resolved" \
         --argjson enabled "$enabled_json" \
+        --argjson prev "$prev_json" \
         '
         $roster[0] as $roster
-        | ($roster | keys) as $managed
+        | (($roster | keys) + $prev) as $managed
         | .mcpServers = (
             ((.mcpServers // {}) | with_entries(select(.key as $k | ($managed | index($k)) | not)))
             + (
