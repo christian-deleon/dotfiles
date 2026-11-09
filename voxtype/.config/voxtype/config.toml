@@ -72,6 +72,10 @@ fallback_to_clipboard = true
 # 0 = fastest possible, increase if characters are dropped
 type_delay_ms = 1
 
+# Any newline in the text is typed as Shift+Enter, not Enter, so a chat box
+# (Slack, Discord) can never send a message the user has not confirmed.
+shift_enter_newlines = true
+
 # Append after each transcription. Two spaces, matching the gap postprocess.py
 # puts between sentences, so the next sentence typed or dictated needs none.
 append_text = "  "

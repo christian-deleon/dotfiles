@@ -138,8 +138,6 @@ def main() -> int:
         return fail("model replied instead of cleaning")
     cleaned = double_space_sentences(cleaned)
     sys.stdout.write(cleaned)
-    if not cleaned.endswith("\n"):
-        sys.stdout.write("\n")
     return 0
 
 
