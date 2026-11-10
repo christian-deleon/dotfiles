@@ -1,7 +1,6 @@
 ---
 name: handoff
 description: Capture the current problem and what we've found into a lean, copy-pasteable blob to transfer to another session. Use when the user says /handoff, 'hand this off', 'capture this for another session', 'dump this problem so I can paste it elsewhere', or wants to move an in-progress investigation without writing a full report.
-compatibility: opencode
 argument-hint: "[which problem]"
 ---
 

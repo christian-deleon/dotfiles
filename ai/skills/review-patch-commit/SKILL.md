@@ -5,7 +5,6 @@ description: >-
   Use when the user runs /review-patch-commit, or says review then fix then
   commit, apply the review and commit, or wrap up with a review. Not for
   review-only or commit-only.
-compatibility: opencode
 argument-hint: "[--no-verify]"
 disable-model-invocation: true
 when-to-use: >-

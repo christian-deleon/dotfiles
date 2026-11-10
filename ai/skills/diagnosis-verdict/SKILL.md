@@ -1,7 +1,6 @@
 ---
 name: diagnosis-verdict
 description: End a diagnosis with a bug verdict and the remedy. Use when the user asks "does anything seem broken or everything looks normal", "are you saying there's a bug or not", "what needs to be fixed", or "what do we have to do to fix it".
-compatibility: opencode
 user-invocable: true
 origin: learn
 ---

@@ -1,7 +1,6 @@
 ---
 name: bash
 description: Modern Bash scripting — safe, idiomatic, lint-clean. Use when editing `*.sh`/`*.bash`, files with a bash shebang, scripts under `bin/` or `scripts/`, or for prompts about shellcheck, shfmt, bats, strict mode. Bash 4+ default; POSIX `sh` only when target is `/bin/sh`. Enforces shellcheck-clean output and shfmt formatting.
-compatibility: opencode
 ---
 # Bash Scripting
 

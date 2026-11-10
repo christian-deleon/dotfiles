@@ -1,7 +1,6 @@
 ---
 name: flux
 description: Flux CD v2 GitOps for Kubernetes. Use when editing YAML under `flux/`/`clusters/` referencing `toolkit.fluxcd.io` APIs (GitRepository, HelmRelease, Kustomization, ResourceSet), or for prompts about Flux, GitOps reconciliation, `flux bootstrap`, 'add a HelmRelease', 'fix the Kustomization', 'reconcile this'. Preferred secrets: 1Password Operator + Reflector.
-compatibility: opencode
 ---
 # Flux CD Authoring
 

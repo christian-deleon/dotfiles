@@ -1,7 +1,6 @@
 ---
 name: docker
 description: Modern Docker — Dockerfile authoring, BuildKit/buildx/bake, Compose v2, base-image strategy, and the image supply chain (signing, SBOM, scanning). Use when editing `Dockerfile`, `compose.yaml`, `docker-bake.hcl`, or for prompts about containers, multi-arch, distroless, Chainguard, cosign, Trivy, Compose. Defers k8s workloads to `kubernetes`, Helm to `helm`, inner-loop dev to `skaffold`.
-compatibility: opencode
 ---
 
 # Docker

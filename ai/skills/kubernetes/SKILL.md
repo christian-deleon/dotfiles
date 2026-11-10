@@ -1,7 +1,6 @@
 ---
 name: kubernetes
 description: Modern Kubernetes — manifest authoring, workloads, networking, security, debugging. Use when editing YAML under `manifests/`, `k8s/`, `kustomize/`, or for prompts about kubectl, RKE2, EKS, Deployment/Service/Ingress/HPA/RBAC/NetworkPolicy, Cilium, Traefik, Kyverno, cert-manager. Defers Helm to `helm`, IaC to `terraform`, GitOps to `flux`, inner-loop to `skaffold`. Routes cluster reads via `kubernetes-mcp`.
-compatibility: opencode
 ---
 
 # Kubernetes

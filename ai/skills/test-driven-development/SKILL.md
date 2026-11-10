@@ -1,7 +1,6 @@
 ---
 name: test-driven-development
 description: Test-first for executable logic (branching, computation, contracts). Use when implementing or fixing behavior with inputs and outputs. Do not use for prompts, copy, docs, comments, formatting, config literals, or declarative desired-state (dashboards, alerts, Helm charts, Kubernetes manifests), including when that config is broken. Triggers: implement, fix, add feature, regression, bug — if the change is logic. Skip content edits and no-tests projects.
-compatibility: opencode
 ---
 
 # Test-Driven Development

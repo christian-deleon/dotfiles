@@ -1,7 +1,6 @@
 ---
 name: contribute
 description: Guide contributions to upstream open-source GitHub projects. Use when the user mentions contributing to a public/upstream project, opening a PR against an external repo, or following project guidelines — 'contribute to', 'open a PR upstream', 'submit a patch to', 'send this upstream'. Reads CONTRIBUTING.md, PR templates, and git log to match conventions.
-compatibility: opencode
 ---
 
 # Contributing to Upstream OSS Projects
