@@ -3,6 +3,8 @@
 
 local home = os.getenv("HOME") or ""
 
+require("hypr.classic-workspaces")
+
 -- Browser profiles (stock SUPER+SHIFT+ALT+B is private mode).
 -- Skip omarchy-launch-browser: 4.0 systemd-runs the process (drops Hyprland's
 -- activation token) and treats --profile-directory as a URL, then focuses the
