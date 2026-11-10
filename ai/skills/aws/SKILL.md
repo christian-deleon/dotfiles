@@ -1,7 +1,6 @@
 ---
 name: aws
 description: AWS conventions — naming, tagging, IAM, networking, storage (S3/KMS/EBS), per-service defaults (EC2, Lambda, EKS). Use when the user mentions AWS services or works with `aws_*` HCL resources — 'create a bucket', 'add an IAM role', 'tag these resources', 'set up a VPC', 'configure EKS'. Defer HCL mechanics to `terraform`, API reads to `aws-mcp`.
-compatibility: opencode
 ---
 
 # AWS Conventions

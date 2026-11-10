@@ -1,7 +1,6 @@
 ---
 name: playwright-mcp
 description: Browser automation via the Playwright MCP server. Use when driving a browser, taking UI screenshots, verifying a web UI, or using browser_* tools — 'open this page', 'screenshot the chart', 'click through the login'. Screenshots must not land in the project tree.
-compatibility: opencode
 ---
 
 # Playwright MCP Usage

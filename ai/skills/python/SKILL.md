@@ -1,7 +1,6 @@
 ---
 name: python
 description: Modern Python (3.12+) for scripts and apps — idioms, packaging, types, async, web, testing. Use when editing `*.py`/`pyproject.toml`/`uv.lock` or for prompts about FastAPI, Django, asyncio, Pydantic, ruff, pyright, pytest, uv. Stack: uv, ruff, pyright (mypy for libraries), pytest, FastAPI, httpx, pydantic-settings, structlog.
-compatibility: opencode
 ---
 
 # Python

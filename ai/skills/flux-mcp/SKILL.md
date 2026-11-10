@@ -1,7 +1,6 @@
 ---
 name: flux-mcp
 description: Flux GitOps cluster access via the `flux` MCP server (flux-operator-mcp). Use whenever a task needs live Flux/GitOps state or operations — 'why is this Kustomization failing', 'reconcile the HelmRelease', 'what version of Flux is running', 'compare this app across clusters', 'suspend reconciliation'. Reads freely; mutations require explicit per-action authorization.
-compatibility: opencode
 ---
 
 # Flux MCP Usage

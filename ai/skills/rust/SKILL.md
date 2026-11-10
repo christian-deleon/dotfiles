@@ -1,7 +1,6 @@
 ---
 name: rust
 description: Modern Rust (edition 2024) for CLIs, services, and libraries — idioms, packaging, async, errors, web, testing. Use when editing `*.rs`/`Cargo.toml`, or for prompts about cargo, clippy, tokio, axum, reqwest, clap, serde, sqlx, thiserror, anyhow, tracing. Stack: clippy + rustfmt, cargo-nextest, tokio, axum, clap (derive), tracing.
-compatibility: opencode
 ---
 
 # Rust

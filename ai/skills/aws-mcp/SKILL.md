@@ -1,7 +1,6 @@
 ---
 name: aws-mcp
 description: AWS API access via the `aws` MCP server (mcp-proxy-for-aws). Use for live AWS state (S3, EC2, IAM, Lambda, CloudWatch, RDS, EKS), current AWS docs, or account questions — 'what's in this bucket', 'who has access to X', 'list my instances'. Reads free; mutations need explicit per-action authorization.
-compatibility: opencode
 ---
 
 # AWS MCP Usage

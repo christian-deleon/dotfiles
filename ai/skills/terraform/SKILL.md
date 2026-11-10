@@ -1,7 +1,6 @@
 ---
 name: terraform
 description: Terraform / OpenTofu authoring (HCL). Use when editing `*.tf`/`*.tofu`/`terraform.tfvars`, files under `terraform/` or `environments/`, or for prompts about providers, modules, state, plan/apply, `tofu` CLI. Defaults to `tofu`; calls out Terraform-only or OpenTofu-only features. S3 backend with native locking, `for_each` over `count`, `moved`/`import`/`removed` over state surgery.
-compatibility: opencode
 ---
 
 # Terraform / OpenTofu

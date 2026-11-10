@@ -1,7 +1,6 @@
 ---
 name: skaffold
 description: Skaffold v2 for the Kubernetes inner-loop — build, sync, debug, port-forward via `skaffold.yaml`. Use when editing `skaffold.yaml` or for prompts about `skaffold dev/debug/run`, file sync, hot reload, profiles, taggers. Dev/CI build orchestrator, NOT a production deployer — production deploys are GitOps (see `flux`).
-compatibility: opencode
 ---
 
 # Skaffold

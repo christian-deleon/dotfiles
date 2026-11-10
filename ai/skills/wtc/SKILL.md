@@ -1,7 +1,6 @@
 ---
 name: wtc
 description: Spawn sibling tmux+worktree agent(s) via shell wtc when the user explicitly approves (slash /wtc, "wtc that", "spawn a fix agent", "one for each", …). When this skill runs, execute wtc yourself — never tell the user a /wtc or shell command to re-run. Builds a full -p handoff; always -n so focus is not stolen. Without approval, only suggest /wtc lines.
-compatibility: opencode
 argument-hint: "[branch] [message…] | each: … | (empty = from context)"
 user-invocable: true
 ---

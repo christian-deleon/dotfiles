@@ -1,7 +1,6 @@
 ---
 name: commit
 description: Create git commits following the Conventional Commits specification. Use when the user asks to commit, write a commit message, 'wrap this up', 'finalize this', 'check this in', 'stage and commit'. Analyzes changes and drafts atomic commits with conventional types, scopes, and descriptions. Supports --no-verify to skip format/lint/test gates when the user is in a hurry.
-compatibility: opencode
 argument-hint: "[--no-verify]"
 ---
 

@@ -1,7 +1,6 @@
 ---
 name: kubernetes-mcp
 description: Kubernetes cluster API access via the `kubernetes` MCP server. Use whenever a task requires reading live cluster state (pods, deployments, logs, events, configmaps) or kubectl-style answers — 'what pods are running', 'why is this deployment unhealthy', 'show me the logs', 'describe this resource'. Read-only by default.
-compatibility: opencode
 ---
 
 # Kubernetes MCP Usage

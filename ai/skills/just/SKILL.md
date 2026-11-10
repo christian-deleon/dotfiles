@@ -1,7 +1,6 @@
 ---
 name: just
 description: Authoring justfiles for the `just` command runner. Use when editing `justfile`/`*.just`, or for prompts about `just`, recipes, task runners — 'add a build task', 'fix the deploy recipe', 'what does this justfile do', 'refactor this Makefile to just'. Use modern features (modules, attributes, settings, shebang recipes) — never Make-style targets in disguise.
-compatibility: opencode
 ---
 
 # Justfile Authoring

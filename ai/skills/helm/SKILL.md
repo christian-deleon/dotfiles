@@ -1,7 +1,6 @@
 ---
 name: helm
 description: Helm v3 chart authoring and chart consumption. Use when editing `Chart.yaml`, `values.yaml`, `templates/`, `helmfile.yaml`, or for prompts about helm install/upgrade/template/diff/package, OCI charts, helmfile, chart-testing. Enforces Chart v2, OCI distribution, immutable image tags, `--atomic --wait`, `helm diff upgrade` before changes. Defers `HelmRelease` mechanics to `flux`.
-compatibility: opencode
 ---
 
 # Helm

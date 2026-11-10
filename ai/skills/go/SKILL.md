@@ -1,7 +1,6 @@
 ---
 name: go
 description: Modern Go (1.25+) for services, CLIs, libraries — idioms, layout, concurrency, generics, testing. Use when editing `*.go`/`go.mod`, files under `cmd/` or `internal/`, or for prompts about goroutines, context, slog, errors.Is/As, gin, chi, pgx, sqlc, cobra, kong. Stack: gofumpt + golangci-lint v2 + govulncheck, stdlib `net/http`, `pgx/v5` + `sqlc`.
-compatibility: opencode
 ---
 
 # Go

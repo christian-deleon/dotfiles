@@ -1,7 +1,6 @@
 ---
 name: ansible
 description: Ansible (ansible-core 2.20+) playbook, role, collection, and inventory authoring. Use when editing files under `playbooks/`, `roles/`, `inventories/`, `group_vars/`, `molecule/`, `ansible.cfg`, or for prompts about `ansible-playbook`, `ansible-vault`, `ansible-lint`, Molecule. Enforces FQCN, modern syntax, and the `ansible-lint` production profile.
-compatibility: opencode
 ---
 
 # Ansible

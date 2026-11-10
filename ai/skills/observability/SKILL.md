@@ -1,7 +1,6 @@
 ---
 name: observability
 description: Design and implement application instrumentation — logs, metrics, traces, levels, hot/critical paths. Use when adding logging, OpenTelemetry, RED metrics, spans, or reviewing AI-generated telemetry that is noisy, missing, or wrong. Defers k8s/LGTM platform wiring to the kubernetes skill.
-compatibility: opencode
 ---
 
 # Observability (Application Instrumentation)
