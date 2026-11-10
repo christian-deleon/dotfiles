@@ -1,7 +1,6 @@
 # shellcheck shell=bash
 # ─── Per-project agent files (AGENTS.md) ─────────────────────────────────────
 # Sourced by dot.sh. Requires DOTFILES_DIR and lib.sh helpers.
-# Grok convention is first-class. OpenCode and Claude Code are adapter hops.
 
 AGENT_FILES_DIR="$DOTFILES_DIR/agent-files"
 AGENT_FILES_BEGIN="# >>> dot-agent-files >>>"
@@ -11,13 +10,6 @@ AGENT_FILES_END="# <<< dot-agent-files <<<"
 AGENT_PROJECTS_DIR="$AGENT_FILES_DIR/projects"
 AGENT_ENV_DIR="$AGENT_FILES_DIR/env"
 
-# Targets that should symlink to the per-env AGENTS.md.
-# Grok's ~/.grok/AGENTS.md is canonical. OpenCode always hops. Claude's
-# ~/.claude/CLAUDE.md is not listed: install_ai_claude owns that hop.
-AGENT_ENV_TARGETS=(
-    "$HOME/.grok/AGENTS.md"
-    "$HOME/.config/opencode/AGENTS.md"
-)
 
 # Initialize the agent-files submodule if not already present
 agent_ensure_submodule() {
@@ -186,10 +178,47 @@ agent_commit_in_submodule() {
 }
 
 # ─── Per-env global agent files ──────────────────────────────────────────────
-# These live at agent-files/env/<name>/AGENTS.md and symlink into Grok's
-# global AGENTS.md (OpenCode hops at the same file; Claude does too when
-# the CLI is installed). Designed for env-scoped
+# These live at agent-files/env/<name>/AGENTS.md and symlink straight into
+# each enabled harness's user instructions file (~/.grok/AGENTS.md,
+# ~/.config/opencode/AGENTS.md, ~/.claude/CLAUDE.md). Designed for env-scoped
 # context — e.g. "this machine is a locked-down WSL VM behind a corp proxy."
+
+# Instruction files the env AGENTS.md links into: one per enabled harness.
+# OpenCode is skipped until its stowed dir exists — never mkdir it.
+agent_env_targets() {
+    local h
+    while IFS= read -r h; do
+        [[ -n "$h" ]] || continue
+        if [[ "$h" == opencode && ! -d "$HOME/.config/opencode" ]]; then
+            continue
+        fi
+        ai_harness_instructions "$h"
+    done < <(ai_enabled_harnesses)
+}
+
+# Every harness's instructions file. Detection and cleanup scan these so a
+# harness dropped from the profile is still found.
+agent_env_all_targets() {
+    local h
+    for h in "${AI_HARNESSES[@]}"; do
+        ai_harness_instructions "$h"
+    done
+}
+
+# A target that symlinks to another target path — the old layout where
+# OpenCode and Claude hopped through ~/.grok/AGENTS.md. Replaceable even
+# when it dangles.
+agent_env_is_legacy_hop() {
+    local file="$1" raw t
+    [[ -L "$file" ]] || return 1
+    raw="$(readlink "$file")"
+    while IFS= read -r t; do
+        if [[ "$t" != "$file" && "$raw" == "$t" ]]; then
+            return 0
+        fi
+    done < <(agent_env_all_targets)
+    return 1
+}
 
 agent_list_envs() {
     [[ -d "$AGENT_ENV_DIR" ]] || return 0
@@ -216,13 +245,13 @@ agent_env_is_managed_link() {
 # symlink we find. Empty output if nothing is linked.
 agent_env_current_name() {
     local target resolved rel
-    for target in "${AGENT_ENV_TARGETS[@]}"; do
+    while IFS= read -r target; do
         agent_env_is_managed_link "$target" || continue
         resolved="$(readlink -f "$target" 2>/dev/null)" || continue
         rel="${resolved#"$AGENT_ENV_DIR"/}"
         printf '%s\n' "${rel%%/*}"
         return 0
-    done
+    done < <(agent_env_all_targets)
     return 1
 }
 
@@ -234,6 +263,7 @@ agent_env_check_safe() {
 
     [[ -e "$target" || -L "$target" ]] || return 0
     agent_env_is_managed_link "$target" && return 0
+    agent_env_is_legacy_hop "$target" && return 0
 
     if [[ -L "$target" ]]; then
         _error "$target is a symlink we don't manage — refusing to overwrite"
@@ -251,12 +281,43 @@ agent_env_check_safe() {
     return 1
 }
 
-# Skill dirs that env/<name>/skills/* link into. OpenCode reads ~/.grok/skills
-# through its own dir symlink. ~/.claude exists only once install_ai_claude ran.
+# Print each dir from stdin once, comparing resolved paths (an OpenCode
+# skills dir not yet migrated off its ~/.grok/skills symlink is the same dir).
+_agent_env_unique_dirs() {
+    local dir real seen=$'\n'
+    while IFS= read -r dir; do
+        [[ -n "$dir" ]] || continue
+        real="$(readlink -f "$dir" 2>/dev/null)" || real="$dir"
+        [[ -n "$real" ]] || real="$dir"
+        case "$seen" in
+            *$'\n'"$real"$'\n'*) continue ;;
+        esac
+        seen+="$real"$'\n'
+        printf '%s\n' "$dir"
+    done
+}
+
+# Skill dirs that env/<name>/skills/* link into: one per enabled harness.
 agent_env_skill_dirs() {
-    printf '%s\n' "$HOME/.grok/skills"
-    [[ -d "$HOME/.claude" ]] && printf '%s\n' "$HOME/.claude/skills"
-    return 0
+    local h
+    while IFS= read -r h; do
+        [[ -n "$h" ]] || continue
+        if [[ "$h" == opencode && ! -d "$HOME/.config/opencode" ]]; then
+            continue
+        fi
+        ai_harness_skills_dir "$h"
+    done < <(ai_enabled_harnesses) | _agent_env_unique_dirs
+}
+
+# Every harness's existing skills dir, for cleanup and status.
+agent_env_all_skill_dirs() {
+    local h dir
+    for h in "${AI_HARNESSES[@]}"; do
+        dir="$(ai_harness_skills_dir "$h")"
+        if [[ -d "$dir" ]]; then
+            printf '%s\n' "$dir"
+        fi
+    done | _agent_env_unique_dirs
 }
 
 # Raw readlink, not -f: a skill dropped from the submodule leaves a dangling
@@ -274,7 +335,7 @@ agent_env_unlink_skills() {
             rm "$link"
             removed=$((removed + 1))
         done
-    done < <(agent_env_skill_dirs)
+    done < <(agent_env_all_skill_dirs)
     printf '%s\n' "$removed"
 }
 
@@ -285,6 +346,7 @@ agent_env_link_skills() {
     local src_dir="$AGENT_ENV_DIR/$name/skills"
     local skill dir dest linked
     local -a names=()
+    _profile_json_load
 
     agent_env_unlink_skills >/dev/null
     [[ -d "$src_dir" ]] || return 0
@@ -325,6 +387,7 @@ agent_env_link_skills() {
 #      then symlink to the source.
 agent_env_link() {
     local name="${1:-}"
+    _profile_json_load
 
     if [[ -z "$name" ]]; then
         name="$(agent_env_current_name)" || true
@@ -350,11 +413,21 @@ agent_env_link() {
     local src_dir="$AGENT_ENV_DIR/$name"
     local src="$src_dir/AGENTS.md"
 
+    local target
+    local -a targets=()
+    while IFS= read -r target; do
+        [[ -n "$target" ]] && targets+=("$target")
+    done < <(agent_env_targets)
+    if ((${#targets[@]} == 0)); then
+        _error "No AI harness is enabled on this machine — nothing to link into"
+        return 1
+    fi
+
     # Pre-flight: safety-check every target before we mutate anything. Allow
     # the first target with content to be migrated if the source doesn't exist.
-    local target migrate_from=""
+    local migrate_from=""
     if [[ ! -f "$src" ]]; then
-        for target in "${AGENT_ENV_TARGETS[@]}"; do
+        for target in "${targets[@]}"; do
             if [[ -f "$target" && ! -L "$target" ]]; then
                 migrate_from="$target"
                 break
@@ -362,7 +435,7 @@ agent_env_link() {
         done
     fi
 
-    for target in "${AGENT_ENV_TARGETS[@]}"; do
+    for target in "${targets[@]}"; do
         if [[ "$target" == "$migrate_from" ]]; then
             agent_env_check_safe "$target" migrate || return 1
         else
@@ -386,9 +459,9 @@ agent_env_link() {
 
 This file is a **per-environment agent overlay** managed by the \`dot agent env\` system in
 \`~/.dotfiles\`. It lives in the private \`agent-files\` submodule at
-\`agent-files/env/$name/AGENTS.md\` and is symlinked into the global config paths
-of Grok on this machine (\`~/.grok/AGENTS.md\`; OpenCode hops at the same file,
-and Claude Code does too when \`claude\` is installed).
+\`agent-files/env/$name/AGENTS.md\` and is symlinked into the user instructions file
+of every AI harness enabled on this machine (\`~/.grok/AGENTS.md\`,
+\`~/.config/opencode/AGENTS.md\`, \`~/.claude/CLAUDE.md\`).
 
 Its purpose is to give every AI agent session on this machine persistent, automatic context
 about the environment — constraints, quirks, and capabilities — without having to re-explain
@@ -411,10 +484,10 @@ EOF
         fi
     fi
 
-    # Drop the symlinks. mkdir -p the parent dirs so we don't fail on a fresh
-    # machine that hasn't run the AI tool yet.
+    # Only enabled harnesses get a link (and a parent mkdir), so a harness the
+    # profile leaves out never gets its config dir created.
     local linked=0
-    for target in "${AGENT_ENV_TARGETS[@]}"; do
+    for target in "${targets[@]}"; do
         mkdir -p "$(dirname "$target")"
         ln -snf "$src" "$target"
         linked=$((linked + 1))
@@ -422,7 +495,7 @@ EOF
 
     echo
     _success "Linked env ${_BOLD}$name${_RESET} into $linked target(s):"
-    for target in "${AGENT_ENV_TARGETS[@]}"; do
+    for target in "${targets[@]}"; do
         printf "  ${_DIM}%s${_RESET}\n" "$target"
     done
     _info "Edit the file via any of those paths (or ${_DIM}$src${_RESET} directly)"
@@ -430,15 +503,49 @@ EOF
     agent_env_link_skills "$name"
 }
 
+# dot update: drop legacy hops, point every enabled harness at the linked
+# env (if any), refresh env skills. Never replaces a file it doesn't manage.
+# A hop to a hand-written file is kept: removing it would silently drop those
+# instructions from that harness.
+agent_env_refresh() {
+    local name="" target src
+    _profile_json_load
+    name="$(agent_env_current_name)" || name=""
+
+    while IFS= read -r target; do
+        agent_env_is_legacy_hop "$target" || continue
+        if [[ -e "$target" ]] && ! agent_env_is_managed_link "$target"; then
+            _warn "$target still reads $(readlink "$target"); move that text into the harness's own file or a dot agent env, then delete the link"
+            continue
+        fi
+        rm -- "$target"
+    done < <(agent_env_all_targets)
+
+    [[ -n "$name" ]] || return 0
+    src="$AGENT_ENV_DIR/$name/AGENTS.md"
+    if [[ -f "$src" ]]; then
+        while IFS= read -r target; do
+            [[ -n "$target" ]] || continue
+            if [[ -e "$target" || -L "$target" ]] && ! agent_env_is_managed_link "$target"; then
+                _warn "Leaving $target in place (not managed by dot agent)"
+                continue
+            fi
+            mkdir -p "$(dirname "$target")"
+            ln -snf "$src" "$target"
+        done < <(agent_env_targets)
+    fi
+    agent_env_link_skills "$name"
+}
+
 agent_env_unlink() {
     local removed=0 target skills
-    for target in "${AGENT_ENV_TARGETS[@]}"; do
-        if agent_env_is_managed_link "$target"; then
+    while IFS= read -r target; do
+        if agent_env_is_managed_link "$target" || agent_env_is_legacy_hop "$target"; then
             rm "$target"
             _success "Removed $target"
             removed=$((removed + 1))
         fi
-    done
+    done < <(agent_env_all_targets)
 
     skills="$(agent_env_unlink_skills)"
     if ((skills > 0)); then
@@ -474,6 +581,7 @@ agent_env_list() {
 }
 
 agent_env_status() {
+    _profile_json_load
     echo
     _info "Per-env global agent files:"
 
@@ -487,18 +595,24 @@ agent_env_status() {
     fi
 
     echo
-    local target raw
-    for target in "${AGENT_ENV_TARGETS[@]}"; do
-        if agent_env_is_managed_link "$target"; then
+    local target raw h note
+    for h in "${AI_HARNESSES[@]}"; do
+        target="$(ai_harness_instructions "$h")"
+        note=""
+        ai_harness_enabled "$h" || note=" ${_DIM}(harness not enabled)${_RESET}"
+        if agent_env_is_legacy_hop "$target"; then
             raw="$(readlink "$target")"
-            printf "    ${_GREEN}✓${_RESET} %s → %s\n" "$target" "$raw"
+            printf "    ${_YELLOW}!${_RESET} %s → %s ${_DIM}(legacy hop through another harness)${_RESET}\n" "$target" "$raw"
+        elif agent_env_is_managed_link "$target"; then
+            raw="$(readlink "$target")"
+            printf "    ${_GREEN}✓${_RESET} %s → %s%b\n" "$target" "$raw" "$note"
         elif [[ -L "$target" ]]; then
             raw="$(readlink "$target")"
             printf "    ${_YELLOW}!${_RESET} %s → %s ${_DIM}(unmanaged symlink)${_RESET}\n" "$target" "$raw"
         elif [[ -e "$target" ]]; then
             printf "    ${_YELLOW}!${_RESET} %s ${_DIM}(regular file, not managed)${_RESET}\n" "$target"
         else
-            printf "    ${_DIM}-${_RESET} %s ${_DIM}(absent)${_RESET}\n" "$target"
+            printf "    ${_DIM}-${_RESET} %s ${_DIM}(absent)${_RESET}%b\n" "$target" "$note"
         fi
     done
 
@@ -512,7 +626,7 @@ agent_env_status() {
                 printf "    ${_YELLOW}!${_RESET} %s → %s ${_DIM}(dangling)${_RESET}\n" "$link" "$(readlink "$link")"
             fi
         done
-    done < <(agent_env_skill_dirs)
+    done < <(agent_env_all_skill_dirs)
     echo
 }
 
@@ -520,17 +634,16 @@ agent_env_help() {
     echo
     echo "Manage per-env global AGENTS.md — content that loads into every AI"
     echo "session on machines that have opted in. Source of truth lives in the"
-    echo "agent-files submodule under env/<name>/AGENTS.md. Canonical live path"
-    echo "is Grok's ~/.grok/AGENTS.md. OpenCode hops at the same file."
-    echo "Claude Code's ~/.claude/CLAUDE.md hops at ~/.grok/AGENTS.md when installed."
+    echo "agent-files submodule under env/<name>/AGENTS.md. It is linked into the"
+    echo "user instructions file of each AI harness enabled on this machine:"
     echo
     local target
-    for target in "${AGENT_ENV_TARGETS[@]}"; do
+    while IFS= read -r target; do
         echo "  • $target"
-    done
+    done < <(agent_env_targets)
     echo
-    echo "Skills under env/<name>/skills/ link into ~/.grok/skills/ and, when"
-    echo "Claude Code is installed, ~/.claude/skills/."
+    echo "Skills under env/<name>/skills/ link into each enabled harness's"
+    echo "skills dir."
     echo
     echo "Usage: dot agent env <subcommand>"
     echo
@@ -834,9 +947,8 @@ agent_help() {
     echo "                can't be modified. Excluded via .git/info/exclude."
     echo "                Source: agent-files/projects/<project>/AGENTS.md"
     echo
-    echo "  ${_BOLD}Per-env${_RESET}      — symlink into Grok's ~/.grok/AGENTS.md (OpenCode"
-    echo "                hops at the same file; Claude does when installed)."
-    echo "                Use for environment-scoped"
+    echo "  ${_BOLD}Per-env${_RESET}      — symlink into each enabled AI harness's user"
+    echo "                instructions file. Use for environment-scoped"
     echo "                context (locked-down VM, corp proxy, etc.)."
     echo "                Source: agent-files/env/<name>/AGENTS.md"
     echo

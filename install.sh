@@ -129,25 +129,6 @@ link_file() {
     success "Linked ${DIM}${dest#"$HOME"/}${RESET}"
 }
 
-link_directory_contents() {
-    local src_dir="$1"
-    local dest_dir="$2"
-
-    if [[ ! -d "$src_dir" ]]; then
-        warn "Source directory not found: $src_dir"
-        return
-    fi
-
-    mkdir -p "$dest_dir"
-
-    for item in "$src_dir"/*; do
-        [[ -e "$item" ]] || continue
-        local name
-        name="$(basename "$item")"
-        link_file "$item" "$dest_dir/$name"
-    done
-}
-
 # ─── Prerequisite installers ─────────────────────────────────────────────────
 
 ensure_homebrew() {
@@ -735,96 +716,54 @@ EOF
     fi
 }
 
-install_ai_tool() {
-    local localrc="$HOME/.localrc"
-    local interactive_arg="${1:-}"
-    local pipe_arg="${2:-}"
-    local ai_tool ai_resume ai_pipe
+ai_harness_label() {
+    local name alias resume pipe
+    case "$1" in
+        claude) name="Claude Code" ;;
+        grok) name="Grok" ;;
+        opencode) name="OpenCode" ;;
+        *) return 1 ;;
+    esac
+    IFS=$'\t' read -r alias resume pipe < <(ai_harness_cli "$1")
+    printf '%s — %s, resume: %s, headless: %s\n' "$name" "$alias" "$resume" "$pipe"
+}
 
-    # Resolve interactive tool (AI_TOOL / AI_TOOL_RESUME).
-    if [[ -n "$interactive_arg" ]]; then
-        case "$interactive_arg" in
-            gra|grok|gr)  ai_tool="gra"; ai_resume="gra -c" ;;
-            oc|opencode)  ai_tool="oc";  ai_resume="oc -c" ;;
-            cl|claude)    ai_tool="cl";  ai_resume="cl -c" ;;
-            *)            error "Unknown AI tool: $interactive_arg (choose: gra, oc, cl)"; return 1 ;;
-        esac
-    else
-        if [[ -f "$localrc" ]] && grep -qE '^export AI_TOOL=' "$localrc" 2>/dev/null; then
-            local current
-            current="$(grep -E '^export AI_TOOL=' "$localrc" | head -1 | sed -E 's/^export AI_TOOL=//; s/^"(.*)"$/\1/')"
-            info "AI tool already set in ${DIM}~/.localrc${RESET}: ${BOLD}$current${RESET}"
-            read -rp "Reconfigure? (y/N): " reconfigure
-            if [[ ! "$reconfigure" =~ ^[Yy]$ ]]; then
-                return
-            fi
+# gum picker over the enabled harnesses, profile default first. Prints the
+# chosen harness id; prompts go to stderr because callers capture stdout.
+ai_pick_harness() {
+    local prompt="$1" default h choice
+    local -a order=()
+    default="$(profile_ai_default)"
+    if [[ -n "$default" ]] && ai_harness_enabled "$default"; then
+        order+=("$default")
+    fi
+    while IFS= read -r h; do
+        if [[ -n "$h" && "$h" != "$default" ]]; then
+            order+=("$h")
         fi
+    done < <(ai_enabled_harnesses)
+    if ((${#order[@]} == 0)); then
+        warn "No AI harness is enabled on this machine" >&2
+        return 1
+    fi
 
-        if ! command -v gum &>/dev/null; then
-            warn "gum not available — pass tool names directly: dot ai-tool {gra|oc|cl} {grok|opencode|claude}"
+    echo >&2
+    info "$prompt" >&2
+    echo >&2
+    choice="$(for h in "${order[@]}"; do ai_harness_label "$h"; done | gum choose --height=6)" || return 1
+    for h in "${order[@]}"; do
+        if [[ "$(ai_harness_label "$h")" == "$choice" ]]; then
+            printf '%s\n' "$h"
             return 0
         fi
+    done
+    return 1
+}
 
-        echo
-        info "Select your preferred interactive AI CLI (used by tav, wta):"
-        echo
-
-        local choice
-        choice="$(printf '%s\n' \
-            "Grok — gra (auto-approve), resume: gra -c" \
-            "OpenCode — oc, resume: oc -c" \
-            "Claude Code — cl, resume: cl -c" \
-            | gum choose --height=6)" || { info "No selection — leaving AI_TOOL unchanged"; return 0; }
-
-        case "$choice" in
-            Grok*)     ai_tool="gra"; ai_resume="gra -c" ;;
-            OpenCode*) ai_tool="oc";  ai_resume="oc -c" ;;
-            Claude*)   ai_tool="cl";  ai_resume="cl -c" ;;
-            *)         info "No selection — leaving AI_TOOL unchanged"; return 0 ;;
-        esac
-    fi
-
-    # Resolve pipe tool (AI_TOOL_PIPE). If arg2 omitted, fall through to the
-    # interactive picker (or default to the long form of arg1 when no gum).
-    if [[ -n "$pipe_arg" ]]; then
-        case "$pipe_arg" in
-            gra|grok|gr)  ai_pipe="grok" ;;
-            oc|opencode)  ai_pipe="opencode" ;;
-            cl|claude)    ai_pipe="claude" ;;
-            *)            error "Unknown pipe tool: $pipe_arg (choose: grok, opencode, claude)"; return 1 ;;
-        esac
-    elif [[ -n "$interactive_arg" ]] || ! command -v gum &>/dev/null; then
-        case "$ai_tool" in
-            oc)  ai_pipe="opencode" ;;
-            cl)  ai_pipe="claude" ;;
-            *)   ai_pipe="grok" ;;
-        esac
-        info "Pipe tool defaulted to ${BOLD}$ai_pipe${RESET} (matches interactive). Pass arg2 to override."
-    else
-        echo
-        info "Select your preferred headless AI CLI (used for commit-message generation):"
-        echo
-
-        local pipe_choice
-        pipe_choice="$(printf '%s\n' \
-            "Grok (grok -p)" \
-            "OpenCode (opencode run)" \
-            "Claude Code (claude -p)" \
-            | gum choose --height=6)" || { info "No selection — defaulting pipe tool to interactive choice"; pipe_choice=""; }
-
-        case "$pipe_choice" in
-            OpenCode*) ai_pipe="opencode" ;;
-            Claude*)   ai_pipe="claude" ;;
-            Grok*)     ai_pipe="grok" ;;
-            *)
-                case "$ai_tool" in
-                    oc) ai_pipe="opencode" ;;
-                    cl) ai_pipe="claude" ;;
-                    *)  ai_pipe="grok" ;;
-                esac
-                ;;
-        esac
-    fi
+# Replace the AI_TOOL / AI_TOOL_RESUME / AI_TOOL_PIPE block in ~/.localrc.
+write_ai_tool_localrc() {
+    local ai_tool="$1" ai_resume="$2" ai_pipe="$3"
+    local localrc="$HOME/.localrc"
 
     if [[ -f "$localrc" ]] && grep -qE '^export AI_TOOL(_RESUME|_PIPE)?=' "$localrc" 2>/dev/null; then
         backup_item "$localrc"
@@ -852,6 +791,90 @@ install_ai_tool() {
 
     success "Set AI_TOOL=$ai_tool, AI_TOOL_RESUME=\"$ai_resume\", AI_TOOL_PIPE=$ai_pipe in ${DIM}~/.localrc${RESET}"
     info "Reload current shell: ${BOLD}source ~/.localrc${RESET}  (or open a new shell)"
+}
+
+# `dot ai-tool [INT] [PIPE]`: pick the interactive (tav, wta) and headless
+# (commit-gen) harness. Only harnesses the profile allows are offered.
+install_ai_tool() {
+    local localrc="$HOME/.localrc"
+    local interactive_arg="${1:-}"
+    local pipe_arg="${2:-}"
+    local tool_h pipe_h ai_tool ai_resume ai_pipe
+
+    if [[ -n "$interactive_arg" ]]; then
+        if ! tool_h="$(ai_harness_normalize "$interactive_arg")"; then
+            error "Unknown AI tool: $interactive_arg (choose: cl, gra, oc)"
+            return 1
+        fi
+        if ! ai_harness_allowed "$tool_h"; then
+            error "$tool_h is not in profiles/$(read_active_profile).yaml"
+            return 1
+        fi
+    else
+        if [[ -f "$localrc" ]] && grep -qE '^export AI_TOOL=' "$localrc" 2>/dev/null; then
+            local current
+            current="$(grep -E '^export AI_TOOL=' "$localrc" | head -1 | sed -E 's/^export AI_TOOL=//; s/^"(.*)"$/\1/')"
+            info "AI tool already set in ${DIM}~/.localrc${RESET}: ${BOLD}$current${RESET}"
+            read -rp "Reconfigure? (y/N): " reconfigure
+            if [[ ! "$reconfigure" =~ ^[Yy]$ ]]; then
+                return
+            fi
+        fi
+
+        if ! command -v gum &>/dev/null; then
+            warn "gum not available — pass tool names directly: dot ai-tool {cl|gra|oc} {claude|grok|opencode}"
+            return 0
+        fi
+
+        if ! tool_h="$(ai_pick_harness "Select your preferred interactive AI CLI (used by tav, wta):")"; then
+            info "No selection — leaving AI_TOOL unchanged"
+            return 0
+        fi
+    fi
+
+    if [[ -n "$pipe_arg" ]]; then
+        if ! pipe_h="$(ai_harness_normalize "$pipe_arg")"; then
+            error "Unknown pipe tool: $pipe_arg (choose: claude, grok, opencode)"
+            return 1
+        fi
+        if ! ai_harness_allowed "$pipe_h"; then
+            error "$pipe_h is not in profiles/$(read_active_profile).yaml"
+            return 1
+        fi
+    elif [[ -n "$interactive_arg" ]] || ! command -v gum &>/dev/null; then
+        pipe_h="$tool_h"
+        info "Pipe tool defaulted to ${BOLD}$pipe_h${RESET} (matches interactive). Pass arg2 to override."
+    elif ! pipe_h="$(ai_pick_harness "Select your preferred headless AI CLI (used for commit-message generation):")"; then
+        info "No selection — defaulting pipe tool to interactive choice"
+        pipe_h="$tool_h"
+    fi
+
+    IFS=$'\t' read -r ai_tool ai_resume _ <<<"$(ai_harness_cli "$tool_h")"
+    IFS=$'\t' read -r _ _ ai_pipe <<<"$(ai_harness_cli "$pipe_h")"
+    write_ai_tool_localrc "$ai_tool" "$ai_resume" "$ai_pipe"
+}
+
+# Write the profile's ai.default when ~/.localrc has no AI_TOOL yet. With
+# "picker", fall back to the interactive picker when the profile has none.
+install_ai_tool_default() {
+    local mode="${1:-}" default
+    if [[ -f "$HOME/.localrc" ]] && grep -qE '^export AI_TOOL=' "$HOME/.localrc" 2>/dev/null; then
+        return 0
+    fi
+
+    default="$(profile_ai_default)"
+    if [[ -n "$default" ]]; then
+        if ai_is_harness "$default" && profile_lists_item "$default"; then
+            ai_harness_installed "$default" || warn "$default is the profile default but is not installed yet"
+            install_ai_tool "$default"
+            return
+        fi
+        warn "Profile ai.default '$default' is not one of its harness items — ignoring"
+    fi
+
+    if [[ "$mode" == picker ]]; then
+        install_ai_tool
+    fi
 }
 
 install_dot_cli() {
@@ -917,7 +940,7 @@ get_core_extra_label() {
         git-config)        echo "git-config — Symlink .gitconfig and set name/email/signing" ;;
         ssh-config)        echo "ssh-config — Generate ~/.ssh/config (1Password SSH agent)" ;;
         zsh-config)        echo "zsh-config — Oh My Zsh + Powerlevel10k + plugins + .zshrc" ;;
-        ai-tool)           echo "ai-tool — Choose preferred AI CLI (Grok / OpenCode / Claude Code)" ;;
+        ai-tool)           echo "ai-tool — Default AI CLI from the profile (or pick one)" ;;
         omarchy-themes)    echo "omarchy-themes — Choose Omarchy theme submodules to install" ;;
         default-terminal)  echo "default-terminal — Set Alacritty as the Omarchy default terminal" ;;
         *)                 echo "$1" ;;
@@ -931,7 +954,7 @@ install_core_extra() {
         git-config)        install_git_config ;;
         ssh-config)        install_ssh_config ;;
         zsh-config)        install_zsh_config ;;
-        ai-tool)           install_ai_tool ;;
+        ai-tool)           install_ai_tool_default picker ;;
         omarchy-themes)    install_themes ;;
         default-terminal)  install_default_terminal ;;
         *)                 warn "Unknown core extra: $1" ;;
@@ -1097,6 +1120,8 @@ install_item() {
         return 0
     fi
 
+    ai_harness_check_allowed "$item" || return 1
+
     # Binary install (if present)
     if [[ "$(yq -r ".\"$item\".install != null" "$MANIFEST_FILE")" == "true" ]]; then
         install_tools "$item" || true
@@ -1247,6 +1272,18 @@ install_from_profile() {
     local file="$DOTFILES_DIR/profiles/$name.yaml"
     [[ -f "$file" ]] || { error "Profile not found: $name"; return 1; }
 
+    # .commonrc exports the previous profile into every shell, and
+    # .active-profile is written last, so pin the one being installed.
+    local pinned=""
+    if [[ -f "$HOME/.localrc" ]]; then
+        pinned="$(sed -nE 's/^export DOTFILES_PROFILE="?([^"]*)"?$/\1/p' "$HOME/.localrc" | tail -n 1)"
+    fi
+    if [[ -n "$pinned" && "$pinned" != "$name" ]]; then
+        error "DOTFILES_PROFILE=$pinned is pinned in ~/.localrc — change it there before switching to $name"
+        return 1
+    fi
+    local -x DOTFILES_PROFILE="$name" DOTFILES_PROFILE_FROM_STATE=""
+
     if ! profile_is_compatible "$name"; then
         error "Profile '$name' requirements not met on this host"
         return 1
@@ -1306,6 +1343,9 @@ install_manual() {
     # Item picker — show only items whose requires are met on this host.
     local items=() labels=() item
     while IFS= read -r item; do
+        if ai_is_harness "$item" && ! ai_harness_allowed "$item"; then
+            continue
+        fi
         if manifest_requires_met "$item"; then
             items+=("$item")
             labels+=("$(manifest_label "$item")")

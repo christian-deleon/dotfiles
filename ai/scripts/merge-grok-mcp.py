@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-# Merge MCP servers into live ~/.grok/config.toml and force Claude compat off.
-# Optional --overlay upserts a profile overlay (model.* and mcp_servers.<name>
-# tables replace wholesale; other keys upsert).
+# Write the repo's MCP servers into live ~/.grok/config.toml and force Claude
+# compat off. --mcp replaces every [mcp_servers.*] table with the given set and
+# takes those names out of [tools] disabled_mcp_servers. Optional --overlay
+# upserts a Grok-only settings overlay (model.* tables replace wholesale; other
+# keys upsert; MCP tables are ignored — profiles own MCP).
 #
 # Usage:
 #   merge-grok-mcp.py <config.toml>
 #   merge-grok-mcp.py <config.toml> --mcp <resolved.json> --enabled <enabled.json>
-#   merge-grok-mcp.py <config.toml> --overlay <profile.toml>
-#   merge-grok-mcp.py /dev/null --overlay <profile.toml> --print-overlay-mcp
-#   merge-grok-mcp.py <config.toml> --print-enabled-mcp
+#   merge-grok-mcp.py <config.toml> --overlay <overlay.toml>
 #
-# Stdlib only. Splices [mcp_servers.*], [compat.claude], and [folder_trust]
-# so the rest of the live file (which Grok mutates) is left byte-for-byte intact.
+# Stdlib only. Splices [mcp_servers.*], [compat.claude], [folder_trust] and the
+# disabled_mcp_servers key so the rest of the live file (which Grok mutates)
+# is left byte-for-byte intact.
 
 from __future__ import annotations
 
@@ -22,7 +23,6 @@ import sys
 from pathlib import Path
 
 TABLE_RE = re.compile(r"^\[\[?([^]]+)\]\]?\s*(?:#.*)?$")
-ENABLED_TRUE_RE = re.compile(r"^enabled\s*=\s*true\b")
 
 
 def parse_tables(
@@ -56,22 +56,6 @@ def parse_tables(
             buf.append(line)
     flush()
     return preamble, tables
-
-
-def live_enabled_servers(
-    tables: list[tuple[str | None, bool, list[str]]],
-) -> set[str]:
-    """Servers already enabled in live Grok config ([mcp_servers.name], not .env)."""
-    enabled: set[str] = set()
-    for header, _aot, lines in tables:
-        if header is None or not header.startswith("mcp_servers."):
-            continue
-        name = header.removeprefix("mcp_servers.")
-        if "." in name:
-            continue
-        if any(ENABLED_TRUE_RE.match(line.strip()) for line in lines):
-            enabled.add(name)
-    return enabled
 
 
 def keep_table(header: str | None, *, strip_mcp: bool) -> bool:
@@ -112,21 +96,6 @@ def emit_kv(key: str, value: object) -> str:
 def emit_inline_table(mapping: dict) -> str:
     parts = [f"{k} = {toml_value(v)}" for k, v in mapping.items()]
     return "{ " + ", ".join(parts) + " }"
-
-
-MCP_OVERLAY_KEYS = ("command", "args", "env", "url", "headers", "enabled")
-
-
-def overlay_mcp_specs(overlay_text: str) -> dict[str, dict]:
-    """Launch/enable fields of each [mcp_servers.<name>] table in a profile overlay."""
-    import tomllib  # 3.11+; deferred so overlay-less callers keep older Pythons
-
-    servers = tomllib.loads(overlay_text).get("mcp_servers", {})
-    return {
-        name: {k: spec[k] for k in MCP_OVERLAY_KEYS if k in spec}
-        for name, spec in servers.items()
-        if isinstance(spec, dict)
-    }
 
 
 def emit_mcp_tables(servers: dict, enabled: set[str]) -> str:
@@ -193,16 +162,13 @@ def _overlay_kvs(lines: list[str]) -> dict[str, str]:
     return kvs
 
 
+def is_mcp_table(header: str | None) -> bool:
+    return header is not None and (header == "mcp_servers" or header.startswith("mcp_servers."))
+
+
 def is_replaced_overlay_table(header: str | None) -> bool:
-    """model.* and mcp_servers.<name> (not .env subtables) replace wholesale."""
-    if header is None:
-        return False
-    if header.startswith("model."):
-        return True
-    if header.startswith("mcp_servers."):
-        rest = header.removeprefix("mcp_servers.")
-        return bool(rest) and "." not in rest
-    return False
+    """model.* tables replace wholesale."""
+    return header is not None and header.startswith("model.")
 
 
 def _open_container_depth(line: str) -> int:
@@ -257,6 +223,13 @@ def apply_overlay(config_path: Path, overlay_path: Path) -> None:
     overlay_text = overlay_path.read_text(encoding="utf-8")
     preamble, live_tables = parse_tables(original)
     _, overlay_tables = parse_tables(overlay_text)
+    if any(is_mcp_table(h) for h, _aot, _lines in overlay_tables):
+        print(
+            f"merge-grok-mcp.py: ignoring [mcp_servers.*] in {overlay_path}"
+            " — MCP comes from the profile's mcp: block",
+            file=sys.stderr,
+        )
+        overlay_tables = [t for t in overlay_tables if not is_mcp_table(t[0])]
 
     replace_headers = {
         h
@@ -304,13 +277,47 @@ def apply_overlay(config_path: Path, overlay_path: Path) -> None:
     config_path.chmod(0o600)
 
 
+DISABLED_MCP_RE = re.compile(r"^disabled_mcp_servers\s*=")
+STRING_RE = re.compile(r'"((?:[^"\\]|\\.)*)"')
+
+
+def drop_from_disabled(lines: list[str], names: set[str]) -> list[str]:
+    """Remove names from a table's disabled_mcp_servers array (may span lines)."""
+    out: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if not DISABLED_MCP_RE.match(line.strip()):
+            out.append(line)
+            i += 1
+            continue
+        block = [line]
+        depth = _open_container_depth(line)
+        i += 1
+        while i < len(lines) and depth > 0:
+            depth += lines[i].count("[") - lines[i].count("]")
+            block.append(lines[i])
+            i += 1
+        body = "".join(re.sub(r"#.*", "", part) for part in block)
+        current = STRING_RE.findall(body.split("=", 1)[1])
+        kept = [n for n in current if n not in names]
+        if kept == current:
+            out.extend(block)
+        else:
+            out.append(emit_kv("disabled_mcp_servers", kept))
+    return out
+
+
 def merge(config_path: Path, mcp_path: Path | None, enabled_path: Path | None) -> None:
     original = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
     preamble, tables = parse_tables(original)
-    preserved_enabled = live_enabled_servers(tables)
+
+    enabled: set[str] = set()
+    if enabled_path is not None:
+        enabled = set(json.loads(enabled_path.read_text(encoding="utf-8")))
 
     kept = [
-        (h, aot, lines)
+        (h, aot, drop_from_disabled(lines, enabled) if h == "tools" else lines)
         for h, aot, lines in tables
         if keep_table(h, strip_mcp=mcp_path is not None)
     ]
@@ -326,11 +333,6 @@ def merge(config_path: Path, mcp_path: Path | None, enabled_path: Path | None) -
     extras: list[str] = [COMPAT_CLAUDE, FOLDER_TRUST_OFF]
     if mcp_path is not None:
         servers = json.loads(mcp_path.read_text(encoding="utf-8"))
-        enabled: set[str] = set()
-        if enabled_path is not None:
-            raw = json.loads(enabled_path.read_text(encoding="utf-8"))
-            enabled = set(raw)
-        enabled |= preserved_enabled
         mcp_block = emit_mcp_tables(servers, enabled)
         if mcp_block:
             extras.append(mcp_block)
@@ -347,35 +349,7 @@ def main() -> int:
     parser.add_argument("--mcp", default=None)
     parser.add_argument("--enabled", default=None)
     parser.add_argument("--overlay", default=None)
-    parser.add_argument(
-        "--print-overlay-mcp",
-        action="store_true",
-        help="print overlay MCP patches as JSON and exit (no live-config write)",
-    )
-    parser.add_argument(
-        "--print-enabled-mcp",
-        action="store_true",
-        help="print servers enabled in the live config as a JSON array and exit",
-    )
     args = parser.parse_args()
-
-    if args.print_enabled_mcp:
-        _, tables = parse_tables(Path(args.config).read_text(encoding="utf-8"))
-        json.dump(sorted(live_enabled_servers(tables)), sys.stdout)
-        sys.stdout.write("\n")
-        return 0
-
-    if args.print_overlay_mcp:
-        if not args.overlay:
-            print(
-                "merge-grok-mcp.py: --print-overlay-mcp requires --overlay",
-                file=sys.stderr,
-            )
-            return 2
-        specs = overlay_mcp_specs(Path(args.overlay).read_text(encoding="utf-8"))
-        json.dump(specs, sys.stdout, indent=2, sort_keys=True)
-        sys.stdout.write("\n")
-        return 0
 
     mcp = Path(args.mcp) if args.mcp else None
     enabled = Path(args.enabled) if args.enabled else None

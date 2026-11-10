@@ -2,7 +2,8 @@
   "context7": {
     "command": "npx",
     "args": ["-y", "@upstash/context7-mcp", "--api-key", "op://ujvoilqaehz2gozzpp2jqyhxsu/g2vxfluvjcei5hfwmjbszlso44/credential"],
-    "description": "Live documentation lookup"
+    "description": "Live documentation lookup",
+    "default": true
   },
   "grafana": {
     "command": "uvx",
@@ -72,6 +73,7 @@
     "env": {
       "FIRECRAWL_API_KEY": "op://ujvoilqaehz2gozzpp2jqyhxsu/qqxnvcu3mzmw6yosgtijqh3hv4/credential"
     },
-    "description": "Web scraping and crawling"
+    "description": "Web scraping and crawling",
+    "default": true
   }
 }

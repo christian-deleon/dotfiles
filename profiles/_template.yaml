@@ -46,7 +46,7 @@ items: []
 #   - 1password-cli
 #   - bat
 #   - grok
-#   - claude          # opt-in; not on the stock profiles
+#   - claude          # AI harnesses (claude, grok, opencode): only those listed are set up
 #   - delta
 #   - fd
 #   - fzf
@@ -62,3 +62,18 @@ items: []
 #   - tmux
 #   - worktrunk
 #   - yq
+
+# Default AI harness for tav/wta/wtc and commit messages (claude, grok or
+# opencode; must be in items). An AI_TOOL already in ~/.localrc wins.
+# ai:
+#   default: claude
+
+# MCP servers turned on in every listed harness. Names come from
+# ai/mcp-servers.json.tpl; without this block the roster's `default: true`
+# servers are used. `override` patches a server's command/args/env/url/headers
+# (a command without args drops the roster's args).
+# mcp:
+#   enable: [context7, firecrawl]
+#   override:
+#     kubernetes:
+#       command: kubernetes-mcp-server

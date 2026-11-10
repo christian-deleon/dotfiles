@@ -1,17 +1,41 @@
 #!/bin/bash
-# AI config handlers — referenced from manifest.yaml.
+# AI harness handlers — referenced from manifest.yaml.
 # Functions: install_ai_grok, install_ai_opencode, install_ai_claude, generate_mcp_configs.
 #
-# Sourced by install.sh. Uses helpers from install.sh: info/success/warn/error,
-# link_directory_contents, link_file, clean_ai_symlinks, op_inject_multi, ensure_jq.
+# Sourced by install.sh. Uses helpers from install.sh (info/success/warn/error,
+# link_file, clean_ai_symlinks, op_inject_multi, ensure_jq) and the harness
+# registry in scripts/lib.sh (AI_HARNESSES, ai_harness_enabled, …).
 #
-# Grok is first-class. OpenCode and Claude Code are adapters. OpenCode links
-# at Grok's live tree and generates JSON for shapes it cannot read. Claude
-# Code symlinks the same sources into ~/.claude/ and merges settings it owns.
+# Grok, OpenCode and Claude Code are peers: each adapter translates straight
+# from ai/ into its own tree and never reads another harness's files.
 
-# Flatten ai/rules/**/*.md into ~/.grok/rules/<basename>.md — Grok scans one
-# level of ~/.grok/rules/, not nested category dirs.
-link_grok_rules() {
+# Symlink each child of $1 into $2, after dropping stale links into ai/.
+# Skips .gitkeep, Claude's reserved skills/synced dir, and real files.
+link_ai_entries() {
+    local src_dir="$1"
+    local dest_dir="$2"
+    local item name dest_item
+
+    [[ -d "$src_dir" ]] || return 0
+    mkdir -p "$dest_dir"
+    clean_ai_symlinks "$dest_dir"
+
+    for item in "$src_dir"/*; do
+        [[ -e "$item" ]] || continue
+        name="$(basename "$item")"
+        [[ "$name" == "synced" || "$name" == ".gitkeep" ]] && continue
+        dest_item="$dest_dir/$name"
+        if [[ -e "$dest_item" && ! -L "$dest_item" ]]; then
+            warn "Path already exists, skipping: $dest_item"
+            continue
+        fi
+        ln -snf "$item" "$dest_item"
+    done
+}
+
+# Flatten ai/rules/**/*.md into $2/<basename>.md — Grok and Claude scan one
+# level of their rules dir, not nested category dirs.
+link_ai_rules_flat() {
     local src="$1"
     local dest="$2"
     [[ -d "$src" ]] || return 0
@@ -30,6 +54,8 @@ link_grok_rules() {
         ln -snf "$f" "$dest_file"
     done < <(find "$src" -name '*.md' -type f -print0 | sort -z)
 }
+
+# ─── Grok ─────────────────────────────────────────────────────────────────────
 
 # Merge baseline grants from grok/.grok/trusted_folders.toml into the live
 # store at ~/.grok/trusted_folders.toml. Never symlink/replace that file —
@@ -84,22 +110,19 @@ ensure_grok_trusted_folders() {
     fi
 }
 
-# Profile overlay at grok/.grok/overlays/<profile>.toml, if that file exists.
+# Grok-only settings overlay at grok/.grok/overlays/<profile>.toml, if any.
 grok_profile_overlay() {
-    local profile="${DOTFILES_PROFILE:-}"
-    if [[ -z "$profile" && -f "$DOTFILES_DIR/.active-profile" ]]; then
-        profile=$(<"$DOTFILES_DIR/.active-profile")
-        profile=${profile//$'\n'/}
-    fi
-    local overlay="$DOTFILES_DIR/grok/.grok/overlays/${profile}.toml"
+    local profile overlay
+    profile="$(read_active_profile)"
+    overlay="$DOTFILES_DIR/grok/.grok/overlays/${profile}.toml"
     [[ -n "$profile" && -f "$overlay" ]] || return 1
     printf '%s\n' "$overlay"
 }
 
 # Seed live config.toml if missing; never symlink it (Grok mutates the file).
-# Always force [compat.claude] off and [folder_trust] enabled = false.
-# Always upsert grok/.grok/base.toml. A profile may also merge
-# grok/.grok/overlays/<profile>.toml after that (profile wins on conflict).
+# Always force [compat.claude] off (the Claude adapter fills ~/.claude, so
+# scanning it would load everything twice) and [folder_trust] enabled = false.
+# Always upsert grok/.grok/base.toml, then the profile overlay (profile wins).
 ensure_grok_config() {
     local seed="$DOTFILES_DIR/grok/.grok/config.toml"
     local dest="$HOME/.grok/config.toml"
@@ -134,63 +157,58 @@ ensure_grok_config() {
 
 install_ai_grok() {
     local ai_dir="$DOTFILES_DIR/ai"
-    [[ -d "$ai_dir" ]] || { warn "ai/ directory not found"; return; }
+    [[ -d "$ai_dir" ]] || { warn "ai/ directory not found"; return 0; }
+    ai_harness_enabled grok || return 0
 
-    info "Installing AI config for Grok Build TUI..."
+    info "Installing Grok Build config from ai/..."
 
-    for dir in skills agents hooks rules; do
-        clean_ai_symlinks "$HOME/.grok/$dir"
-    done
-
-    mkdir -p "$HOME/.grok/skills" "$HOME/.grok/agents" "$HOME/.grok/hooks" "$HOME/.grok/rules"
-
-    link_directory_contents "$ai_dir/skills" "$HOME/.grok/skills"
-    link_directory_contents "$ai_dir/agents" "$HOME/.grok/agents"
-    link_directory_contents "$ai_dir/hooks" "$HOME/.grok/hooks"
-    link_grok_rules "$ai_dir/rules" "$HOME/.grok/rules"
+    link_ai_entries "$ai_dir/skills" "$HOME/.grok/skills"
+    link_ai_entries "$ai_dir/agents" "$HOME/.grok/agents"
+    link_ai_entries "$ai_dir/hooks" "$HOME/.grok/hooks"
+    link_ai_rules_flat "$ai_dir/rules" "$HOME/.grok/rules"
 
     local grok_cfg_src="$DOTFILES_DIR/grok/.grok"
-    if [[ -d "$grok_cfg_src" ]]; then
-        mkdir -p "$HOME/.grok"
-        if [[ -f "$grok_cfg_src/pager.toml" ]]; then
-            link_file "$grok_cfg_src/pager.toml" "$HOME/.grok/pager.toml"
-        fi
+    if [[ -f "$grok_cfg_src/pager.toml" ]]; then
+        link_file "$grok_cfg_src/pager.toml" "$HOME/.grok/pager.toml"
     fi
 
     ensure_grok_config
     ensure_grok_trusted_folders
 
-    success "Installed AI config for Grok Build TUI"
+    success "Installed Grok Build config"
 }
 
-# OpenCode adapter: point at Grok's live tree. JSON-only bits (agents,
-# instructions) still go through generate-opencode-config.sh.
+# ─── OpenCode ─────────────────────────────────────────────────────────────────
+
+# ~/.config/opencode is the stowed opencode package, so the links below land
+# in its gitignored skills/ dir. Agents and rules go through
+# generate-opencode-config.sh: OpenCode wants them as opencode.json keys.
 install_ai_opencode() {
     local ai_dir="$DOTFILES_DIR/ai"
-    [[ -d "$ai_dir" ]] || { warn "ai/ directory not found"; return; }
-
-    ensure_jq || return
-
-    info "Installing OpenCode adapter (links at Grok)..."
     local oc_dir="$HOME/.config/opencode"
-    mkdir -p "$oc_dir" "$HOME/.grok/skills"
+    [[ -d "$ai_dir" ]] || { warn "ai/ directory not found"; return 0; }
+    ai_harness_enabled opencode || return 0
 
-    # Drop the old per-item dual-install (and empty commands/) before the
-    # single dir symlink. clean_ai_symlinks only removes links into ai/.
-    if [[ -d "$oc_dir/skills" && ! -L "$oc_dir/skills" ]]; then
-        clean_ai_symlinks "$oc_dir/skills"
-        rm -rf "$oc_dir/skills"
-    elif [[ -L "$oc_dir/skills" ]]; then
-        rm "$oc_dir/skills"
+    # Never mkdir it: a real dir there makes the next stow back it up and
+    # delete it, taking opencode.json with it.
+    if [[ ! -d "$oc_dir" ]]; then
+        info "OpenCode config dir (~/.config/opencode) not stowed yet — skipping"
+        return 0
     fi
-    ln -snf "$HOME/.grok/skills" "$oc_dir/skills"
+
+    ensure_jq || return 0
+
+    info "Installing OpenCode config from ai/..."
+
+    # Old layout: skills was a dir symlink into ~/.grok/skills. Remove the link
+    # itself first — cleaning through it would delete Grok's skill links.
+    if [[ -L "$oc_dir/skills" ]]; then
+        rm -- "$oc_dir/skills"
+    fi
+    link_ai_entries "$ai_dir/skills" "$oc_dir/skills"
 
     if [[ -d "$oc_dir/commands" && ! -L "$oc_dir/commands" ]]; then
         clean_ai_symlinks "$oc_dir/commands"
-    fi
-
-    if [[ -e "$HOME/.grok/AGENTS.md" || -L "$HOME/.grok/AGENTS.md" ]]; then
-        ln -snf "$HOME/.grok/AGENTS.md" "$oc_dir/AGENTS.md"
     fi
 
     if [[ -x "$ai_dir/scripts/generate-opencode-config.sh" ]]; then
@@ -198,7 +216,7 @@ install_ai_opencode() {
     fi
     reload_opencode_service
 
-    success "Installed OpenCode adapter"
+    success "Installed OpenCode config"
 }
 
 # The background `opencode serve --service` outlives config rewrites; without
@@ -209,49 +227,7 @@ reload_opencode_service() {
     opencode reload >/dev/null 2>&1 || warn "Could not reload OpenCode service; run: opencode service restart"
 }
 
-# True when the Claude Code CLI is on PATH or the native launcher exists.
-claude_installed() {
-    command -v claude >/dev/null 2>&1 && return 0
-    [[ -x "$HOME/.local/bin/claude" ]]
-}
-
-# Symlink each child of $1 into $2. Skip real (non-symlink) collisions and
-# Claude's reserved skills/synced directory.
-link_claude_entries() {
-    local src_dir="$1"
-    local dest_dir="$2"
-    local item name dest_item
-
-    [[ -d "$src_dir" ]] || return 0
-    mkdir -p "$dest_dir"
-    clean_ai_symlinks "$dest_dir"
-
-    for item in "$src_dir"/*; do
-        [[ -e "$item" ]] || continue
-        name="$(basename "$item")"
-        [[ "$name" == "synced" || "$name" == ".gitkeep" ]] && continue
-        dest_item="$dest_dir/$name"
-        if [[ -e "$dest_item" && ! -L "$dest_item" ]]; then
-            warn "Claude path already exists, skipping: $dest_item"
-            continue
-        fi
-        ln -snf "$item" "$dest_item"
-    done
-}
-
-# User memory hop. The sole owner of ~/.claude/CLAUDE.md: `dot agent env`
-# relinks ~/.grok/AGENTS.md underneath it, so the hop may dangle until then.
-# A real ~/.claude/CLAUDE.md is left alone.
-link_claude_user_memory() {
-    local src="$HOME/.grok/AGENTS.md"
-    local dest="$HOME/.claude/CLAUDE.md"
-
-    if [[ -e "$dest" && ! -L "$dest" ]]; then
-        warn "Leaving existing ~/.claude/CLAUDE.md in place"
-        return 0
-    fi
-    ln -snf "$src" "$dest"
-}
+# ─── Claude Code ──────────────────────────────────────────────────────────────
 
 # Merge the notify hooks and blank attribution into Claude's live settings.json.
 # Idempotent. Does not replace the file — Claude stores permissions and model
@@ -302,63 +278,179 @@ ensure_claude_settings() {
     mv -- "$tmp" "$dest"
 }
 
-# Claude Code adapter. No-ops when the CLI is absent so `dot update` does
-# not create ~/.claude on machines that have not installed it.
+# Never runs where the profile leaves Claude out, so ~/.claude is not created
+# on machines that must not have it.
 install_ai_claude() {
     local ai_dir="$DOTFILES_DIR/ai"
-    [[ -d "$ai_dir" ]] || { warn "ai/ directory not found"; return; }
-    claude_installed || return 0
+    [[ -d "$ai_dir" ]] || { warn "ai/ directory not found"; return 0; }
+    ai_harness_enabled claude || return 0
 
-    info "Installing Claude Code adapter (links at ai/)..."
+    info "Installing Claude Code config from ai/..."
     mkdir -p "$HOME/.claude"
 
-    link_claude_entries "$ai_dir/skills" "$HOME/.claude/skills"
-    link_claude_entries "$ai_dir/agents" "$HOME/.claude/agents"
-    link_grok_rules "$ai_dir/rules" "$HOME/.claude/rules"
-    link_claude_user_memory
+    link_ai_entries "$ai_dir/skills" "$HOME/.claude/skills"
+    link_ai_entries "$ai_dir/agents" "$HOME/.claude/agents"
+    link_ai_rules_flat "$ai_dir/rules" "$HOME/.claude/rules"
     ensure_claude_settings
 
-    success "Installed Claude Code adapter"
+    success "Installed Claude Code config"
 }
 
-# Merge enabled roster servers into ~/.claude.json mcpServers and list the
-# merged names in $3. Running Claude sessions rewrite this file (OAuth, project
-# state) and it outgrows ARG_MAX, so stream it through jq, skip no-op writes,
-# and give up if it changed mid-merge rather than clobber Claude's write.
+# ─── MCP ──────────────────────────────────────────────────────────────────────
+#
+# Roster: ai/mcp-servers.json.tpl (command/args/env/url JSON, op:// refs).
+# The active profile's `mcp.enable` picks the servers (else the roster's
+# `default: true` ones) and `mcp.override` patches launch fields. Each enabled
+# harness gets exactly that set — hand toggles are reset on the next regen.
+# Each writer records the names it wrote in ~/.cache/dotfiles/<h>-mcp-servers.
+
+# JSON array of enabled roster names. $1 roster file, $2 profile mcp JSON.
+# Fails on a malformed mcp: block so callers stop before writing anything.
+mcp_enabled_servers() {
+    jq -ce --argjson p "$2" '
+        . as $roster
+        | if ($p | type) != "object" then error("mcp: must be a mapping")
+          elif ($p.override // {} | type) != "object" then error("mcp.override must be a mapping")
+          elif ($p | has("enable")) then
+            if ($p.enable | type) != "array" then error("mcp.enable must be a list") else . end
+            | [$p.enable[] | select(type == "string" and (. as $n | $roster | has($n)))]
+          else
+            [to_entries[] | select(.value.default == true) | .key]
+          end
+        | unique
+    ' "$1"
+}
+
+# Warn about profile names the roster doesn't define.
+mcp_warn_unknown() {
+    local unknown
+    unknown="$(jq -r --argjson p "$2" '
+        . as $roster
+        | [(($p.enable // [])[]), (($p.override // {}) | keys[])]
+        | unique | map(select(. as $n | $roster | has($n) | not)) | join(", ")
+    ' "$1" 2>/dev/null)" || return 0
+    [[ -n "$unknown" ]] && warn "Profile MCP names not in the roster (ignored): $unknown"
+    return 0
+}
+
+# True when every name this harness was last given is still in its config.
+mcp_written_ok() {
+    local h="$1" written="$2" name
+    [[ -f "$written" ]] || return 1
+    while IFS= read -r name; do
+        [[ -n "$name" ]] || continue
+        case "$h" in
+            grok)
+                grep -Fqx -- "[mcp_servers.$name]" "$HOME/.grok/config.toml" 2>/dev/null || return 1
+                ;;
+            opencode)
+                jq -e --arg n "$name" '.mcp.servers[$n] != null' \
+                    "$HOME/.config/opencode/opencode.json" >/dev/null 2>&1 || return 1
+                ;;
+            claude)
+                jq -e --arg n "$name" '.mcpServers[$n] != null' \
+                    "$HOME/.claude.json" >/dev/null 2>&1 || return 1
+                ;;
+        esac
+    done < "$written"
+}
+
+write_grok_mcp() {
+    local resolved="$1" written="$2"
+    local cfg="$HOME/.grok/config.toml"
+    local merger="$DOTFILES_DIR/ai/scripts/merge-grok-mcp.py"
+    local enabled_file
+
+    mkdir -p "$HOME/.grok"
+    enabled_file="$(mktemp)"
+    jq -c 'keys' "$resolved" > "$enabled_file"
+    if python3 "$merger" "$cfg" --mcp "$resolved" --enabled "$enabled_file"; then
+        rm -f -- "$enabled_file"
+        jq -r 'keys[]' "$resolved" > "$written"
+        success "Updated Grok MCP servers in ~/.grok/config.toml"
+        return 0
+    fi
+    rm -f -- "$enabled_file"
+    warn "Failed to merge Grok MCP servers into ~/.grok/config.toml"
+    return 1
+}
+
+write_opencode_mcp() {
+    local resolved="$1" written="$2"
+    local oc_cfg="$HOME/.config/opencode/opencode.json"
+    local oc_tpl="${oc_cfg%.json}.json.tpl"
+    local oc_mcp tmp
+
+    if [[ ! -f "$oc_cfg" && -f "$oc_tpl" ]]; then
+        cp "$oc_tpl" "$oc_cfg"
+    fi
+    if ! jq -e 'type == "object"' "$oc_cfg" >/dev/null 2>&1; then
+        warn "Could not parse opencode.json — leaving OpenCode MCP unchanged"
+        return 1
+    fi
+
+    if ! oc_mcp="$(jq -e '
+        map_values(
+            if (.type == "http" or .type == "sse" or .type == "streamable-http" or .type == "remote") then
+                {type: "remote", url}
+                + (if .headers then {headers} else {} end)
+            else
+                {type: "local", command: ([.command] + (.args // []))}
+                + (if .env then {environment: .env} else {} end)
+            end
+        )
+        | {mcp: {servers: .}}
+    ' "$resolved")"; then
+        warn "Failed to build OpenCode MCP servers"
+        return 1
+    fi
+    tmp="$(mktemp "$oc_cfg.XXXXXX")"
+    if ! jq -se '(.[0] | del(.mcp)) * .[1]' "$oc_cfg" <(printf '%s\n' "$oc_mcp") > "$tmp"; then
+        rm -f -- "$tmp"
+        warn "Failed to merge OpenCode MCP servers into opencode.json"
+        return 1
+    fi
+    chmod 600 "$tmp"
+    mv -- "$tmp" "$oc_cfg"
+    jq -r 'keys[]' "$resolved" > "$written"
+    reload_opencode_service
+    success "Updated OpenCode MCP servers in opencode.json"
+}
+
+# Merge into ~/.claude.json mcpServers. Every roster name (plus anything we
+# wrote before) is managed: dropped unless enabled. Servers added by hand
+# stay. Running Claude sessions rewrite this file (OAuth, project state) and
+# it outgrows ARG_MAX, so stream it through jq, skip no-op writes, and give up
+# if it changed mid-merge rather than clobber Claude's write.
 write_claude_mcp() {
-    local resolved="$1"
-    local enabled_json="$2"
-    local written_file="$3"
+    local resolved="$1" written="$2"
+    local roster="$DOTFILES_DIR/ai/mcp-servers.json.tpl"
     local cfg="$HOME/.claude.json"
     local before="" tmp prev_json="[]"
 
-    claude_installed || return 0
-
-    if [[ -f "$written_file" ]]; then
-        prev_json="$(jq -R . "$written_file" | jq -s .)"
+    if [[ -f "$written" ]]; then
+        prev_json="$(jq -R . "$written" | jq -s .)"
     fi
 
     if [[ -f "$cfg" ]]; then
         if ! jq -e 'type == "object"' "$cfg" >/dev/null 2>&1; then
             warn "Could not parse ~/.claude.json — leaving Claude MCP unchanged"
-            return 0
+            return 1
         fi
         before="$(sha256sum < "$cfg")"
     fi
 
     tmp="$(mktemp "$cfg.XXXXXX")"
     if ! { if [[ -f "$cfg" ]]; then cat -- "$cfg"; else printf '{}'; fi; } | jq \
-        --slurpfile roster "$resolved" \
-        --argjson enabled "$enabled_json" \
+        --slurpfile resolved "$resolved" \
+        --slurpfile roster "$roster" \
         --argjson prev "$prev_json" \
         '
-        $roster[0] as $roster
-        | (($roster | keys) + $prev) as $managed
+        (($roster[0] | keys) + $prev) as $managed
         | .mcpServers = (
             ((.mcpServers // {}) | with_entries(select(.key as $k | ($managed | index($k)) | not)))
             + (
-                $roster
-                | with_entries(select(.key as $k | $enabled | index($k)))
+                $resolved[0]
                 | map_values(
                     (.type // (if .url then "http" else "stdio" end)) as $t
                     | if $t == "sse" or $t == "http" or $t == "streamable-http" or $t == "remote" then
@@ -375,111 +467,103 @@ write_claude_mcp() {
         ' > "$tmp"; then
         warn "Failed to merge Claude MCP servers into ~/.claude.json"
         rm -f -- "$tmp"
-        return 0
+        return 1
     fi
 
     if [[ -f "$cfg" ]] && jq -e --slurpfile new "$tmp" \
         '.mcpServers == $new[0].mcpServers' "$cfg" >/dev/null 2>&1; then
         rm -f -- "$tmp"
     elif [[ -n "$before" && "$(sha256sum < "$cfg")" != "$before" ]]; then
-        warn "~/.claude.json changed during the merge — rerun 'dot mcp-regen'"
+        warn "Claude rewrote ~/.claude.json during the merge — rerun 'dot mcp-regen'"
         rm -f -- "$tmp"
-        return 0
+        return 1
     else
         chmod 600 "$tmp"
         mv -- "$tmp" "$cfg"
         success "Updated Claude MCP servers in ~/.claude.json"
     fi
 
-    jq -r --argjson enabled "$enabled_json" \
-        'keys[] | select(. as $k | $enabled | index($k))' "$resolved" > "$written_file"
+    jq -r 'keys[]' "$resolved" > "$written"
 }
 
-# JSON array of servers enabled in live ~/.grok/config.toml.
-grok_enabled_mcp() {
-    local cfg="$HOME/.grok/config.toml"
-    [[ -f "$cfg" ]] || { printf '[]\n'; return 0; }
-    python3 "$DOTFILES_DIR/ai/scripts/merge-grok-mcp.py" "$cfg" --print-enabled-mcp
-}
-
-# Regen cache key: roster + overlay, plus Grok's enabled set when Claude is
-# installed so a server toggled on in Grok reaches Claude on the next update.
-mcp_regen_hash() {
-    local src="$1" overlay="$2"
-    {
-        sha256sum "$src"
-        [[ -n "$overlay" ]] && sha256sum "$overlay"
-        command -v gitea-mcp &>/dev/null && echo gitea-mcp
-        claude_installed && grok_enabled_mcp
-    } | sha256sum | awk '{print $1}'
-}
-
-# Generate MCP configs from the shared roster.
-# Source: ~/.dotfiles/ai/mcp-servers.json.tpl (command/args/env/url JSON, op:// refs)
-# Targets:
-#   Grok:     ~/.grok/config.toml [mcp_servers.*]  (canonical)
-#   OpenCode: ~/.config/opencode/opencode.json mcp (adapter; JSON ≠ TOML)
-#   Claude:   ~/.claude.json mcpServers            (adapter; mirrors Grok's enabled set; only if installed)
 generate_mcp_configs() {
     local mcp_src="$DOTFILES_DIR/ai/mcp-servers.json.tpl"
     local force="${FORCE_MCP_REGEN:-false}"
-    local merger="$DOTFILES_DIR/ai/scripts/merge-grok-mcp.py"
-    local grok_cfg="$HOME/.grok/config.toml"
-    local enabled_mcp_servers=("context7" "firecrawl")
-    # Installed only by the personal profiles; wsl-work never gets the binary.
-    command -v gitea-mcp &>/dev/null && enabled_mcp_servers+=("gitea")
-    local claude_mcp_ok=1
+    local cache_dir="$HOME/.cache/dotfiles"
+    local hash_file="$cache_dir/mcp-servers.hash"
+    local -a harnesses=()
+    local h
 
     if [[ ! -f "$mcp_src" ]]; then
         warn "Shared MCP config not found: $mcp_src"
-        return
+        return 0
     fi
+    ensure_jq || return 0
+    _profile_json_load
 
-    ensure_jq || return
-
-    local cache_dir="$HOME/.cache/dotfiles"
-    local hash_file="$cache_dir/mcp-servers.hash"
-    local claude_written="$cache_dir/claude-mcp-servers"
-    local overlay=""
-    overlay=$(grok_profile_overlay) || overlay=""
-
-    local current_hash
-    current_hash="$(mcp_regen_hash "$mcp_src" "$overlay")"
-
-    # Skip the 1Password round-trip only when Claude, once installed, still
-    # has every server the last regen gave it. A server dropped for a missing
-    # secret was never written, so it must not force a rerun.
-    if claude_installed; then
-        claude_mcp_ok=0
-        if [[ -f "$claude_written" && -f "$HOME/.claude.json" ]]; then
-            claude_mcp_ok=1
-            local mcp_name
-            while IFS= read -r mcp_name; do
-                [[ -n "$mcp_name" ]] || continue
-                if ! jq -e --arg n "$mcp_name" '.mcpServers[$n] != null' \
-                    "$HOME/.claude.json" >/dev/null 2>&1; then
-                    claude_mcp_ok=0
-                    break
-                fi
-            done < "$claude_written"
+    while IFS= read -r h; do
+        [[ -n "$h" ]] || continue
+        if [[ "$h" == opencode && ! -d "$HOME/.config/opencode" ]]; then
+            info "~/.config/opencode not stowed yet — skipping OpenCode MCP"
+            continue
         fi
+        harnesses+=("$h")
+    done < <(ai_enabled_harnesses)
+    if ((${#harnesses[@]} == 0)); then
+        info "No AI harness enabled — skipping MCP config"
+        return 0
     fi
 
-    if [[ "$force" != true && -f "$hash_file" ]]; then
-        local cached_hash
-        cached_hash="$(cat "$hash_file")"
-        if [[ "$current_hash" == "$cached_hash" ]] \
-            && [[ -f "$grok_cfg" ]] \
-            && grep -q '^\[mcp_servers\.' "$grok_cfg" 2>/dev/null \
-            && [[ "$claude_mcp_ok" -eq 1 ]]; then
+    local profile_mcp enabled_json current_hash
+    profile_mcp="$(profile_mcp_json)" || profile_mcp='{}'
+    mcp_warn_unknown "$mcp_src" "$profile_mcp"
+    if ! enabled_json="$(mcp_enabled_servers "$mcp_src" "$profile_mcp")"; then
+        warn "Profile mcp: block is malformed — leaving MCP configs unchanged"
+        return 0
+    fi
+    current_hash="$({
+        sha256sum < "$mcp_src"
+        jq -cS . <<<"$profile_mcp"
+        printf '%s\n' "${harnesses[@]}"
+    } | sha256sum | awk '{print $1}')"
+
+    if [[ "$force" != true && -f "$hash_file" && "$(<"$hash_file")" == "$current_hash" ]]; then
+        local fresh=1
+        for h in "${harnesses[@]}"; do
+            mcp_written_ok "$h" "$cache_dir/$h-mcp-servers" || { fresh=0; break; }
+        done
+        if ((fresh)); then
             info "MCP config unchanged — skipping 1Password injection"
             return 0
         fi
     fi
 
-    local resolved
-    resolved="$(mktemp)"
-    trap "rm -f '$resolved'" RETURN
+    local work
+    work="$(mktemp -d)"
+    # shellcheck disable=SC2064 # expand now: $work is local
+    trap "rm -rf -- '$work'" RETURN
+
+    # Overrides apply to the template, so their $HOME / op:// values resolve
+    # too; filtering first means unused servers' secrets are never fetched.
+    if ! jq --argjson enabled "$enabled_json" --argjson p "$profile_mcp" '
+        ($p.override // {}) as $ov
+        | with_entries(select(.key as $k | $enabled | index($k)))
+        | with_entries(
+            .key as $k
+            | if $ov[$k] then
+                .value = (
+                    (.value
+                     | if ($ov[$k] | has("command")) and ($ov[$k] | has("args") | not)
+                       then del(.args) else . end)
+                    + ($ov[$k] | with_entries(select(.key
+                        | IN("command", "args", "env", "url", "headers", "type"))))
+                )
+              else . end
+          )
+    ' "$mcp_src" > "$work/selected.json"; then
+        warn "Could not apply the profile's MCP overrides — leaving MCP configs unchanged"
+        return 0
+    fi
 
     drop_op_servers() {
         local src="$1" dst="$2"
@@ -491,108 +575,37 @@ generate_mcp_configs() {
 
     if command -v op &>/dev/null; then
         info "Injecting MCP secrets via 1Password..."
-        if ! op_inject_multi "$mcp_src" "$resolved"; then
+        if ! op_inject_multi "$work/selected.json" "$work/resolved.json"; then
             warn "1Password injection failed — falling back to keyless servers only"
-            drop_op_servers "$mcp_src" "$resolved"
+            drop_op_servers "$work/selected.json" "$work/resolved.json"
         fi
     else
         warn "1Password CLI not installed — MCP servers needing secrets will be skipped"
-        drop_op_servers "$mcp_src" "$resolved"
+        drop_op_servers "$work/selected.json" "$work/resolved.json"
     fi
 
-    # Expand shell-style $HOME in resolved values (JSON can't; keeps the
-    # template portable across machines). Used by servers that require an
-    # absolute path in env, e.g. flux-operator-mcp's KUBECONFIG.
+    # Expand shell-style $HOME (JSON can't), e.g. flux-operator-mcp's KUBECONFIG.
     if jq --arg home "$HOME" \
         'walk(if type == "string" then gsub("\\$HOME"; $home) else . end)' \
-        "$resolved" > "$resolved.exp" 2>/dev/null; then
-        mv "$resolved.exp" "$resolved"
-    else
-        rm -f "$resolved.exp"
+        "$work/resolved.json" > "$work/expanded.json" 2>/dev/null; then
+        mv -- "$work/expanded.json" "$work/resolved.json"
     fi
 
-    local enabled_json overlay_mcp="{}"
-    enabled_json="$(printf '%s\n' "${enabled_mcp_servers[@]}" | jq -R . | jq -s .)"
-    if [[ -n "$overlay" ]]; then
-        if ! overlay_mcp="$(python3 "$merger" /dev/null --print-overlay-mcp --overlay "$overlay")"; then
-            warn "Could not read MCP overrides from $overlay — using the shared roster"
-            overlay_mcp="{}"
-        fi
-        enabled_json="$(jq -n --argjson enabled "$enabled_json" --argjson overlay "$overlay_mcp" '
-            ($enabled + [($overlay | to_entries[] | select(.value.enabled == true) | .key)])
-            | unique
-        ')"
-        jq --argjson overlay "$overlay_mcp" '
-            reduce ($overlay | to_entries[]) as $e (.;
-                if has($e.key) then
-                    .[$e.key] = (
-                        .[$e.key]
-                        | (if ($e.value | has("command")) and ($e.value | has("args") | not)
-                           then del(.args) else . end)
-                        + ($e.value | del(.enabled))
-                    )
-                else . end)
-        ' "$resolved" > "$resolved.ovl"
-        mv "$resolved.ovl" "$resolved"
+    if ! jq -e 'type == "object"' "$work/resolved.json" >/dev/null 2>&1; then
+        warn "MCP secret resolution produced no config — leaving MCP configs unchanged"
+        return 0
     fi
 
-    mkdir -p "$HOME/.grok"
-    local enabled_file
-    enabled_file="$(mktemp)"
-    printf '%s' "$enabled_json" > "$enabled_file"
-    local -a merge_args=("$grok_cfg" --mcp "$resolved" --enabled "$enabled_file")
-    [[ -n "$overlay" ]] && merge_args+=(--overlay "$overlay")
-    local claude_enabled_json="$enabled_json"
-    if python3 "$merger" "${merge_args[@]}"; then
-        success "Updated Grok MCP servers in ~/.grok/config.toml"
-        claude_enabled_json="$(grok_enabled_mcp)" || claude_enabled_json="$enabled_json"
-    else
-        warn "Failed to merge Grok MCP servers into ~/.grok/config.toml"
-    fi
-    rm -f "$enabled_file"
-
-    local oc_cfg="$HOME/.config/opencode/opencode.json"
-    local oc_tpl="${oc_cfg%.json}.json.tpl"
-    if [[ ! -f "$oc_cfg" && -f "$oc_tpl" ]]; then
-        cp "$oc_tpl" "$oc_cfg"
-    fi
-
-    if [[ -f "$oc_cfg" ]]; then
-        local oc_mcp
-        oc_mcp="$(jq --argjson enabled "$enabled_json" '
-            to_entries
-            | map(
-                (.key as $name | ($enabled | contains([$name]))) as $is_enabled
-                | if (.value.type == "http" or .value.type == "sse"
-                      or .value.type == "streamable-http" or .value.type == "remote") then
-                    {key: .key, value: ({type: "remote", url: .value.url}
-                        + (if .value.headers then {headers: .value.headers} else {} end)
-                        + if $is_enabled then {} else {disabled: true} end)}
-                else
-                    {key: .key, value: ({
-                        type: "local",
-                        command: (
-                            if .value.args then
-                                [.value.command] + .value.args
-                            else
-                                [.value.command]
-                            end
-                        )
-                    } + (if .value.env then {environment: .value.env} else {} end)
-                      + (if $is_enabled then {} else {disabled: true} end))}
-                end
-            )
-            | from_entries | {mcp: {servers: .}}
-        ' "$resolved")"
-        jq -s '(.[0] | del(.mcp)) * .[1]' "$oc_cfg" <(echo "$oc_mcp") > "$oc_cfg.tmp"
-        mv "$oc_cfg.tmp" "$oc_cfg"
-        chmod 600 "$oc_cfg"
-        reload_opencode_service
-        success "Updated OpenCode MCP servers in opencode.json"
-    fi
-
+    # The hash is saved only when every harness took the write, so a failed
+    # one is retried on the next run instead of looking fresh.
+    local failed=0
     mkdir -p "$cache_dir"
-    write_claude_mcp "$resolved" "$claude_enabled_json" "$claude_written"
-    # Rehash: the merge may have grown Grok's enabled set.
-    printf '%s' "$(mcp_regen_hash "$mcp_src" "$overlay")" > "$hash_file"
+    for h in "${harnesses[@]}"; do
+        "write_${h}_mcp" "$work/resolved.json" "$cache_dir/$h-mcp-servers" || failed=1
+    done
+    if ((failed)); then
+        rm -f -- "$hash_file"
+    else
+        printf '%s' "$current_hash" > "$hash_file"
+    fi
 }

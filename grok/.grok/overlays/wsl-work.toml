@@ -1,5 +1,6 @@
 # Work-machine Grok overlay (profile: wsl-work). Merged into live
-# ~/.grok/config.toml by install_ai_grok. Personal profiles have no overlay.
+# ~/.grok/config.toml by install_ai_grok. Grok-only settings; MCP servers
+# come from the profile's mcp: block. Personal profiles have no overlay.
 
 [models]
 default = "us-gov.xai.grok-4.7"
@@ -26,9 +27,3 @@ max_completion_tokens = 16384
 supports_backend_search = false
 max_retries = 2
 stream_tool_calls = false
-
-# Ubuntu npm 9.2.0 wedges `npx @latest` (ENOTEMPTY leftover rename).
-# generate_mcp_configs also applies this to OpenCode and Claude.
-[mcp_servers.kubernetes]
-command = "kubernetes-mcp-server"
-enabled = true
