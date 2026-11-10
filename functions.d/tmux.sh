@@ -196,6 +196,7 @@ function tav() {
     current_dir=${PWD}
     top_left=$TMUX_PANE
     declare -F _grok_trust_folder >/dev/null && _grok_trust_folder "$current_dir"
+    declare -F _claude_trust_folder >/dev/null && _claude_trust_folder "$current_dir"
 
     tmux rename-window -t "$top_left" "$(basename "$current_dir")"
 
@@ -234,6 +235,7 @@ function tavk() {
     current_dir=${PWD}
     top_left=$TMUX_PANE
     declare -F _grok_trust_folder >/dev/null && _grok_trust_folder "$current_dir"
+    declare -F _claude_trust_folder >/dev/null && _claude_trust_folder "$current_dir"
 
     tmux rename-window -t "$top_left" "$(basename "$current_dir")"
 
