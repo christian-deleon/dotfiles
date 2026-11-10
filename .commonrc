@@ -25,8 +25,11 @@ fi
 
 # Export the active dotfiles profile for scripts that branch on it (e.g.
 # `dot update` reconciliation). .localrc can override by setting it first.
+# DOTFILES_PROFILE_FROM_STATE tells dot to re-read .active-profile, which
+# `dot profile use` may have changed since this shell started.
 if [[ -z "$DOTFILES_PROFILE" && -f "$HOME/.dotfiles/.active-profile" ]]; then
     export DOTFILES_PROFILE="$(cat "$HOME/.dotfiles/.active-profile")"
+    export DOTFILES_PROFILE_FROM_STATE=1
 fi
 
 # Work WSL: Bedrock SSE proxy. Personal profiles skip this.

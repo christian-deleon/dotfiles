@@ -116,17 +116,6 @@ check_1password() {
     return 0
 }
 
-# Read the active profile name. Prefers $DOTFILES_PROFILE env override (set in
-# .localrc to force a specific profile), falling back to the .active-profile
-# file written by the installer.
-read_active_profile() {
-    if [[ -n "${DOTFILES_PROFILE:-}" ]]; then
-        echo "$DOTFILES_PROFILE"
-    elif [[ -f "$DOTFILES_DIR/.active-profile" ]]; then
-        cat "$DOTFILES_DIR/.active-profile"
-    fi
-}
-
 # Reconcile the active profile during `dot update`: install any items present
 # in the profile but missing on this host. Add-only — removed items stay.
 # Idempotent; safe when no profile is active.
@@ -250,17 +239,14 @@ update_dotfiles() {
             fi
         fi
 
-        # Refresh AI symlinks after dotfiles pull (idempotent)
+        # Refresh each enabled harness from ai/ after the pull (idempotent)
         if [[ -d "$DOTFILES_DIR/ai" ]]; then
             source "$DOTFILES_DIR/install.sh"
-            install_ai_grok 2>/dev/null || _warn "Failed to install Grok AI config"
-            install_ai_opencode 2>/dev/null || _warn "Failed to install OpenCode adapter"
-            install_ai_claude 2>/dev/null || _warn "Failed to install Claude Code adapter"
-
-            local env_name
-            if env_name="$(agent_env_current_name)"; then
-                agent_env_link_skills "$env_name"
-            fi
+            _profile_json_load
+            local harness
+            while IFS= read -r harness; do
+                "install_ai_$harness" 2>/dev/null || _warn "Failed to install $harness config"
+            done < <(ai_enabled_harnesses)
         fi
 
         # Reconcile stale symlinks left by dropped stow packages
@@ -280,6 +266,12 @@ update_dotfiles() {
     # Reconcile active profile (add missing items)
     reconcile_profile || true
 
+    # After reconcile, so a harness the profile just added has its dirs.
+    agent_env_refresh || true
+    if declare -F install_ai_tool_default >/dev/null; then
+        install_ai_tool_default || true
+    fi
+
     _success "Dotfiles updated"
 }
 
@@ -298,13 +290,23 @@ run_install() {
 
         ensure_yq || return 1
 
-        local names=("$@")
+        local rc=0 name canon
+        local names=()
+        for name in "$@"; do
+            canon="$(manifest_resolve_alias "$name")"
+            if [[ -n "$canon" ]] && ! ai_harness_check_allowed "$canon"; then
+                rc=1
+                continue
+            fi
+            names+=("$name")
+        done
+        [[ ${#names[@]} -eq 0 ]] && return $rc
+
         if items_need_stow "${names[@]}"; then
             ensure_stow
             ensure_omadot
         fi
 
-        local rc=0 name
         for name in "${names[@]}"; do
             install_item "$name" || rc=$?
         done

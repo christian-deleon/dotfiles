@@ -1,7 +1,8 @@
 # Grok Build TUI — seed for a missing ~/.grok/config.toml.
 # The live file is NOT a symlink: Grok mutates it at runtime. install_ai_grok
 # copies this seed only when the live file is absent, then merges
-# grok/.grok/base.toml, MCP, and [compat.claude] into the live file.
+# grok/.grok/base.toml, the profile's MCP servers, and [compat.claude] into
+# the live file.
 #
 # Skills, agents, hooks, and rules live in ~/.dotfiles/ai/ and are symlinked
 # into ~/.grok/{skills,agents,hooks,rules}/.
@@ -55,6 +56,12 @@ load_envrc = true
 # Respect .gitignore for file operations
 respect_gitignore = true
 
+# Servers kept off at runtime (toggle with /mcps). generate_mcp_configs takes
+# any server the profile enables out of this list.
+disabled_mcp_servers = [
+    "memory",               # enable explicitly with GROK_MEMORY=1 when desired
+]
+
 # Skip the blocking "Do you trust this directory?" modal. Each git worktree is
 # a separate workspace, so a parent grant does not cover wtc windows.
 [folder_trust]
@@ -63,23 +70,9 @@ enabled = false
 # ---------------------------------------------------------------------------
 # MCP Servers
 # ---------------------------------------------------------------------------
-# Roster lives in ~/.dotfiles/ai/mcp-servers.json.tpl. generate_mcp_configs
-# merges [mcp_servers.*] into the live ~/.grok/config.toml (canonical) and
-# writes OpenCode's mcp block as an adapter.
-#
-# Extra [mcp_servers.xxx] tables you add by hand survive the merge.
-
-# ---------------------------------------------------------------------------
-# Disabled MCP Servers (runtime preference)
-# ---------------------------------------------------------------------------
-# These are servers you don't want enabled globally. You can also toggle
-# them at runtime with /mcps or the Ctrl+L plugins modal.
-#
-# The following are commonly noisy or not needed in most dev environments:
-disabled_mcp_servers = [
-    "memory",               # enable explicitly with GROK_MEMORY=1 when desired
-    "playwright",
-]
+# Roster lives in ~/.dotfiles/ai/mcp-servers.json.tpl; the active profile's
+# mcp: block picks the servers. generate_mcp_configs rewrites every
+# [mcp_servers.*] table on each regen, so tables added here by hand are lost.
 
 # ---------------------------------------------------------------------------
 # Subagents
@@ -116,7 +109,8 @@ enabled = true
 # ---------------------------------------------------------------------------
 # Harness compatibility
 # ---------------------------------------------------------------------------
-# Claude Code is retired. Keep these off so leftover ~/.claude paths are ignored.
+# The Claude Code adapter fills ~/.claude from the same ai/ sources. Keep these
+# off so Grok doesn't load every skill, rule and hook a second time.
 [compat.claude]
 skills = false
 rules = false

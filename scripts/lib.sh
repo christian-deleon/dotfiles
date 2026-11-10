@@ -555,6 +555,181 @@ apply_tombstones() {
     return 0
 }
 
+# ─── Profiles ─────────────────────────────────────────────────────────────────
+
+# Print the active profile name. $DOTFILES_PROFILE wins over .active-profile
+# unless .commonrc copied it from that file at shell start, in which case the
+# file is current. install_from_profile exports it so a profile install sees
+# its own profile.
+read_active_profile() {
+    if [[ -n "${DOTFILES_PROFILE:-}" && -z "${DOTFILES_PROFILE_FROM_STATE:-}" ]]; then
+        printf '%s\n' "$DOTFILES_PROFILE"
+    elif [[ -f "$DOTFILES_DIR/.active-profile" ]]; then
+        local name
+        name=$(<"$DOTFILES_DIR/.active-profile")
+        printf '%s\n' "${name//$'\n'/}"
+    fi
+}
+
+# Path of the active profile's YAML. Fails when none is active or it is gone.
+active_profile_file() {
+    local name file
+    name="$(read_active_profile)"
+    [[ -n "$name" ]] || return 1
+    file="$DOTFILES_DIR/profiles/$name.yaml"
+    [[ -f "$file" ]] || return 1
+    printf '%s\n' "$file"
+}
+
+# Print a YAML file as compact JSON. Python yq (a jq wrapper) and mikefarah's
+# Go yq both ship as `yq` but take different flags.
+_yq_json() {
+    if [[ -z "${_YQ_FLAVOR:-}" ]]; then
+        if yq --version 2>&1 | grep -q mikefarah; then
+            _YQ_FLAVOR=go
+        else
+            _YQ_FLAVOR=python
+        fi
+    fi
+    if [[ "$_YQ_FLAVOR" == go ]]; then
+        yq -o=json -I=0 '.' "$1"
+    else
+        yq -c '.' "$1"
+    fi
+}
+
+# Load the active profile into $_PROFILE_JSON ({} without one). Cached per
+# profile file; call it directly, not in $(…), or the cache is lost.
+_profile_json_load() {
+    local file
+    file="$(active_profile_file)" || file=""
+    if [[ -n "$file" && "$file" == "${_PROFILE_JSON_KEY:-}" ]]; then
+        return 0
+    fi
+    _PROFILE_JSON_KEY="$file"
+    _PROFILE_JSON='{}'
+    [[ -n "$file" ]] || return 0
+    _PROFILE_JSON="$(_yq_json "$file")" || _PROFILE_JSON='{}'
+}
+
+profile_lists_item() {
+    _profile_json_load
+    jq -e --arg i "$1" '(.items // []) | index($i) != null' <<<"$_PROFILE_JSON" >/dev/null
+}
+
+profile_mcp_json() {
+    _profile_json_load
+    jq -c '.mcp // {}' <<<"$_PROFILE_JSON"
+}
+
+profile_ai_default() {
+    _profile_json_load
+    jq -r '.ai.default // ""' <<<"$_PROFILE_JSON"
+}
+
+# ─── AI harnesses ─────────────────────────────────────────────────────────────
+#
+# Peers fed from ai/. Each has install_ai_<h> and write_<h>_mcp in
+# scripts/handlers/ai.sh. With an active profile, the profile's items decide
+# which are enabled; without one, whatever is installed.
+
+AI_HARNESSES=(claude grok opencode)
+
+ai_is_harness() {
+    local h
+    for h in "${AI_HARNESSES[@]}"; do
+        [[ "$1" == "$h" ]] && return 0
+    done
+    return 1
+}
+
+# Map the short names used by AI_TOOL / AI_TOOL_PIPE to a harness id.
+ai_harness_normalize() {
+    case "$1" in
+        cl | claude) echo claude ;;
+        gr | gra | grok) echo grok ;;
+        oc | opencode) echo opencode ;;
+        *) return 1 ;;
+    esac
+}
+
+ai_harness_home() {
+    case "$1" in
+        claude) printf '%s\n' "$HOME/.claude" ;;
+        grok) printf '%s\n' "$HOME/.grok" ;;
+        opencode) printf '%s\n' "$HOME/.config/opencode" ;;
+        *) return 1 ;;
+    esac
+}
+
+ai_harness_skills_dir() {
+    local home
+    home="$(ai_harness_home "$1")" || return 1
+    printf '%s/skills\n' "$home"
+}
+
+# User-level instructions file each harness loads in every session.
+ai_harness_instructions() {
+    case "$1" in
+        claude) printf '%s\n' "$HOME/.claude/CLAUDE.md" ;;
+        grok) printf '%s\n' "$HOME/.grok/AGENTS.md" ;;
+        opencode) printf '%s\n' "$HOME/.config/opencode/AGENTS.md" ;;
+        *) return 1 ;;
+    esac
+}
+
+# Interactive alias, resume command, headless CLI — tab-separated.
+ai_harness_cli() {
+    case "$1" in
+        claude) printf 'cl\tcl -c\tclaude\n' ;;
+        grok) printf 'gra\tgra -c\tgrok\n' ;;
+        opencode) printf 'oc\toc -c\topencode\n' ;;
+        *) return 1 ;;
+    esac
+}
+
+# OpenCode's item is config-only (its binary may come from mise or npm), so
+# its stowed config dir also counts.
+ai_harness_installed() {
+    case "$1" in
+        claude) command -v claude >/dev/null 2>&1 || [[ -x "$HOME/.local/bin/claude" ]] ;;
+        grok) command -v grok >/dev/null 2>&1 ;;
+        opencode) command -v opencode >/dev/null 2>&1 || [[ -d "$HOME/.config/opencode" ]] ;;
+        *) return 1 ;;
+    esac
+}
+
+# May this harness be installed here? Always, unless a profile leaves it out.
+ai_harness_allowed() {
+    active_profile_file >/dev/null || return 0
+    profile_lists_item "$1"
+}
+
+# Install gate for manifest items: refuses a harness the profile leaves out.
+ai_harness_check_allowed() {
+    ai_is_harness "$1" || return 0
+    ai_harness_allowed "$1" && return 0
+    _error "$1 is not in profiles/$(read_active_profile).yaml — add it there to install it"
+    return 1
+}
+
+ai_harness_enabled() {
+    if active_profile_file >/dev/null; then
+        profile_lists_item "$1"
+    else
+        ai_harness_installed "$1"
+    fi
+}
+
+ai_enabled_harnesses() {
+    local h
+    for h in "${AI_HARNESSES[@]}"; do
+        if ai_harness_enabled "$h"; then
+            printf '%s\n' "$h"
+        fi
+    done
+}
+
 # ─── Gum Bootstrap ────────────────────────────────────────────────────────────
 
 ensure_gum() {

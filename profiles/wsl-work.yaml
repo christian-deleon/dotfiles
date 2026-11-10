@@ -35,3 +35,13 @@ items:
   - windows-terminal
   - worktrunk
   - yq
+
+ai:
+  default: opencode   # tav/wta/wtc and commit messages; ~/.localrc AI_TOOL wins
+
+mcp:
+  enable: [context7, firecrawl, kubernetes]
+  override:
+    # Ubuntu npm 9.2.0 wedges `npx @latest` (ENOTEMPTY leftover rename).
+    kubernetes:
+      command: kubernetes-mcp-server
