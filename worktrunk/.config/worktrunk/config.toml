@@ -13,8 +13,8 @@ agent-files = "dot agent link"
 exclude = ["AGENTS.md", "CLAUDE.md"]
 
 [commit.generation]
-# Dispatcher script that picks the AI CLI from $AI_TOOL_PIPE (grok|opencode),
-# auto-detecting grok first if unset. Switch tools with `dot ai-tool` or
+# Dispatcher script that picks the AI CLI from $AI_TOOL_PIPE
+# (claude|grok|opencode), auto-detecting if unset. Switch tools with `dot ai-tool` or
 # `AI_TOOL_PIPE=opencode wt step commit` for a one-off.
 command = "$HOME/.dotfiles/scripts/worktrunk-commit-gen.sh"
 template = """

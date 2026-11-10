@@ -4,8 +4,8 @@
 # Reads the rendered prompt on stdin, runs whichever AI CLI is selected via
 # $AI_TOOL_PIPE (grok|opencode|claude), validates the result against the
 # Conventional Commits format, and prints the cleaned message on stdout.
-# With $AI_TOOL_PIPE unset, auto-detects in grok > opencode order.
-# Claude is never auto-selected; set AI_TOOL_PIPE=claude to use it.
+# With $AI_TOOL_PIPE unset (profile installs set it from ai.default),
+# auto-detects in claude > opencode > grok order.
 #
 # Failure handling:
 #   - Tool exits non-zero (auth, subscription, network): surface and exit 1
@@ -70,13 +70,13 @@ normalize_tool() {
 
 detect_tool() {
     local t
-    for t in grok opencode; do
+    for t in claude opencode grok; do
         if command -v "$t" &>/dev/null; then
             echo "$t"
             return 0
         fi
     done
-    echo "worktrunk-commit-gen: no AI CLI found on PATH (tried: grok, opencode)" >&2
+    echo "worktrunk-commit-gen: no AI CLI found on PATH (tried: claude, opencode, grok)" >&2
     echo "  install one, or set AI_TOOL_PIPE to a tool that is installed." >&2
     return 1
 }
