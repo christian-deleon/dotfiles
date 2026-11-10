@@ -9,7 +9,7 @@ Guidelines for AI coding agents working in this personal dotfiles repo. Manages 
 **Key components:**
 - Shell configs: `.commonrc` (cross-platform), `.zshrc` (macOS), `.bashrc` (reference only — never symlinked)
 - Omarchy desktop: personal Hypr/Omarchy overlays via handlers; other app configs via GNU Stow + omadot (alacritty, btop, fastfetch, lazygit, nvim, tmux, starship, …)
-- AI config: `ai/` (skills, agents, hooks, rules); MCP template at `ai/mcp-servers.json.tpl`. Grok is first-class; OpenCode and Claude Code are adapters. Claude is opt-in (`dot install claude`), not on a profile. `[compat.claude]` stays off.
+- AI config: `ai/` (skills, agents, hooks, rules); MCP roster at `ai/mcp-servers.json.tpl`. Claude Code, Grok and OpenCode are peers, each installed straight from `ai/` (`scripts/handlers/ai.sh`); never make one harness read another's tree. The profile's `items` pick the harnesses (Claude Code must never be on `wsl-work`), its `mcp:` block is the only source of enabled MCP servers, and `ai.default` sets `AI_TOOL`. See [docs/ai.md](docs/ai.md).
 - Package + config management: `manifest.yaml` + `profiles/*.yaml` + `scripts/lib.sh` + `scripts/handlers/*.sh`
 - Desired absences for retired tools: `tombstones.yaml` (applied by `apply_tombstones` on `dot update` / install)
 - Windows bootstrap: `windows/bootstrap.ps1`
@@ -22,7 +22,7 @@ Guidelines for AI coding agents working in this personal dotfiles repo. Manages 
 4. **OS-aware.** Detect with `$OSTYPE` and `requires:` predicates. Supports macOS, Omarchy/Arch, Ubuntu/Pop!_OS, Debian. Omarchy is documented heavily because of its unique integration points — that does **not** mean the user is on Omarchy. Always check the actual environment.
 5. **Privacy.** Never commit secrets, tokens, or credentials.
 6. **Persist OS settings in the repo.** When you change an Omarchy/Hyprland default or a hardware-specific setting, put it in a tracked file that the installer applies. Don't leave it only in `~/.config` or a live IPC call. Omarchy shell settings (`~/.config/omarchy/shell.json`: idle timings, plugin settings such as `omarchy-shell lock setBlankDelay`) go in `omarchy/shell.overlay.json`, which is merged by key; plugin entries are matched by `id`. After changing a setting live, copy it into the overlay as well. If a setting has no tracked home yet, add one or ask the user.
-7. **No TDD.** Do not add tests, a test runner, or a red/green cycle. Prove changes by running the real command (`bash -n`, `dot`, `grok mcp doctor`, a new shell). Leave existing `ai/scripts/test_*.py` files alone unless asked.
+7. **No TDD.** Do not add tests, a test runner, or a red/green cycle. Prove changes by running the real command (`bash -n`, `dot`, `claude mcp list` / `grok mcp doctor`, a new shell). Leave existing `ai/scripts/test_*.py` files alone unless asked.
 
 ## Files symlinked to $HOME
 

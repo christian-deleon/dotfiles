@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Grok hook handler template.
-# Place in ~/.dotfiles/ai/hooks/<event>_<purpose>.sh (event-prefixed name
-# auto-registers). install_ai_grok links it to ~/.grok/hooks/.
+# Hook handler template.
+# Place in ~/.dotfiles/ai/hooks/<event>_<purpose>.sh. Grok auto-registers it
+# by filename (install_ai_grok links it to ~/.grok/hooks/); Claude needs an
+# entry in ensure_claude_settings (scripts/handlers/ai.sh).
 #
-# Stdin is JSON. Grok uses camelCase (hookEventName, toolName, toolInput).
-# Read snake_case too so older examples still work.
+# Stdin is JSON. Grok uses camelCase (hookEventName, toolName, toolInput);
+# Claude uses snake_case (hook_event_name, tool_name, tool_input). Read both.
 #
 # Exit codes:
 #   0 = success / allow

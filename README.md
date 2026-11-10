@@ -37,11 +37,11 @@ dot install <name>...          # Install one or more items directly (binary + co
 dot profile list               # Show profiles with compatibility / active markers
 dot profile show               # Print the currently active profile
 dot profile use <name>         # Switch active profile and run reconciliation
-dot mcp-regen                  # Regenerate MCP config for Grok (and OpenCode adapter) from ai/mcp-servers.json.tpl
+dot mcp-regen                  # Rewrite every enabled AI harness's MCP servers from the profile
 dot agent link [name]          # Symlink per-project AGENTS.md (private overlay submodule)
 dot agent unlink               # Remove the per-project symlinks
 dot agent list|status|update   # List projects / show cwd state / pull latest agent-files
-dot agent env link <name>      # Symlink per-environment AGENTS.md into ~/.grok/ (OpenCode hops)
+dot agent env link <name>      # Symlink per-environment AGENTS.md into each AI harness
 dot agent env unlink|list|status
 dot theme add <url>            # Add an Omarchy theme submodule
 dot theme list                 # List installed Omarchy themes
@@ -56,7 +56,7 @@ Two scopes of overlay agent files, sourced from the private `agent-files` submod
 
 **Per-project — `dot agent link`.** For projects where `AGENTS.md` can't be committed and `.gitignore` can't be modified. Content lives in `agent-files/projects/<project>/AGENTS.md`; the project gets a symlink excluded via the shared `.git/info/exclude`. An untracked leftover `CLAUDE.md` is migrated to `AGENTS.md`. A worktrunk `post-start` hook auto-links every newly created worktree.
 
-**Per-environment — `dot agent env link <name>`.** For machine- or environment-scoped context. Content lives in `agent-files/env/<env>/AGENTS.md` and is symlinked into Grok's `~/.grok/AGENTS.md` (OpenCode hops at the same file). Machine-only skills in `agent-files/env/<env>/skills/` link into the skill dirs alongside it. The symlinks themselves are the state. Opt out with `dot agent env unlink`.
+**Per-environment — `dot agent env link <name>`.** For machine- or environment-scoped context. Content lives in `agent-files/env/<env>/AGENTS.md` and is symlinked into the user instructions file of each AI harness on the machine (`~/.claude/CLAUDE.md`, `~/.grok/AGENTS.md`, `~/.config/opencode/AGENTS.md`). Machine-only skills in `agent-files/env/<env>/skills/` link into each harness's skills dir. The symlinks themselves are the state. Opt out with `dot agent env unlink`.
 
 ## Windows bootstrap
 
@@ -108,16 +108,14 @@ Stale `~/.config/<pkg>` symlinks from packages that have since been dropped are 
 
 ## AI Config
 
-Shared AI agent configuration for **Grok Build TUI** lives in `ai/` (plus `grok/.grok/` for native seed files). **OpenCode** and **Claude Code** are second-class adapters. Claude is opt-in (`dot install claude`); it is not on a profile.
+Skills, agents, rules, hooks, and the MCP roster live once in `ai/` and feed three peer AI harnesses: **Claude Code**, **Grok Build**, and **OpenCode**. Each machine's profile lists the harnesses it gets (the personal profiles have all three; the work profile has Grok and OpenCode), which MCP servers are on, and the default harness that `tav`, `wta`, `wtc` and commit messages use.
 
-Select `grok`, `opencode`, or `claude` from `dot install`:
+- **Claude Code** — skills, agents, and flattened rules symlink into `~/.claude/`; notify hooks merge into `settings.json`; MCP servers merge into `~/.claude.json`. Aliases: `cl`, `cca`.
+- **Grok Build** — skills, agents, hooks, and flattened rules symlink into `~/.grok/`; `config.toml` seeded if missing, with `grok/.grok/base.toml` and an optional per-profile overlay merged in; MCP written as `[mcp_servers.*]`. Aliases: `gr`, `gra`.
+- **OpenCode** — skills symlink into `~/.config/opencode/skills/`; agents, rules, and MCP are generated into `opencode.json`. Personal Bedrock ARNs use `{env:BEDROCK_AWS_ACCOUNT_ID}`; work GovCloud uses `WORK_BEDROCK_API_KEY` (not the personal `/connect` key). Aliases: `oc`, `oca`.
+- **MCP servers** — defined once in `ai/mcp-servers.json.tpl`, switched on per machine by the profile's `mcp:` block. 1Password secrets are injected only for enabled servers. `dot mcp-regen` rewrites every harness.
 
-- **Grok Build TUI** — skills/agents/hooks/rules linked into `~/.grok/`; pager.toml; config.toml seeded if missing; `grok/.grok/base.toml` merged on every machine; optional `grok/.grok/overlays/<profile>.toml` merged after that on matching machines; folder-trust disabled (and parent grants merged); MCP written as `[mcp_servers.*]`. `[compat.claude]` stays off.
-- **OpenCode** — `skills` and `AGENTS.md` hop at Grok's live tree; agents/instructions/MCP generated into `opencode.json`. Personal Bedrock ARNs use `{env:BEDROCK_AWS_ACCOUNT_ID}`; work GovCloud uses `WORK_BEDROCK_API_KEY` (not the personal `/connect` key)
-- **Claude Code** — skills, agents, and flattened rules symlink into `~/.claude/`; notify hooks merge into `settings.json`; enabled MCP servers merge into `~/.claude.json`. Aliases: `cl`, `cca`.
-- **MCP servers** — defined once in `ai/mcp-servers.json.tpl`. 1Password secrets are injected; unresolved `op://` refs are dropped. Use `dot mcp-regen` to force re-injection.
-
-`dot update` refreshes Grok, the OpenCode adapter, and the Claude adapter when `claude` is installed. See [docs/ai.md](docs/ai.md).
+`dot update` re-links every harness on the profile. See [docs/ai.md](docs/ai.md).
 
 ## Manifest and Profiles
 
@@ -130,7 +128,7 @@ Every item the repo knows about — tools, configs, bundles, handlers — is dec
 - [Manifest schema](docs/manifest.md) — the universal inventory of items
 - [Profiles](docs/profiles.md) — curated per-machine install sets
 - [Tombstones](docs/tombstones.md) — desired-state absences for retired tools
-- [AI config](docs/ai.md) — skills, agents, rules, MCP (Grok first-class; OpenCode adapter)
+- [AI config](docs/ai.md) — skills, agents, rules, MCP for Claude Code, Grok, and OpenCode
 - [Dot agent overlays](docs/dot-agent.md) — per-project and per-env AGENTS.md via `dot agent`
 - [Functions reference](docs/functions.md)
 - [Aliases reference](docs/aliases.md)

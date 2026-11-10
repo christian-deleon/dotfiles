@@ -55,7 +55,7 @@ Schema references: [manifest.md](manifest.md) for item entries, [profiles.md](pr
 
 **Failed installs don't abort the rest** — `install_tools` collects failures and warns at the end.
 
-**MCP / 1Password graceful degradation:** `generate_mcp_configs` (the post-install hook for `grok`, `opencode`, and `claude`) drops any MCP server whose JSON contains an unresolved `op://` reference when `op` is missing or fails to connect. The remaining keyless servers are still configured. If you don't want any MCP at all, skip `grok` / `opencode` / `claude` in the profile. Claude is opt-in and is not on a profile by default.
+**MCP / 1Password graceful degradation:** `generate_mcp_configs` (the post-install hook for `grok`, `opencode`, and `claude`) drops any enabled MCP server whose JSON contains an unresolved `op://` reference when `op` is missing or fails to connect. The remaining keyless servers are still configured. Which servers are enabled comes from the profile's `mcp:` block ([profiles.md](profiles.md)).
 
 ## App config management (Stow + omadot)
 
@@ -67,13 +67,13 @@ App configs in `~/.config/` are managed via [GNU Stow](https://www.gnu.org/softw
 - Stow packages are **declared in `manifest.yaml`** with `config.type: stow` — the installer no longer auto-discovers them from the filesystem. Adding a new stow config requires a manifest entry. Single-file packages (e.g. `starship/.config/starship.toml`) are handled by the same dispatcher.
 
 **Special configs** (manifest `config.type: handler`, dispatched to functions in `scripts/handlers/*.sh`):
-- `grok` — Grok Build TUI native config from `ai/` + `grok/.grok/` (`install_ai_grok`); MCP is merged into live `~/.grok/config.toml`
-- `claude` — Claude Code native installer plus adapter (`install_ai_claude`); skills/agents/rules symlink into `~/.claude/`; hooks merge into `settings.json`; MCP merges into `~/.claude.json`. Not on a profile. `[compat.claude]` in Grok stays off.
+- `grok` — Grok Build config from `ai/` + `grok/.grok/` (`install_ai_grok`); MCP is merged into live `~/.grok/config.toml`
+- `claude` — Claude Code config from `ai/` (`install_ai_claude`); skills/agents/rules symlink into `~/.claude/`; hooks merge into `settings.json`; MCP merges into `~/.claude.json`
 - `cargo` — links `cargo/.cargo/config.toml` into `~/.cargo/config.toml` (`install_cargo_config`)
 - `windows-terminal` — WSL-side script wrapper (`install_windows_terminal_config`)
 - `hypr` / `omarchy` — copy personal overlays into Omarchy-owned real directories (`install_hypr_config`, `install_omarchy_config` in `scripts/handlers/desktop.sh`)
 
-Stow + post_install (not handlers): `opencode` (stow config + OpenCode adapter + `generate_mcp_configs`), `tmux` (stow under `tmux/.config/tmux/`).
+Stow + post_install (not handlers): `opencode` (stow config + `install_ai_opencode` + `generate_mcp_configs`), `tmux` (stow under `tmux/.config/tmux/`).
 
 **Not managed by omadot:**
 - `~/.config/git/` (Omarchy-owned)
@@ -151,30 +151,37 @@ Custom config handlers live in `scripts/handlers/*.sh` (`ai.sh`, `cargo.sh`, `li
 
 ## AI config (`ai/`)
 
-Shared AI agent configuration owned by this dotfiles repo at `~/.dotfiles/ai/`. Grok is first-class; OpenCode and Claude Code are adapters. For directory layout and how to add skills/agents/rules, see [ai.md](ai.md).
+Shared AI agent configuration owned by this dotfiles repo at `~/.dotfiles/ai/`. Grok Build, OpenCode, and Claude Code are peer harnesses: each has its own installer that links or generates straight from `ai/` into its own tree, and none reads another harness's files. For directory layout and how to add skills/agents/rules, see [ai.md](ai.md).
+
+**Which harnesses are configured:** `scripts/lib.sh` holds the registry (`AI_HARNESSES=(claude grok opencode)`, path helpers, `read_active_profile`, `profile_mcp_json`, `profile_ai_default`). `ai_harness_enabled <h>` is true when the active profile lists `<h>` in `items:`, or, with no active profile, when the harness is installed. Every installer and MCP writer returns early for a harness that is not enabled. With an active profile, `dot install`, `install_item`, and the manual picker refuse a harness the profile doesn't list (`ai_harness_allowed`).
 
 **What `install_ai_grok()` does:**
-- Cleans stale symlinks via `clean_ai_symlinks()`
-- Symlinks skills, agents, and hooks from `ai/` into native `~/.grok/`
-- Flattens `ai/rules/**/*.md` into `~/.grok/rules/`
-- Seeds `~/.grok/config.toml` only if missing; never overwrites the live file
-- Forces `[compat.claude]` off and `[folder_trust] enabled = false`; merges trusted folders
-- Always upserts `grok/.grok/base.toml` into the live file (every machine)
-- If `grok/.grok/overlays/<active-profile>.toml` exists, upserts it after the base (work Bedrock, work MCP launch/enable overrides, etc.). Profile wins on conflict. `model.*` and `mcp_servers.<name>` overlay tables replace wholesale. MCP enable/command overrides from the overlay are also applied to OpenCode.
+- Symlinks `ai/skills/*`, `ai/agents/*`, and `ai/hooks/*` into `~/.grok/{skills,agents,hooks}/` (Grok registers hooks by filename prefix)
+- Flattens `ai/rules/**/*.md` into `~/.grok/rules/<basename>.md`
+- Seeds `~/.grok/config.toml` from `grok/.grok/config.toml` only if missing; never overwrites the live file
+- Forces `[compat.claude]` off (the Claude installer fills `~/.claude`, so Grok would load everything twice) and `[folder_trust] enabled = false`; merges trusted folders
+- Always upserts `grok/.grok/base.toml` into the live file
+- If `grok/.grok/overlays/<active-profile>.toml` exists, upserts it after the base (e.g. work Bedrock). Overlays hold Grok-only settings; MCP tables in an overlay are ignored with a warning. Profile wins on conflict; `model.*` overlay tables replace wholesale.
 - Symlinks `pager.toml`
 
-**What `install_ai_opencode()` does:**
-- Points `~/.config/opencode/skills` at `~/.grok/skills`
-- Hops `AGENTS.md` at `~/.grok/AGENTS.md` when present
-- Runs `ai/scripts/generate-opencode-config.sh` for JSON agents + instructions and re-applies `.provider` from `opencode.json.tpl`
+**What `install_ai_opencode()` does** (skips until `~/.config/opencode` is stowed; never creates it):
+- Links each `ai/skills/<name>` into `~/.config/opencode/skills/` (a real dir inside the stowed, gitignored package dir). OpenCode also reads `~/.claude/skills`; duplicates resolve by precedence to the same files.
+- Runs `ai/scripts/generate-opencode-config.sh`, which writes agents (from `ai/agents/*.md`) and `instructions` (paths of `ai/rules/**/*.md`) into `opencode.json` and re-applies `.provider` from `opencode.json.tpl`
 
-**What `install_ai_claude()` does** (no-op unless `claude` is installed):
-- Symlinks `ai/skills/<name>` and `ai/agents/*` into `~/.claude/`; flattens rules the same way Grok does
-- Hops `~/.claude/CLAUDE.md` at `~/.grok/AGENTS.md` unless the destination is a regular file (the hop may dangle until `dot agent env link`)
-- Merges Stop / Notification (permission and elicitation prompts only) / UserPromptSubmit command hooks into `~/.claude/settings.json`
+**What `install_ai_claude()` does:**
+- Symlinks `ai/skills/*` into `~/.claude/skills/` (skipping Claude's reserved `skills/synced`) and `ai/agents/*` into `~/.claude/agents/`; flattens rules into `~/.claude/rules/`
+- `ensure_claude_settings` merges the Stop / Notification (permission and elicitation prompts only) / UserPromptSubmit command hooks into `~/.claude/settings.json`
 - Sets `attribution` to `{commit: "", pr: "", sessionUrl: false}` in the same file so Claude never adds `Co-Authored-By` trailers, PR bylines, or session links
 
-**Shared MCP:** `generate_mcp_configs()` (post_install on `grok`, `opencode`, and `claude`, or `dot mcp-regen`) reads `~/.dotfiles/ai/mcp-servers.json.tpl`, resolves secrets via 1Password, and writes native `[mcp_servers.*]` into live `~/.grok/config.toml`, OpenCode `mcp`, and (when Claude is installed) `~/.claude.json` `mcpServers` for the servers enabled in Grok.
+**Hooks:** scripts live once in `ai/hooks/`; registration is per harness (Grok by filename prefix, Claude via the `settings.json` merge above, OpenCode via the `opencode/.config/opencode/plugins/notify-sound/tui.js` plugin that calls `stop_notify.sh`). Grok's hook payload is camelCase and Claude's is snake_case, so shared scripts read only fields spelled the same in both (e.g. `cwd`).
+
+**Per-env instructions:** `dot agent env link` links `agent-files/env/<name>/AGENTS.md` into each enabled harness's user instructions file. See [dot-agent.md](dot-agent.md).
+
+**Shared MCP:** `generate_mcp_configs()` (post_install on `grok`, `opencode`, and `claude`, or `dot mcp-regen`) — see [Shared MCP configuration](#shared-mcp-configuration).
+
+**`dot update`:** inside the pull block runs `install_ai_<h>` for each enabled harness; after `reconcile_profile` runs `agent_env_refresh` (re-links the current env's targets and skills, drops legacy hops) and `install_ai_tool_default`.
+
+**Default harness:** profile `ai.default` picks the harness for `tav`/`wta`/`wtc` and commit messages. The `ai-tool` core extra and `dot update` write `AI_TOOL` / `AI_TOOL_RESUME` / `AI_TOOL_PIPE` into `~/.localrc` from it only when `~/.localrc` has no `AI_TOOL`. `dot ai-tool [INT] [PIPE]` overrides; its picker lists only enabled harnesses.
 
 **Idempotency:** `clean_ai_symlinks()` runs before every install, removing any symlinks in the target directory that point into `~/.dotfiles/ai/` (or legacy `ecc/`).
 
@@ -184,7 +191,7 @@ Shared AI agent configuration owned by this dotfiles repo at `~/.dotfiles/ai/`. 
 
 ### Symlink strategy: merge vs replace
 
-Use `link_file` (symlinks the entire directory) when the directory is exclusively owned by one source. Use `link_directory_contents` (symlinks each item inside) when personal files need to coexist alongside sourced files. Example: `~/.grok/skills/` uses `link_directory_contents` so personal skills coexist with `ai/` skills.
+Use `link_file` (symlinks the entire directory) when the directory is exclusively owned by one source. Use per-item links when personal files need to coexist alongside sourced files: `link_ai_entries` in `scripts/handlers/ai.sh` links each `ai/` skill, agent, and hook into a harness's own dir, so personal and env skills sit next to them.
 
 ### Dynamic config merging
 
@@ -192,12 +199,14 @@ When two sources contribute to a single config file (e.g., generated AI agents +
 
 ### Shared MCP configuration
 
-MCP servers are defined once in `~/.dotfiles/ai/mcp-servers.json.tpl` (`command`/`args`/`env`/`url` JSON with `op://` secret references) and generated into tool-specific formats at install time:
-- **Grok**: merged into live `~/.grok/config.toml` as `[mcp_servers.*]`
-- **OpenCode**: converted and merged into `~/.config/opencode/opencode.json` as `mcp`
-- **Claude Code**: servers enabled in live Grok config merged into `~/.claude.json` `mcpServers` when the CLI is installed
+MCP servers are defined once in `~/.dotfiles/ai/mcp-servers.json.tpl` (`command`/`args`/`env`/`url` JSON with `op://` secret references; `"default": true` on context7 and firecrawl). The active profile's `mcp:` block is the only source of truth for which servers run: `mcp.enable` picks them (the roster's `default: true` servers when there is no profile or no block) and `mcp.override.<server>` patches launch fields. Overrides apply before 1Password injection and `$HOME` expansion; only enabled servers are resolved, so unused servers' secrets are never fetched or written.
 
-Secrets are resolved via `op_inject_multi()` during generation. Add/remove servers by editing `ai/mcp-servers.json.tpl` and running `dot update` or `./install.sh`.
+`generate_mcp_configs` writes exactly the enabled set to every enabled harness:
+- **Grok** (`write_grok_mcp`): `[mcp_servers.*]` in live `~/.grok/config.toml` via `ai/scripts/merge-grok-mcp.py`, which also removes those names from `[tools] disabled_mcp_servers`
+- **OpenCode** (`write_opencode_mcp`): `mcp.servers` in `~/.config/opencode/opencode.json`
+- **Claude Code** (`write_claude_mcp`): `mcpServers` in `~/.claude.json`; roster names not enabled are removed, hand-added non-roster servers stay
+
+Hand toggles inside a harness are reset by the next regen. The run is skipped when `~/.cache/dotfiles/mcp-servers.hash` (roster + profile `mcp:` block + harness list) is unchanged; `~/.cache/dotfiles/<harness>-mcp-servers` records the names last written. `dot mcp-regen` forces a run.
 
 ### Gitignore for generated symlinks in stowed dirs
 

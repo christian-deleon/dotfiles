@@ -2,14 +2,15 @@
 
 A **slash command** is a user-invoked prompt template — `/foo` types a body into the conversation, with `$ARGUMENTS` and friends substituted, then sends it. Unlike skills (which the model can auto-invoke from the description), a user-only command runs only when the user types `/name`.
 
-The most common AI failure mode here is reaching for a dedicated commands file when a skill would be better. **In this repo, Grok slash commands are skills.** Set `disable-model-invocation: true` if the workflow must be explicit-only.
+The most common AI failure mode here is reaching for a dedicated commands file when a skill would be better. **In this repo, slash commands are skills.** Set `disable-model-invocation: true` if the workflow must be explicit-only.
 
 ## Status
 
-| Tool | How to get `/name` |
+| Harness | How to get `/name` |
 |---|---|
 | **Grok** | User-invocable skill at `ai/skills/<name>/SKILL.md` → `/<name>` |
-| **OpenCode** | Same skill via the adapter symlink; also has a native `commands/` dir we do **not** grow |
+| **OpenCode** | Same skill via its skill link; also has a native `commands/` dir we do **not** grow |
+| **Claude Code** | Same skill via `~/.claude/skills/<name>` → `/<name>`; native `commands/` dir not grown either |
 
 `ai/commands/` is gone on purpose. Don't recreate it. See [`examples/command.template.md`](examples/command.template.md) only as a **prompt-template** example to paste into a skill body.
 
@@ -30,7 +31,6 @@ Shell exec runs **before** the model sees the body — so the model receives the
 ---
 name: commit-msg
 description: Suggest a commit message for the current staged diff. User-invoked via /commit-msg.
-compatibility: opencode
 disable-model-invocation: true
 argument-hint: "[extra context]"
 allowed-tools: Bash

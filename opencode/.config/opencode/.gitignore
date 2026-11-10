@@ -7,7 +7,7 @@ bun.lock
 opencode.json
 opencode.json.bak.*
 
-# AI adapter links (managed by install_ai_opencode, not tracked)
+# Skill links into ai/ (managed by install_ai_opencode, not tracked)
 commands/
 skills
 skills/

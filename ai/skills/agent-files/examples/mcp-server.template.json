@@ -1,5 +1,5 @@
 {
-  "_comment": "Append entries like these to ~/.dotfiles/ai/mcp-servers.json.tpl. Use Claude shape — installer converts to OpenCode shape automatically. Secrets via op:// references (1Password CLI).",
+  "_comment": "Append entries like these to ~/.dotfiles/ai/mcp-servers.json.tpl (roster shape: command/args/env or type/url/headers); the installer converts them for Grok, OpenCode, and Claude. Enable per machine via the profile's mcp.enable. Secrets via op:// references (1Password CLI).",
 
   "stdio-with-secret": {
     "command": "npx",

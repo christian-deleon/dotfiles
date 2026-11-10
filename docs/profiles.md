@@ -18,6 +18,12 @@ description: string         # one-line summary, shown in picker
 requires: [string]          # host predicates ANDed; profile hidden if any fail
 core_extras: [string]       # subset of installer core-extras (see below)
 items: [string]             # manifest.yaml keys to install
+ai:
+  default: string           # default AI harness (claude | grok | opencode)
+mcp:
+  enable: [string]          # MCP servers from ai/mcp-servers.json.tpl
+  override:                 # per-server launch-field patches
+    <server>: {command, args, env, url, headers, type}
 ```
 
 ### `requires:`
@@ -40,6 +46,7 @@ Profile-authoritative list of installer core extras to run. Replaces the pre-sel
 | `git-config`       | Symlink `.gitconfig`, prompt for name/email/signing |
 | `ssh-config`       | Generate `~/.ssh/config` with the OS-appropriate 1Password IdentityAgent |
 | `zsh-config`       | Install Oh My Zsh + Powerlevel10k + plugins, symlink `.zshrc` |
+| `ai-tool`          | Write `AI_TOOL` / `AI_TOOL_RESUME` / `AI_TOOL_PIPE` into `~/.localrc` from `ai.default` (only if `~/.localrc` has no `AI_TOOL`) |
 | `omarchy-themes`   | Pick Omarchy theme submodules to install |
 | `default-terminal` | Set Alacritty as Omarchy's default terminal |
 
@@ -50,6 +57,27 @@ Profiles include only what makes sense for their environment. Example: a `macos-
 List of manifest.yaml top-level keys. The installer iterates them in order, invoking `install_item` on each. Items whose `requires:` aren't met on the host are silently skipped (so it's safe to include host-conditional items in a multi-platform profile, even though the typical pattern is one profile per host context).
 
 Aliases (e.g. `nvim` for `neovim`, `op` for `1password-cli`) are accepted but canonical names are preferred for clarity.
+
+The AI harness items (`claude`, `grok`, `opencode`) also gate which harnesses get configured: only listed ones receive skills, agents, rules, MCP, and `dot agent env` links. With an active profile, `dot install <harness>`, `install_item`, and the manual picker refuse a harness the profile doesn't list. The personal profiles list all three; `wsl-work` lists `grok` and `opencode`.
+
+### `ai:`
+
+`default` — the harness `tav` / `wta` / `wtc` and commit-message generation use. Must be one of the profile's harness items. The `ai-tool` core extra and `dot update` write it into `~/.localrc` only when `~/.localrc` has no `AI_TOOL`; `dot ai-tool` overrides. Personal profiles use `claude`; `wsl-work` uses `opencode`.
+
+### `mcp:`
+
+The only source of which MCP servers run. Without a profile or without this block, the roster's `"default": true` servers (context7, firecrawl) are used.
+
+- `enable` — roster names from `ai/mcp-servers.json.tpl`, written to every enabled harness. Unknown names warn.
+- `override.<server>` — patches `command`, `args`, `env`, `url`, `headers`, `type`. A `command` without `args` drops the roster's args. Applied before 1Password injection and `$HOME` expansion.
+
+```yaml
+mcp:
+  enable: [context7, firecrawl, kubernetes]
+  override:
+    kubernetes:
+      command: kubernetes-mcp-server   # Ubuntu npm wedges `npx @latest`
+```
 
 ## Authoring a new profile
 
@@ -71,13 +99,15 @@ Aliases (e.g. `nvim` for `neovim`, `op` for `1password-cli`) are accepted but ca
 
 ## Active profile state
 
-The installer (and `dot profile use`) writes the picked profile name to `~/.dotfiles/.active-profile` — a single-line, gitignored file. `.commonrc` reads it on shell startup and exports `DOTFILES_PROFILE` so scripts can branch on it.
+The installer (and `dot profile use`) writes the picked profile name to `~/.dotfiles/.active-profile` — a single-line, gitignored file. `.commonrc` reads it on shell startup and exports `DOTFILES_PROFILE` so scripts can branch on it; `dot` re-reads the file, so `dot profile use` takes effect without a new shell.
 
 To force a specific profile on a machine without re-running the installer, set `DOTFILES_PROFILE=<name>` in `~/.localrc`; this takes precedence over `.active-profile`.
 
+`install_from_profile` exports `DOTFILES_PROFILE=<name>` for the duration of the install, so `dot profile use X` and fresh installs see X. It refuses if `~/.localrc` pins a different `DOTFILES_PROFILE`.
+
 ## Drift handling (`dot update`)
 
-When a profile is active, `dot update` reconciles missing items: it iterates the profile's `items:` list and calls `install_item` on each. Grok always upserts `grok/.grok/base.toml` into live `~/.grok/config.toml`, then upserts `grok/.grok/overlays/<profile>.toml` when that overlay exists (`wsl-work` pins org Bedrock and enables kubernetes MCP from a local binary in both Grok and OpenCode; personal profiles have none). The profile wins on conflict. Idempotent — already-installed items are no-ops; new items get installed. **Removed profile items are not uninstalled by reconcile** (add-only), so package-manager packages stay until you remove them yourself.
+When a profile is active, `dot update` reconciles missing items: it iterates the profile's `items:` list and calls `install_item` on each. Grok always upserts `grok/.grok/base.toml` into live `~/.grok/config.toml`, then upserts `grok/.grok/overlays/<profile>.toml` when that overlay exists (Grok-only settings, e.g. `wsl-work` pins org Bedrock; personal profiles have none). The overlay wins on conflict. MCP comes from the profile's `mcp:` block, not the overlay. Idempotent — already-installed items are no-ops; new items get installed. **Removed profile items are not uninstalled by reconcile** (add-only), so package-manager packages stay until you remove them yourself.
 
 Residue from **retired** tools (paths we used to create) is handled separately by **tombstones** — `apply_tombstones` runs on every `dot update` and removes paths listed in `tombstones.yaml` if they still exist. See [tombstones.md](tombstones.md).
 

@@ -1,7 +1,6 @@
 ---
 name: my-skill
 description: One-sentence summary of what this skill does. ALWAYS use when [list specific file types / paths / phrases that should fire it], or for prompts like 'add a foo', 'fix the bar', 'how do I baz'. Enforces / covers / documents [whatever the body delivers].
-compatibility: opencode
 ---
 
 # My Skill

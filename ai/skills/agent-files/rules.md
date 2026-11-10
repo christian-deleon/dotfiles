@@ -4,24 +4,24 @@ A **rule** is always-loaded context — text the agent reads on every session, r
 
 The most common AI failure mode is putting skill-shaped content into rules. A rule that says "when editing Terraform files, use the modern HCL syntax" should be a **skill** — that way it only loads when relevant. Rules are for stuff that genuinely applies to every interaction.
 
-## How Grok and OpenCode load instructions
+## How the harnesses load instructions
 
-| Source path | Grok | OpenCode |
-|---|---|---|
-| `~/.grok/AGENTS.md` | yes (user-level) | via adapter hop if `dot agent env` linked it |
-| `~/.grok/rules/*.md` | yes (flattened from `ai/rules/**`) | no |
-| Project `AGENTS.md` (walks repo root → cwd) | yes | yes |
-| Project `AGENTS.override.md` | yes (Codex-style, dir-scoped) | no |
-| `opencode.json` `instructions: [...]` | no | yes (installer writes `ai/rules/**/*.md` paths) |
-| `~/.config/opencode/AGENTS.md` | no | yes (our hop at `~/.grok/AGENTS.md`) |
+| Source path | Grok | OpenCode | Claude Code |
+|---|---|---|---|
+| `~/.grok/AGENTS.md` | yes (user-level; `dot agent env` link) | no | no |
+| `~/.grok/rules/*.md` | yes (flattened from `ai/rules/**`) | no | no |
+| `~/.config/opencode/AGENTS.md` | no | yes (`dot agent env` link) | no |
+| `opencode.json` `instructions: [...]` | no | yes (installer writes `ai/rules/**/*.md` paths) | no |
+| `~/.claude/CLAUDE.md` | no | no | yes (user-level; `dot agent env` link) |
+| `~/.claude/rules/*.md` | no (compat off) | no | yes (flattened from `ai/rules/**`) |
+| Project `AGENTS.md` (walks repo root → cwd) | yes | yes | yes |
+| Project `AGENTS.override.md` | yes (Codex-style, dir-scoped) | no | no |
 
-Grok's `[compat.claude]` stays off, so Grok does not read `~/.claude/rules/`. The Claude adapter flattens the same files into `~/.claude/rules/` when `claude` is installed. User memory may hop at `~/.claude/CLAUDE.md`. **Don't author a project `CLAUDE.md`.** If one sits beside `AGENTS.md`, Claude Code reads only the `CLAUDE.md`. Foreign repos may still have them — migrate to `AGENTS.md` (`dot agent` already does this).
+Claude loads `~/.claude/rules/` files with no `paths:` frontmatter in every session. **Don't author a project `CLAUDE.md`.** If one sits beside `AGENTS.md`, Claude Code reads only the `CLAUDE.md`. Foreign repos may still have them — migrate to `AGENTS.md` (`dot agent` already does this).
 
 ## What this repo does
 
-`install_ai_grok` flattens `ai/rules/**/*.md` into `~/.grok/rules/<basename>.md` (Grok scans one level, not `rules/common/`). Basenames must be unique.
-
-OpenCode gets the same files as `opencode.json` `instructions: [...]` via `generate-opencode-config.sh`. Claude Code gets the flattened symlinks in `~/.claude/rules/` when it is installed. Files with no `paths:` frontmatter load in every Claude session.
+`install_ai_grok` and `install_ai_claude` flatten `ai/rules/**/*.md` into `~/.grok/rules/<basename>.md` and `~/.claude/rules/<basename>.md` (Grok scans one level, not `rules/common/`). Basenames must be unique. `install_ai_opencode` lists the same files in `opencode.json` `instructions: [...]` via `generate-opencode-config.sh`.
 
 ```
 ~/.dotfiles/ai/rules/
@@ -31,11 +31,11 @@ OpenCode gets the same files as `opencode.json` `instructions: [...]` via `gener
 └── …
 ```
 
-Categories are conventional, not enforced. Subdirectories nest freely in the source tree; only the basename is live for Grok.
+Categories are conventional, not enforced. Subdirectories nest freely in the source tree; only the basename is live for Grok and Claude.
 
 ## Portability
 
-Write rules for "the agent" — not for a specific runtime. They load on every Grok session and, via the adapter, on OpenCode.
+Write rules for "the agent" — not for a specific runtime. They load on every session in all three harnesses.
 
 A good rule is short, declarative, and brand-free:
 
@@ -76,7 +76,7 @@ This repo's `ai/rules/` is intentionally small — skills do almost everything. 
 
 ## Project-level rules
 
-For one repo (not in dotfiles), write **`AGENTS.md`** at the project root. Grok and OpenCode both auto-load it. Nested `AGENTS.md` in subdirs accumulate; deeper files win on conflict.
+For one repo (not in dotfiles), write **`AGENTS.md`** at the project root. All three harnesses auto-load it. Nested `AGENTS.md` in subdirs accumulate; deeper files win on conflict.
 
 Don't add a `CLAUDE.md` that `@AGENTS.md`. If a foreign project already has `CLAUDE.md` and no `AGENTS.md`, leave it — Grok still recognizes the filename even with Claude *compat dirs* off (generic top-level `CLAUDE.md` stays recognized). Prefer `AGENTS.md` for anything new.
 
@@ -101,14 +101,17 @@ Globs and remote URLs (5s timeout) work. The installer already injects `ai/rules
 - Flattened install — two source files named `conventions.md` in different categories collide.
 
 ### OpenCode
-- Doesn't read `~/.grok/rules/` natively. The adapter wires rules via `instructions: [...]`.
+- Rules arrive via `instructions: [...]`, not a rules dir.
 - Project `AGENTS.md` walks up from cwd to repo root.
+
+### Claude Code
+- Home rules: `~/.claude/rules/*.md` then `~/.claude/CLAUDE.md`. Same flattening collision as Grok.
 
 ## Editing rules
 
-Edit `~/.dotfiles/ai/rules/<category>/<name>.md`. Body edits are live via the flattened symlink. New files need `dot update` (re-flatten + regenerate OpenCode `instructions`).
+Edit `~/.dotfiles/ai/rules/<category>/<name>.md`. Body edits are live via the flattened symlinks / `instructions` paths. New files need `dot update` (re-flatten + regenerate OpenCode `instructions`).
 
-## Minimal canonical example
+## Minimal example
 
 ```markdown
 # ~/.dotfiles/ai/rules/common/conventions.md
