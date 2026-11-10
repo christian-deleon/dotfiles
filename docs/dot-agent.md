@@ -10,7 +10,7 @@
 ```
 agent-files/
   projects/<project-name>/AGENTS.md   # per-project (symlinked into project worktrees)
-  env/<env-name>/AGENTS.md            # per-env global (symlinked into Grok, OpenCode hops)
+  env/<env-name>/AGENTS.md            # per-env global (symlinked into each enabled harness)
   env/<env-name>/skills/<skill>/      # per-env skills (symlinked into the skill dirs)
 ```
 
@@ -30,7 +30,7 @@ For projects where `AGENTS.md` cannot be committed to the project repo and `.git
 
 - `AGENTS.md` → `~/.dotfiles/agent-files/projects/<project>/AGENTS.md` (canonical source)
 
-A leftover managed `CLAUDE.md → AGENTS.md` hop from the old Claude-era installer is removed. Untracked leftover `CLAUDE.md` is still migrated into the submodule as `AGENTS.md`.
+A leftover managed `CLAUDE.md → AGENTS.md` hop in the worktree is removed. Untracked leftover `CLAUDE.md` is still migrated into the submodule as `AGENTS.md`.
 
 **Pre-flight:**
 
@@ -51,20 +51,25 @@ A leftover managed `CLAUDE.md → AGENTS.md` hop from the old Claude-era install
 
 ## Per-env — `dot agent env link`
 
-For environment-scoped context that isn't tied to a single project — e.g. "this machine is a locked-down WSL VM behind a corp proxy." Content lives in `agent-files/env/<env-name>/AGENTS.md`. Canonical live path is Grok:
+For environment-scoped context that isn't tied to a single project — e.g. "this machine is a locked-down WSL VM behind a corp proxy." Content lives in `agent-files/env/<env-name>/AGENTS.md` and is linked straight into each enabled harness's user instructions file:
 
-- `~/.grok/AGENTS.md` (Grok — canonical)
-- `~/.config/opencode/AGENTS.md` (OpenCode adapter hop)
+- `~/.grok/AGENTS.md` (Grok)
+- `~/.config/opencode/AGENTS.md` (OpenCode; skipped until `~/.config/opencode` is stowed)
+- `~/.claude/CLAUDE.md` (Claude Code)
+
+Only enabled harnesses (`ai_harness_enabled`, see [architecture.md](architecture.md#ai-config-ai)) get a link or a parent `mkdir`, so `~/.claude` is never created on a profile without Claude.
 
 `dot agent env link <name>` flow:
 
 1. Lazy-init submodule.
 2. If `env/<name>/AGENTS.md` doesn't exist: migrate the first existing target file we find, else create an empty stub with a header comment. Either way, commit in the submodule.
-3. Refuse to clobber any unmanaged regular file at a target path.
-4. Drop symlinks at every target → `agent-files/env/<name>/AGENTS.md` (one source, N symlinks).
-5. Symlink each `env/<name>/skills/<skill>/` (one with a `SKILL.md`) into `~/.grok/skills/` — OpenCode reads that dir — and into `~/.claude/skills/` when `~/.claude` exists. Links from a previously linked env are dropped first. A same-named skill from `ai/skills/` wins and the env one is skipped with a warning.
+3. Refuse to clobber any unmanaged file at a target path. A legacy hop (a target symlinked to another target, e.g. `~/.claude/CLAUDE.md` → `~/.grok/AGENTS.md`) counts as replaceable.
+4. Drop symlinks at every enabled target → `agent-files/env/<name>/AGENTS.md` (one source, N symlinks).
+5. Symlink each `env/<name>/skills/<skill>/` (one with a `SKILL.md`) into each enabled harness's skills dir (`~/.grok/skills/`, `~/.config/opencode/skills/`, `~/.claude/skills/`). Links from a previously linked env are dropped first. A same-named skill from `ai/skills/` wins and the env one is skipped with a warning.
 
-`dot agent env link` (no arg) re-links the currently linked env — derives the name from the existing symlink, so it's a safe no-op refresh. `dot update` re-links the current env's skills after refreshing `ai/` links, so a skill added to the submodule shows up on the next update. `clean_ai_symlinks` only removes links into `ai/`, so env skill links survive it.
+`dot agent env link` (no arg) re-links the currently linked env — derives the name from the existing symlink, so it's a safe no-op refresh. `dot update` runs `agent_env_refresh` after reconciling the profile: it re-links the current env's targets and skills and removes legacy hops, so a skill added to the submodule or a harness added to the profile shows up on the next update. `clean_ai_symlinks` only removes links into `ai/`, so env skill links survive it.
+
+`dot agent env status` lists every harness's target, marking ones whose harness is not enabled ("harness not enabled") and leftover hops ("legacy hop").
 
 Use env skills for workflows that only make sense on one machine (e.g. a GitLab MR skill on the work box). Author them like any skill — see the `agent-files` skill — but keep them in the private submodule, not `ai/skills/`.
 

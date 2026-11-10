@@ -5,7 +5,7 @@ Authoring an AI agent file in this repo follows the same shape regardless of art
 1. Edit the source under `~/.dotfiles/ai/`.
 2. Validate locally (syntax check, frontmatter check).
 3. Body edits to already-linked files need nothing (symlinks). New skills/agents/hooks/rules, or after a pull on another machine: `dot update`.
-4. Test in Grok (restart the session if you changed a skill description so catalogs reload). OpenCode only if you care about the adapter.
+4. Test in each harness the machine has (restart the session if you changed a skill description so catalogs reload).
 5. Commit (the user does this; don't commit without being asked).
 
 This file covers the mechanics. The topic files (`skills.md`, `agents.md`, etc.) cover what to write.
@@ -20,13 +20,13 @@ Hard rule: source of truth is the dotfiles repo. Never edit the live targets:
 | `~/.grok/agents/<name>.md` | `~/.dotfiles/ai/agents/<name>.md` |
 | `~/.grok/hooks/<script>` | `~/.dotfiles/ai/hooks/<script>` |
 | `~/.grok/rules/<name>.md` | `~/.dotfiles/ai/rules/<category>/<name>.md` |
-| `~/.grok/config.toml` `[mcp_servers.*]` | `~/.dotfiles/ai/mcp-servers.json.tpl` then `dot mcp-regen` |
+| MCP servers in any harness | `~/.dotfiles/ai/mcp-servers.json.tpl` (roster) or the profile's `mcp:` block, then `dot mcp-regen` |
 | `~/.grok/config.toml` setting for every machine | `~/.dotfiles/grok/.grok/base.toml` then `dot update` |
 | `~/.grok/config.toml` work Bedrock model | `~/.dotfiles/grok/.grok/overlays/<profile>.toml` then `dot update` |
-| `~/.config/opencode/skills/<name>/SKILL.md` | same `ai/skills/` source (that's a dir symlink) |
-| `~/.config/opencode/opencode.json` (`agent.*` / `instructions` / `mcp`) | the `ai/` source, then `dot update` / `dot mcp-regen` |
+| `~/.config/opencode/skills/<name>/SKILL.md` | same `ai/skills/` source (per-skill symlink) |
+| `~/.config/opencode/opencode.json` (`agent.*` / `instructions`) | the `ai/` source, then `dot update` |
 | `~/.config/opencode/opencode.json` `.provider` | `opencode/.config/opencode/opencode.json.tpl` (`BEDROCK_AWS_ACCOUNT_ID` for personal ARNs; `WORK_BEDROCK_API_KEY` or `/connect amazon-bedrock-gov` for work) |
-| `~/.claude/skills/`, `agents/`, `rules/`, `settings.json` hooks, `~/.claude.json` `mcpServers` | the `ai/` source, then `dot update` / `dot mcp-regen` (no-op until `dot install claude`) |
+| `~/.claude/skills/`, `agents/`, `rules/`, `settings.json` hooks | the `ai/` source (hooks: `ensure_claude_settings`), then `dot update` |
 
 When the session is running outside `~/.dotfiles/`, `cd` there first or use absolute paths.
 
@@ -48,7 +48,7 @@ Or, since most edits are skill descriptions, eyeball the trailing `---` and chec
 jq . ~/.dotfiles/ai/mcp-servers.json.tpl
 ```
 
-### Hooks (Grok)
+### Hooks
 
 ```bash
 bash -n ~/.dotfiles/ai/hooks/<script>.sh
@@ -66,25 +66,25 @@ python3 -c 'import sys, tomllib; tomllib.load(open(sys.argv[1], "rb"))' ~/.dotfi
 Body-only edits to already-linked skills/rules/agents are live via symlink. When you add a new skill/agent/hook/rule, or want this machine to match the repo after a pull:
 
 ```bash
-dot update    # pull + install_ai_grok + OpenCode adapter + Claude adapter if installed
+dot update    # pull + install_ai_<h> for each enabled harness
 ```
 
 That is the normal path — do not invent extra AI-only install wrappers.
 
-MCP template changes (secrets / server list):
+MCP roster or profile `mcp:` changes:
 
 ```bash
 dot mcp-regen
 ```
 
-Handlers in `~/.dotfiles/scripts/handlers/ai.sh`:
+Handlers in `~/.dotfiles/scripts/handlers/ai.sh` (each is a no-op for a harness the profile doesn't enable):
 
 | Handler | Does |
 |---|---|
-| `install_ai_grok` | Links `ai/{skills,agents,hooks}` → `~/.grok/`; flattens `ai/rules/**` → `~/.grok/rules/`; seeds live `config.toml` if missing; merges `grok/.grok/base.toml` and any profile overlay; forces `[compat.claude]` off; merges trusted folders; links `pager.toml` |
-| `install_ai_opencode` | `~/.config/opencode/skills` → `~/.grok/skills`; hops `AGENTS.md`; generates JSON agents + instructions + `.provider` from the tpl |
-| `install_ai_claude` | When `claude` is installed: per-skill and agent symlinks, flattened rules, user `CLAUDE.md` hop, notify hooks merged into `settings.json`. No-op otherwise |
-| `generate_mcp_configs` | Resolves 1Password refs; writes Grok `[mcp_servers.*]`, OpenCode `mcp`, and Claude `mcpServers` when installed |
+| `install_ai_grok` | Links `ai/{skills,agents,hooks}` → `~/.grok/`; flattens `ai/rules/**` → `~/.grok/rules/`; seeds live `config.toml` if missing; merges `grok/.grok/base.toml` and any Grok-only profile overlay; forces `[compat.claude]` off; merges trusted folders; links `pager.toml` |
+| `install_ai_opencode` | Per-skill links in `~/.config/opencode/skills/`; generates JSON agents + instructions + `.provider` from the tpl. Skips until `~/.config/opencode` is stowed |
+| `install_ai_claude` | Per-skill and agent symlinks, flattened rules, notify hooks + blank attribution merged into `settings.json` |
+| `generate_mcp_configs` | Picks servers from the profile `mcp:` block, resolves 1Password refs for those only; writes Grok `[mcp_servers.*]`, OpenCode `mcp.servers`, Claude `mcpServers` |
 
 ## Test
 
@@ -92,16 +92,16 @@ Handlers in `~/.dotfiles/scripts/handlers/ai.sh`:
 |---|---|
 | **Grok skills / agents / hooks** | `grok inspect` — confirm source and path. Runtime: `/skill-name`, or spawn the subagent |
 | **Grok MCP** | `grok inspect` — servers should show source `config`. Then ask the agent to call a tool |
-| **OpenCode adapter** | Slash picker / `@<name>` / Tab cycle. Skills resolve through the dir symlink |
+| **OpenCode** | Slash picker / `@<name>` / Tab cycle |
+| **Claude Code** | `/skills`, `/agents`, `/hooks`, `claude mcp list` |
 
-If a skill doesn't show up:
+If a skill doesn't show up, check the harness's skills dir:
 
 ```bash
-ls -la ~/.grok/skills/<name>     # symlink to ~/.dotfiles/ai/skills/<name>
-readlink ~/.grok/skills/<name>
+readlink ~/.grok/skills/<name> ~/.config/opencode/skills/<name> ~/.claude/skills/<name>
 ```
 
-Missing symlink → `dot update` (or `dot install grok`).
+Missing symlink → `dot update`. Still missing → the harness isn't in the active profile's `items:`.
 
 ## Common multi-step flows
 
@@ -109,32 +109,32 @@ Missing symlink → `dot update` (or `dot install grok`).
 
 1. `mkdir ~/.dotfiles/ai/skills/<name>`
 2. Write `SKILL.md` (see [skills.md](skills.md))
-3. Frontmatter must have `name:` and `description:`; keep `compatibility: opencode`
+3. Frontmatter must have `name:` and `description:`
 4. Commit (when asked), then `dot update`
-5. New Grok session so the catalog picks it up. `/<name>` or trigger the description
+5. New session so the catalog picks it up. `/<name>` or trigger the description
 
 ### Add a new subagent
 
 1. Write `~/.dotfiles/ai/agents/<name>.md` (see [agents.md](agents.md))
-2. Frontmatter: `name:`, `description:`, `model: grok-build` (or omit)
-3. `dot update` — also regenerates OpenCode agent JSON
-4. `grok inspect`
+2. Frontmatter: `name:`, `description:`; omit `model` to inherit in every harness
+3. `dot update` — links it for Grok and Claude, regenerates OpenCode agent JSON
+4. `grok inspect` / Claude `/agents`
 
 ### Add a new MCP server
 
 1. Edit `~/.dotfiles/ai/mcp-servers.json.tpl`
 2. `jq .` to validate
-3. Always-on? Add to `enabled_mcp_servers` in `scripts/handlers/ai.sh`
+3. Add the name to `mcp.enable` in each profile that should run it
 4. `dot mcp-regen`
-5. Restart Grok. `grok inspect`
+5. Restart the harnesses. `grok inspect` / `claude mcp list`
 
-### Add a new Grok hook
+### Add a new hook
 
 1. Write `~/.dotfiles/ai/hooks/<event>_<purpose>.sh` (see [hooks.md](hooks.md))
 2. `bash -n` / `shellcheck`
-3. `dot update`
-4. `grok inspect` + `/hooks`
-5. Trigger the event
+3. Register it for Claude (`ensure_claude_settings`) and OpenCode (plugin) if they should run it; Grok picks it up by filename
+4. `dot update`
+5. `/hooks` in each harness; trigger the event
 
 ## Committing changes
 
@@ -151,11 +151,13 @@ For this skill itself, scope as `feat(ai)` or `docs(ai)`.
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Skill doesn't trigger | Description too generic or too long | Tighten phrases; stay ~250–350 chars (OpenCode cap 1,024) |
-| Skill not visible in OpenCode | Missing `compatibility: opencode` or `name:` violates regex | Add the flag; rename to `^[a-z0-9]+(-[a-z0-9]+)*$` |
+| Skill not visible in OpenCode | `name:` violates regex or doesn't match the dir | Rename to `^[a-z0-9]+(-[a-z0-9]+)*$` |
+| Skill/MCP missing in one harness only | Harness not in the active profile's `items:` | Add it to the profile, `dot update` |
 | Agent missing in Grok | Filename / `name:` mismatch | Make them match |
 | MCP missing after regen | 1Password not signed in, or hash cache stuck | `op signin`; `FORCE_MCP_REGEN=true` / `dot mcp-regen` |
 | `opencode.json` looks empty | `generate-opencode-config.sh` failed | `bash -x` the script |
 | Grok hook not firing | Filename doesn't start with the event; or script reads snake_case only | Rename; read `.toolInput` / `.hookEventName` |
+| Hook fires in Grok only | Not registered for Claude / OpenCode | Add to `ensure_claude_settings` / an OpenCode plugin |
 | Symlink points to nothing | Source deleted | `dot update` (`clean_ai_symlinks` runs first) |
 
 ## When to flag back to the user
@@ -165,6 +167,6 @@ Stop and ask, don't guess, when:
 - They want the same hook behavior in OpenCode (that's a plugin — confirm before writing).
 - They want to commit (always ask before `git commit`).
 - An existing skill/agent is being split or renamed and you're unsure.
-- The change involves `manifest.yaml` or `profiles/*.yaml` (out of scope for this skill).
+- The change involves `manifest.yaml` or `profiles/*.yaml` beyond a profile's `mcp:` block (out of scope for this skill).
 
 If the change is purely additive and matches existing conventions, proceed.

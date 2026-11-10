@@ -39,4 +39,4 @@ in the current conversation. Availability is not permission.
 
 ## Disabled servers
 
-Only `context7` and `firecrawl` are enabled by default on every machine. A profile overlay can turn a domain server on for this host — on `wsl-work`, `kubernetes` is one of those. Other domain servers (`flux`, `aws`, etc.) often ship disabled. If a needed server is configured but disabled, **ask the user to enable it** before falling back to Bash/CLI or guessing.
+Each machine's dotfiles profile decides which of these servers are on, so any of them can be missing on this host. If a needed server is unavailable, **ask the user to enable it** before falling back to Bash/CLI or guessing.

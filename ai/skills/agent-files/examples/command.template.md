@@ -1,7 +1,6 @@
 ---
 name: my-command
 description: One-sentence summary of what this user-only skill does. Invoked via /my-command.
-compatibility: opencode
 disable-model-invocation: true
 argument-hint: "[args description]"
 allowed-tools: Bash

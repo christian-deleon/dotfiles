@@ -1,6 +1,7 @@
 #!/bin/bash
 #
-# OpenCode adapter: JSON agents + instructions from Grok-shaped ai/ sources.
+# OpenCode: JSON agents + instructions generated from ai/ (OpenCode wants
+# them as opencode.json keys).
 #
 # Scans ai/agents/*.md for YAML frontmatter (name, description, model, tools)
 # and converts each to OpenCode JSON agent format. Collects ai/rules/**/*.md

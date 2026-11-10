@@ -1,7 +1,6 @@
 ---
 name: agent-optimize
 description: Mine this conversation and optimize AI agent context in the current project and/or global user config. Use when the user says /agent-optimize, 'optimize agent context', 'capture what I had to explain', or 'update skills/rules from this chat'. Skips one-offs.
-compatibility: opencode
 argument-hint: "[optional focus]"
 ---
 
@@ -52,7 +51,7 @@ Prefer the project's established pattern:
 
 | Surface | Canonical source | Do **not** edit |
 |---|---|---|
-| Shared skills | `~/.dotfiles/ai/skills/<name>/` | Tool install dirs (`~/.grok/skills/`, `~/.config/opencode/skills/`) — those are symlinks/install targets |
+| Shared skills | `~/.dotfiles/ai/skills/<name>/` | Each harness's skills dir (`~/.grok/skills/`, `~/.config/opencode/skills/`, `~/.claude/skills/`) — those are symlinks/install targets |
 | Shared rules | `~/.dotfiles/ai/rules/` | Same: edit source, not install copies |
 | Shared agents / MCP | `~/.dotfiles/ai/agents/`, `~/.dotfiles/ai/mcp-servers.json.tpl` | Generated or symlinked tool configs |
 | Env-level AGENTS | `dot agent env` → `~/.dotfiles/agent-files/env/<name>/AGENTS.md` | Unmanaged copies at tool entrypoints if they are symlinks into that tree |

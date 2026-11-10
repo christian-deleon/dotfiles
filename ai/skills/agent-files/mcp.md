@@ -2,15 +2,20 @@
 
 **MCP (Model Context Protocol)** is the standard for connecting external tools and data sources to AI agents. An MCP server entry tells the agent: "here's a process to spawn (or URL to reach), here's how to authenticate, here are the tools it exposes."
 
-This repo treats `~/.dotfiles/ai/mcp-servers.json.tpl` as the **single source of truth**. `generate_mcp_configs()` reads the template, injects secrets via `op://` (1Password), and writes:
+Two inputs decide what runs:
 
-| Target | Path | Role |
+- **Roster** — `~/.dotfiles/ai/mcp-servers.json.tpl`: every server this repo knows how to launch.
+- **Active profile's `mcp:` block** — `mcp.enable: [...]` picks servers; `mcp.override.<server>` patches launch fields. With no profile or no block, the roster's `"default": true` servers (context7, firecrawl) run.
+
+`generate_mcp_configs()` applies overrides, resolves `op://` secrets (1Password) for the enabled servers only, and writes exactly that set to every enabled harness:
+
+| Harness | Path | Notes |
 |---|---|---|
-| Grok | live `~/.grok/config.toml` `[mcp_servers.*]` | Canonical |
-| OpenCode | `~/.config/opencode/opencode.json` `mcp` | Adapter (JSON ≠ TOML) |
-| Claude Code | `~/.claude.json` `mcpServers` | Adapter, only when `claude` is installed. Enabled servers only. OAuth and UI keys in that file are left alone. |
+| Grok | live `~/.grok/config.toml` `[mcp_servers.*]` | Via `merge-grok-mcp.py`, which also drops those names from `[tools] disabled_mcp_servers` |
+| OpenCode | `~/.config/opencode/opencode.json` `mcp.servers` | Converted shape (see below) |
+| Claude Code | `~/.claude.json` `mcpServers` | Roster names not enabled are removed; hand-added non-roster servers, OAuth, and UI keys stay |
 
-Don't edit the live files. Don't hand-edit `~/.claude.json`. The most common AI failure mode is editing `~/.grok/config.toml` MCP tables, `opencode.json`, or `~/.claude.json` by hand — the next `dot mcp-regen` overwrites the managed server keys.
+The most common AI failure mode is editing `~/.grok/config.toml` MCP tables, `opencode.json`, or `~/.claude.json` by hand, or toggling a server in a harness UI — the next regen resets it. Change the profile instead.
 
 ## Source of truth
 
@@ -18,7 +23,7 @@ Don't edit the live files. Don't hand-edit `~/.claude.json`. The most common AI 
 ~/.dotfiles/ai/mcp-servers.json.tpl
 ```
 
-Format: a JSON object, one key per server. Author `command` / `args` / `env` / `url` / `headers` — the installer converts to Grok TOML and OpenCode JSON.
+Format: a JSON object, one key per server. Author `command` / `args` / `env` / `url` / `headers` — the installer converts to Grok TOML, OpenCode JSON, and Claude JSON. `"default": true` marks a server enabled when no profile `mcp:` block exists.
 
 ```json
 {
@@ -48,7 +53,23 @@ Format: a JSON object, one key per server. Author `command` / `args` / `env` / `
 
 ## Generated targets
 
-`dot mcp-regen` (or post_install on `grok` / `opencode` / `claude`). Hash cache at `~/.cache/dotfiles/mcp-servers.hash` skips regeneration when the template *and* the active profile overlay are unchanged, live Grok `config.toml` already has `[mcp_servers.` tables, and (when `claude` is installed) `~/.claude.json` still has every server listed in `~/.cache/dotfiles/claude-mcp-servers` (what the last regen wrote; servers dropped for a missing secret don't count). Set `FORCE_MCP_REGEN=true` to bypass.
+`dot mcp-regen` forces a run; post_install on `grok` / `opencode` / `claude` runs it too. The hash at `~/.cache/dotfiles/mcp-servers.hash` covers the roster, the profile `mcp:` block, and the enabled harness list; a run is skipped when it matches and every harness still has the servers listed in `~/.cache/dotfiles/<harness>-mcp-servers` (names last written; servers dropped for a missing secret don't count). `FORCE_MCP_REGEN=true` bypasses the cache.
+
+## Profile `mcp:` block
+
+```yaml
+# profiles/wsl-work.yaml
+mcp:
+  enable: [context7, firecrawl, kubernetes]
+  override:
+    kubernetes:
+      command: kubernetes-mcp-server   # Ubuntu npm wedges `npx @latest`
+```
+
+- `enable` — roster names; unknown names warn and are ignored.
+- `override.<server>` — any of `command`, `args`, `env`, `url`, `headers`, `type`. A `command` without `args` drops the roster's args. Applied before 1Password injection and `$HOME` expansion.
+
+Personal profiles enable aws, context7, firecrawl, flux, gitea, grafana, kubernetes, playwright.
 
 ## Docs / web split (current roster)
 
@@ -61,7 +82,7 @@ Do **not** stack multiple general-purpose search servers. The intentional pair:
 
 Domain servers own their own docs when relevant (`aws` docs tools, `flux` docs search). Routing for agents lives in `ai/rules/common/prefer-mcp.md` — keep that rule and this table aligned when you add or remove a docs/web server.
 
-**Default-enabled** (see `enabled_mcp_servers` in `scripts/handlers/ai.sh`): only `context7` and `firecrawl`. Everything else is installed with `enabled = false`. When adding a server you expect always-on on every machine, update that list. For one machine class only, set `enabled = true` on `[mcp_servers.<name>]` in `grok/.grok/overlays/<profile>.toml` — `generate_mcp_configs` applies that to Grok and OpenCode (and Claude, when installed). `wsl-work` does this for `kubernetes`.
+**Default-enabled** (`"default": true` in the roster): only `context7` and `firecrawl`. Profiles with an `mcp:` block list their servers explicitly, so a new server reaches a machine only when its profile's `mcp.enable` names it.
 
 ## Server schema (roster JSON)
 
@@ -104,7 +125,7 @@ Domain servers own their own docs when relevant (`aws` docs tools, `flux` docs s
 }
 ```
 
-Grok writes this as `[mcp_servers.name]` with `url` / `headers` / `enabled`. OpenCode writes `type: "remote"`.
+Grok writes this as `[mcp_servers.name]` with `url` / `headers` / `enabled`. OpenCode writes `type: "remote"`; Claude writes `type: "http"` (or `"sse"`).
 
 ## 1Password secret injection
 
@@ -114,7 +135,7 @@ Any value (in `args`, `env`, or `headers`) can be a 1Password CLI reference:
 op://<vault>/<item>/<field>
 ```
 
-Secrets are pulled at generate time and written as plaintext into the **live** Grok config, OpenCode `opencode.json`, and (when Claude is installed) `~/.claude.json` (mode 600). Never into the tracked seed `grok/.grok/config.toml`. Sign into 1Password before `dot mcp-regen`.
+Secrets are pulled at generate time, only for enabled servers, and written as plaintext into the **live** Grok config, OpenCode `opencode.json`, and `~/.claude.json` (mode 600). Never into the tracked seed `grok/.grok/config.toml`. Sign into 1Password before `dot mcp-regen`.
 
 ```json
 "EXAMPLE_API_TOKEN": "op://<vault>/<item>/<field>"
@@ -122,7 +143,7 @@ Secrets are pulled at generate time and written as plaintext into the **live** G
 
 To find a vault/item ID: `op item list --format=json | jq '.[] | {title, id}'`.
 
-## OpenCode conversion (adapter)
+## OpenCode conversion
 
 | Roster field | OpenCode field |
 |---|---|
@@ -132,25 +153,24 @@ To find a vault/item ID: `op item list --format=json | jq '.[] | {title, id}'`.
 | `command: "npx"` + `args: [...]` | `command: ["npx", ...]` (single array) |
 | `env: {...}` | `environment: {...}` |
 | `headers` / `url` | same |
-| not in `enabled_mcp_servers` / overlay | `disabled: true` (do not emit `enabled`) |
 
-Author the template in the roster shape — don't mix in OpenCode keys.
+Servers not enabled are not written. Author the template in the roster shape — don't mix in harness keys.
 
 ## Adding a new MCP server
 
 1. Open `~/.dotfiles/ai/mcp-servers.json.tpl`.
 2. Add the entry (roster shape, `op://` for secrets).
 3. `jq . ~/.dotfiles/ai/mcp-servers.json.tpl`.
-4. If it should be always-on, add the name to `enabled_mcp_servers` in `scripts/handlers/ai.sh`.
+4. Add the name to `mcp.enable` in each profile that should run it (or `"default": true` for profile-less machines).
 5. `dot mcp-regen`.
-6. Restart Grok (and OpenCode if you care). `grok inspect` — source should be `config`.
+6. Restart the harnesses. `grok inspect` — source should be `config`; `claude mcp list`.
 
 ## Removing or disabling
 
-1. **Delete the entry** from the template. Next generate drops it.
-2. **Rename the key** e.g. `"playwright"` → `"_disabled_playwright"` (JSON has no comments). The installer still writes it; it won't be picked up by the old name.
+- **Disable on a machine class:** drop the name from that profile's `mcp.enable`. The next regen removes it from every harness.
+- **Remove entirely:** delete the roster entry and its `mcp.enable` mentions.
 
-Don't edit live `config.toml` MCP tables as the long-term fix — `merge-grok-mcp.py` replaces `[mcp_servers.*]` on the next regen. Servers already `enabled = true` in the live file stay enabled (unioned with `enabled_mcp_servers`). A profile overlay (`grok/.grok/overlays/<profile>.toml`) can replace a whole `[mcp_servers.<name>]` table after that write — use it for machine-class launch differences (work WSL vs personal), not instead of the roster. Overlay `enabled = true` and command/args/env also flow into OpenCode's `mcp` block so a new session or worktree does not start with that server off.
+Machine-class launch differences (work WSL vs personal) go in the profile's `mcp.override`, not in `grok/.grok/overlays/` — overlay MCP tables are ignored with a warning.
 
 ## Common patterns
 
@@ -222,18 +242,22 @@ Use absolute mise shims when the server needs a specific Python/uv. Bare `uvx` w
 ## Per-tool gotchas
 
 ### Grok
-- Canonical write is live `~/.grok/config.toml`. `grok inspect` shows source `config`.
-- `/mcps` toggles at runtime. `disabled_mcp_servers` in `[tools]` is a leftover key Grok currently flags as unrecognized — prefer per-server `enabled = false` from the generator.
+- Written to live `~/.grok/config.toml`. `grok inspect` shows source `config`.
+- `/mcps` toggles at runtime, and Grok records them in `[tools] disabled_mcp_servers`; the next regen takes enabled names back out.
 - Claude compat MCP scan is **off** (`[compat.claude] mcps = false`).
 
 ### OpenCode
-- Servers live under `mcp.servers`. `disabled: true` keeps one configured without connecting it. Do not write `enabled`.
+- Servers live under `mcp.servers`. Do not write `enabled`.
 - `timeout` objects (startup/catalog/execution) are supported but not emitted by our generator.
 - `oauth` on remote servers exists; rarely needed.
+
+### Claude Code
+- User-scope servers live in `~/.claude.json` `mcpServers`; stdio entries get `type: "stdio"`.
+- Running sessions rewrite that file; the generator gives up (rerun `dot mcp-regen`) rather than clobber a concurrent write.
 
 ## After authoring
 
 1. `jq . ~/.dotfiles/ai/mcp-servers.json.tpl`
 2. `dot mcp-regen`
-3. Restart Grok. `grok inspect` to confirm registration.
+3. Restart the harnesses. `grok inspect` / `claude mcp list` to confirm registration.
 4. If 1Password isn't signed in: `op signin`, then `dot mcp-regen` again.

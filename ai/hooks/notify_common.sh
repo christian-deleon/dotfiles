@@ -2,7 +2,7 @@
 # No shebang, no strict-mode (callers control their own shell options).
 
 # Populate context globals from hook stdin + surrounding env:
-#   tool      invoking agent: Grok / OpenCode / Agent (default)
+#   tool      invoking agent: Claude / Grok / OpenCode / Agent (default)
 #   project   tmux session name in tmux, else basename of payload .cwd
 #   worktree  cwd basename when in tmux AND it differs from session; else empty
 #

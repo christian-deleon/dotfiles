@@ -2,15 +2,17 @@
 
 **Hooks** are deterministic scripts the agent runs at lifecycle moments — before a tool call, after a session starts, when the user submits a prompt, etc. They let you inject context, enforce policies, block dangerous operations, or wire the agent into external systems.
 
-The most common AI failure mode is treating hooks as one cross-tool concept. They're not.
+The most common AI failure mode is treating hooks as one cross-harness concept. The scripts are shared; registration is per harness.
 
-| Tool | Hook mechanism | This repo |
+| Harness | Hook mechanism | This repo |
 |---|---|---|
-| **Grok Build** | Filename auto-register, JSON `hooks.json`, or TOML in `config.toml` | Canonical: `ai/hooks/<event>_<purpose>.sh` → `~/.grok/hooks/` |
-| **OpenCode** | **No hooks** — TypeScript plugins | Not synced. Don't author OpenCode plugins unless asked |
-| **Claude Code** | `hooks` in `~/.claude/settings.json` | Adapter registers the three notify scripts. Don't author a second set |
+| **Grok Build** | Filename auto-register, JSON `hooks.json`, or TOML in `config.toml` | `install_ai_grok` links `ai/hooks/*` → `~/.grok/hooks/`; the event-prefixed filename registers it |
+| **OpenCode** | **No hooks** — TypeScript plugins | `opencode/.config/opencode/plugins/notify-sound/tui.js` calls `stop_notify.sh` |
+| **Claude Code** | `hooks` in `~/.claude/settings.json` | `ensure_claude_settings` merges `stop_notify.sh`, `notification_notify.sh`, `user_prompt_submit_clear.sh` |
 
-`install_ai_grok` symlinks `~/.dotfiles/ai/hooks/*` into `~/.grok/hooks/`. **Dropping a script into `ai/hooks/` with an event-prefixed name is the path.** This repo already ships `stop_notify.sh`, `notification_notify.sh`, `user_prompt_submit_clear.sh`, and `notify_common.sh`.
+Scripts live once in `ai/hooks/` (`stop_notify.sh`, `notification_notify.sh`, `user_prompt_submit_clear.sh`, `notify_common.sh`). **Adding a hook means registering it for each harness that should run it** — a new file in `ai/hooks/` reaches Grok automatically, Claude only after it's added to `ensure_claude_settings`, OpenCode only through a plugin.
+
+Grok's payload is camelCase and Claude's is snake_case. A script shared by both must read only fields spelled the same in both (e.g. `cwd`), or read both spellings.
 
 ## Decision: which mechanism?
 
@@ -21,7 +23,8 @@ The most common AI failure mode is treating hooks as one cross-tool concept. The
 | Inject project context at session start | Grok `SessionStart` |
 | Notify on idle / permission wait | Grok `Notification` — use matcher `idle_prompt` or `permission_prompt` (Grok also fires Notification on every turn-end; see existing `notification_notify.sh`) |
 | Keep the agent working until tests pass | Grok `Stop` / `SubagentStop` gate — `{"decision":"block","reason":"…"}` or exit 2 |
-| Same behavior in OpenCode | Not hooks. A TypeScript plugin; this repo does not sync them |
+| Same behavior in Claude Code | Same script, registered in `ensure_claude_settings` (snake_case payload) |
+| Same behavior in OpenCode | Not hooks. A TypeScript plugin under `opencode/.config/opencode/plugins/` that shells out to the script |
 
 ## Grok hook locations
 
@@ -35,7 +38,7 @@ The most common AI failure mode is treating hooks as one cross-tool concept. The
 
 Project hooks are silent until the folder is trusted. `--trust` / `/hooks-trust` grants MCP, LSP, **and** hooks together.
 
-## Filename auto-register (canonical in this repo)
+## Grok filename auto-register
 
 ```
 ai/hooks/
@@ -108,7 +111,7 @@ Grok's envelope is **camelCase**, not Claude snake_case. A script reading `.tool
 
 Common fields on every event: `hookEventName`, `sessionId`, `cwd`, `workspaceRoot`, `timestamp`, `permissionMode` (`default`, `auto`, `plan`, `bypassPermissions`). Tool events add `toolName`, `toolInput`, `toolUseId`. `PostToolUse` output is `toolResult` (not `tool_response`).
 
-Defensive parsing: treat extra fields as optional. Existing repo hooks that still read `.cwd` keep working because that key is the same.
+Defensive parsing: treat extra fields as optional. The shared notify hooks read only `.cwd`, which both harnesses spell the same.
 
 Env always injected: `GROK_HOOK_EVENT`, `GROK_HOOK_NAME`, `GROK_SESSION_ID`, `GROK_WORKSPACE_ROOT`. `CLAUDE_PROJECT_DIR` is also set (alias for workspace root) — don't build new hooks around the Claude name.
 
@@ -173,19 +176,19 @@ esac
 printf '%s\n' '{"decision":"allow"}'
 ```
 
-Read **both** camelCase and snake_case if you share a script with older examples. New hooks should prefer camelCase.
+Read **both** camelCase and snake_case when the script runs under Grok and Claude.
 
-## Claude Code — the notify scripts only
+## Claude Code registration
 
-When `claude` is installed, `install_ai_claude` merges three command hooks into `~/.claude/settings.json`: `Stop` → `stop_notify.sh`, `Notification` (matcher `permission_prompt|elicitation_dialog`) → `notification_notify.sh`, `UserPromptSubmit` → `user_prompt_submit_clear.sh`. The command path is the script in `ai/hooks/`. The matcher skips `idle_prompt`, which would repeat the Stop toast about a minute after each turn. Re-running the installer replaces a stale entry for the same `command` instead of adding a second one. Other hooks stay Grok-only until someone asks to register them. `notification_notify.sh` still exits immediately when the parent process is Grok, because Grok also fires Notification on every turn end.
+`ensure_claude_settings` (run by `install_ai_claude`) merges three command hooks into `~/.claude/settings.json`: `Stop` → `stop_notify.sh`, `Notification` (matcher `permission_prompt|elicitation_dialog`) → `notification_notify.sh`, `UserPromptSubmit` → `user_prompt_submit_clear.sh`. The command path is the script in `ai/hooks/`. The matcher skips `idle_prompt`, which would repeat the Stop toast about a minute after each turn. Re-running the installer replaces a stale entry for the same `command` instead of adding a second one. To register another script for Claude, add an `ensure_hook` line there. `notification_notify.sh` exits immediately when the parent process is Grok, because Grok also fires Notification on every turn end.
 
 ## OpenCode — plugins, not hooks
 
-OpenCode has no hook system. TypeScript plugins subscribe to `tool.execute.before`, `session.created`, etc. This repo does **not** sync `~/.config/opencode/plugins/`. If you need the same guard there, write a plugin that shells out to the Grok hook script — only when the user asks.
+OpenCode has no hook system. TypeScript plugins subscribe to `tool.execute.before`, `session.created`, etc. Plugins live in the stowed `opencode/.config/opencode/plugins/`; `notify-sound/tui.js` calls `stop_notify.sh`. For another shared behavior, write a plugin that shells out to the `ai/hooks/` script.
 
 ## After authoring
 
 1. `bash -n` (and `shellcheck` if installed) the script.
-2. `dot update` (or `dot install grok`).
-3. `grok inspect` and `/hooks` to confirm it loaded.
+2. Register it for each harness that should run it (see table above), then `dot update`.
+3. `grok inspect` and `/hooks` (Grok), `/hooks` (Claude) to confirm it loaded.
 4. Trigger the event.

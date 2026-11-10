@@ -2,7 +2,7 @@
 
 A **skill** is a directory containing a `SKILL.md` (plus optional companion files). The model loads the frontmatter description into its tool catalog at startup and lazily reads the body only when the description matches the conversation. This is "progressive disclosure" — keep `SKILL.md` lean and put depth in companion files.
 
-The most common AI failure mode is treating `SKILL.md` as a single-file manual. When a skill's body grows past ~500 lines, split: keep triggers, decision tree, and universal rules in `SKILL.md`; move per-topic depth into sibling `.md` files that `SKILL.md` instructs the agent to read on demand. See this skill (`agent-files/`) for the canonical layout.
+The most common AI failure mode is treating `SKILL.md` as a single-file manual. When a skill's body grows past ~500 lines, split: keep triggers, decision tree, and universal rules in `SKILL.md`; move per-topic depth into sibling `.md` files that `SKILL.md` instructs the agent to read on demand. See this skill (`agent-files/`) for the layout.
 
 ## Where skills live
 
@@ -16,7 +16,7 @@ Source of truth in this repo:
 └── scripts/          # optional bundled scripts (executable via Bash)
 ```
 
-Installed by `install_ai_grok` to `~/.grok/skills/<name>/`. OpenCode sees the same tree via a directory symlink (`~/.config/opencode/skills` → `~/.grok/skills`). Claude Code gets one symlink per skill at `~/.claude/skills/<name>` when `claude` is installed.
+Each enabled harness's installer links every skill dir into its own tree: `~/.grok/skills/<name>`, `~/.config/opencode/skills/<name>`, `~/.claude/skills/<name>`. The same `SKILL.md` serves all three. OpenCode also reads `~/.claude/skills`; duplicates resolve to the same files.
 
 **Machine-only skills** (e.g. work-only workflows) go in the private submodule at `~/.dotfiles/agent-files/env/<env>/skills/<name>/` instead. `dot agent env link` links them; see [docs/dot-agent.md](../../../docs/dot-agent.md).
 
@@ -24,37 +24,37 @@ Directory name **must** match the `name` field in frontmatter, lowercase + digit
 
 ## Frontmatter schema
 
-Grok's official skill fields (user guide 08-skills). Use only the ones you need — every field except `name` and `description` is optional. Multi-word keys are **kebab-case**.
+`name` and `description` are required and are the only keys all three harnesses act on. Everything else is harness-specific and optional; each harness ignores keys it doesn't recognize, so mixing them on one `SKILL.md` is safe.
 
 ```yaml
 ---
 name: my-skill                 # identifier; must match dir name
 description: ...               # trigger text (see below)
-compatibility: opencode        # keep this so the OpenCode adapter surfaces the skill
-license: MIT                   # optional metadata (also recognized by OpenCode)
-metadata:                      # optional string-to-string map (also OpenCode)
+license: MIT                   # optional metadata (OpenCode)
+metadata:                      # optional string-to-string map (Grok, OpenCode)
   audience: maintainers
 
-# Grok official (OpenCode ignores these extra keys):
-when-to-use: ...               # extra trigger phrases, kept separate from description
-argument-hint: "[issue]"       # slash-command autocomplete hint
-allowed-tools: Read Grep Bash  # YAML list or comma/space-separated; pre-approves tools
-disable-model-invocation: false # true = user-only slash command; model cannot auto-invoke
-user-invocable: true           # false = hide from slash menu (model can still invoke)
-model: grok-build              # model override for running the skill
-effort: medium                 # reasoning-effort override
+# Harness-specific (ignored where unknown):
+when-to-use: ...               # Grok: extra trigger phrases
+when_to_use: ...               # Claude: extra trigger phrases
+argument-hint: "[issue]"       # Grok, Claude: slash-command autocomplete hint
+allowed-tools: Read Grep Bash  # Grok, Claude: pre-approves tools
+disable-model-invocation: false # Grok, Claude: true = user-only slash command
+user-invocable: true           # Grok, Claude: false = hide from slash menu
+model: grok-build              # Grok: model override
+effort: medium                 # Grok: reasoning-effort override
 ---
 ```
 
-OpenCode **only recognizes** `name`, `description`, `license`, `compatibility`, `metadata`. Unknown keys are **ignored** (current OpenCode docs — it used to Zod-fail). Extra Grok fields on a shared `SKILL.md` are therefore safe.
+OpenCode recognizes `name`, `description`, `license`, `compatibility`, `metadata`; `compatibility` is optional and OpenCode doesn't act on it, so this repo doesn't set it.
 
 Grok also documents `metadata.author` and `metadata.short-description` for display. Fields like `context: fork`, `agent:`, `paths:`, `shell:`, and skill-scoped `hooks:` are not in Grok's official table — don't invent them unless you've confirmed they work with `grok inspect`.
 
 ### The description field is the trigger
 
-Lead with one sentence stating what the skill is for, then the strongest 2–3 triggers (key file types, the most common user phrases), and optionally a one-clause stack/defer note. Pick a tight handful of triggers — not an exhaustive keyword dump. Grok matches the user's prompt against `description` and `when-to-use` for automatic invocation.
+Lead with one sentence stating what the skill is for, then the strongest 2–3 triggers (key file types, the most common user phrases), and optionally a one-clause stack/defer note. Pick a tight handful of triggers — not an exhaustive keyword dump. `description` is the trigger every harness matches against; Grok also reads `when-to-use`, Claude `when_to_use`.
 
-**Per-skill budget: aim for ~250–350 chars.** OpenCode's hard cap is **1,024 chars** on `description`. Grok has no documented listing-budget; the short budget is still the right craft — a 1,000-char description crowds the catalog and dilutes the trigger.
+**Per-skill budget: aim for ~250–350 chars.** OpenCode's hard cap is **1,024 chars** on `description`; Claude truncates `description` + `when_to_use` at 1,536. A 1,000-char description crowds the catalog and dilutes the trigger.
 
 Anti-patterns that bloat descriptions:
 - Listing every file extension (`*.yaml`/`*.yml` referencing `apps/v1`, `networking.k8s.io`, `traefik.io`, …). One representative path is enough.
@@ -65,13 +65,13 @@ Look at `~/.dotfiles/ai/skills/bash/SKILL.md` or `~/.dotfiles/ai/skills/worktrun
 
 ### What NOT to put in frontmatter
 
-- **Don't invent fields.** Stick to the Grok table above plus the OpenCode four (`license`, `compatibility`, `metadata`).
+- **Don't invent fields.** Stick to the table above.
 - **No `tools:`** — that's a subagent field. Use `allowed-tools` for skills.
 - **No `mode:`** — that's a subagent field.
 
-## Portability — write the body for Grok
+## Portability — write the body harness-neutral
 
-Every skill in `~/.dotfiles/ai/skills/` is what Grok loads. OpenCode reads the same files via the adapter. Write the body for "the agent":
+Every skill in `~/.dotfiles/ai/skills/` is loaded by Grok, OpenCode, and Claude Code. Write the body for "the agent":
 
 | Do this | Not this |
 |---|---|
@@ -82,9 +82,9 @@ Every skill in `~/.dotfiles/ai/skills/` is what Grok loads. OpenCode reads the s
 
 The model already knows which runtime it's in. Use plain English ("the Read tool", "the Bash tool", "the Edit tool", "a subagent").
 
-**Tool-specific frontmatter is fine.** `compatibility: opencode` opts into OpenCode's skill surface. `allowed-tools: Read Grep Bash` is Grok-shaped; OpenCode ignores it.
+**Harness-specific frontmatter is fine.** `allowed-tools: Read Grep Bash` works in Grok and Claude; OpenCode ignores it.
 
-**When a brand-specific reference is unavoidable** (Grok's `grok inspect`, OpenCode's `@name` / Tab cycle), call it out. Don't write whole sections of a skill that only work in OpenCode — that content belongs in `~/.dotfiles/docs/`.
+**When a brand-specific reference is unavoidable** (Grok's `grok inspect`, OpenCode's `@name` / Tab cycle), call it out. Don't write whole sections of a skill that only work in one harness — that content belongs in `~/.dotfiles/docs/`.
 
 ## Body conventions (this repo's style)
 
@@ -117,7 +117,7 @@ my-skill/
 
 ## Substitution in skill bodies
 
-When the user invokes `/skill-name args`, Grok passes the args after the name. These tokens are useful in user-invocable skills (and in leftover command templates):
+When the user invokes `/skill-name args`, the harness passes the args after the name. These tokens are useful in user-invocable skills (and in leftover command templates):
 
 | Token | Expands to |
 |---|---|
@@ -136,7 +136,7 @@ Drop helper scripts in `<skill>/scripts/` (or wherever — there's no enforced l
 
 Keep scripts focused — a skill should be a self-contained capsule, not a Trojan horse for a full CLI tool. If a script grows complex, move it to `~/.dotfiles/scripts/` and have the skill just call it by name.
 
-## Minimal canonical example
+## Minimal example
 
 See [`examples/skill.template.md`](examples/skill.template.md). The shortest valid skill:
 
@@ -144,7 +144,6 @@ See [`examples/skill.template.md`](examples/skill.template.md). The shortest val
 ---
 name: summarize-diff
 description: Summarize uncommitted git changes. Use when the user asks what changed, wants a commit message, or asks to review their diff.
-compatibility: opencode
 ---
 
 !`git diff HEAD`
@@ -156,22 +155,21 @@ Summarize the changes above in two or three bullets.
 
 ### Grok Build
 - Official `SKILL.md` format. Lives at `~/.grok/skills/<name>/SKILL.md`.
-- User-invocable skills auto-expose as `/<skill-name>` — this is the canonical slash-command path.
+- User-invocable skills auto-expose as `/<skill-name>`.
 - Same-named local / repo / user skills override bundled copies. Collisions with built-ins get a qualified name (`/user:commit`).
 - Verify with `grok inspect` (source should be `user`, path under `~/.grok/skills/` or the symlink into `ai/skills/`).
 - Discovery also scans `.agents/skills/` and (if compat is on) `.claude/skills/`. This repo has Claude compat **off**; don't rely on those paths.
 
-### OpenCode (adapter)
+### OpenCode
 - Recognized keys: `name`, `description`, `license`, `compatibility`, `metadata`. Extra keys are ignored.
 - `name` must match `^[a-z0-9]+(-[a-z0-9]+)*$` and the directory name.
 - `description` hard cap 1,024 chars.
-- `compatibility: opencode` is the documented opt-in flag.
-- Discovers `~/.config/opencode/skills/` (our dir symlink), plus `.opencode/skills/`, `.agents/skills/`, and leftover `.claude/skills/` if present.
+- Discovers `~/.config/opencode/skills/` (per-skill links), `~/.claude/skills/`, `.opencode/skills/`, `.agents/skills/`, and `.claude/skills/`.
 
-### Claude Code (adapter, opt-in)
-- Same `SKILL.md` files, one symlink per skill under `~/.claude/skills/`. Do not touch `skills/synced/`.
-- `compatibility: opencode` is accepted and ignored. Unknown keys are ignored, including Grok's `when-to-use`. Claude's extra trigger field is `when_to_use`. `description` still triggers the skill. Don't add `when_to_use` unless you are deliberately tuning Claude.
-- Listing truncates `description` + `when_to_use` at 1,536 characters. The ~250–350 budget still fits.
+### Claude Code
+- One symlink per skill under `~/.claude/skills/`. Do not touch `skills/synced/` (Claude-reserved; the installer skips it).
+- Unknown keys are ignored, including Grok's `when-to-use`. Claude's extra trigger field is `when_to_use`; add it only when deliberately tuning Claude.
+- Listing truncates `description` + `when_to_use` at 1,536 characters.
 
 ## Editing an existing skill
 
