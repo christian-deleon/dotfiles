@@ -35,6 +35,7 @@ their defaults. Message wording is in [messages.md](messages.md).
 | Spawning exactly the sessions the user asks for or approves | Spawning anything else, including "investigate only" sessions |
 | Finishing a close-out a session reports, with `wto close` | Removing a worktree that `wto close` refuses |
 | Running a main-only project skill the user orders, in a subagent | Freeing another worktree's claim (`--force`) |
+| Relaying the user's deploy or merge decision word for word, with `--relay` | Sending a go the user did not give here, or widening one |
 | Updating this project's orchestration setup (Improving the setup, below) | Changing the profile's policy lines, or anything in `~/.dotfiles` |
 
 Finishing close-outs is the one action a peer message may trigger: `wto close`
@@ -215,9 +216,28 @@ one-off.
   yours to edit. When you notice the problem, tell the user what happened and
   what you would change, once, so they can fix it from their dotfiles.
 
+### A session reports ready
+
+Sessions follow the `orchestrated-session` skill: they test, check and review
+their own work, then send a status report (see [messages.md](messages.md)) and
+wait for the user's decisions to come back through you.
+
+1. Tell the user in a few lines: the branch, what changed, the results of
+   tests, checks and self-review, and the proposed next step.
+2. When it proposes a deploy, add whether now is a good time: the project's
+   "before a deploy" moment, who holds or waits on that resource's claim, and
+   whether a release is running.
+3. Relay the user's decision word for word with `wto send <branch> --relay` (or
+   native messaging with `wto header --relay`): the go for that one deploy, the
+   review result, or the merge go. Never send a go the user did not give here.
+
+A status report with `waiting` or `blocked` carries a question for the user:
+put it to them and relay the answer the same way.
+
 ### Close-outs
 
-A session reports it closed out (see `/closeout`):
+A session closes out only after the user's merge go, relayed by you. It then
+reports it closed out (see `/closeout`):
 
 1. `wto ls` shows the branch integrated or empty and clean.
 2. `wto close <branch>`. If it refuses, tell the user why; do not work around it.

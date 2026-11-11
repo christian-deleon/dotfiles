@@ -85,8 +85,10 @@ The profile block:
 - Shared resources: <names>; gate: <entry point | none>
 - Main-only skills: <names>; work-producing skills: <names>
 - Branch naming: <pattern>
+- Deploy: <the skill or recipe that deploys and verifies | none>
 
-### Orchestration moments
+## Orchestration moments
+- Before a deploy: <checks for whether now is a good time, e.g. no release running>
 - Before a release: <e.g. warn sessions holding deploy claims; releases replace dev deploys>
 - After main moves: <…>
 - When a side issue arrives: <…>

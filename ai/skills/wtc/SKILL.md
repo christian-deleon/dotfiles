@@ -101,10 +101,10 @@ Each child gets a self-contained prompt with **no** access to this conversation:
   you go in logical groups.
 
 ## Coordination
-- If `wto here` succeeds, an orchestrator session runs in the main worktree. It
-  may message you (rebase notices, pause, status requests). Send unrelated work
-  to it with /spinoff, and take a `wto claim` before using a shared resource the
-  project names.
+- If `wto here` succeeds, an orchestrator session runs in the main worktree:
+  load the `orchestrated-session` skill first and follow it. It covers reporting
+  ready, deploys and merges only on the owner's relayed go, rebase notices,
+  /spinoff for unrelated work, and `wto claim` for shared resources.
 
 ## Done when
 <acceptance check — what "fixed" looks like>

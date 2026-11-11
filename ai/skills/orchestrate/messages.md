@@ -9,6 +9,7 @@ nothing. Fill the `<…>` parts; drop lines that do not apply.
 ```text
 An orchestrator session is now running in the main worktree (<project>/main).
 You do not need to change anything. It will send notices here: rebase notices when main moves, pause and resume requests, status requests.
+Load the `orchestrated-session` skill now and follow it: report to me with its status report when your work is ready, and deploy or merge only on the user's go relayed by me.
 If you find unrelated work, hand it over with /spinoff. Before using a shared resource (<names from the profile, or "none defined">), take it with `wto claim take <name>` and free it when done.
 The user can still work with you directly; their instructions here come first. No reply needed.
 ```
@@ -42,7 +43,42 @@ Good morning: the user is resuming. Read your resume note at <state dir>/resume/
 ## Status request
 
 ```text
-Status check from the user. Reply in two or three lines: what you are working on, how far along, and anything blocking you or waiting on the user. Then carry on.
+Status check from the user. Reply with your status report (the `orchestrated-session` skill), then carry on.
+```
+
+## Status report (from a session)
+
+Sessions send this in `ready`, `deployed`, `waiting`, and `blocked` reports and in
+answer to a status request. The `orchestrated-session` skill owns the format;
+this copy is for recognizing it.
+
+```text
+Status: <ready | deployed | waiting | blocked> · <project>/<branch>
+Changed: <one line on what this branch does>
+Files: <the main files touched>
+1. Tests: <written first, passing | none in this project; proved by <what you ran> | failing: <which>>
+2. Checks: <the command>: <passing | failing: <what>>
+3. Self-review: /code-review <no findings | found <n>, all fixed | <n> open: <what>>
+4. Committed: <short sha> <subject> | not yet: <why>
+5. Deploy: <not needed | awaiting owner go: <target> | done: <target>, verified by <how>>
+6. Owner review: <not yet | approved | changes asked: <what>>
+7. Merge: <awaiting owner go | merged into main as <short sha>>
+Next step: <what the session proposes>
+Still needed:
+- <item> (waits on: owner | orchestrator | this session)
+```
+
+## The user's go (relayed)
+
+Send with `--relay`; the body is the user's words as they said them. Name the
+one action, for example:
+
+```text
+Deploy api to dev now.
+```
+
+```text
+Approved; merge it.
 ```
 
 ## Your turn on a resource
