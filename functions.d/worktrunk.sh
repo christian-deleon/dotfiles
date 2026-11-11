@@ -191,15 +191,15 @@ function _wta_has_session_history() {
     # no history probe.
     local wt_path="$1"
     local tool="${AI_TOOL%% *}"
-    local -a transcripts
     case "$tool" in
         gra|grok|gr)
             _wta_grok_resume_id "$wt_path" >/dev/null
             ;;
         cl|cca|claude)
             wt_path=$(readlink -f -- "$wt_path" 2>/dev/null || printf '%s' "$wt_path")
-            transcripts=("${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/${wt_path//[^a-zA-Z0-9]/-}"/*.jsonl)
-            [[ -e ${transcripts[0]} ]]
+            # find, not a glob: zsh errors on a glob with no match.
+            [[ -n $(find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/${wt_path//[^a-zA-Z0-9]/-}" \
+                -maxdepth 1 -name '*.jsonl' 2>/dev/null | head -n 1) ]]
             ;;
         *)
             return 1
