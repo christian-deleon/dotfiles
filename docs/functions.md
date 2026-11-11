@@ -579,6 +579,7 @@ An executable in `bin/` (linked to `~/.local/bin/wto` by the installer and `dot 
 | `wto claim check <resource>...` | Exit 0 only if this worktree holds all of them; reads without waiting on the lock, so a deploy entry point can gate on it. Also acknowledges a pending grant. |
 | `wto claim wait [--timeout secs]` | Wait (default 60s) for this worktree's queued request; exit 2 if still waiting. |
 | `wto claim status [--json]`, `wto claim gc` | Show holders and the queue; drop claims of removed worktrees and hand over. |
+| `wto claim bump <branch>` | Move that branch's waiting requests to the front of the queue, then hand over. |
 | `wto close <branch>` | Close a finished session from another worktree: kills its tmux window, frees its claims, and runs `wt remove --foreground --yes`. Refuses the main worktree, the calling worktree, uncommitted changes, and a branch `wt list` does not report as integrated or empty. |
 
 Claims belong to a worktree, not a process, so they survive a restart or a night with the machine off. All changes happen under a lock file (`flock`, or a `mkdir` lock where `flock` is missing); a lock busy for 5 seconds exits 75. Waiters without a live agent session keep their place but are skipped. The worktrunk user config runs `wto claim gc` after every `wt remove`, so `wrf` and `wt merge` free claims too.

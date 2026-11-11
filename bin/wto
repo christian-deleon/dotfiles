@@ -32,6 +32,7 @@ Usage: wto <command> [args]
   claim check <resource>...    exit 0 only if this worktree holds all of them
   claim wait [--timeout secs]  wait for this worktree's queued request (default 60s)
   claim status [--json]        holders and the queue
+  claim bump <branch>          move that branch's waiting requests to the front
   claim gc                     drop claims of removed worktrees, then hand over
   close <branch>               close a finished session: kill its window, remove its worktree
 
@@ -573,6 +574,20 @@ claim_gc_locked() {
     report_grants <<<"$out"
 }
 
+claim_bump_locked() {
+    local branch=$1 live=$2 exist=$3 now out
+    now=$(date +%s)
+    out=$(claims_read | jq -c --arg b "$branch" --argjson now "$now" --argjson live "$live" --argjson exist "$exist" '
+        if any(.queue[]?; .branch == $b) | not then {error: "\($b) is not waiting for anything"}
+        else .queue = ([.queue[] | select(.branch == $b)] + [.queue[] | select(.branch != $b)]) | '"$GRANT_JQ"'
+        end')
+    if [[ $(jq -r '.error // empty' <<<"$out") ]]; then
+        die "claim bump: $(jq -r .error <<<"$out")"
+    fi
+    jq -c '.state' <<<"$out" | claims_write
+    report_grants <<<"$out"
+}
+
 claim_ack_locked() {
     local wt=$1 now
     now=$(date +%s)
@@ -671,6 +686,10 @@ cmd_claim() {
             return 2
             ;;
         status) claims_status "$json" ;;
+        bump)
+            ((${#names[@]} == 1)) || die "claim bump: name one branch"
+            with_lock claim_bump_locked "${names[0]}" "$(live_wts)" "$(existing_wts)"
+            ;;
         gc) with_lock claim_gc_locked "$(live_wts)" "$(existing_wts)" ;;
         *) die "claim: unknown subcommand '$sub'" ;;
     esac
