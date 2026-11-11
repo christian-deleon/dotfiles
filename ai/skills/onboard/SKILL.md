@@ -24,9 +24,18 @@ now suggest more, or different, setup than what was applied (step 4).
 The most common failure is inventing policy: guessing that a project allows
 direct merges, or making up resource names. Ask what you cannot see. The second
 is writing before the user has seen the draft. The third is copying private
-details into a public file.
+details into a public file. The fourth is changing a work project's own files.
 
 ## 1. Where the profile lives
+
+A **work** project's files are never changed: everything `/onboard` writes goes
+to `~/.dotfiles/agent-files/projects/<project>/profile.md`, whatever the
+project's `AGENTS.md` is. `<project>` is the project root's name, the
+directory holding the shared git dir (`git rev-parse --git-common-dir`), the
+name `dot agent` uses. Commit it inside the submodule; never push it. The kind
+is settled in step 3, so until then plan for both rows that could apply.
+
+For every other kind:
 
 | Finding | Write the profile to |
 |---|---|
@@ -120,6 +129,11 @@ Then any project-side additions, each with a one-line reason:
 - Unless the kind is `work`, the label rows from [labels.md](labels.md): keep,
   rename, create, and deletions to tick.
 
+On a work project, leave out every addition that changes the project's files
+or its forge (skills, gates, the checks line, labels). List the ones you would
+have suggested, so the user can raise them by the project's own process.
+`wto claim define` stays: it writes only into the local `.git`.
+
 Show the whole draft and wait.
 
 **When the project was onboarded before** (`wto profile` prints a profile), draft
@@ -150,7 +164,7 @@ and write nothing.
 - Run `wto claim define` if approved.
 - Apply the approved label changes as [labels.md](labels.md) describes.
 - Commit the profile where it was written: in the project like any change to
-  it, or in the overlay submodule.
+  it, or in the overlay submodule (always, on a work project).
 - Project code and skill changes follow the project's process: commit them on a
   personal project; on a review-required one, put them on a branch for its
   merge-request flow and leave the merging to the user.
@@ -166,3 +180,4 @@ profile exists.
 - Write private details (hostnames, account ids, people's names) into a file a
   public repository tracks.
 - Touch `~/.dotfiles/ai/`: project specifics belong to the project or its overlay.
+- Write, stage, or commit anything in a work project's tree.

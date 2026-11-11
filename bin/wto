@@ -806,11 +806,12 @@ cmd_claim() {
 
 # ── profile ───────────────────────────────────────────────────────────────────
 # The project profile /onboard writes: .agents/profile.md in the repo, or
-# profile.md beside the overlay AGENTS.md that `dot agent link` symlinks in.
-# Kept out of AGENTS.md so sessions load it only when a skill needs it.
+# profile.md in the project's `dot agent` overlay, which a work project uses
+# even when it tracks its own AGENTS.md. Kept out of AGENTS.md so sessions
+# load it only when a skill needs it.
 
 profile_path() {
-    local top target
+    local top target common overlay
     top=$(git rev-parse --show-toplevel 2>/dev/null) || die "not inside a git repository"
     if [[ -f $top/.agents/profile.md ]]; then
         printf '%s\n' "$top/.agents/profile.md"
@@ -820,6 +821,9 @@ profile_path() {
         target=$(readlink -f -- "$top/AGENTS.md") || return 1
         [[ -f ${target%/*}/profile.md ]] && { printf '%s\n' "${target%/*}/profile.md"; return 0; }
     fi
+    common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || return 1
+    overlay=$WTO_HOME/agent-files/projects/$(basename "$(dirname "$(realpath -- "$common")")")/profile.md
+    [[ -f $overlay ]] && { printf '%s\n' "$overlay"; return 0; }
     return 1
 }
 
