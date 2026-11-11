@@ -61,7 +61,7 @@ Changed: <one line on what this branch does>
 Files: <the main files touched>
 Tests: <written first, passing | none in this project; proved by <what you ran> | failing: <which>>
 Checks: <the command>: <passing | failing: <what>>
-Self-review: /code-review <no findings | found <n>, all fixed | <n> open: <what>>
+Self-review: reviewer <no findings | found <n>, all fixed | <n> open: <what>>
 Committed: <short sha> <subject> | not yet: <why>
 Deploy: <not needed for this change | awaiting owner go: <target> | done: <target>, verified by <how>>
 Owner review: <not yet | approved | changes asked: <what>>

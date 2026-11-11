@@ -33,9 +33,8 @@ a project with none, the work goes from ready straight to review and merge.
    and prove the change by running the real thing; the report says what you ran.
 2. **The project's full checks:** whatever its `AGENTS.md` names before claiming
    done.
-3. **Review your own diff** with `/code-review` (in Claude Code; in another
-   harness, its review command, or a careful read of the whole diff for bugs).
-   Fix what it finds and rerun the checks.
+3. **Review your own diff** with the `reviewer` subagent, following the
+   `plan-implement-review` skill. Fix what it confirms and rerun the checks.
 4. **Commit** in logical groups. Never push.
 
 ### 2. Report ready, then wait
@@ -92,7 +91,7 @@ Changed: <one line on what this branch does>
 Files: <the main files touched>
 Tests: <written first, passing | none in this project; proved by <what you ran> | failing: <which>>
 Checks: <the command>: <passing | failing: <what>>
-Self-review: /code-review <no findings | found <n>, all fixed | <n> open: <what>>
+Self-review: reviewer <no findings | found <n>, all fixed | <n> open: <what>>
 Committed: <short sha> <subject> | not yet: <why>
 Deploy: <not needed for this change | awaiting owner go: <target> | done: <target>, verified by <how>>
 Owner review: <not yet | approved | changes asked: <what>>

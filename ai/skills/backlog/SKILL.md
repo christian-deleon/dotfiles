@@ -81,16 +81,16 @@ Present:
 
 ```text
 Proposed now (2 of 3 free slots):
-  #212  fix/212-retry-backoff     Retry loop ignores backoff     high-priority bug, small   sonnet medium (cause named in the issue)
-  #198  feat/198-export-csv       CSV export for reports         milestone 1.9, medium      opus xhigh (ordinary feature)
+  #212  fix/212-retry-backoff     Retry loop ignores backoff     high-priority bug, small   small (cause named in the issue)
+  #198  feat/198-export-csv       CSV export for reports         milestone 1.9, medium      implement (ordinary feature)
 
 Next up: #205 (needs the deploy target #212 also uses), #190 (depends on #198)
 Questions: #201 — which of the two proposed APIs do you want?
 ```
 
-Branch names follow the profile's `Branch naming`, with the issue number. Model
-and effort come from the `wtc` skill's table, using the subagent's size and
-summary, within the profile's `Models:` line.
+Branch names follow the profile's `Branch naming`, with the issue number. The
+job comes from the `wtc` skill's table, using the subagent's size and summary,
+within the profile's `Models:` line.
 
 ## 6. Hand over
 

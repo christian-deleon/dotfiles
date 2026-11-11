@@ -170,13 +170,13 @@ Work arrives as a description from the user, issue numbers (from `/spinoff`,
 2. Count live non-main sessions against the profile's session cap.
 3. Propose a batch that can run side by side: different areas of the code,
    no two needing the same claimed resource at once. One line per item: branch,
-   task, source, and the model and effort from the `wtc` skill's table (within
-   the profile's `Models:` line) with a few words on why.
-4. On the user's approval, spawn each with `wto new -m <model> -e <effort> -f
-   <handoff>` following the `wtc` skill's handoff template, one session per item.
-   Approving the batch approves the models; the user can change one in a word.
-   A single item the user orders directly is spawned at once; say which model
-   and effort you picked and why.
+   task, source, and the job from the `wtc` skill's table (within the
+   profile's `Models:` line) with a few words on why.
+4. On the user's approval, spawn each with `wto new -j <job> -f <handoff>`
+   following the `wtc` skill's handoff template, one session per item.
+   Approving the batch approves the jobs; the user can change one in a word.
+   A single item the user orders directly is spawned at once; say which job
+   you picked and why.
 5. Keep the rest in `"$(wto dir)/next-up.md"` (issue, one line, why it waits)
    and offer it when a slot frees up.
 
