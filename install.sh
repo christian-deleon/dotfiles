@@ -888,6 +888,18 @@ install_dot_cli() {
     mkdir -p "$HOME/.local/bin"
     ln -snf "$dot_script" "$HOME/.local/bin/dot"
     success "Linked dot CLI to ${DIM}~/.local/bin/dot${RESET}"
+    link_dot_bins
+}
+
+# Agents, just recipes and hooks run shells that never load functions.d/, so
+# tools they call by name live in bin/ and are linked onto PATH.
+link_dot_bins() {
+    local name
+    mkdir -p "$HOME/.local/bin"
+    for name in wto; do
+        [[ -x "$DOTFILES_DIR/bin/$name" ]] || continue
+        ln -snf "$DOTFILES_DIR/bin/$name" "$HOME/.local/bin/$name"
+    done
 }
 
 run_core_config() {

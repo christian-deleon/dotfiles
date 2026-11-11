@@ -248,6 +248,7 @@ update_dotfiles() {
                 "install_ai_$harness" 2>/dev/null || _warn "Failed to install $harness config"
             done < <(ai_enabled_harnesses)
         fi
+        declare -F link_dot_bins >/dev/null && link_dot_bins
 
         # Reconcile stale symlinks left by dropped stow packages
         source "$DOTFILES_DIR/install.sh" 2>/dev/null
