@@ -627,6 +627,11 @@ profile_ai_default() {
     jq -r '.ai.default // ""' <<<"$_PROFILE_JSON"
 }
 
+profile_models_json() {
+    _profile_json_load
+    jq -c '.models // {}' <<<"$_PROFILE_JSON"
+}
+
 # ─── AI harnesses ─────────────────────────────────────────────────────────────
 #
 # Peers fed from ai/. Each has install_ai_<h> and write_<h>_mcp in

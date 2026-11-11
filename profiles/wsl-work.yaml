@@ -39,6 +39,20 @@ items:
 ai:
   default: opencode   # tav/wta/wtc and commit messages; ~/.localrc AI_TOOL wins
 
+models:
+  plan:
+    grok: { model: us-gov.xai.grok-4.7 }
+    opencode: { model: amazon-bedrock-gov/work-grok-4.7, effort: xhigh }
+  implement:
+    grok: { model: us-gov.xai.grok-4.7 }
+    opencode: { model: amazon-bedrock-gov/work-grok-4.7, effort: high }
+  review:
+    grok: { model: us-gov.xai.grok-4.7 }
+    opencode: { model: amazon-bedrock-gov/work-grok-4.7, effort: high }
+  small:
+    grok: { model: us-gov.xai.grok-4.7 }
+    opencode: { model: amazon-bedrock-gov/work-grok-4.7, effort: medium }
+
 mcp:
   enable: [context7, firecrawl, kubernetes]
   override:

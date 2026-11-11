@@ -7,7 +7,7 @@ Shared AI agent configuration for three peer harnesses: **Claude Code**, **Grok 
 ```
 ai/
 ├── agents/              # Subagent definitions (markdown + YAML frontmatter)
-│   └── scout.md
+├── models.yaml          # Model and effort per job, per harness
 ├── skills/              # Shared skills (each dir has SKILL.md + optional companions)
 ├── rules/
 │   └── common/          # Always-on rules (flattened per harness)
@@ -42,7 +42,7 @@ Harnesses are manifest items (`claude`, `grok`, `opencode`). With an active prof
 | Source | Target |
 |--------|--------|
 | `ai/skills/<name>/` | `~/.claude/skills/<name>` (per-directory symlink; `skills/synced/` is Claude's and is left alone) |
-| `ai/agents/*.md` | `~/.claude/agents/` |
+| `ai/agents/*.md` | `~/.claude/agents/` (symlink, or a rendered file for an agent with a `job:`) |
 | `ai/rules/**/*.md` | `~/.claude/rules/<basename>.md` (flattened) |
 | `ai/hooks/*.sh` (notify toasts, `session_state.sh`) | merged into `~/.claude/settings.json` `hooks`, plus blank commit/PR attribution |
 
@@ -57,7 +57,7 @@ Do not add a project `CLAUDE.md`. Claude Code reads a repo `AGENTS.md` on its ow
 | Source | Target |
 |--------|--------|
 | `ai/skills/*` | `~/.grok/skills/` |
-| `ai/agents/*` | `~/.grok/agents/` |
+| `ai/agents/*.md` | `~/.grok/agents/` (symlink, or a rendered file for an agent with a `job:`) |
 | `ai/hooks/*` | `~/.grok/hooks/` (`dotfiles.json` registers the scripts; Grok reads only `*.json` there) |
 | `ai/rules/**/*.md` | `~/.grok/rules/<basename>.md` (flattened) |
 | `grok/.grok/pager.toml` | `~/.grok/pager.toml` (symlink) |
@@ -73,7 +73,7 @@ Do not add a project `CLAUDE.md`. Claude Code reads a repo `AGENTS.md` on its ow
 Picking `opencode` stows the OpenCode package, then `install_ai_opencode()` (skipped until `~/.config/opencode` is stowed):
 
 1. `ai/skills/<name>/` → `~/.config/opencode/skills/<name>` (per-directory symlinks in the stowed package's gitignored `skills/`)
-2. `generate-opencode-config.sh` writes `agent` (from `ai/agents/*.md`) and `instructions` (paths of `ai/rules/**/*.md`) into `opencode.json`, and re-applies `.provider` and `.plugins` from `opencode.json.tpl`
+2. `generate-opencode-config.sh` writes `agent` (from `ai/agents/*.md`, with each job agent's model and variant) and `instructions` (paths of `ai/rules/**/*.md`) into `opencode.json`, and re-applies `.provider` and `.plugins` from `opencode.json.tpl`
 
 OpenCode also reads `~/.claude/skills` natively. Same-named skills resolve by precedence to the same files, so the overlap is harmless.
 
@@ -98,6 +98,18 @@ On Omarchy the binary comes from its `~/.local/bin/opencode` mise wrapper. 2.0 i
 Claude models on `amazon-bedrock` declare explicit `low`…`max` variants that send `thinking: {type: adaptive}` plus `output_config.effort` through `additionalModelRequestFields`. The ARN models are not in OpenCode's catalog, so only the declared variants exist. Grok variants use `reasoningConfig` instead; Claude rejects that shape.
 
 `dot update` / `dot install opencode` regenerates the live file. The 2.0 background service cannot watch `~/.config/opencode` because it is a stow symlink, so the installer runs `opencode reload` after regenerating.
+
+## Models per job
+
+`ai/models.yaml` names a model and effort for each job (`plan`, `implement`, `review`, `small`), once per harness. Nothing else in `ai/` names a model:
+
+- An agent sets `job: <name>` in its frontmatter. The Claude and Grok installers render it into a real file with that job's `model` and `effort` instead of a symlink; the OpenCode generator sets `model` and `variant` (the effort, which must be a variant the provider declares). A job with no entry for a harness leaves the agent on the session's model.
+- `wto new -j <job>` starts a session on the job's model for the harness in `$AI_TOOL`; `-m` / `-e` override it. OpenCode takes no per-session model.
+- Skills name jobs (`wtc` picks one per task).
+
+A profile's `models:` block replaces single job + harness entries for that machine (`wsl-work` puts every job on GovCloud Grok 4.7). The installer writes the merged table to `~/.local/state/dotfiles/ai-models.json`, which `wto` reads. After editing either file, run `dot update`: rendered agents do not follow edits to `ai/agents/` until then.
+
+The planner, implementer and reviewer agents carry the plan, implement and review jobs; the `plan-implement-review` skill runs them.
 
 ## Per-env instructions
 
@@ -149,7 +161,7 @@ The `gitea` entry reads host and token from one 1Password item and is for the pe
 
 > **Use the `agent-files` skill.** Source of truth is always `~/.dotfiles/ai/`.
 
-**Agent** — `ai/agents/<name>.md` with frontmatter `name`, `description`, optional `model` / `tools`.
+**Agent** — `ai/agents/<name>.md` with frontmatter `name`, `description`, optional `job` / `tools` / `disallowedTools`. Pin a model through `job:`, not `model:`.
 
 **Skill** — `ai/skills/<name>/SKILL.md`. Slash commands are skills in all three harnesses.
 

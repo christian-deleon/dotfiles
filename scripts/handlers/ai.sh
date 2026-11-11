@@ -55,6 +55,108 @@ link_ai_rules_flat() {
     done < <(find "$src" -name '*.md' -type f -print0 | sort -z)
 }
 
+# ─── Models per job ───────────────────────────────────────────────────────────
+#
+# ai/models.yaml maps each job to a model and effort per harness. The active
+# profile's `models:` block replaces single job+harness entries. The merged
+# table is written as JSON for agent rendering and `wto new -j`.
+
+ai_models_file() {
+    printf '%s\n' "${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles/ai-models.json"
+}
+
+# Write the merged table and print its path. Fails (writing nothing) when
+# ai/models.yaml or the profile block is malformed.
+ai_models_resolve() {
+    local src="$DOTFILES_DIR/ai/models.yaml" out base profile merged
+    out="$(ai_models_file)"
+    [[ -f "$src" ]] || return 1
+    ensure_jq || return 1
+    base="$(_yq_json "$src")" || { warn "Could not parse ai/models.yaml"; return 1; }
+    profile="$(profile_models_json)" || profile='{}'
+    if ! merged="$(jq -cne --argjson b "$base" --argjson p "$profile" '
+        def table: type == "object" and all(.[]; type == "object" and all(.[];
+            type == "object" and (.model | type) == "string"
+            and ((.effort // "") | type) == "string"));
+        if ($b | table) and ($p | table) then
+            reduce ($p | to_entries[]) as $j ($b; .[$j.key] = ((.[$j.key] // {}) + $j.value))
+        else error("bad table") end
+    ')"; then
+        warn "ai/models.yaml or the profile's models: block is malformed — every entry needs a model"
+        return 1
+    fi
+    mkdir -p "$(dirname "$out")"
+    if [[ ! -f "$out" ]] || [[ "$(<"$out")" != "$merged" ]]; then
+        printf '%s\n' "$merged" > "$out"
+    fi
+    printf '%s\n' "$out"
+}
+
+# First line of every agent file rendered below; marks it as ours to replace.
+readonly AI_RENDERED_MARK='# Rendered by the dotfiles installer from ai/agents/'
+
+# $1 agent file. Prints its `job:` value, if any.
+agent_job() {
+    sed -n '1{/^---$/!q};1d;/^---$/q;s/^job:[[:space:]]*//p' "$1" | tr -d "\"'"
+}
+
+# Print agent $1 for harness $2 with its job's model and effort from table $3.
+# A job with no entry for the harness renders without a model (inherit).
+render_agent() {
+    local file="$1" h="$2" table="$3" job name model="" effort="" entry
+    job="$(agent_job "$file")"
+    name="$(basename "$file")"
+    if entry="$(jq -re --arg j "$job" --arg h "$h" \
+        '.[$j][$h] | select(. != null) | "\(.model)|\(.effort // "")"' "$table" 2>/dev/null)"; then
+        IFS='|' read -r model effort <<<"$entry"
+    else
+        warn "Agent ${name%.md}: job '$job' has no $h entry in ai/models.yaml — it inherits the session's model"
+    fi
+    awk -v mark="$AI_RENDERED_MARK$name; edit that file and ai/models.yaml, then run dot update." \
+        -v model="$model" -v effort="$effort" '
+        NR == 1 && $0 == "---" { print; print mark; fm = 1; next }
+        fm && $0 == "---" {
+            if (model != "") printf "model: \"%s\"\n", model
+            if (effort != "") printf "effort: \"%s\"\n", effort
+            print; fm = 0; next
+        }
+        fm && /^(job|model|effort):/ { next }
+        { print }
+    ' "$file"
+}
+
+# Agents without a job are symlinked; agents with one are rendered for harness
+# $1 into $2, since each harness names its models differently.
+install_ai_agents() {
+    local h="$1" dest="$2" src="$DOTFILES_DIR/ai/agents" table="" f name tmp
+    [[ -d "$src" ]] || return 0
+    mkdir -p "$dest"
+    clean_ai_symlinks "$dest"
+    for f in "$dest"/*.md; do
+        [[ -f "$f" && ! -L "$f" ]] || continue
+        if [[ "$(head -n 2 -- "$f" | tail -n 1)" == "$AI_RENDERED_MARK"* ]]; then
+            rm -f -- "$f"
+        fi
+    done
+    for f in "$src"/*.md; do
+        [[ -f "$f" ]] || continue
+        name="$(basename "$f")"
+        if [[ -e "$dest/$name" && ! -L "$dest/$name" ]]; then
+            warn "Path already exists, skipping: $dest/$name"
+            continue
+        fi
+        if [[ -z "$(agent_job "$f")" ]]; then
+            ln -snf "$f" "$dest/$name"
+            continue
+        fi
+        if [[ -z "$table" ]]; then
+            table="$(ai_models_resolve)" || { warn "Skipping job agents for $h"; return 0; }
+        fi
+        tmp="$(mktemp "$dest/.$name.XXXXXX")"
+        render_agent "$f" "$h" "$table" > "$tmp" && chmod 644 "$tmp" && mv -- "$tmp" "$dest/$name"
+    done
+}
+
 # ─── Grok ─────────────────────────────────────────────────────────────────────
 
 # Merge baseline grants from grok/.grok/trusted_folders.toml into the live
@@ -163,7 +265,7 @@ install_ai_grok() {
     info "Installing Grok Build config from ai/..."
 
     link_ai_entries "$ai_dir/skills" "$HOME/.grok/skills"
-    link_ai_entries "$ai_dir/agents" "$HOME/.grok/agents"
+    install_ai_agents grok "$HOME/.grok/agents"
     link_ai_entries "$ai_dir/hooks" "$HOME/.grok/hooks"
     link_ai_rules_flat "$ai_dir/rules" "$HOME/.grok/rules"
 
@@ -212,7 +314,9 @@ install_ai_opencode() {
     fi
 
     if [[ -x "$ai_dir/scripts/generate-opencode-config.sh" ]]; then
-        "$ai_dir/scripts/generate-opencode-config.sh" "$ai_dir" "$oc_dir"
+        local table
+        table="$(ai_models_resolve)" || table=""
+        "$ai_dir/scripts/generate-opencode-config.sh" "$ai_dir" "$oc_dir" "$table"
     fi
     reload_opencode_service
 
@@ -295,7 +399,7 @@ install_ai_claude() {
     mkdir -p "$HOME/.claude"
 
     link_ai_entries "$ai_dir/skills" "$HOME/.claude/skills"
-    link_ai_entries "$ai_dir/agents" "$HOME/.claude/agents"
+    install_ai_agents claude "$HOME/.claude/agents"
     link_ai_rules_flat "$ai_dir/rules" "$HOME/.claude/rules"
     ensure_claude_settings
 

@@ -116,8 +116,8 @@ Missing symlink → `dot update`. Still missing → the harness isn't in the act
 ### Add a new subagent
 
 1. Write `~/.dotfiles/ai/agents/<name>.md` (see [agents.md](agents.md))
-2. Frontmatter: `name:`, `description:`; omit `model` to inherit in every harness
-3. `dot update` — links it for Grok and Claude, regenerates OpenCode agent JSON
+2. Frontmatter: `name:`, `description:`; `job:` to give it a model per harness from `ai/models.yaml`, or neither to inherit
+3. `dot update` — links (or, with a `job:`, renders) it for Grok and Claude, regenerates OpenCode agent JSON
 4. `grok inspect` / Claude `/agents`
 
 ### Add a new MCP server
