@@ -5,7 +5,8 @@
 set -Eeuo pipefail
 shopt -s inherit_errexit nullglob
 
-readonly HARNESSES='claude|grok|opencode'
+# OpenCode's npm build runs as opencode.exe on Linux too.
+readonly HARNESSES='claude|grok|opencode(\\.exe)?'
 
 die() {
     printf 'wto: %s\n' "$*" >&2
@@ -21,6 +22,12 @@ Usage: wto <command> [args]
   here --orchestrator          mark the calling pane as this project's orchestrator
   here --clear [--force]       remove the orchestrator marker
   dir                          print this project's state directory
+  send <branch|--main|--all> [--relay] [--force] [-f file | message...]
+                               deliver a message to another session, with the origin header
+  header [--relay]             print the origin header for this session
+
+Exit codes for send to one target: 4 no session, 5 exited, 6 blocked on a
+question or state unknown (--force sends anyway), 7 launched too recently.
 
 Run inside a worktrunk project. Agent sessions are found by the tmux pane
 options that tav sets (@ai_tool, @ai_wt, @ai_state).
@@ -59,6 +66,7 @@ panes_json() {
     fi
     fmt='#{pane_id}'$'\t''#{pane_pid}'$'\t''#{session_name}:#{window_name}'$'\t''#{@ai_tool}'
     fmt+=$'\t''#{@ai_wt}'$'\t''#{@ai_state}'$'\t''#{@ai_state_at}'$'\t''#{pane_current_path}'
+    fmt+=$'\t''#{@ai_session}'
     pane_pids=$(tmux list-panes -a -F '#{pane_pid}' | paste -sd, -)
     jq -n -c --rawfile panes <(tmux list-panes -a -F "$fmt") \
         --rawfile procs <(harness_procs "$pane_pids") '
@@ -66,7 +74,7 @@ panes_json() {
             | map({key: .[0], value: {tool: .[1], args: .[2]}}) | from_entries) as $by_pid
         | $panes | split("\n") | map(select(length > 0) | split("\t")
             | {pane: .[0], pid: .[1], window: .[2], tag_tool: .[3], tag_wt: .[4],
-               state: .[5], state_at: .[6], cwd: .[7]}
+               state: .[5], state_at: .[6], cwd: .[7], oc_session: (.[8] // "")}
             | . + {proc: $by_pid[.pid]})
         | map(select(.tag_tool != "" or .proc != null))'
 }
@@ -84,7 +92,7 @@ harness_procs() {
                 if (comm[pid] !~ re) continue
                 cur = pid
                 for (depth = 0; depth < 8 && cur != "" && cur != "1"; depth++) {
-                    if (cur in pane) { print cur "\t" comm[pid] "\t" args[pid]; break }
+                    if (cur in pane) { name = comm[pid]; sub(/\.exe$/, "", name); print cur "\t" name "\t" args[pid]; break }
                     cur = ppid[cur]
                 }
             }
@@ -129,6 +137,8 @@ roster_json() {
                           elif $pane.proc != null then "unknown" else "exited" end),
                   state_age: (if ($pane.state_at | test("^[0-9]+$")) then $now - ($pane.state_at | tonumber) else null end),
                   auto_approve: auto($pane.proc.args),
+                  running: ($pane.proc != null),
+                  opencode_session: (if $pane.oc_session != "" then $pane.oc_session else null end),
                   tagged: ($pane.tag_tool != "")
               } end)
             })'
@@ -249,6 +259,132 @@ cmd_here() {
     esac
 }
 
+caller_header() {
+    local relay=$1 common project branch role=session kind='agent notice' marker
+    common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) \
+        || die "not inside a git repository"
+    project=$(basename "$(dirname "$common")")
+    branch=$(git branch --show-current 2>/dev/null) || branch=""
+    [[ -n $branch ]] || branch=$(basename "$(git rev-parse --show-toplevel)")
+    marker=$common/orchestrate/orchestrator.json
+    if [[ -n ${TMUX_PANE-} ]] && marker_valid "$marker" && [[ $(jq -r .pane "$marker") == "$TMUX_PANE" ]]; then
+        role=orchestrator
+    fi
+    ((relay)) && kind="relaying the user's words"
+    printf '[session message · from %s/%s (%s) · %s]\n' "$project" "$branch" "$role" "$kind"
+}
+
+cmd_header() {
+    local relay=0
+    while (($#)); do
+        case $1 in
+            --relay) relay=1 ;;
+            -h | --help) usage; return ;;
+            *) die "header: unknown option '$1'" ;;
+        esac
+        shift
+    done
+    caller_header "$relay"
+}
+
+# Deliver one message to one roster entry. Returns the documented exit code.
+deliver() {
+    local entry=$1 body_file=$2 force=$3 branch pane tool state age running oc_session path buf
+    branch=$(jq -r '.branch // "(detached)"' <<<"$entry")
+    if [[ $(jq -r '.session == null' <<<"$entry") == true ]]; then
+        printf '%s: no session\n' "$branch"
+        return 4
+    fi
+    # \x1f, not a tab: read collapses runs of whitespace separators, which
+    # would shift every field after an empty one.
+    IFS=$'\x1f' read -r pane tool state age running oc_session path < <(jq -r '[.session.pane, .session.tool,
+        .session.state, (.session.state_age // -1), .session.running, (.session.opencode_session // ""), .path]
+        | map(tostring) | join("\u001f")' <<<"$entry")
+    if [[ $pane == "${TMUX_PANE-}" ]]; then
+        printf '%s: is this session, skipped\n' "$branch"
+        return 4
+    fi
+    if [[ $state == exited || $running != true ]]; then
+        printf '%s: session has exited\n' "$branch"
+        return 5
+    fi
+    if [[ $state == blocked ]] || { [[ $state == unknown ]] && ((!force)); }; then
+        printf '%s: %s; not sent%s\n' "$branch" \
+            "$([[ $state == blocked ]] && echo 'waiting on a question' || echo 'state unknown (session predates pane tags)')" \
+            "$([[ $state == unknown ]] && echo ', reopen it with wta or pass --force')"
+        return 6
+    fi
+    if [[ $state == starting ]] && ((age >= 0 && age < 15)); then
+        printf '%s: launched %ss ago; retry shortly\n' "$branch" "$age"
+        return 7
+    fi
+
+    if [[ $tool == opencode && -n $oc_session ]]; then
+        (cd -- "$path" && opencode api session.prompt --param "sessionID=$oc_session" \
+            --data "$(jq -n -c --rawfile text "$body_file" '{text: $text, delivery: "queue"}')") >/dev/null \
+            || { printf '%s: opencode delivery failed\n' "$branch"; return 1; }
+    else
+        buf="wto-$$-${RANDOM}"
+        tmux load-buffer -b "$buf" "$body_file"
+        tmux paste-buffer -d -p -b "$buf" -t "$pane"
+        sleep 0.8
+        tmux send-keys -t "$pane" Enter
+    fi
+    printf '%s: sent (%s, %s)\n' "$branch" "$tool" "$state"
+}
+
+cmd_send() {
+    local target="" relay=0 force=0 file="" roster body_file body rc=0 code entry
+    local -a words=() entries=()
+    while (($#)); do
+        case $1 in
+            --main | --all) target=$1 ;;
+            --relay) relay=1 ;;
+            --force) force=1 ;;
+            -f) file=${2:?send: -f needs a file}; shift ;;
+            -h | --help) usage; return ;;
+            --) shift; words+=("$@"); break ;;
+            -*) die "send: unknown option '$1'" ;;
+            *) if [[ -z $target ]]; then target=$1; else words+=("$1"); fi ;;
+        esac
+        shift
+    done
+    [[ -n $target ]] || die "send: name a branch, --main or --all"
+
+    body_file=$(mktemp)
+    # shellcheck disable=SC2064  # expand now: body_file is local, the trap runs at exit
+    trap "rm -f -- $(printf '%q' "$body_file")" EXIT
+    caller_header "$relay" >"$body_file"
+    if [[ -n $file ]]; then
+        cat -- "$file" >>"$body_file"
+    elif ((${#words[@]})); then
+        printf '%s\n' "${words[*]}" >>"$body_file"
+    elif [[ ! -t 0 ]]; then
+        cat >>"$body_file"
+    else
+        die "send: no message (pass words, -f file, or stdin)"
+    fi
+    # Pasted text must not end in a newline, or a TUI may submit early.
+    body=$(<"$body_file")
+    printf '%s' "$body" >"$body_file"
+
+    roster=$(roster_json)
+    case $target in
+        --main) mapfile -t entries < <(jq -c '.[] | select(.main)' <<<"$roster") ;;
+        --all) mapfile -t entries < <(jq -c --arg self "$(git rev-parse --show-toplevel)" \
+            '.[] | select(.path != $self and .session != null)' <<<"$roster") ;;
+        *) mapfile -t entries < <(jq -c --arg b "$target" '.[] | select(.branch == $b)' <<<"$roster") ;;
+    esac
+    ((${#entries[@]})) || die "send: no worktree for '$target'"
+
+    for entry in "${entries[@]}"; do
+        code=0
+        deliver "$entry" "$body_file" "$force" || code=$?
+        ((code == 0)) || rc=$code
+    done
+    return "$rc"
+}
+
 main() {
     local cmd=${1:-}
     (($#)) && shift
@@ -256,6 +392,8 @@ main() {
         ls) require wt jq git; cmd_ls "$@" ;;
         here) require wt jq git tmux; cmd_here "$@" ;;
         dir) require git; state_dir ;;
+        send) require wt jq git tmux; cmd_send "$@" ;;
+        header) require jq git; cmd_header "$@" ;;
         '' | -h | --help | help) usage ;;
         *) die "unknown command '$cmd' (see wto --help)" ;;
     esac

@@ -571,12 +571,15 @@ An executable in `bin/` (linked to `~/.local/bin/wto` by the installer and `dot 
 | `wto here --orchestrator` | Record the calling pane as the orchestrator. Main worktree only; exits 3 if another live pane holds it. |
 | `wto here --clear [--force]` | Remove the marker. |
 | `wto dir` | Print the project's state directory, `<git-common-dir>/orchestrate/` (never committed, shared by every worktree). |
+| `wto send <branch\|--main\|--all> [--relay] [--force] [-f file \| message...]` | Deliver a message to another session (stdin works too), prefixed with the origin header from `wto header`. OpenCode sessions get it through the OpenCode server (`session.prompt`, queued behind a running turn); others get a bracketed paste plus Enter in the AI pane. Refuses, with nothing typed, a session that is blocked on a question (exit 6), has exited (5), has unknown state (6, unless `--force`), or launched under 15 seconds ago (7); exit 4 means no session. |
+| `wto header [--relay]` | Print `[session message · from <project>/<branch> (<orchestrator\|session>) · agent notice]` (or `relaying the user's words`), for a message sent through a harness's own session messaging. `ai/rules/common/session-messages.md` tells every session how to read it. |
 
 Sessions are found by the pane tags `tav` sets. A session opened before those tags existed shows state `unknown`, found by its harness process; reopen it with `wta` to tag it.
 
 ```bash
 wto ls                  # who is working, idle, blocked on a question, or exited
 wto ls --json | jq '.[] | select(.behind > 0) | .branch'
+wto send --all 'main moved: v1.4.0 is released; rebase when you reach a stopping point'
 ```
 
 ---

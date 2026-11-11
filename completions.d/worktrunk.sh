@@ -8,6 +8,6 @@ complete -F _comp_wt wta ws wsr
 
 # internal: complete wto subcommands
 function _comp_wto() {
-    (( COMP_CWORD == 1 )) && _comp_reply "ls here dir"
+    (( COMP_CWORD == 1 )) && _comp_reply "ls here dir send header"
 }
 complete -F _comp_wto wto

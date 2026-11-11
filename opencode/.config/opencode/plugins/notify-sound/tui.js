@@ -15,6 +15,17 @@ function shownHere(context, sessionID) {
   return context.ui.tabs.enabled() && context.ui.tabs.list().some((tab) => tab.sessionID === sessionID)
 }
 
+// `wto send` posts into an OpenCode session through the server, so it needs
+// to know which session this pane shows.
+let lastSession
+function recordSession(sessionID) {
+  const pane = process.env.TMUX_PANE
+  if (!pane || sessionID === lastSession) return
+  lastSession = sessionID
+  const child = spawn("tmux", ["set-option", "-p", "-t", pane, "@ai_session", sessionID], { stdio: "ignore" })
+  child.on("error", () => {})
+}
+
 function run(script, args, payload) {
   const child = spawn(`${HOOKS}/${script}`, args, { stdio: ["pipe", "ignore", "ignore"] })
   child.on("error", () => {})
@@ -33,6 +44,7 @@ export default Plugin.define({
         const root = context.data.session.root(sessionID)
         if (onlyRoot && root !== sessionID) return
         if (!shownHere(context, root)) return
+        recordSession(root)
         act(event)
       })
     const state = (value) => () => run("session_state.sh", [value], {})
@@ -40,6 +52,9 @@ export default Plugin.define({
       run("session_state.sh", ["idle"], {})
       run("stop_notify.sh", [], { cwd: event.location?.directory ?? process.cwd() })
     }
+
+    // The TUI has loaded and waits for input; no event marks that.
+    run("session_state.sh", ["idle"], {})
 
     const offs = [
       on("session.execution.started", true, state("working")),
