@@ -1351,11 +1351,11 @@ cmd_new() {
     [[ -n $wt_path ]] || die "new: worktree for '$branch' not found after create"
 
     if [[ -n $model || -n $effort ]]; then
-        launch_save "$wt_path" "$model" "$effort" || die "new: could not save model/effort for '$branch'"
         case ${AI_TOOL%% *} in
             oc | oca | opencode)
                 printf 'wto: OpenCode takes no per-session model or effort; it starts on its configured default\n' >&2
                 ;;
+            *) launch_save "$wt_path" "$model" "$effort" || die "new: could not save model/effort for '$branch'" ;;
         esac
     fi
     pf=$(prompt_arg "$text" "$file")
