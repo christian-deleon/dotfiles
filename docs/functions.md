@@ -573,6 +573,15 @@ An executable in `bin/` (linked to `~/.local/bin/wto` by the installer and `dot 
 | `wto dir` | Print the project's state directory, `<git-common-dir>/orchestrate/` (never committed, shared by every worktree). |
 | `wto send <branch\|--main\|--all> [--relay] [--force] [-f file \| message...]` | Deliver a message to another session (stdin works too), prefixed with the origin header from `wto header`. OpenCode sessions get it through the OpenCode server (`session.prompt`, queued behind a running turn); others get a bracketed paste plus Enter in the AI pane. Refuses, with nothing typed, a session that is blocked on a question (exit 6), has exited (5), has unknown state (6, unless `--force`), or launched under 15 seconds ago (7); exit 4 means no session. |
 | `wto header [--relay]` | Print `[session message · from <project>/<branch> (<orchestrator\|session>) · agent notice]` (or `relaying the user's words`), for a message sent through a harness's own session messaging. `ai/rules/common/session-messages.md` tells every session how to read it. |
+| `wto claim define [<resource>...]` | Set the names claims may use for this project (or print them). Once set, a misspelled name is rejected instead of creating a resource nobody else checks. |
+| `wto claim take <resource>... [--note text]` | Take every named resource at once, or join the queue (exit 2). A request queues behind any earlier waiter that wants one of the same resources, so a request for several cannot starve. |
+| `wto claim free [<resource>...\|--all] [--force]` | Free claims and hand them to the next waiter whose whole request is now free; prints who was granted, so the freeing session can tell them. `--all` also leaves the queue. Freeing another worktree's claim needs `--force` and is logged. |
+| `wto claim check <resource>...` | Exit 0 only if this worktree holds all of them; reads without waiting on the lock, so a deploy entry point can gate on it. Also acknowledges a pending grant. |
+| `wto claim wait [--timeout secs]` | Wait (default 60s) for this worktree's queued request; exit 2 if still waiting. |
+| `wto claim status [--json]`, `wto claim gc` | Show holders and the queue; drop claims of removed worktrees and hand over. |
+| `wto close <branch>` | Close a finished session from another worktree: kills its tmux window, frees its claims, and runs `wt remove --foreground --yes`. Refuses the main worktree, the calling worktree, uncommitted changes, and a branch `wt list` does not report as integrated or empty. |
+
+Claims belong to a worktree, not a process, so they survive a restart or a night with the machine off. All changes happen under a lock file (`flock`, or a `mkdir` lock where `flock` is missing); a lock busy for 5 seconds exits 75. Waiters without a live agent session keep their place but are skipped. The worktrunk user config runs `wto claim gc` after every `wt remove`, so `wrf` and `wt merge` free claims too.
 
 Sessions are found by the pane tags `tav` sets. A session opened before those tags existed shows state `unknown`, found by its harness process; reopen it with `wta` to tag it.
 
@@ -580,6 +589,7 @@ Sessions are found by the pane tags `tav` sets. A session opened before those ta
 wto ls                  # who is working, idle, blocked on a question, or exited
 wto ls --json | jq '.[] | select(.behind > 0) | .branch'
 wto send --all 'main moved: v1.4.0 is released; rebase when you reach a stopping point'
+wto claim take deploy/api --note 'testing the login fix'   # then: wto claim free --all
 ```
 
 ---
