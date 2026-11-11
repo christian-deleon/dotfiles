@@ -23,7 +23,8 @@ can still produce the proposal, but only the orchestrator dispatches.
 
 ## 1. Find the tracker
 
-Use the `issue` skill's steps 1–2 to find the forge and the tool. The profile's
+Read the project profile with `wto profile`. Use the `issue` skill's steps 1–2
+to find the forge and the tool. The profile's
 `Issues:` line says where issues live when that differs from the git remote, and
 its `priority:` part says what marks priority.
 

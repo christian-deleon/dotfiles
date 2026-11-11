@@ -1,8 +1,8 @@
 # Orchestration moments
 
 A project tailors orchestration by writing instructions for these moments under
-`### Orchestration moments` in its `## Project profile` (see the `onboard`
-skill). Project text replaces the default for that moment, or adds to it when it
+`## Orchestration moments` in its project profile (`wto profile`; see the
+`onboard` skill). Project text replaces the default for that moment, or adds to it when it
 says so. A moment with no project text uses the default below.
 
 | Moment | When | Default |

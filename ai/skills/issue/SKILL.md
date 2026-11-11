@@ -122,9 +122,8 @@ the issue was written, in the same style as its template's "What we know" or "No
 
 ## 6. Show the draft and wait — unless the project says direct
 
-Whether the user reviews drafts depends on the project. Read the `## Project
-profile` section of the project's `AGENTS.md` (it is in your context when
-present):
+Whether the user reviews drafts depends on the project. Read its project
+profile with `wto profile` (exit 1 means there is none):
 
 | Profile | Do |
 |---|---|
