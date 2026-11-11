@@ -132,7 +132,7 @@ Missing symlink → `dot update`. Still missing → the harness isn't in the act
 
 1. Write `~/.dotfiles/ai/hooks/<event>_<purpose>.sh` (see [hooks.md](hooks.md))
 2. `bash -n` / `shellcheck`
-3. Register it for Claude (`ensure_claude_settings`) and OpenCode (plugin) if they should run it; Grok picks it up by filename
+3. Register it for Grok (`ai/hooks/dotfiles.json`), Claude (`ensure_claude_settings`) and OpenCode (plugin) as needed
 4. `dot update`
 5. `/hooks` in each harness; trigger the event
 
@@ -156,7 +156,7 @@ For this skill itself, scope as `feat(ai)` or `docs(ai)`.
 | Agent missing in Grok | Filename / `name:` mismatch | Make them match |
 | MCP missing after regen | 1Password not signed in, or hash cache stuck | `op signin`; `FORCE_MCP_REGEN=true` / `dot mcp-regen` |
 | `opencode.json` looks empty | `generate-opencode-config.sh` failed | `bash -x` the script |
-| Grok hook not firing | Filename doesn't start with the event; or script reads snake_case only | Rename; read `.toolInput` / `.hookEventName` |
+| Grok hook not firing | No entry in `ai/hooks/dotfiles.json`; or script reads snake_case only | Add the entry; read `.toolInput` / `.hookEventName` |
 | Hook fires in Grok only | Not registered for Claude / OpenCode | Add to `ensure_claude_settings` / an OpenCode plugin |
 | Symlink points to nothing | Source deleted | `dot update` (`clean_ai_symlinks` runs first) |
 

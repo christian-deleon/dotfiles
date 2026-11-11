@@ -6,11 +6,11 @@ The most common AI failure mode is treating hooks as one cross-harness concept. 
 
 | Harness | Hook mechanism | This repo |
 |---|---|---|
-| **Grok Build** | Filename auto-register, JSON `hooks.json`, or TOML in `config.toml` | `install_ai_grok` links `ai/hooks/*` → `~/.grok/hooks/`; the event-prefixed filename registers it |
+| **Grok Build** | JSON files in `~/.grok/hooks/*.json`, or TOML in `config.toml` | `install_ai_grok` links `ai/hooks/*` → `~/.grok/hooks/`; `ai/hooks/dotfiles.json` registers the scripts |
 | **OpenCode** | **No hooks** — TypeScript plugins | `opencode/.config/opencode/plugins/notify-sound/tui.js` calls `stop_notify.sh` |
 | **Claude Code** | `hooks` in `~/.claude/settings.json` | `ensure_claude_settings` merges `stop_notify.sh`, `notification_notify.sh`, `user_prompt_submit_clear.sh` |
 
-Scripts live once in `ai/hooks/` (`stop_notify.sh`, `notification_notify.sh`, `user_prompt_submit_clear.sh`, `notify_common.sh`). **Adding a hook means registering it for each harness that should run it** — a new file in `ai/hooks/` reaches Grok automatically, Claude only after it's added to `ensure_claude_settings`, OpenCode only through a plugin.
+Scripts live once in `ai/hooks/` (`stop_notify.sh`, `notification_notify.sh`, `user_prompt_submit_clear.sh`, `notify_common.sh`). **Adding a hook means registering it for each harness that should run it** — Grok through an entry in `ai/hooks/dotfiles.json`, Claude through `ensure_claude_settings`, OpenCode only through a plugin. A script file alone registers nothing anywhere.
 
 Grok's payload is camelCase and Claude's is snake_case. A script shared by both must read only fields spelled the same in both (e.g. `cwd`), or read both spellings.
 
@@ -38,17 +38,17 @@ Grok's payload is camelCase and Claude's is snake_case. A script shared by both 
 
 Project hooks are silent until the folder is trusted. `--trust` / `/hooks-trust` grants MCP, LSP, **and** hooks together.
 
-## Grok filename auto-register
+## Grok registration (`ai/hooks/dotfiles.json`)
 
-```
-ai/hooks/
-├── pre_tool_use_bash_safety.sh    # PreToolUse
-├── stop_notify.sh                 # Stop
-├── notification_notify.sh         # Notification
-└── user_prompt_submit_clear.sh    # UserPromptSubmit
+Grok reads only `*.json` files in `~/.grok/hooks/`; a script there is not a hook by itself. `ai/hooks/dotfiles.json` is linked alongside the scripts and names them by bare filename, which Grok resolves beside the JSON file:
+
+```json
+{ "hooks": { "Stop": [{ "hooks": [{ "type": "command", "command": "stop_notify.sh", "timeout": 10 }] }] } }
 ```
 
-After `dot update` (or `dot install grok`), they appear at `~/.grok/hooks/`. Verify with `grok inspect` and the `/hooks` modal.
+Other tools may drop their own JSON in `~/.grok/hooks/`; leave those alone. Verify with `grok inspect` (Hooks section, source `user`) and the `/hooks` modal.
+
+Grok also fires `Stop` at session end with `reason` `channel_closed` or `shutdown`; `stop_notify.sh` toasts only when `reason` is empty (Claude) or `end_turn`.
 
 ## Events
 
@@ -90,7 +90,7 @@ Grok maps Claude-shaped names so migrated matchers still fire:
 
 A matcher keeps its original name too, so `Bash` matches both. MCP tools appear as `server__tool` (e.g. `linear__save_issue`), not the dispatcher name.
 
-For finish-thinking chimes, matcher `idle_prompt` on `Notification`. `permission_prompt` fires only when a permission UI is waiting. This repo's `notification_notify.sh` exits immediately under Grok because Grok also fires Notification on every turn-end (double-toast with Stop).
+For finish-thinking chimes, matcher `idle_prompt` on `Notification`. `permission_prompt` fires only when a permission UI is waiting, which is the only Notification type `dotfiles.json` registers.
 
 ## Stdin (camelCase)
 
@@ -180,7 +180,7 @@ Read **both** camelCase and snake_case when the script runs under Grok and Claud
 
 ## Claude Code registration
 
-`ensure_claude_settings` (run by `install_ai_claude`) merges three command hooks into `~/.claude/settings.json`: `Stop` → `stop_notify.sh`, `Notification` (matcher `permission_prompt|elicitation_dialog`) → `notification_notify.sh`, `UserPromptSubmit` → `user_prompt_submit_clear.sh`. The command path is the script in `ai/hooks/`. The matcher skips `idle_prompt`, which would repeat the Stop toast about a minute after each turn. Re-running the installer replaces a stale entry for the same `command` instead of adding a second one. To register another script for Claude, add an `ensure_hook` line there. `notification_notify.sh` exits immediately when the parent process is Grok, because Grok also fires Notification on every turn end.
+`ensure_claude_settings` (run by `install_ai_claude`) merges three command hooks into `~/.claude/settings.json`: `Stop` → `stop_notify.sh`, `Notification` (matcher `permission_prompt|elicitation_dialog`) → `notification_notify.sh`, `UserPromptSubmit` → `user_prompt_submit_clear.sh`. The command path is the script in `ai/hooks/`. The matcher skips `idle_prompt`, which would repeat the Stop toast about a minute after each turn. Re-running the installer replaces a stale entry for the same `command` instead of adding a second one. To register another script for Claude, add an `ensure_hook` line there.
 
 ## OpenCode — plugins, not hooks
 

@@ -11,7 +11,7 @@ ai/
 ├── skills/              # Shared skills (each dir has SKILL.md + optional companions)
 ├── rules/
 │   └── common/          # Always-on rules (flattened per harness)
-├── hooks/               # Hook scripts shared by the harnesses (filename prefix = event)
+├── hooks/               # Hook scripts shared by the harnesses, plus Grok's dotfiles.json
 ├── mcp-servers.json.tpl # MCP roster (1Password op:// secrets)
 ├── playwright-mcp.config.json
 └── scripts/
@@ -58,7 +58,7 @@ Do not add a project `CLAUDE.md`. Claude Code reads a repo `AGENTS.md` on its ow
 |--------|--------|
 | `ai/skills/*` | `~/.grok/skills/` |
 | `ai/agents/*` | `~/.grok/agents/` |
-| `ai/hooks/*` | `~/.grok/hooks/` (Grok registers each by its filename prefix) |
+| `ai/hooks/*` | `~/.grok/hooks/` (`dotfiles.json` registers the scripts; Grok reads only `*.json` there) |
 | `ai/rules/**/*.md` | `~/.grok/rules/<basename>.md` (flattened) |
 | `grok/.grok/pager.toml` | `~/.grok/pager.toml` (symlink) |
 | `grok/.grok/config.toml` | seed `~/.grok/config.toml` **only if missing** (Grok mutates the live file) |
@@ -135,7 +135,7 @@ The `gitea` entry reads host and token from one 1Password item and is for the pe
 
 **Rule** — `ai/rules/<category>/<name>.md` (always-on). Basenames must be unique: rules are flattened.
 
-**Hook** — `ai/hooks/<event>_<name>.sh`. Grok registers it by filename; Claude needs an entry in `ensure_claude_settings`; OpenCode needs a plugin.
+**Hook** — `ai/hooks/<event>_<name>.sh`. Grok needs an entry in `ai/hooks/dotfiles.json`; Claude needs an entry in `ensure_claude_settings`; OpenCode needs a plugin.
 
 ## Applying Changes
 
