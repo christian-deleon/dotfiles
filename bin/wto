@@ -23,6 +23,7 @@ Usage: wto <command> [args]
   here --orchestrator          mark the calling pane as this project's orchestrator
   here --clear [--force]       remove the orchestrator marker
   dir                          print this project's state directory
+  profile [--path]             print the project profile (exit 1 if there is none)
   send <branch|--main|--all> [--relay] [--force] [-f file | message...]
                                deliver a message to another session, with the origin header
   header [--relay]             print the origin header for this session
@@ -781,6 +782,55 @@ cmd_claim() {
     esac
 }
 
+# ── profile ───────────────────────────────────────────────────────────────────
+# The project profile /onboard writes: .agents/profile.md in the repo, or
+# profile.md beside the overlay AGENTS.md that `dot agent link` symlinks in.
+# Kept out of AGENTS.md so sessions load it only when a skill needs it.
+
+profile_path() {
+    local top target
+    top=$(git rev-parse --show-toplevel 2>/dev/null) || die "not inside a git repository"
+    if [[ -f $top/.agents/profile.md ]]; then
+        printf '%s\n' "$top/.agents/profile.md"
+        return 0
+    fi
+    if [[ -L $top/AGENTS.md ]]; then
+        target=$(readlink -f -- "$top/AGENTS.md") || return 1
+        [[ -f ${target%/*}/profile.md ]] && { printf '%s\n' "${target%/*}/profile.md"; return 0; }
+    fi
+    return 1
+}
+
+# A profile still kept as a section of AGENTS.md, from before it had a file.
+legacy_profile() {
+    local top section
+    top=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
+    [[ -f $top/AGENTS.md ]] || return 1
+    section=$(awk '/^## Project profile[[:space:]]*$/ { on = 1; print; next }
+        on && /^## / { exit }
+        on { print }' "$top/AGENTS.md")
+    [[ -n $section ]] || return 1
+    printf '%s\n' "$section"
+}
+
+cmd_profile() {
+    local path
+    case ${1:-} in
+        --path) profile_path || exit 1 ;;
+        '')
+            if path=$(profile_path); then
+                cat -- "$path"
+            elif legacy_profile; then
+                printf 'wto: this profile is a section of AGENTS.md; /onboard moves it into its own file\n' >&2
+            else
+                exit 1
+            fi
+            ;;
+        -h | --help) usage ;;
+        *) die "profile: unknown option '$1'" ;;
+    esac
+}
+
 # ── launch: worktree windows and the agent layout ─────────────────────────────
 # wtc, wta, wtaa, tav and tavk in functions.d are thin wrappers over new, open
 # and layout, so agents and people run the same code.
@@ -1486,6 +1536,7 @@ main() {
         ls) require wt jq git; cmd_ls "$@" ;;
         here) require wt jq git tmux; cmd_here "$@" ;;
         dir) require git; state_dir ;;
+        profile) require git; cmd_profile "$@" ;;
         send) require wt jq git tmux; cmd_send "$@" ;;
         header) require jq git; cmd_header "$@" ;;
         claim) require wt jq git; cmd_claim "$@" ;;
