@@ -97,7 +97,14 @@ Each child gets a self-contained prompt with **no** access to this conversation:
 - Merged commits already on the base branch that the child must not redo: <sha and subject>. Do not re-implement that work.
 
 ## Do not
-- Do not commit or push unless the owner asks.
+- Do not push, merge, or open a merge request unless the owner asks. Commit as
+  you go in logical groups.
+
+## Coordination
+- If `wto here` succeeds, an orchestrator session runs in the main worktree. It
+  may message you (rebase notices, pause, status requests). Send unrelated work
+  to it with /spinoff, and take a `wto claim` before using a shared resource the
+  project names.
 
 ## Done when
 <acceptance check — what "fixed" looks like>
@@ -177,6 +184,13 @@ branch / worktree.
 
 Exceptions — only when the user **explicitly** asks this session to: resume the
 child's task, check that agent, merge that branch, or re-own the issue.
+
+An orchestrator session (`/orchestrate`) is the standing exception: it keeps a
+roster of the sessions it started and sends them notices, but it still never
+does, re-debugs, or re-verifies their work.
+
+Reopening a dormant worktree's window is `wtc -n <existing-branch>` (it continues
+that session's conversation); it needs the same approval as a new spawn.
 
 Spawning is a clean cut: full `-p` handoff goes out; accountability does not stay
 behind as dual ownership.
