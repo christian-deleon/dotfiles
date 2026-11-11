@@ -68,8 +68,8 @@ One batch of questions, each with your best guess as the first option:
 - Kind: personal, work, or public. A self-hosted remote does not tell you which.
 - Whether direct merges to main are allowed, if nothing documents it.
 - The session cap.
-- A default model or limits for spawned sessions (for example "never below
-  opus"), or none to use the `wtc` skill's table.
+- Limits on the jobs spawned sessions get (for example "never the small
+  job"), or none to use the `wtc` skill's table.
 - Which shared resources need claims, and whether to gate them.
 - How the project's main-only and work-producing skills should hook in, when it
   is not obvious.
@@ -85,7 +85,7 @@ The profile block:
 - Merge to main: direct | review-required (<how: e.g. the merge-request skill>)
 - Issues: <where they live>; priority: <what marks it>
 - Session cap: <n>
-- Models: <default and limits | the wtc skill's table>
+- Models: <job limits | the wtc skill's table>
 - Shared resources: <names>; gate: <entry point | none>
 - Main-only skills: <names>; work-producing skills: <names>
 - Branch naming: <pattern>

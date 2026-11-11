@@ -22,11 +22,11 @@ ran `/wtc`, said "wtc that", "spawn a fix agent", "open a worktree for this",
 2. **Run** `wto new` in the shell tool — do not paste a `/wtc …` or shell command
    for the user to re-run. They already approved; you spawn.
 3. Pass a full self-contained handoff (Task / Context / Done when) with `-f`, and
-   the model and effort the skill picks. Never pass `--switch`; agent spawns must
+   the job the skill picks. Never pass `--switch`; agent spawns must
    not steal focus.
 
 ```bash
-wto new -m opus -e xhigh -f "$handoff" '<branch>'
+wto new -j implement -f "$handoff" '<branch>'
 ```
 
 The user may also run `/wtc` or shell `wtc` themselves at any time.

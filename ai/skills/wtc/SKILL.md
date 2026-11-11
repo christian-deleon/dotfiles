@@ -1,6 +1,6 @@
 ---
 name: wtc
-description: Spawn sibling tmux+worktree agent(s) with `wto new` when the user explicitly approves (slash /wtc, "wtc that", "spawn a fix agent", "one for each", …). When this skill runs, spawn yourself — never tell the user a /wtc or shell command to re-run. Builds a full handoff and picks the model and effort. Without approval, only suggest /wtc lines.
+description: Spawn sibling tmux+worktree agent(s) with `wto new` when the user explicitly approves (slash /wtc, "wtc that", "spawn a fix agent", "one for each", …). When this skill runs, spawn yourself — never tell the user a /wtc or shell command to re-run. Builds a full handoff and picks the job (model and effort). Without approval, only suggest /wtc lines.
 argument-hint: "[branch] [message…] | each: … | (empty = from context)"
 user-invocable: true
 ---
@@ -106,6 +106,11 @@ Each child gets a self-contained prompt with **no** access to this conversation:
   ready, deploys and merges only on the owner's relayed go, rebase notices,
   /spinoff for unrelated work, and `wto claim` for shared resources.
 
+## How to work
+- <risky row only> Plan first with the `planner` subagent, then implement.
+- Before calling it done, have the `reviewer` subagent check the diff. The
+  `plan-implement-review` skill covers both.
+
 ## Done when
 <acceptance check — what "fixed" looks like>
 ```
@@ -135,30 +140,32 @@ handoff=$(mktemp)
 cat >"$handoff" <<'EOF'
 <full child prompt>
 EOF
-wto new -m opus -e xhigh -f "$handoff" '<branch>'
+wto new -j implement -f "$handoff" '<branch>'
 rm -f "$handoff"
 ```
 
 **Multi** — one `wto new` per item, each with its own branch and handoff file:
 
 ```bash
-wto new -m sonnet -e medium -f "$handoff_one" 'fix/slug-one'
-wto new -m opus -e xhigh -f "$handoff_two" 'fix/slug-two'
+wto new -j small -f "$handoff_one" 'fix/slug-one'
+wto new -j implement -f "$handoff_two" 'fix/slug-two'
 # …
 ```
 
-**Model and effort.** Pick them from the task as described; do not read code to
-decide. A model the user names wins, and the project profile's `Models:` line
-(`wto profile`, when present) sets the project's default and limits.
+**Job.** Pick it from the task as described; do not read code to decide.
+`wto new -j <job>` takes the job's model and effort for the harness in
+`$AI_TOOL`. A model the user names wins: pass it with `-m` (and `-e`), which
+override the job. The project profile's `Models:` line (`wto profile`, when
+present) can rule a job out or name a model.
 
-| The task as described | Claude Code | Grok |
+| The task as described | Job | Handoff |
 |---|---|---|
-| Small and fully specified: a known error with an obvious cause, a rename, a config change | `-m sonnet -e medium` | `-m grok-4.7-build-fast` |
-| An ordinary bug or feature where "done" is clear | `-m opus -e xhigh` | `-m grok-4.7` |
-| Unknown cause, several parts of the system, or risky (migrations, concurrency, security) | `-m fable -e xhigh` | `-m grok-4.7` |
+| Small and fully specified: a known error with an obvious cause, a rename, a config change | `-j small` | |
+| An ordinary bug or feature where "done" is clear | `-j implement` | |
+| Unknown cause, several parts of the system, or risky (migrations, concurrency, security) | `-j implement` | Plan first with the `planner` |
 
-The harness is the first word of `$AI_TOOL`. OpenCode takes neither flag; leave
-them off and say it runs on its configured default. `wto new` saves the choice
+OpenCode sessions start on their configured default whatever the job; say so.
+Its subagents still run on their own jobs' models. `wto new` saves the choice
 for the worktree, so a reopened session keeps it.
 
 Notes:
@@ -174,7 +181,7 @@ Only after `wto new` has succeeded (or failed) in the shell, briefly list each s
 - Branch and worktree path
 - Tmux `session:window` (created; focus stayed put)
 - One-line task summary (not a full re-dump of `-p`)
-- Model and effort, with a few words on why
+- The job, with a few words on why
 
 Then stop. Do not end with "run this" / "try `/wtc …`" / a copy-paste shell
 block — the work is done. The user switches when ready (`wta <branch>`, tmux
