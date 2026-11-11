@@ -36,7 +36,7 @@ Stop and tell the user at the first one that fails:
 
 ## 2. Merge, if the project allows it
 
-Read `Merge to main:` in the `## Project profile` section of `AGENTS.md`:
+Read `Merge to main:` in the project profile (`wto profile`):
 
 | Profile | Do |
 |---|---|

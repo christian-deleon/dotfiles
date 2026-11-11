@@ -12,9 +12,10 @@ The user's skills are generic: `/issue`, `/closeout`, `/orchestrate`, `/backlog`
 and the rest behave the same in every project until a project says otherwise.
 `/onboard` studies one project and writes down what is different about it: who
 reads its issues, whether work may land on main directly, what its sessions must
-not collide on, which of its own skills fit into orchestration. The result is a
-`## Project profile` section in the project's agent instructions, which every
-session then has in context, plus any project-side additions the user approves.
+not collide on, which of its own skills fit into orchestration. The result is the
+project profile, a file of its own that the skills read with `wto profile` when
+they need it, plus any project-side additions the user approves. It stays out of
+`AGENTS.md`, which every session loads whether or not anyone orchestrates.
 
 Re-run it to revisit a project; `$ARGUMENTS` can name what changed.
 
@@ -23,14 +24,18 @@ direct merges, or making up resource names. Ask what you cannot see. The second
 is writing before the user has seen the draft. The third is copying private
 details into a public file.
 
-## 1. Where the instructions live
+## 1. Where the profile lives
 
-| Finding | Write to |
+| Finding | Write the profile to |
 |---|---|
-| `AGENTS.md` is tracked in the repo (`git ls-files AGENTS.md`) | That file. It is a change to the project, made the way the project takes changes. |
-| `AGENTS.md` is a symlink into `~/.dotfiles/agent-files/projects/<name>/` (a `dot agent` overlay) | The overlay's source file, never the project. Commit it inside the submodule, which is its own repository; never push it. |
-| No `AGENTS.md` | Ask: create one in the repo, or use `dot agent link` for a project that must not carry agent files. |
-| Only a `CLAUDE.md` | Ask before touching it; the user may want it migrated to `AGENTS.md` first. |
+| `AGENTS.md` is tracked in the repo (`git ls-files AGENTS.md`), or the repo has none | `.agents/profile.md` in the repo. It is a change to the project, made the way the project takes changes. |
+| `AGENTS.md` is a symlink into `~/.dotfiles/agent-files/projects/<name>/` (a `dot agent` overlay) | `profile.md` beside the overlay's `AGENTS.md`, never the project. Commit it inside the submodule, which is its own repository; never push it. |
+| Only a `CLAUDE.md` | Ask before touching anything; the user may want it migrated to `AGENTS.md` first. |
+
+`wto profile --path` shows a profile that already exists. If `wto profile` says
+the profile is still a `## Project profile` section of `AGENTS.md`, move it into
+the file above and delete the section from `AGENTS.md`, as part of the draft the
+user approves.
 
 ## 2. Study the project (read-only)
 
@@ -70,7 +75,7 @@ One batch of questions, each with your best guess as the first option:
 The profile block:
 
 ```markdown
-## Project profile
+# Project profile
 - Kind: personal | work | public
 - Issue drafts: direct | review
 - Merge to main: direct | review-required (<how: e.g. the merge-request skill>)
@@ -110,8 +115,9 @@ Show the whole draft and wait.
 
 ## 5. Write what was approved
 
-- The profile goes into the file chosen in step 1. Keep the rest of the file as
-  it is; replace an existing profile section rather than adding a second one.
+- The profile goes into the file chosen in step 1, replacing an existing
+  profile there. Moving a legacy section out of `AGENTS.md` deletes it there and
+  leaves the rest of that file as it is.
 - Run `wto claim define` if approved.
 - Commit the profile where it was written: in the project like any change to
   it, or in the overlay submodule.

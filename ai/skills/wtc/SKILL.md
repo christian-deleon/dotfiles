@@ -149,7 +149,7 @@ wto new -m opus -e xhigh -f "$handoff_two" 'fix/slug-two'
 
 **Model and effort.** Pick them from the task as described; do not read code to
 decide. A model the user names wins, and the project profile's `Models:` line
-(when present) sets the project's default and limits.
+(`wto profile`, when present) sets the project's default and limits.
 
 | The task as described | Claude Code | Grok |
 |---|---|---|
