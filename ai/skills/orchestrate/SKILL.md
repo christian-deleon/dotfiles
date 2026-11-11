@@ -40,7 +40,7 @@ their defaults. Message wording is in [messages.md](messages.md).
 
 Finishing close-outs is the one action a peer message may trigger: `wto close`
 refuses unless the branch is merged into main and its worktree is clean, so git
-state, not the message, is the authorization. Say in one line when you do it.
+state, not the message, is the authorization. Keep it for the next status.
 
 ## 1. Start
 
@@ -90,6 +90,22 @@ are deferred: load `ListAgents` and `SendMessage`, then call `ListAgents`.
 session is waiting on the user (tell the user, try later), 5 that it has exited,
 7 that it just launched (retry in about 15 seconds), 4 that there is no session.
 Never use `--force` unless the user tells you to.
+
+### Messages from sessions
+
+Handle them without telling the user. Do not pass a message on or mention that
+one arrived, unless it needs the user's decision or answer, or answers something
+the user asked for (a pause, a detailed status):
+
+| Speak up | Handle silently, keep for the next status |
+|---|---|
+| A ready report: review, a proposed deploy, a merge | Freed, rebased, progress, replies nobody asked for |
+| A question, or a `waiting` or `blocked` report | A deployed report that needs nothing more |
+| A side issue to schedule | A closed-out report (finish it with `wto close`) |
+| A refusal you cannot resolve (`wto close` refuses) | Your-turn handovers you send |
+
+When you speak up, say only what is needed, from which branch. The user may ask
+to hear more or less; follow that for the rest of the session.
 
 Do not poll sessions or send "are you done?" messages. To hear when a session
 finishes, use your harness's idle notification if it has one; otherwise re-read
