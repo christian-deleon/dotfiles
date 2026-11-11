@@ -17,7 +17,9 @@ project profile, a file of its own that the skills read with `wto profile` when
 they need it, plus any project-side additions the user approves. It stays out of
 `AGENTS.md`, which every session loads whether or not anyone orchestrates.
 
-Re-run it to revisit a project; `$ARGUMENTS` can name what changed.
+Re-run it to revisit a project; `$ARGUMENTS` can name what changed. A re-run
+compares as well as studies: the skills may have changed since the last run and
+now suggest more, or different, setup than what was applied (step 4).
 
 The most common failure is inventing policy: guessing that a project allows
 direct merges, or making up resource names. Ask what you cannot see. The second
@@ -86,6 +88,7 @@ The profile block:
 - Main-only skills: <names>; work-producing skills: <names>
 - Branch naming: <pattern>
 - Deploy: <the skill or recipe that deploys and verifies | none>
+- Onboarded: <date>, dotfiles <short sha of ~/.dotfiles HEAD>
 
 ## Orchestration moments
 - Before a deploy: <checks for whether now is a good time, e.g. no release running>
@@ -115,11 +118,30 @@ Then any project-side additions, each with a one-line reason:
 
 Show the whole draft and wait.
 
+**When the project was onboarded before** (`wto profile` prints a profile), draft
+from scratch as above, as if it were new, then compare the draft with what is in
+place: the profile, the claim names (`wto claim define` prints them), the deploy
+gate, and the project skills' orchestration notes. If the profile's
+`Onboarded:` line names a dotfiles commit, `git -C ~/.dotfiles log --oneline
+<sha>..HEAD -- ai/skills ai/rules bin/wto` lists what changed in the skills
+since. Show only the differences, each with a one-line reason:
+
+- what the skills now ask for that is missing (a new field or moment, a new
+  location for the profile);
+- project facts that changed (a new deploy target, a renamed skill, a new check);
+- setup applied before that the skills no longer recommend.
+
+Keep the user's earlier decisions (kind, policies, cap, models) unless the
+answer would change them; ask rather than overwrite. If nothing differs, say so
+and write nothing.
+
 ## 5. Write what was approved
 
 - The profile goes into the file chosen in step 1, replacing an existing
   profile there. Moving a legacy section out of `AGENTS.md` deletes it there and
   leaves the rest of that file as it is.
+- Set the profile's `Onboarded:` line to today and `git -C ~/.dotfiles rev-parse
+  --short HEAD`, on a re-run too.
 - Run `wto claim define` if approved.
 - Commit the profile where it was written: in the project like any change to
   it, or in the overlay submodule.
