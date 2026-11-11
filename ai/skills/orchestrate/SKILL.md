@@ -106,7 +106,7 @@ name. Do not paraphrase.
 ### Pause for a shutdown
 
 Send the pause message to every live session. Each one finds a safe stopping
-point, commits or stashes, writes `<state dir>/resume/<branch>.md`, and replies
+point, commits or stashes, writes `<state dir>/resume/<branch, / as ->.md`, and replies
 that it is parked. Write `"$(wto dir)/paused.json"` with the time and the
 branches you asked. Report who parked, who is waiting on the user, and who did
 not answer. Claims and resume notes survive the shutdown; tell the user when it

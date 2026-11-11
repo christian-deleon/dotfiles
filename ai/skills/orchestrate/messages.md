@@ -28,7 +28,7 @@ Rebase with `wt step rebase` when you reach a safe stopping point, or later if y
 ```text
 The user is shutting the machine down soon. At the next safe stopping point:
 1. Commit finished work (stash only if it is not commit-worthy).
-2. Write a resume note to <state dir>/resume/<branch>.md: what you were doing, the next step, anything you were waiting on.
+2. Write a resume note to <state dir>/resume/<your branch, with every / as ->.md (for example resume/fix-login.md for fix/login): what you were doing, the next step, anything you were waiting on.
 3. Free any claims you will not need first thing tomorrow (`wto claim free <name>`).
 4. Reply "parked" with one line on where you stopped, then wait.
 ```
@@ -36,7 +36,7 @@ The user is shutting the machine down soon. At the next safe stopping point:
 ## Resume
 
 ```text
-Good morning: the user is resuming. Read your resume note at <state dir>/resume/<branch>.md, check `git status`, and continue where you stopped. If main moved overnight, a rebase notice follows. Reply only if something is blocking you.
+Good morning: the user is resuming. Read your resume note at <state dir>/resume/<branch with / as ->.md, check `git status`, and continue where you stopped. If main moved overnight, a rebase notice follows. Reply only if something is blocking you.
 ```
 
 ## Status request
