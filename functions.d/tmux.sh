@@ -26,6 +26,14 @@ function _tav_expand_launch() {
         expanded+=' --trust'
     fi
 
+    # Name Claude sessions <project>/<branch> so peer messages and `wto ls`
+    # can address them by something stable.
+    local name
+    if [[ $bin == claude && " $expanded " != *' --name '* && " $expanded " != *' -n '* ]] \
+        && name=$(_tav_session_name); then
+        expanded+=" --name $(printf '%q' "$name")"
+    fi
+
     if [[ -z $prompt ]]; then
         printf '%s' "$expanded"
     elif [[ $bin == opencode ]]; then
@@ -35,6 +43,15 @@ function _tav_expand_launch() {
     else
         printf '%s %q' "$expanded" "$prompt"
     fi
+}
+
+# internal: <project>/<branch> for the repo at $PWD
+function _tav_session_name() {
+    local common branch
+    common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || return 1
+    branch=$(git branch --show-current 2>/dev/null)
+    [[ -n $branch ]] || branch=$(basename "$PWD")
+    printf '%s/%s\n' "$(basename "$(dirname "$common")")" "$branch"
 }
 
 # internal: wrap grok so DA/CPR replies never reach the TUI
@@ -100,7 +117,23 @@ function _tav_respawn_ai() {
     # 3) Late scrub of prompt junk if something still slips through (cannot
     #    restore the logo once dismissed; only clears the typed DA body).
     local pane=$1 dir=$2 launch=$3
-    local inner outer shell quiet_drain
+    local inner outer shell quiet_drain tool wt_root mark_exited=""
+    # Tag the pane for `wto`: which harness runs here, for which worktree.
+    # Pane options survive focus changes, unlike the @ai_waiting window flag.
+    tool=${launch%% *}
+    tool=${tool##*/}
+    case $tool in
+        claude|grok|opencode)
+            wt_root=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) || wt_root=$dir
+            tmux set-option -p -t "$pane" @ai_tool "$tool" \; \
+                set-option -p -t "$pane" @ai_wt "$wt_root" \; \
+                set-option -p -t "$pane" @ai_state starting \; \
+                set-option -p -t "$pane" @ai_state_at "$(date +%s)" 2>/dev/null || true
+            # The pane drops into a shell when the harness exits; mark it so
+            # `wto send` never types a message into that shell.
+            mark_exited="; tmux set-option -p -t $pane @ai_state exited \; set-option -p -t $pane @ai_state_at \$(date +%s) 2>/dev/null"
+            ;;
+    esac
     launch=$(_tav_wrap_grok_filter "$launch")
 
     # Drain until ~250ms of silence (max ~1.2s). Prefer consuming late CSI/OSC
@@ -124,7 +157,7 @@ done
     # secrets) never reach Grok and it falls through to grok.com login.
     inner=". \"$HOME/.localrc\" 2>/dev/null || true; ${quiet_drain}${launch}"
     shell=${SHELL:-bash}
-    outer="bash --noprofile --norc -c $(printf '%q' "$inner"); exec $(printf '%q' "$shell") -i"
+    outer="bash --noprofile --norc -c $(printf '%q' "$inner")${mark_exited}; exec $(printf '%q' "$shell") -i"
 
     # Scrub after the welcome card has had time to paint. Early C-u is fine for
     # the prompt, but we wait so capture-pane races don't fight first paint.

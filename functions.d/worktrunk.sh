@@ -186,12 +186,20 @@ function _wta_grok_resume_id() {
 # True if the configured AI tool has history at this path
 function _wta_has_session_history() {
     # wta/wtaa resume is per-tool. Grok is a real parent session under
-    # ~/.grok/sessions/<url-encoded-cwd>/. OpenCode has no history probe.
+    # ~/.grok/sessions/<url-encoded-cwd>/. Claude keeps transcripts under
+    # ~/.claude/projects/<cwd with every non-alphanumeric as ->/. OpenCode has
+    # no history probe.
     local wt_path="$1"
     local tool="${AI_TOOL%% *}"
+    local -a transcripts
     case "$tool" in
         gra|grok|gr)
             _wta_grok_resume_id "$wt_path" >/dev/null
+            ;;
+        cl|cca|claude)
+            wt_path=$(readlink -f -- "$wt_path" 2>/dev/null || printf '%s' "$wt_path")
+            transcripts=("${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/${wt_path//[^a-zA-Z0-9]/-}"/*.jsonl)
+            [[ -e ${transcripts[0]} ]]
             ;;
         *)
             return 1
