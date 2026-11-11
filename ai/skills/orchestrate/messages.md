@@ -95,7 +95,7 @@ The user asks whether you can free <resource> for <branch>, which is waiting on 
 
 ## Close-out finished
 
-Sent to the user, not a session:
+For the user, only when they ask for status:
 
 ```text
 Closed <branch>: its window and worktree are gone, and main is at <short sha>. <n> sessions got a rebase notice.
