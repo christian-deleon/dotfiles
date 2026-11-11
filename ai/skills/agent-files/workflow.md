@@ -83,7 +83,7 @@ Handlers in `~/.dotfiles/scripts/handlers/ai.sh` (each is a no-op for a harness 
 |---|---|
 | `install_ai_grok` | Links `ai/{skills,agents,hooks}` → `~/.grok/`; flattens `ai/rules/**` → `~/.grok/rules/`; seeds live `config.toml` if missing; merges `grok/.grok/base.toml` and any Grok-only profile overlay; forces `[compat.claude]` off; merges trusted folders; links `pager.toml` |
 | `install_ai_opencode` | Per-skill links in `~/.config/opencode/skills/`; generates JSON agents + instructions + `.provider` from the tpl. Skips until `~/.config/opencode` is stowed |
-| `install_ai_claude` | Per-skill and agent symlinks, flattened rules, notify hooks + blank attribution merged into `settings.json` |
+| `install_ai_claude` | Per-skill and agent symlinks, flattened rules, `ai/hooks` registrations + blank attribution merged into `settings.json` |
 | `generate_mcp_configs` | Picks servers from the profile `mcp:` block, resolves 1Password refs for those only; writes Grok `[mcp_servers.*]`, OpenCode `mcp.servers`, Claude `mcpServers` |
 
 ## Test

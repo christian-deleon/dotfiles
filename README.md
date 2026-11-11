@@ -110,7 +110,7 @@ Stale `~/.config/<pkg>` symlinks from packages that have since been dropped are 
 
 Skills, agents, rules, hooks, and the MCP roster live once in `ai/` and feed three peer AI harnesses: **Claude Code**, **Grok Build**, and **OpenCode**. Each machine's profile lists the harnesses it gets (the personal profiles have all three; the work profile has Grok and OpenCode), which MCP servers are on, and the default harness that `tav`, `wta`, `wtc` and commit messages use.
 
-- **Claude Code** — skills, agents, and flattened rules symlink into `~/.claude/`; notify hooks merge into `settings.json`; MCP servers merge into `~/.claude.json`. Aliases: `cl`, `cca`.
+- **Claude Code** — skills, agents, and flattened rules symlink into `~/.claude/`; notify and session-state hooks merge into `settings.json`; MCP servers merge into `~/.claude.json`. Aliases: `cl`, `cca`.
 - **Grok Build** — skills, agents, hooks, and flattened rules symlink into `~/.grok/`; `config.toml` seeded if missing, with `grok/.grok/base.toml` and an optional per-profile overlay merged in; MCP written as `[mcp_servers.*]`. Aliases: `gr`, `gra`.
 - **OpenCode** — skills symlink into `~/.config/opencode/skills/`; agents, rules, and MCP are generated into `opencode.json`. Personal Bedrock ARNs use `{env:BEDROCK_AWS_ACCOUNT_ID}`; work GovCloud uses `WORK_BEDROCK_API_KEY` (not the personal `/connect` key). Aliases: `oc`, `oca`.
 - **MCP servers** — defined once in `ai/mcp-servers.json.tpl`, switched on per machine by the profile's `mcp:` block. 1Password secrets are injected only for enabled servers. `dot mcp-regen` rewrites every harness.

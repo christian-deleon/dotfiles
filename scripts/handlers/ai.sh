@@ -229,11 +229,15 @@ reload_opencode_service() {
 
 # ─── Claude Code ──────────────────────────────────────────────────────────────
 
-# Merge the notify hooks and blank attribution into Claude's live settings.json.
-# Idempotent. Does not replace the file — Claude stores permissions and model
-# choice there. Notification skips idle_prompt: it repeats the Stop toast ~60s
-# after a turn. Empty attribution strings keep Claude out of commit trailers and
-# PR bodies; sessionUrl drops the Claude-Session trailer from cloud sessions.
+# Merge the ai/hooks registrations and blank attribution into Claude's live
+# settings.json. Idempotent. Does not replace the file — Claude stores
+# permissions and model choice there. Every hook pointing into ai/hooks is
+# dropped and the wanted set re-added, so a renamed or retired script leaves no
+# entry behind; hooks from other tools are kept. Notification skips idle_prompt:
+# it repeats the Stop toast ~60s after a turn. PreToolUse on AskUserQuestion
+# marks the session blocked so `wto send` does not type into the question.
+# Empty attribution strings keep Claude out of commit trailers and PR bodies;
+# sessionUrl drops the Claude-Session trailer from cloud sessions.
 ensure_claude_settings() {
     local dest="$HOME/.claude/settings.json"
     local hooks_dir="$DOTFILES_DIR/ai/hooks"
@@ -248,23 +252,25 @@ ensure_claude_settings() {
     fi
 
     tmp="$(mktemp "$dest.XXXXXX")"
-    if ! jq \
-        --arg stop "$hooks_dir/stop_notify.sh" \
-        --arg notification "$hooks_dir/notification_notify.sh" \
-        --arg submit "$hooks_dir/user_prompt_submit_clear.sh" \
-        '
-        def ensure_hook($event; $matcher; $cmd):
-          ({hooks: [{type: "command", command: $cmd}]}
-            + (if $matcher == "" then {} else {matcher: $matcher} end)) as $group
-          | .hooks[$event] = (
-              (.hooks[$event] // []) as $groups
-              | if any($groups[]; . == $group) then $groups
-                else ($groups | map(select(any(.hooks[]?; .command == $cmd) | not))) + [$group]
-                end
-            );
-        ensure_hook("Stop"; ""; $stop)
-        | ensure_hook("Notification"; "permission_prompt|elicitation_dialog"; $notification)
-        | ensure_hook("UserPromptSubmit"; ""; $submit)
+    if ! jq --arg dir "$hooks_dir" '
+        def cmd($script): {type: "command", command: ($dir + "/" + $script)};
+        def group($matcher; $hooks):
+          {hooks: $hooks} + (if $matcher == "" then {} else {matcher: $matcher} end);
+        def ours: ((.command // "") | startswith($dir + "/"));
+        [
+          ["SessionStart", group(""; [cmd("session_state.sh idle")])],
+          ["UserPromptSubmit", group(""; [cmd("user_prompt_submit_clear.sh"), cmd("session_state.sh working")])],
+          ["PreToolUse", group("AskUserQuestion"; [cmd("session_state.sh blocked")])],
+          ["PostToolUse", group(""; [cmd("session_state.sh working")])],
+          ["Stop", group(""; [cmd("stop_notify.sh"), cmd("session_state.sh idle")])],
+          ["Notification", group("permission_prompt|elicitation_dialog";
+            [cmd("notification_notify.sh"), cmd("session_state.sh blocked")])],
+          ["SessionEnd", group(""; [cmd("session_state.sh exited")])]
+        ] as $wanted
+        | .hooks = ((.hooks // {})
+            | map_values(map(.hooks |= map(select(ours | not))) | map(select((.hooks | length) > 0)))
+            | with_entries(select(.value | length > 0)))
+        | reduce $wanted[] as $w (.; .hooks[$w[0]] = ((.hooks[$w[0]] // []) + [$w[1]]))
         | .attribution = ((.attribution // {}) + {commit: "", pr: "", sessionUrl: false})
         ' "$dest" > "$tmp"; then
         warn "Could not merge Claude settings into settings.json"
