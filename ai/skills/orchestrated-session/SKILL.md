@@ -82,8 +82,9 @@ then send the orchestrator the status report so it knows what happened.
 
 Use this exact form, in this order and wording, every time: show it in this
 window and send the same text to the orchestrator. Keep every line and write the
-value that applies, except `Deploy:`, which appears only in a project whose
-profile names a `Deploy` step.
+value that applies. The one exception is `Deploy:`: leave it out in a project
+whose profile names no `Deploy` step, and keep it in every report of one that
+does, with `not needed for this change` when this change needs no deploy.
 
 ```text
 Status: <ready | deployed | waiting | blocked> · <project>/<branch>
