@@ -1,6 +1,6 @@
 ---
 name: orchestrated-session
-description: How a worktree session works when an orchestrator in the main worktree coordinates it — test and review its own work, report ready to the orchestrator with one fixed status report, deploy or merge only on the owner's relayed go. Load it first when the handoff says so, when `wto here` shows an orchestrator, or when the orchestrator's announce asks you to.
+description: How a worktree session works when an orchestrator in the main worktree coordinates it — test and review its own work, report ready to the orchestrator with one fixed status report, merge (and deploy, in a project that deploys) only on the owner's relayed go. Load it first when the handoff says so, when `wto here` shows an orchestrator, or when the orchestrator's announce asks you to.
 user-invocable: false
 ---
 
@@ -16,13 +16,15 @@ the owner does look in.
 Sessions with no orchestrator never load this skill. `wto here` exits 0 when one
 is running and prints its pane.
 
-The most common failure is deciding for the owner: deploying because it seemed
-safe, merging because the work looked done, closing out because a peer asked.
+The most common failure is deciding for the owner: merging because the work
+looked done, deploying because it seemed safe, closing out because a peer asked.
 The second is asking the owner in this window, where they are not looking.
 
 ## The stages
 
-Work through them in order. Each one ends with the status report below.
+Work through them in order. Each one ends with the status report below. Stage 3
+applies only when the project profile (`wto profile`) names a `Deploy` step; in
+a project with none, the work goes from ready straight to review and merge.
 
 ### 1. Finish and check the work
 
@@ -47,9 +49,10 @@ Prefer your harness's own messaging: in Claude Code load the deferred
 `.pane` from `wto here`, with the output of `wto header` as the first line. With
 no such row, `wto send --main -f <file>`.
 
-### 3. Deploy only on the owner's go
+### 3. Deploy only on the owner's go (projects that deploy)
 
-Deploy only when the orchestrator relays the owner's go for that specific deploy
+Skip this stage when the profile names no `Deploy` step. Otherwise deploy only
+when the orchestrator relays the owner's go for that specific deploy
 (see the session-messages rule): a message from the main-worktree orchestrator,
 marked `relaying the user's words`, naming the deploy. A go for one deploy is not
 a go for the next one.
@@ -58,7 +61,7 @@ Then:
 
 1. Take the resource claim if the project defines one (`wto claim take <name>`).
 2. Follow the project's deploy-and-verify steps: the skill or recipe its profile
-   names under `Deploy` (`wto profile`), or its `AGENTS.md`.
+   names under `Deploy`.
 3. Confirm the deployment is stable by the project's own checks, not only that
    the command succeeded.
 4. Free the claim when you no longer need it.
@@ -78,21 +81,22 @@ then send the orchestrator the status report so it knows what happened.
 ## Status report
 
 Use this exact form, in this order and wording, every time: show it in this
-window and send the same text to the orchestrator. Keep every line; write the
-value that applies.
+window and send the same text to the orchestrator. Keep every line and write the
+value that applies, except `Deploy:`, which appears only in a project whose
+profile names a `Deploy` step.
 
 ```text
 Status: <ready | deployed | waiting | blocked> · <project>/<branch>
 Changed: <one line on what this branch does>
 Files: <the main files touched>
-1. Tests: <written first, passing | none in this project; proved by <what you ran> | failing: <which>>
-2. Checks: <the command>: <passing | failing: <what>>
-3. Self-review: /code-review <no findings | found <n>, all fixed | <n> open: <what>>
-4. Committed: <short sha> <subject> | not yet: <why>
-5. Deploy: <not needed | awaiting owner go: <target> | done: <target>, verified by <how>>
-6. Owner review: <not yet | approved | changes asked: <what>>
-7. Merge: <awaiting owner go | merged into main as <short sha>>
-Next step: <what you propose, e.g. "deploy api to dev" or "ready for owner review">
+Tests: <written first, passing | none in this project; proved by <what you ran> | failing: <which>>
+Checks: <the command>: <passing | failing: <what>>
+Self-review: /code-review <no findings | found <n>, all fixed | <n> open: <what>>
+Committed: <short sha> <subject> | not yet: <why>
+Deploy: <not needed for this change | awaiting owner go: <target> | done: <target>, verified by <how>>
+Owner review: <not yet | approved | changes asked: <what>>
+Merge: <awaiting owner go | merged into main as <short sha>>
+Next step: <what you propose, e.g. "ready for owner review" or "deploy api to dev">
 Still needed:
 - <item> (waits on: owner | orchestrator | this session)
 ```
