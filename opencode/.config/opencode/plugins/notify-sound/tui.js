@@ -16,13 +16,18 @@ function shownHere(context, sessionID) {
 }
 
 // `wto send` posts into an OpenCode session through the server, so it needs
-// to know which session this pane shows.
+// the session this pane shows now. Events also fire for background tabs, and
+// the router has no change event, so read the route on a short timer.
 let lastSession
-function recordSession(sessionID) {
+function recordSession(context) {
   const pane = process.env.TMUX_PANE
-  if (!pane || sessionID === lastSession) return
+  if (!pane) return
+  const route = context.ui.router.current()
+  const sessionID = route.type === "session" ? (context.data.session.root(route.sessionID) ?? route.sessionID) : ""
+  if (sessionID === lastSession) return
   lastSession = sessionID
-  const child = spawn("tmux", ["set-option", "-p", "-t", pane, "@ai_session", sessionID], { stdio: "ignore" })
+  const args = sessionID ? ["set-option", "-p", "-t", pane, "@ai_session", sessionID] : ["set-option", "-p", "-u", "-t", pane, "@ai_session"]
+  const child = spawn("tmux", args, { stdio: "ignore" })
   child.on("error", () => {})
 }
 
@@ -44,7 +49,6 @@ export default Plugin.define({
         const root = context.data.session.root(sessionID)
         if (onlyRoot && root !== sessionID) return
         if (!shownHere(context, root)) return
-        recordSession(root)
         act(event)
       })
     const state = (value) => () => run("session_state.sh", [value], {})
@@ -55,6 +59,9 @@ export default Plugin.define({
 
     // The TUI has loaded and waits for input; no event marks that.
     run("session_state.sh", ["idle"], {})
+    recordSession(context)
+    const timer = setInterval(() => recordSession(context), 2000)
+    timer.unref?.()
 
     const offs = [
       on("session.execution.started", true, state("working")),
@@ -67,6 +74,9 @@ export default Plugin.define({
       on("form.replied", false, state("working")),
       on("form.cancelled", false, state("working")),
     ]
-    return () => offs.forEach((off) => typeof off === "function" && off())
+    return () => {
+      clearInterval(timer)
+      offs.forEach((off) => typeof off === "function" && off())
+    }
   },
 })

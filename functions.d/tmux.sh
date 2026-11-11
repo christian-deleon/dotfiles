@@ -128,7 +128,8 @@ function _tav_respawn_ai() {
             tmux set-option -p -t "$pane" @ai_tool "$tool" \; \
                 set-option -p -t "$pane" @ai_wt "$wt_root" \; \
                 set-option -p -t "$pane" @ai_state starting \; \
-                set-option -p -t "$pane" @ai_state_at "$(date +%s)" 2>/dev/null || true
+                set-option -p -t "$pane" @ai_state_at "$(date +%s)" \; \
+                set-option -p -u -t "$pane" @ai_session 2>/dev/null || true
             # The pane drops into a shell when the harness exits; mark it so
             # `wto send` never types a message into that shell.
             mark_exited="; tmux set-option -p -t $pane @ai_state exited \; set-option -p -t $pane @ai_state_at \$(date +%s) 2>/dev/null"
