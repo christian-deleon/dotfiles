@@ -1,0 +1,264 @@
+#!/usr/bin/env bash
+# wto — coordinate agent sessions across a project's worktrees
+#
+# Usage: wto <command> [args]   (run anywhere inside a worktrunk project)
+set -Eeuo pipefail
+shopt -s inherit_errexit nullglob
+
+readonly HARNESSES='claude|grok|opencode'
+
+die() {
+    printf 'wto: %s\n' "$*" >&2
+    exit 1
+}
+
+usage() {
+    cat <<'EOF'
+Usage: wto <command> [args]
+
+  ls [--json] [--files]        roster: every worktree with its git state and agent session
+  here                         print the live orchestrator marker (exit 1 if none)
+  here --orchestrator          mark the calling pane as this project's orchestrator
+  here --clear [--force]       remove the orchestrator marker
+  dir                          print this project's state directory
+
+Run inside a worktrunk project. Agent sessions are found by the tmux pane
+options that tav sets (@ai_tool, @ai_wt, @ai_state).
+EOF
+}
+
+require() {
+    local cmd
+    for cmd in "$@"; do
+        command -v "$cmd" >/dev/null 2>&1 || die "$cmd is required"
+    done
+}
+
+state_dir() {
+    local common
+    common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) \
+        || die "not inside a git repository"
+    mkdir -p -- "$common/orchestrate"
+    printf '%s\n' "$common/orchestrate"
+}
+
+wt_items() {
+    local raw
+    raw=$(wt list --format json 2>/dev/null) || die "wt list failed (run inside a worktrunk project)"
+    jq -c '(if type == "array" then . else (.items // []) end)
+        | map(select((.worktree.path // "") != ""))' <<<"$raw"
+}
+
+# Panes that run, or were tagged for, an agent session. Untagged panes (opened
+# before tav tagged them) are matched by a harness process under the pane.
+panes_json() {
+    local fmt pane_pids
+    if ! tmux info >/dev/null 2>&1; then
+        printf '[]\n'
+        return
+    fi
+    fmt='#{pane_id}'$'\t''#{pane_pid}'$'\t''#{session_name}:#{window_name}'$'\t''#{@ai_tool}'
+    fmt+=$'\t''#{@ai_wt}'$'\t''#{@ai_state}'$'\t''#{@ai_state_at}'$'\t''#{pane_current_path}'
+    pane_pids=$(tmux list-panes -a -F '#{pane_pid}' | paste -sd, -)
+    jq -n -c --rawfile panes <(tmux list-panes -a -F "$fmt") \
+        --rawfile procs <(harness_procs "$pane_pids") '
+        ($procs | split("\n") | map(select(length > 0) | split("\t"))
+            | map({key: .[0], value: {tool: .[1], args: .[2]}}) | from_entries) as $by_pid
+        | $panes | split("\n") | map(select(length > 0) | split("\t")
+            | {pane: .[0], pid: .[1], window: .[2], tag_tool: .[3], tag_wt: .[4],
+               state: .[5], state_at: .[6], cwd: .[7]}
+            | . + {proc: $by_pid[.pid]})
+        | map(select(.tag_tool != "" or .proc != null))'
+}
+
+# "<pane pid>\t<harness>\t<args>" for each harness process under a pane.
+harness_procs() {
+    ps -e -o pid=,ppid=,comm=,args= | awk -v panes="$1" -v re="^($HARNESSES)$" '
+        BEGIN { n = split(panes, p, ","); for (i = 1; i <= n; i++) pane[p[i]] = 1 }
+        {
+            pid = $1; ppid[pid] = $2; comm[pid] = $3
+            $1 = $2 = $3 = ""; sub(/^ +/, ""); args[pid] = $0
+        }
+        END {
+            for (pid in comm) {
+                if (comm[pid] !~ re) continue
+                cur = pid
+                for (depth = 0; depth < 8 && cur != "" && cur != "1"; depth++) {
+                    if (cur in pane) { print cur "\t" comm[pid] "\t" args[pid]; break }
+                    cur = ppid[cur]
+                }
+            }
+        }'
+}
+
+roster_json() {
+    local items panes now
+    items=$(wt_items)
+    panes=$(panes_json)
+    now=$(date +%s)
+    jq -n -c --argjson items "$items" --argjson panes "$panes" --argjson now "$now" '
+        def under($p): . == $p or startswith($p + "/");
+        def auto($args):
+            if $args == null then null
+            else ($args | test("bypassPermissions|--dangerously-skip-permissions|--always-approve|--auto(\\s|$)"))
+            end;
+        ($items | map(select(.worktree.main == true)) | first | .branch // null) as $default
+        | $items | map(
+            .worktree.path as $path
+            | (([$panes[] | select(.tag_wt == $path)]
+                + [$panes[] | select(.tag_wt == "" and (.cwd | under($path)))]) | first) as $pane
+          | {
+              branch: (.branch // null),
+              path: .worktree.path,
+              main: (.worktree.main == true),
+              detached: (.worktree.detached == true),
+              dirty: ([.worktree.changes // {} | .staged, .modified, .untracked, .renamed, .deleted] | any),
+              conflicted_files: (.worktree.changes.conflicted == true),
+              ahead: (.default_branch.ahead // null),
+              behind: (.default_branch.behind // null),
+              rebase_conflicts: (.default_branch.merge_conflicts // false),
+              integrated: (.default_branch.integration.reason // null),
+              state: (.display.state // null),
+              operation: (.worktree.operation // .operation // null),
+              default_branch: $default,
+              session: (if $pane == null then null else {
+                  pane: $pane.pane,
+                  window: $pane.window,
+                  tool: (if $pane.tag_tool != "" then $pane.tag_tool else $pane.proc.tool end),
+                  state: (if $pane.state != "" then $pane.state
+                          elif $pane.proc != null then "unknown" else "exited" end),
+                  state_age: (if ($pane.state_at | test("^[0-9]+$")) then $now - ($pane.state_at | tonumber) else null end),
+                  auto_approve: auto($pane.proc.args),
+                  tagged: ($pane.tag_tool != "")
+              } end)
+            })'
+}
+
+add_conflict_files() {
+    local roster=$1 default branch files out=()
+    default=$(jq -r '[.[] | select(.main)][0].branch // empty' <<<"$roster")
+    [[ -n $default ]] || { printf '%s\n' "$roster"; return; }
+    while IFS= read -r branch; do
+        [[ -n $branch ]] || continue
+        files=$(git merge-tree --write-tree --name-only --no-messages "$default" "$branch" 2>/dev/null \
+            | tail -n +2 | jq -R -s -c 'split("\n") | map(select(length > 0)) | unique') || files='[]'
+        out+=("$(jq -n -c --arg b "$branch" --argjson f "$files" '{($b): $f}')")
+    done < <(jq -r '.[] | select(.rebase_conflicts and .branch != null) | .branch' <<<"$roster")
+    jq -c --argjson files "$(printf '%s\n' "${out[@]}" | jq -s -c 'add // {}')" \
+        'map(. + {conflict_files: ($files[.branch] // null)})' <<<"$roster"
+}
+
+cmd_ls() {
+    local json=0 files=0 roster
+    while (($#)); do
+        case $1 in
+            --json) json=1 ;;
+            --files) files=1 ;;
+            -h | --help) usage; return ;;
+            *) die "ls: unknown option '$1'" ;;
+        esac
+        shift
+    done
+    roster=$(roster_json)
+    ((files)) && roster=$(add_conflict_files "$roster")
+    if ((json)); then
+        jq . <<<"$roster"
+        return
+    fi
+    jq -r '
+        ["BRANCH", "SESSION", "TOOL", "AHEAD", "BEHIND", "DIRTY", "REBASE", "WINDOW"],
+        (.[] | [
+            (.branch // "(detached)") + (if .main then " *" else "" end),
+            (if .session == null then "-"
+             else .session.state + (if .session.state_age != null then " " + (.session.state_age / 60 | floor | tostring) + "m" else "" end)
+             end),
+            (.session.tool // "-"),
+            (.ahead // "-" | tostring), (.behind // "-" | tostring),
+            (if .dirty then "yes" else "-" end),
+            (if .operation != null then .operation
+             elif .rebase_conflicts then "conflicts"
+             elif (.behind // 0) > 0 then "clean" else "-" end),
+            (.session.window // "-")
+        ])
+        | @tsv' <<<"$roster" | column -t -s $'\t'
+}
+
+marker_valid() {
+    local marker=$1 pane tmux_pid live_pid live_pane state
+    [[ -f $marker ]] || return 1
+    pane=$(jq -r '.pane // empty' "$marker" 2>/dev/null) || return 1
+    tmux_pid=$(jq -r '.tmux_pid // empty' "$marker" 2>/dev/null) || return 1
+    [[ -n $pane && -n $tmux_pid ]] || return 1
+    live_pid=$(tmux display-message -p '#{pid}' 2>/dev/null) || return 1
+    [[ $live_pid == "$tmux_pid" ]] || return 1
+    live_pane=$(tmux display-message -p -t "$pane" '#{pane_id}' 2>/dev/null) || return 1
+    [[ $live_pane == "$pane" ]] || return 1
+    state=$(tmux show-options -pqv -t "$pane" @ai_state 2>/dev/null) || state=""
+    [[ $state != exited ]]
+}
+
+cmd_here() {
+    local mode=show force=0 dir marker top main_path
+    while (($#)); do
+        case $1 in
+            --orchestrator) mode='write' ;;
+            --clear) mode=clear ;;
+            --force) force=1 ;;
+            -h | --help) usage; return ;;
+            *) die "here: unknown option '$1'" ;;
+        esac
+        shift
+    done
+    dir=$(state_dir)
+    marker=$dir/orchestrator.json
+
+    case $mode in
+        show)
+            marker_valid "$marker" || return 1
+            jq . "$marker"
+            ;;
+        write)
+            [[ -n ${TMUX_PANE-} ]] || die "here: not inside tmux (TMUX_PANE unset)"
+            top=$(git rev-parse --show-toplevel)
+            main_path=$(wt_items | jq -r '[.[] | select(.worktree.main == true)][0].worktree.path // empty')
+            [[ $top == "$main_path" ]] || die "here: the orchestrator runs in the main worktree ($main_path)"
+            if marker_valid "$marker" && [[ $(jq -r .pane "$marker") != "$TMUX_PANE" ]]; then
+                printf 'wto: an orchestrator is already running in %s\n' "$(jq -r .window "$marker")" >&2
+                return 3
+            fi
+            jq -n \
+                --arg pane "$TMUX_PANE" \
+                --arg tmux_pid "$(tmux display-message -p '#{pid}')" \
+                --arg window "$(tmux display-message -p -t "$TMUX_PANE" '#{session_name}:#{window_name}')" \
+                --arg tool "$(tmux show-options -pqv -t "$TMUX_PANE" @ai_tool)" \
+                --arg branch "$(git branch --show-current)" \
+                --arg path "$top" \
+                --argjson started "$(date +%s)" \
+                '{pane: $pane, tmux_pid: $tmux_pid, window: $window, tool: $tool,
+                  branch: $branch, path: $path, started: $started}' >"$marker.tmp"
+            mv -- "$marker.tmp" "$marker"
+            jq . "$marker"
+            ;;
+        clear)
+            [[ -f $marker ]] || return 0
+            if ((!force)) && marker_valid "$marker" && [[ $(jq -r .pane "$marker") != "${TMUX_PANE-}" ]]; then
+                die "here: the live orchestrator is another pane ($(jq -r .window "$marker")); use --force"
+            fi
+            rm -f -- "$marker"
+            ;;
+    esac
+}
+
+main() {
+    local cmd=${1:-}
+    (($#)) && shift
+    case $cmd in
+        ls) require wt jq git; cmd_ls "$@" ;;
+        here) require wt jq git tmux; cmd_here "$@" ;;
+        dir) require git; state_dir ;;
+        '' | -h | --help | help) usage ;;
+        *) die "unknown command '$cmd' (see wto --help)" ;;
+    esac
+}
+
+main "$@"

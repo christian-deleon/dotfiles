@@ -5,3 +5,9 @@ function _comp_wt() {
     _comp_reply "$(_comp_wt_branches)"
 }
 complete -F _comp_wt wta ws wsr
+
+# internal: complete wto subcommands
+function _comp_wto() {
+    (( COMP_CWORD == 1 )) && _comp_reply "ls here dir"
+}
+complete -F _comp_wto wto

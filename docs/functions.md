@@ -560,6 +560,27 @@ wtaa             # one session, one window per worktree
 
 ---
 
+### `wto <command>`
+
+An executable in `bin/` (linked to `~/.local/bin/wto` by the installer and `dot update`), not a shell function, so agents and scripts can call it from shells that never load `functions.d/`. It coordinates the agent sessions of one worktrunk project; run it anywhere inside the project.
+
+| Command | Does |
+|---|---|
+| `wto ls [--json] [--files]` | Roster of every worktree: git state against the default branch (ahead, behind, dirty, whether a rebase would conflict), and its agent session (harness, state and how long it has been in it, tmux window). `--files` names the files a rebase would conflict on. |
+| `wto here` | Print the project's live orchestrator marker; exit 1 if none. |
+| `wto here --orchestrator` | Record the calling pane as the orchestrator. Main worktree only; exits 3 if another live pane holds it. |
+| `wto here --clear [--force]` | Remove the marker. |
+| `wto dir` | Print the project's state directory, `<git-common-dir>/orchestrate/` (never committed, shared by every worktree). |
+
+Sessions are found by the pane tags `tav` sets. A session opened before those tags existed shows state `unknown`, found by its harness process; reopen it with `wta` to tag it.
+
+```bash
+wto ls                  # who is working, idle, blocked on a question, or exited
+wto ls --json | jq '.[] | select(.behind > 0) | .branch'
+```
+
+---
+
 ## Dotfiles
 
 ### `dot help [query]` \*
