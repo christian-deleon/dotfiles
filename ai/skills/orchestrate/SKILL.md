@@ -93,9 +93,13 @@ Never use `--force` unless the user tells you to.
 
 ### Messages from sessions
 
-Handle them without telling the user. Do not pass a message on or mention that
-one arrived, unless it needs the user's decision or answer, or answers something
-the user asked for (a pause, a detailed status):
+Handle them without telling the user. Do not pass a message on, quote or sum it
+up, or mention that one arrived, not even beside something else you raise,
+unless it needs the user's decision or answer, or answers something the user
+asked for (a pause, a detailed status). A session you did not start is still the
+user's: do not ask about it; announce it when it is live. When a message needs
+nothing from the user, act on it if it calls for action, then reply with only
+the word "Noted." (a turn must end with some text); nothing about the message.
 
 | Speak up | Handle silently, keep for the next status |
 |---|---|
