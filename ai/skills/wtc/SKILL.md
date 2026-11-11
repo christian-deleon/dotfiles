@@ -138,17 +138,31 @@ default for humans; agent use must not.
 
 ```bash
 source "$HOME/.dotfiles/functions.d/worktrunk.sh"
-wtc -n -p '<full child prompt>' '<branch>'
+wtc -n -m opus -e xhigh -p '<full child prompt>' '<branch>'
 ```
 
 **Multi** — same, looped; distinct branch + prompt each time:
 
 ```bash
 source "$HOME/.dotfiles/functions.d/worktrunk.sh"
-wtc -n -p '<prompt for item 1>' 'fix/slug-one'
-wtc -n -p '<prompt for item 2>' 'fix/slug-two'
+wtc -n -m sonnet -e medium -p '<prompt for item 1>' 'fix/slug-one'
+wtc -n -m opus -e xhigh -p '<prompt for item 2>' 'fix/slug-two'
 # …
 ```
+
+**Model and effort.** Pick them from the task as described; do not read code to
+decide. A model the user names wins, and the project profile's `Models:` line
+(when present) sets the project's default and limits.
+
+| The task as described | Claude Code | Grok |
+|---|---|---|
+| Small and fully specified: a known error with an obvious cause, a rename, a config change | `-m sonnet -e medium` | `-m grok-4.7-build-fast` |
+| An ordinary bug or feature where "done" is clear | `-m opus -e xhigh` | `-m grok-4.7` |
+| Unknown cause, several parts of the system, or risky (migrations, concurrency, security) | `-m fable -e xhigh` | `-m grok-4.7` |
+
+The harness is the first word of `$AI_TOOL`. OpenCode takes neither flag; leave
+them off and say it runs on its configured default. `wtc` saves the choice for
+the worktree, so a reopened session keeps it.
 
 Notes:
 
@@ -165,6 +179,7 @@ Only after `wtc` has succeeded (or failed) in the shell, briefly list each spawn
 - Branch and worktree path
 - Tmux `session:window` (created; focus stayed put)
 - One-line task summary (not a full re-dump of `-p`)
+- Model and effort, with a few words on why
 
 Then stop. Do not end with "run this" / "try `/wtc …`" / a copy-paste shell
 block — the work is done. The user switches when ready (`wta <branch>`, tmux
