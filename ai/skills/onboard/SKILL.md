@@ -1,6 +1,6 @@
 ---
 name: onboard
-description: Fit a project to the user's agent setup — study it, then draft its project profile (kind, issue and merge policy, tracker, session cap, shared resources, orchestration moments) plus any project-side skills or gates, and write only after approval. Use for /onboard, 'onboard this project', 'set this project up for orchestrate'.
+description: Fit a project to the user's agent setup — study it, then draft its project profile (kind, issue and merge policy, tracker, session cap, shared resources, orchestration moments) plus any project-side skills or gates and, outside work projects, the forge labels, and write only after approval. Use for /onboard, 'onboard this project', 'set this project up for orchestrate'.
 argument-hint: "[what to revisit]"
 disable-model-invocation: true
 user-invocable: true
@@ -54,7 +54,9 @@ user approves.
 - **Shared resources:** what two worktrees could collide on: deploy targets and
   dev clusters, databases, fixed ports, emulators, external accounts. Look at
   deploy recipes, compose files, skaffold, scripts.
-- **Tracker:** priority and severity labels, milestones.
+- **Tracker:** priority and severity labels, milestones. Once the kind is known
+  (step 3), and unless it is `work`, compare the forge's labels with
+  [the label convention](labels.md). On a work project, leave labels alone.
 - **Checks:** what must pass before work is done (justfile, Makefile, package
   scripts, CI). `/closeout` runs what `AGENTS.md` names.
 - **Branch naming:** `git branch -a` and recent history.
@@ -115,13 +117,16 @@ Then any project-side additions, each with a one-line reason:
   claims, a triage skill that files findings with `/issue` so `/backlog` and the
   orchestrator can dispatch them, a main-only skill noting it runs from main.
 - A short "before claiming done" checks line in `AGENTS.md`, if it has none.
+- Unless the kind is `work`, the label rows from [labels.md](labels.md): keep,
+  rename, create, and deletions to tick.
 
 Show the whole draft and wait.
 
 **When the project was onboarded before** (`wto profile` prints a profile), draft
 from scratch as above, as if it were new, then compare the draft with what is in
 place: the profile, the claim names (`wto claim define` prints them), the deploy
-gate, and the project skills' orchestration notes. If the profile's
+gate, the project skills' orchestration notes, and (unless the kind is `work`)
+the forge's labels against [labels.md](labels.md). If the profile's
 `Onboarded:` line names a dotfiles commit, `git -C ~/.dotfiles log --oneline
 <sha>..HEAD -- ai/skills ai/rules bin/wto` lists what changed in the skills
 since. Show only the differences, each with a one-line reason:
@@ -143,6 +148,7 @@ and write nothing.
 - Set the profile's `Onboarded:` line to today and `git -C ~/.dotfiles rev-parse
   --short HEAD`, on a re-run too.
 - Run `wto claim define` if approved.
+- Apply the approved label changes as [labels.md](labels.md) describes.
 - Commit the profile where it was written: in the project like any change to
   it, or in the overlay submodule.
 - Project code and skill changes follow the project's process: commit them on a
@@ -155,6 +161,8 @@ profile exists.
 ## Do not
 
 - Guess a policy or a resource name; ask.
+- Create, rename, or delete labels on a work project, or any label the user did
+  not approve in the draft.
 - Write private details (hostnames, account ids, people's names) into a file a
   public repository tracks.
 - Touch `~/.dotfiles/ai/`: project specifics belong to the project or its overlay.
