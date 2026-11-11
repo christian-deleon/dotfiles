@@ -66,14 +66,14 @@ function wrf() {
 
 # Create a worktree in a tmux window with tav layout
 function wtc() {
-    # Usage: wtc [-p <prompt>] [-n|--no-switch] [-m <model>] [-e <effort>] <branch> [base]
+    # Usage: wtc [-p <prompt>] [-n|--no-switch] [-j <job>] [-m <model>] [-e <effort>] <branch> [base]
     # Jumps to the new window unless -n. The work happens in `wto new`.
     local switch=--switch
     local -a args=()
     while (($#)); do
         case $1 in
             -n|--no-switch) switch="" ;;
-            -p|--prompt|-f|--prompt-file|-m|--model|-e|--effort) args+=("$1" "${2-}"); shift ;;
+            -p|--prompt|-f|--prompt-file|-j|--job|-m|--model|-e|--effort) args+=("$1" "${2-}"); shift ;;
             *) args+=("$1") ;;
         esac
         (($#)) && shift
