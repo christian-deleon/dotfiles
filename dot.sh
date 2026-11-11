@@ -175,14 +175,24 @@ update_dotfiles() {
     fi
 
     if [[ -d "$DOTFILES_DIR/.git" ]]; then
-        _dotfiles_push_submodules_on_demand
+        if [[ -z ${DOT_UPDATE_PULLED:-} ]]; then
+            _dotfiles_push_submodules_on_demand
 
-        _info "Pulling latest dotfiles..."
-        if ! git -C "$DOTFILES_DIR" pull --rebase --autostash 2>&1; then
-            _error "Could not pull dotfiles"
-            echo
-            _info "This may be due to SSH authentication failure (requires 1Password)"
-            return 1
+            local before
+            before=$(git -C "$DOTFILES_DIR" rev-parse HEAD)
+            _info "Pulling latest dotfiles..."
+            if ! git -C "$DOTFILES_DIR" pull --rebase --autostash 2>&1; then
+                _error "Could not pull dotfiles"
+                echo
+                _info "This may be due to SSH authentication failure (requires 1Password)"
+                return 1
+            fi
+            # bash keeps running the dot.sh it started with, so after a pull that
+            # changed anything, finish the update with the new code.
+            if [[ $(git -C "$DOTFILES_DIR" rev-parse HEAD) != "$before" ]]; then
+                _info "Dotfiles changed; finishing the update with the new version..."
+                DOT_UPDATE_PULLED=1 exec "$DOTFILES_DIR/dot.sh" update
+            fi
         fi
 
         # Update critical submodules — only those already initialized.
