@@ -1,6 +1,7 @@
 # Worktrunk agent sessions need explicit approval
 
-`wtc` / `wta` / `wtaa` open a real worktree + tmux AI window.
+`wto new` / `wto open` (the user's `wtc` / `wta` / `wtaa`) open a real worktree +
+tmux AI window.
 
 **Never run them unprompted.** Finding secondary bugs, features, or side work is
 not authorization. Suggest only:
@@ -18,21 +19,17 @@ ran `/wtc`, said "wtc that", "spawn a fix agent", "open a worktree for this",
 "one for each", or otherwise clearly ordered a spawn. Then:
 
 1. Load and follow the `wtc` skill (handoff prompt, branch naming, multi-spawn).
-2. **Run** `wtc` in the shell tool — do not paste a `/wtc …` or shell command
+2. **Run** `wto new` in the shell tool — do not paste a `/wtc …` or shell command
    for the user to re-run. They already approved; you spawn.
-3. Always pass **`-n` / `--no-switch`**. Shell `wtc` jumps by default for
-   interactive human use; agent spawns must not steal focus.
-4. Always pass `-p` with a full self-contained handoff (Task / Context / Done when).
-5. Source the function first if the shell agent lacks interactive functions:
-   `source "$HOME/.dotfiles/functions.d/worktrunk.sh"`
+3. Pass a full self-contained handoff (Task / Context / Done when) with `-f`, and
+   the model and effort the skill picks. Never pass `--switch`; agent spawns must
+   not steal focus.
 
 ```bash
-source "$HOME/.dotfiles/functions.d/worktrunk.sh"
-wtc -n -p '<full child prompt>' '<branch>'
+wto new -m opus -e xhigh -f "$handoff" '<branch>'
 ```
 
-Bare `wtc` without `-n` or without a task prompt is wrong for agent spawns. The
-user may also run `/wtc` or shell `wtc` themselves at any time.
+The user may also run `/wtc` or shell `wtc` themselves at any time.
 
 **Orchestrator mode.** In a session running `/orchestrate`, the user's request to
 start work, or their approval of a proposed batch, is the spawn order for exactly
