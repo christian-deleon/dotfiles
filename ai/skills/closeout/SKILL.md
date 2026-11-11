@@ -78,7 +78,7 @@ Claims freed. Ready for you to close this window and remove the worktree.
 ```
 
 When this session follows the `orchestrated-session` skill, send its status
-report with `7. Merge: merged into main as <sha>` as well.
+report with `Merge: merged into main as <sha>` as well.
 
 With no orchestrator, tell the user they can close it from the main worktree
 with `wto close <branch>`.
