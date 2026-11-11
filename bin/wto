@@ -2,6 +2,7 @@
 # wto — coordinate agent sessions across a project's worktrees
 #
 # Usage: wto <command> [args]   (run anywhere inside a worktrunk project)
+# shellcheck disable=SC2329 # the *_locked functions run through with_lock
 set -Eeuo pipefail
 shopt -s inherit_errexit nullglob
 
@@ -1549,4 +1550,6 @@ main() {
     esac
 }
 
-main "$@"
+# One line, so bash has read the exit before main runs: a long run (an attach, a
+# claim wait) can outlive an edit to this file, and bash reads scripts as it goes.
+main "$@"; exit
