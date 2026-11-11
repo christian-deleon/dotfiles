@@ -1,8 +1,10 @@
 # Orchestrator messages
 
-Every message starts with the header line from `wto header` (`wto send` adds it).
-Keep messages short and say plainly what you expect: a reply, an action, or
-nothing. Fill the `<…>` parts; drop lines that do not apply.
+Send each one as SKILL.md section 2 says: your harness's own session messaging,
+else `wto send`. Every message starts with the header line from `wto header`;
+put it first yourself with harness messaging (`wto send` adds it). Keep
+messages short and say plainly what you expect: a reply, an action, or nothing.
+Fill the `<…>` parts; drop lines that do not apply.
 
 ## Announce
 
@@ -71,8 +73,8 @@ Still needed:
 
 ## The user's go (relayed)
 
-Send with `--relay`; the body is the user's words as they said them. Name the
-one action, for example:
+Send with the relay header (`wto header --relay` first, or `wto send --relay`);
+the body is the user's words as they said them. Name the one action, for example:
 
 ```text
 Approved; merge it.
