@@ -117,6 +117,7 @@ One agent session per worktree, each in its own tmux window (`wtc`, `wta`, `wtaa
 | `/closeout` | Run in a feature session when done: merge (if the project allows), free claims, ask main to close the window. |
 | `/backlog` | Run in the orchestrator: pick a capped batch of issues that can run side by side. |
 | `/onboard` | Run once per project: write its project profile. |
+| `orchestrated-session` | Loaded by a feature session when an orchestrator runs: test, check and review its own work, report with one fixed status report, and deploy or merge only on the owner's go relayed by the orchestrator. Not a slash command. |
 
 Messages use the harness's own session messaging where the receiver has it (Claude Code between Claude sessions; the OpenCode server for OpenCode) and a bracketed paste into the tmux pane otherwise (Grok). State that must survive restarts lives in `<git-common-dir>/orchestrate/`, which every worktree shares and git never tracks.
 
