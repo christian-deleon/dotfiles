@@ -6,6 +6,12 @@ worktree-path = "../{{ branch | sanitize }}"
 [post-start]
 agent-files = "dot agent link"
 
+# Free the shared-resource claims (wto claim) of a removed worktree and hand
+# them to the next waiter. Runs in the primary worktree; a no-op where wto is
+# missing or the project has no claims.
+[post-remove]
+claims = "command -v wto >/dev/null 2>&1 && wto claim gc || true"
+
 # If a project ever opts into `wt step copy-ignored`, don't let it copy our
 # managed symlinks (it would dereference them into a frozen file in the new
 # worktree and break update propagation from the agent-files source).
