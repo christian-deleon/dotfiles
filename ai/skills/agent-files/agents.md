@@ -49,7 +49,27 @@ color: blue                  # or hex
 
 Grok also documents spawn-time `isolation` (`none` | `worktree`) and `capability_mode` (`read-only` | `read-write` | `execute` | `all`) on `spawn_subagent` — those are invocation params, not something you have to put in every file. Plugin-shipped agents cannot declare their own `mcpServers` or hooks, and cannot set `permissionMode: bypassPermissions`. User-authored agents in this repo are not plugins.
 
-Claude-only fields (`permissionMode`, `memory`, `initialPrompt`, `disallowedTools`) act only in Claude Code; add them only when deliberately tuning Claude.
+## Claude Code fields
+
+Claude Code reads more frontmatter than the shared keys, and these are worth reaching for when a new agent has a context, cost, or safety need. They never reach OpenCode: the generator reads only `name`, `description`, `model`, and `tools`. Grok ignores keys it doesn't know but shares a few names (`permissionMode`, `mcpServers`, `hooks`); if you set one of those, check what Grok does with it via `grok inspect`. The list grows between releases, so re-check [the supported fields table](https://code.claude.com/docs/en/sub-agents#supported-frontmatter-fields) before relying on a field you haven't used.
+
+| Field | Values | Reach for it when |
+|---|---|---|
+| `disallowedTools` | same format as `tools` | Inherit everything except a few tools. `Bash(git push *)` still removes all of Bash |
+| `permissionMode` | `default`, `acceptEdits`, `auto`, `dontAsk`, `bypassPermissions`, `plan` | The agent should run under a different permission mode than the parent |
+| `maxTurns` | integer | Cap a runaway loop; output comes back marked partial and can be resumed |
+| `autoCompactWindow` | tokens, `100000`–`1000000` | A log- or dump-heavy agent should compact earlier. Only lowers the window; `CLAUDE_CODE_AUTO_COMPACT_WINDOW` overrides it, and `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` applies to subagents too |
+| `skills` | list of skill names | Preload full skill bodies at startup instead of hoping the agent invokes them |
+| `mcpServers` | server names or inline configs | Narrow the agent's MCP servers. In this repo, name roster servers only; no inline definitions |
+| `hooks` | hook config | Lifecycle hooks that run only while this agent is active |
+| `memory` | `user`, `project`, `local` | The agent should keep notes across sessions |
+| `background` | `true` | Keep it in the background even when the parent asks to wait |
+| `omitClaudeMd` | `true` | The delegation prompt carries everything; skip CLAUDE.md to save context |
+| `effort` | `low`, `medium`, `high`, `xhigh`, `max` | Override session effort, e.g. `low` for a search agent. `CLAUDE_CODE_EFFORT_LEVEL` still wins |
+| `isolation` | `worktree` | The agent edits files and must not touch the parent's checkout. Branches from the default branch, not the parent's HEAD |
+| `color` | `red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, `cyan` | Display only. Named colors only; OpenCode's hex form is invalid here |
+| `initialPrompt` | string | Used only when the agent runs as the main session (`claude --agent`) |
+| `experimental.cacheTtl` | `5m`, `1h` | Pick the prompt-cache lifetime for the agent's requests |
 
 ## The description is the delegation cue
 
