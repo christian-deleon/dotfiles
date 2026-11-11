@@ -37,6 +37,19 @@ Usage: wto <command> [args]
   claim gc                     drop claims of removed worktrees, then hand over
   close <branch>               close a finished session: kill its window, remove its worktree
 
+  new [-m model] [-e effort] [-p text | -f file] [--switch] <branch> [base]
+                               create a worktree and open its agent window (stays put
+                               unless --switch); -m/-e are saved for later launches
+  open [-p text | -f file] [--switch] [<branch>]
+                               open a worktree's window, continuing its conversation;
+                               no branch: the only worktree, or a picker
+  open --all [--switch]        open every worktree; main always starts fresh
+  layout [--k9s] [-t tool] [-p text | -f file | prompt...]
+                               lay out the calling pane: agent, editor, shell
+
+Agent commands come from $AI_TOOL / $AI_TOOL_RESUME (read from ~/.localrc
+when unset); the shortcuts cl, cca, gr, gra, oc and oca mean what .aliases says.
+
 Exit codes for send to one target: 4 no session, 5 exited, 6 blocked on a
 question or state unknown (--force sends anyway), 7 launched too recently.
 claim exits 75 when the claim lock stays busy for 5 seconds.
@@ -119,17 +132,10 @@ harness_procs() {
 # {<worktree path>: {model, effort}} from the ai-launch file that `wtc
 # --model/--effort` writes into each worktree's git dir.
 launch_json() {
-    local path gitdir key value model effort out=()
+    local path saved model effort out=()
     while IFS= read -r path; do
-        gitdir=$(git -C "$path" rev-parse --path-format=absolute --git-dir 2>/dev/null) || continue
-        [[ -f $gitdir/ai-launch ]] || continue
-        model="" effort=""
-        while IFS='=' read -r key value; do
-            case $key in
-                model) model=$value ;;
-                effort) effort=$value ;;
-            esac
-        done <"$gitdir/ai-launch"
+        saved=$(launch_settings "$path") || continue
+        IFS='|' read -r model effort <<<"$saved"
         out+=("$(jq -n -c --arg p "$path" --arg m "$model" --arg e "$effort" \
             '{($p): {model: (if $m == "" then null else $m end), effort: (if $e == "" then null else $e end)}}')")
     done < <(jq -r '.items[].worktree.path' <<<"$1")
@@ -775,6 +781,659 @@ cmd_claim() {
     esac
 }
 
+# ── launch: worktree windows and the agent layout ─────────────────────────────
+# wtc, wta, wtaa, tav and tavk in functions.d are thin wrappers over new, open
+# and layout, so agents and people run the same code.
+
+WTO_HOME=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)
+readonly WTO_HOME
+# Holds a new window until its agent pane is respawned; an interactive shell
+# here would probe the terminal and leak replies into the agent's input.
+readonly PLACEHOLDER='sleep 600'
+
+# Fill AI_TOOL / AI_TOOL_RESUME from ~/.localrc, where `dot ai-tool` writes
+# them, for shells that never sourced it.
+load_ai_tool() {
+    local line value
+    if [[ -z ${AI_TOOL:-} || -z ${AI_TOOL_RESUME:-} ]] && [[ -f $HOME/.localrc ]]; then
+        while IFS= read -r line; do
+            value=${line#*=}
+            value=${value#\"}
+            value=${value%\"}
+            case $line in
+                'export AI_TOOL='*) AI_TOOL=${AI_TOOL:-$value} ;;
+                'export AI_TOOL_RESUME='*) AI_TOOL_RESUME=${AI_TOOL_RESUME:-$value} ;;
+            esac
+        done <"$HOME/.localrc"
+    fi
+    [[ -n ${AI_TOOL:-} && -n ${AI_TOOL_RESUME:-} ]] \
+        || die "AI_TOOL / AI_TOOL_RESUME unset; run dot ai-tool"
+}
+
+# The harness shortcuts, as .aliases defines them for people. Launches run
+# outside an interactive shell, so aliases would not expand there.
+tool_command() {
+    local first=${1%% *} rest=""
+    [[ $1 == *' '* ]] && rest=" ${1#* }"
+    case $first in
+        cl) first=claude ;;
+        cca) first='claude --permission-mode bypassPermissions' ;;
+        gr) first='grok --trust' ;;
+        gra) first='grok --always-approve --trust' ;;
+        oc) first=opencode ;;
+        oca) first='opencode --auto' ;;
+    esac
+    printf '%s%s\n' "$first" "$rest"
+}
+
+# Worktree windows launch without permission prompts, or an unattended pane
+# would block: oc has no --auto, and cl asks before every tool.
+auto_tool() {
+    local first=${1%% *} rest=""
+    [[ $1 == *' '* ]] && rest=" ${1#* }"
+    case $first in
+        oc | opencode) first=oca ;;
+        cl | claude) first=cca ;;
+    esac
+    printf '%s%s\n' "$first" "$rest"
+}
+
+# The model and effort `new` saved for a worktree, in its own git dir so that
+# git worktree remove deletes them.
+launch_file() {
+    local gitdir
+    gitdir=$(git -C "$1" rev-parse --path-format=absolute --git-dir 2>/dev/null) || return 1
+    printf '%s/ai-launch\n' "$gitdir"
+}
+
+launch_settings() {
+    local file key value model="" effort=""
+    file=$(launch_file "$1") || return 1
+    [[ -f $file ]] || return 1
+    while IFS='=' read -r key value; do
+        case $key in
+            model) model=$value ;;
+            effort) effort=$value ;;
+        esac
+    done <"$file"
+    printf '%s|%s\n' "$model" "$effort"
+}
+
+# An empty value keeps the saved one.
+launch_save() {
+    local dir=$1 model=$2 effort=$3 file saved old_model="" old_effort=""
+    file=$(launch_file "$dir") || return 1
+    if saved=$(launch_settings "$dir"); then
+        IFS='|' read -r old_model old_effort <<<"$saved"
+    fi
+    printf 'model=%s\neffort=%s\n' "${model:-$old_model}" "${effort:-$old_effort}" >"$file"
+}
+
+# <project>/<branch>, the name Claude sessions get so peers can address them.
+session_name() {
+    local dir=$1 common branch
+    common=$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || return 1
+    branch=$(git -C "$dir" branch --show-current 2>/dev/null) || branch=""
+    [[ -n $branch ]] || branch=$(basename "$dir")
+    printf '%s/%s\n' "$(basename "$(dirname "$common")")" "$branch"
+}
+
+# The full command line for a harness in dir. With a prompt, it ends in
+# "$WTO_PROMPT", which the pane's launcher reads from the prompt file.
+build_launch() {
+    local tool=$1 dir=$2 with_prompt=$3 expanded bin name saved model="" effort=""
+    expanded=$(tool_command "$tool")
+    bin=${expanded%% *}
+    bin=${bin##*/}
+    # Each worktree is a new Grok workspace; without --trust the TUI blocks on
+    # "Do you trust this directory?" and an unattended agent never starts.
+    if [[ $bin == grok && " $expanded " != *' --trust '* ]]; then
+        expanded+=' --trust'
+    fi
+    if [[ $bin == claude && " $expanded " != *' --name '* && " $expanded " != *' -n '* ]] \
+        && name=$(session_name "$dir"); then
+        expanded+=" --name $(printf '%q' "$name")"
+    fi
+    if [[ $bin == claude || $bin == grok ]] && saved=$(launch_settings "$dir"); then
+        IFS='|' read -r model effort <<<"$saved"
+    fi
+    if [[ $bin == claude ]]; then
+        [[ -n $model && " $expanded " != *' --model '* ]] && expanded+=" --model $(printf '%q' "$model")"
+        [[ -n $effort && " $expanded " != *' --effort '* ]] && expanded+=" --effort $(printf '%q' "$effort")"
+    elif [[ $bin == grok ]]; then
+        [[ -n $model && " $expanded " != *' --model '* && " $expanded " != *' -m '* ]] \
+            && expanded+=" -m $(printf '%q' "$model")"
+        [[ -n $effort && " $expanded " != *' --reasoning-effort '* && " $expanded " != *' --effort '* ]] \
+            && expanded+=" --reasoning-effort $(printf '%q' "$effort")"
+    fi
+    if [[ -n $with_prompt ]]; then
+        # OpenCode's positional argument is a directory, not a prompt.
+        # shellcheck disable=SC2016 # expanded later, in the pane's launcher
+        if [[ $bin == opencode ]]; then
+            expanded+=' --prompt="$WTO_PROMPT"'
+        else
+            expanded+=' "$WTO_PROMPT"'
+        fi
+    fi
+    printf '%s\n' "$expanded"
+}
+
+# A prompt file the agent pane's launcher reads once and deletes.
+prompt_file() {
+    local text=$1 file
+    file=$(mktemp "${TMPDIR:-/tmp}/wto-prompt.XXXXXX") || die "mktemp failed"
+    printf '%s' "$text" >"$file" || {
+        rm -f -- "$file"
+        die "could not write the prompt file"
+    }
+    printf '%s\n' "$file"
+}
+
+grok_trust_folder() {
+    local path=$1 dest="$HOME/.grok/trusted_folders.toml" header
+    [[ -n $path ]] || return 0
+    path=$(readlink -f -- "$path" 2>/dev/null || printf '%s' "$path")
+    [[ -n $path && $path != / && $path != "$HOME" ]] || return 0
+    header="[folders.\"${path}\"]"
+    mkdir -p "$HOME/.grok"
+    if [[ ! -f $dest ]]; then
+        : >"$dest"
+        chmod 600 "$dest" || true
+    fi
+    grep -Fq -- "$header" "$dest" 2>/dev/null && return 0
+    if [[ -s $dest ]]; then
+        [[ -n $(tail -c1 "$dest" 2>/dev/null || true) ]] && printf '\n' >>"$dest"
+        printf '\n' >>"$dest"
+    fi
+    {
+        printf '%s\n' "$header"
+        printf 'trusted = true\n'
+        printf 'decided_at = %s\n' "$(date +%s)"
+    } >>"$dest"
+    chmod 600 "$dest" 2>/dev/null || true
+}
+
+# Pre-accept Claude's trust dialog. Running sessions rewrite ~/.claude.json
+# often, so only swap in our copy when the file is unchanged since we read it,
+# and try again when it changed.
+claude_trust_folder() {
+    local dir=$1 cfg="$HOME/.claude.json" before tmp try
+    [[ -n $dir && -f $cfg ]] || return 0
+    dir=$(readlink -f -- "$dir" 2>/dev/null || printf '%s' "$dir")
+    [[ -n $dir && $dir != / && $dir != "$HOME" ]] || return 0
+    for try in 1 2 3 4 5; do
+        jq -e --arg d "$dir" '.projects[$d].hasTrustDialogAccepted == true' "$cfg" >/dev/null 2>&1 \
+            && return 0
+        ((try == 1)) || sleep 0.2
+        before=$(cksum <"$cfg")
+        tmp=$(mktemp "$cfg.XXXXXX") || return 0
+        if jq --arg d "$dir" '.projects[$d].hasTrustDialogAccepted = true' "$cfg" >"$tmp" \
+            && [[ $(cksum <"$cfg") == "$before" ]]; then
+            chmod 600 "$tmp"
+            mv -- "$tmp" "$cfg"
+        else
+            rm -f -- "$tmp"
+        fi
+    done
+    return 0
+}
+
+# Grok session to resume for a worktree. grok -c continues the newest session
+# for the cwd, empty ones included, which shadows the last real conversation;
+# pick the most recently active parent session with a title or real messages.
+grok_resume_id() {
+    local wt_path=$1 key dir id
+    local -a summaries=()
+    key=$(jq -nr --arg p "$wt_path" '$p|@uri') || return 1
+    dir="${GROK_HOME:-$HOME/.grok}/sessions/$key"
+    [[ -d $dir ]] || return 1
+    summaries=("$dir"/*/summary.json)
+    ((${#summaries[@]} > 0)) || return 1
+    id=$(jq -rs '
+        map(select(
+            (.session_kind // "") != "subagent" and
+            (.session_kind // "") != "subagent_resume" and
+            (((.generated_title // "") | length) > 0 or ((.num_chat_messages // 0) > 2))
+        ))
+        | max_by(.last_active_at // .updated_at // "")
+        | .info.id // empty
+    ' "${summaries[@]}") || return 1
+    [[ -n $id ]] || return 1
+    printf '%s\n' "$id"
+}
+
+# True if the configured harness has a conversation for this path. Claude keeps
+# transcripts under ~/.claude/projects/<path, non-alphanumerics as ->/;
+# OpenCode has no probe.
+has_session_history() {
+    local wt_path=$1
+    if is_grok "$AI_TOOL"; then
+        grok_resume_id "$wt_path" >/dev/null
+        return
+    fi
+    case ${AI_TOOL%% *} in
+        cl | cca | claude)
+            wt_path=$(readlink -f -- "$wt_path" 2>/dev/null || printf '%s' "$wt_path")
+            [[ -n $(find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/${wt_path//[^a-zA-Z0-9]/-}" \
+                -maxdepth 1 -name '*.jsonl' 2>/dev/null | head -n 1) ]]
+            ;;
+        *) return 1 ;;
+    esac
+}
+
+is_grok() {
+    case ${1%% *} in gra | grok | gr) return 0 ;; esac
+    return 1
+}
+
+# The command a worktree window launches: a continued conversation when one
+# exists, unless fresh is set (main always is: it is a home base).
+window_tool() {
+    local wt_path=$1 fresh=$2 resume_id cmd
+    if [[ -n $fresh ]]; then
+        cmd=$AI_TOOL
+    elif is_grok "$AI_TOOL" && resume_id=$(grok_resume_id "$wt_path"); then
+        cmd="$AI_TOOL -r $resume_id"
+    elif has_session_history "$wt_path"; then
+        cmd=$AI_TOOL_RESUME
+    else
+        cmd=$AI_TOOL
+    fi
+    auto_tool "$cmd"
+}
+
+# Worktrees of a project share a parent dir, so the session takes that dir's
+# name, unless this client already sits in the project under another session
+# name (opened with `tn`), whose session then gets the new windows.
+session_for() {
+    local root cur_session cur_path
+    root=$(dirname "$1")
+    if [[ -n ${TMUX:-} && -n ${TMUX_PANE:-} ]]; then
+        cur_session=$(tmux display-message -t "$TMUX_PANE" -p '#{session_name}' 2>/dev/null) || cur_session=""
+        cur_path=$(tmux display-message -t "$TMUX_PANE" -p '#{pane_current_path}' 2>/dev/null) || cur_path=""
+        if [[ -n $cur_session && ($cur_path == "$root" || $cur_path == "$root"/*) ]]; then
+            printf '%s\n' "$cur_session"
+            return
+        fi
+    fi
+    basename "$root"
+}
+
+# Window id (@N) by name. A name with a '.' (chore-upgrade-to-1.7.5) breaks a
+# session:window target, which tmux reads as window.pane.
+window_id() {
+    local session=$1 name=$2 id wname
+    while IFS=$'\t' read -r id wname; do
+        [[ $wname == "$name" ]] && { printf '%s\n' "$id"; return 0; }
+    done < <(tmux list-windows -t "=$session" -F "#{window_id}"$'\t'"#{window_name}" 2>/dev/null)
+    return 1
+}
+
+goto_window() {
+    local session=$1 name=$2 wid=""
+    wid=$(window_id "$session" "$name") || wid=""
+    if [[ -n ${TMUX:-} ]]; then
+        tmux switch-client -t "=$session" 2>/dev/null || true
+        [[ -n $wid ]] && tmux select-window -t "$wid" 2>/dev/null
+    else
+        [[ -n $wid ]] && tmux select-window -t "$wid" 2>/dev/null
+        tmux attach -t "=$session"
+    fi
+    return 0
+}
+
+# The size of the client the window will be viewed at, minus the status bar
+# rows tmux keeps outside the window. tav's splits are fixed at creation and
+# tmux grows windows unevenly, so a window built at the 80x24 default and later
+# attached to a taller client loses its proportions.
+target_geometry() {
+    local x y status lines
+    if [[ -n ${TMUX:-} ]]; then
+        x=$(tmux display-message -p '#{client_width}' 2>/dev/null) || x=""
+        y=$(tmux display-message -p '#{client_height}' 2>/dev/null) || y=""
+        status=$(tmux display-message -p '#{status}' 2>/dev/null) || status=""
+        case $status in
+            off) lines=0 ;;
+            '' | *[!0-9]*) lines=1 ;;
+            *) lines=$status ;;
+        esac
+    else
+        x=$(tput cols 2>/dev/null) || x=""
+        y=$(tput lines 2>/dev/null) || y=""
+        lines=1
+    fi
+    [[ $x =~ ^[0-9]+$ ]] || x=220
+    [[ $y =~ ^[0-9]+$ ]] || y=50
+    printf '%s %s\n' "$x" "$((y - lines))"
+}
+
+# Run a send-keys later from the tmux server, so it survives this process.
+schedule_send() {
+    local pane=$1 delay=$2 keys=$3
+    tmux run-shell -b "sleep $delay; tmux send-keys -t $pane $(printf '%q' "$keys") C-m"
+}
+
+# Grok treats Device Attributes / CPR replies as key input and leaves their
+# body in its prompt (`0;2600;1c` from Alacritty, `84;0;0c` from tmux,
+# `24;1R`). Clear the prompt only while that fingerprint shows, polling ~10s
+# because nvim and LazyGit keep probing after first paint. run-shell -b belongs
+# to the tmux server and uses /bin/sh.
+schedule_da_scrub() {
+    local pane=$1 script
+    script=$(
+        cat <<EOF
+sleep 0.8
+i=0
+while [ "\$i" -lt 16 ]; do
+  if tmux capture-pane -t '${pane}' -p -J 2>/dev/null \
+      | tail -n 8 \
+      | grep -qE '0;2600;1c|84;0;0c|[0-9]+;[0-9]+([;0-9]*)[cRu]'; then
+    tmux send-keys -t '${pane}' C-u
+  fi
+  i=\$((i + 1))
+  sleep 0.5
+done
+true
+EOF
+    )
+    tmux run-shell -b "$script"
+}
+
+# Replace a pane with the agent. It starts under a bare bash after a quiet
+# period that drains pending terminal replies, and drops into an interactive
+# shell when it exits. Respawning the caller's own pane ends this process, so
+# it is always the last step.
+respawn_agent() {
+    local pane=$1 dir=$2 launch=$3 pf=$4 bin wt_root inner outer drain read_prompt="" mark_exited=""
+    bin=${launch%% *}
+    bin=${bin##*/}
+    case $bin in
+        claude | grok | opencode)
+            wt_root=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) || wt_root=$dir
+            tmux set-option -p -t "$pane" @ai_tool "$bin" \; \
+                set-option -p -t "$pane" @ai_wt "$wt_root" \; \
+                set-option -p -t "$pane" @ai_state starting \; \
+                set-option -p -t "$pane" @ai_state_at "$(date +%s)" \; \
+                set-option -p -u -t "$pane" @ai_session 2>/dev/null || true
+            # So `wto send` never types a message into the shell left behind.
+            mark_exited="; tmux set-option -p -t $pane @ai_state exited \; set-option -p -t $pane @ai_state_at \$(date +%s) 2>/dev/null"
+            ;;
+    esac
+    if [[ $bin == grok && -x $WTO_HOME/bin/tty-filter-da ]]; then
+        launch="$WTO_HOME/bin/tty-filter-da $launch"
+    fi
+    # shellcheck disable=SC2016 # runs in the pane's bash, not here
+    drain='
+deadline=$((SECONDS + 1))
+quiet=0
+while (( SECONDS < deadline )); do
+  if IFS= read -r -t 0.05 -n 1 _; then
+    quiet=0
+  else
+    quiet=$((quiet + 1))
+    (( quiet >= 5 )) && break
+  fi
+done
+'
+    [[ -n $pf ]] && read_prompt="WTO_PROMPT=\$(cat -- $(printf '%q' "$pf")); rm -f -- $(printf '%q' "$pf"); "
+    inner=". \"\$HOME/.localrc\" 2>/dev/null || true; ${drain}${read_prompt}${launch}"
+    outer="bash --noprofile --norc -c $(printf '%q' "$inner")${mark_exited}; exec $(printf '%q' "${SHELL:-bash}") -i"
+    schedule_da_scrub "$pane"
+    tmux respawn-pane -k -t "$pane" -c "$dir" "$outer"
+}
+
+# True when an agent harness runs in the pane: laying it out would end it.
+pane_runs_agent() {
+    local pid
+    pid=$(tmux display-message -p -t "$1" '#{pane_pid}' 2>/dev/null) || return 1
+    [[ -n $(harness_procs "$pid") ]]
+}
+
+# Agent on the left (with a shell below it), nvim with LazyGit on the right,
+# and k9s below that with --k9s. The editor waits 2.5s: its terminal probes,
+# started alongside the agent, are what leaks replies into the agent's input.
+layout() {
+    local pane=$1 dir=$2 tool=$3 pf=$4 k9s=$5 launch right
+    launch=$(build_launch "$tool" "$dir" "$pf")
+    grok_trust_folder "$dir"
+    claude_trust_folder "$dir"
+    right=$(tmux split-window -d -h -p 65 -t "$pane" -c "$dir" -P -F '#{pane_id}')
+    tmux split-window -d -v -p 32 -t "$pane" -c "$dir"
+    if [[ -n $k9s ]]; then
+        schedule_send "$(tmux split-window -d -v -p 32 -t "$right" -c "$dir" -P -F '#{pane_id}')" 2.5 k9s
+    fi
+    tmux select-pane -t "$pane"
+    schedule_send "$right" 2.5 'nvim . -c "lua vim.schedule(function() Snacks.lazygit() end)"'
+    respawn_agent "$pane" "$dir" "$launch" "$pf"
+}
+
+# [{branch, path, main}] for the worktrees that have a branch.
+wt_items() {
+    wt_list | jq -c '[.items[] | select((.branch // "") != "")
+        | {branch, path: .worktree.path, main: (.worktree.main == true)}]'
+}
+
+# Create one worktree's window and start its layout. Prints what it did. The
+# prompt file is consumed either way.
+ensure_window() {
+    local branch=$1 wt_path=$2 pf=$3 fresh=$4 session window tool x y pane
+    session=$(session_for "$wt_path")
+    window=${branch//\//-}
+    tool=$(window_tool "$wt_path" "$fresh")
+    read -r x y < <(target_geometry)
+    if ! tmux has-session -t "=$session" 2>/dev/null; then
+        pane=$(tmux new-session -d -s "$session" -n "$window" -c "$wt_path" -x "$x" -y "$y" \
+            -P -F '#{pane_id}' "$PLACEHOLDER")
+    elif ! window_id "$session" "$window" >/dev/null; then
+        # The trailing colon makes this a session target even when a window
+        # shares the session's name. -d keeps the client where it is.
+        pane=$(tmux new-window -d -t "=$session:" -n "$window" -c "$wt_path" -P -F '#{pane_id}' "$PLACEHOLDER")
+        # Size it for its client before the splits; resize-window pins the
+        # session to window-size manual, so restore the inherited default.
+        tmux resize-window -t "$pane" -x "$x" -y "$y" 2>/dev/null || true
+        tmux set-option -u -t "=$session" window-size 2>/dev/null || true
+    else
+        [[ -n $pf ]] && rm -f -- "$pf"
+        printf '  skip    %s:%s (already exists)\n' "$session" "$window"
+        return 0
+    fi
+    tmux set-window-option -t "$pane" allow-rename off 2>/dev/null || true
+    layout "$pane" "$wt_path" "$tool" "$pf" ""
+    printf '  create  %s:%s  (%s)\n' "$session" "$window" "$tool"
+}
+
+optval() {
+    (($1 >= 2)) || die "$2 needs a value"
+}
+
+# -p text or -f file, into a prompt file for the launcher (empty: none).
+prompt_arg() {
+    local text=$1 file=$2
+    if [[ -n $file ]]; then
+        [[ -f $file ]] || die "prompt file not found: $file"
+        text=$(cat -- "$file"; printf x)
+        text=${text%x}
+    fi
+    [[ -n $text ]] && prompt_file "$text"
+    return 0
+}
+
+cmd_new() {
+    local branch="" base="" text="" file="" model="" effort="" switch=0 pf wt_path
+    local name_re='^[A-Za-z0-9._:@/-]+(\[[A-Za-z0-9]+\])?$'
+    while (($#)); do
+        case $1 in
+            -p | --prompt) optval $# "$1"; text=${2-}; shift ;;
+            -f | --prompt-file) optval $# "$1"; file=${2-}; shift ;;
+            -m | --model) optval $# "$1"; model=${2-}; shift ;;
+            -e | --effort) optval $# "$1"; effort=${2-}; shift ;;
+            -n | --no-switch) switch=0 ;;
+            --switch) switch=1 ;;
+            -h | --help) usage; return ;;
+            -*) die "new: unknown option '$1'" ;;
+            *)
+                if [[ -z $branch ]]; then branch=$1
+                elif [[ -z $base ]]; then base=$1
+                else die "new: too many arguments"
+                fi
+                ;;
+        esac
+        shift
+    done
+    [[ -n $branch ]] || die "new: name the branch (wto new [-m model] [-e effort] [-p text] <branch> [base])"
+    if [[ -n $model && ! $model =~ $name_re ]] || [[ -n $effort && ! $effort =~ ^[a-z]+$ ]]; then
+        die "new: bad --model or --effort value"
+    fi
+    load_ai_tool
+
+    # A branch that exists locally or on origin is switched to (wt then makes
+    # a local tracking branch); only a new one takes a base.
+    local -a create=(switch "$branch" --no-cd)
+    if ! git show-ref --verify --quiet "refs/heads/$branch" \
+        && ! git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+        create=(switch --create "$branch" --no-cd)
+        [[ -n $base ]] && create+=(--base "$base")
+    elif [[ -n $base ]]; then
+        printf 'wto: %s already exists; ignoring base %s\n' "$branch" "$base" >&2
+    fi
+    wt "${create[@]}" || die "new: could not create the worktree for '$branch'"
+    wt_path=$(wt_items | jq -r --arg b "$branch" '.[] | select(.branch == $b) | .path')
+    [[ -n $wt_path ]] || die "new: worktree for '$branch' not found after create"
+
+    if [[ -n $model || -n $effort ]]; then
+        launch_save "$wt_path" "$model" "$effort" || die "new: could not save model/effort for '$branch'"
+        case ${AI_TOOL%% *} in
+            oc | oca | opencode)
+                printf 'wto: OpenCode takes no per-session model or effort; it starts on its configured default\n' >&2
+                ;;
+        esac
+    fi
+    pf=$(prompt_arg "$text" "$file")
+    ensure_window "$branch" "$wt_path" "$pf" ""
+    open_finish "$wt_path" "$branch" "$switch"
+}
+
+open_finish() {
+    local wt_path=$1 branch=$2 switch=$3 session
+    session=$(session_for "$wt_path")
+    if ((switch)); then
+        goto_window "$session" "${branch//\//-}"
+    else
+        printf '  ready   %s:%s  (staying put)\n' "$session" "${branch//\//-}"
+    fi
+}
+
+cmd_open() {
+    local branch="" text="" file="" switch=0 all=0 items count pf wt_path main
+    while (($#)); do
+        case $1 in
+            -p | --prompt) optval $# "$1"; text=${2-}; shift ;;
+            -f | --prompt-file) optval $# "$1"; file=${2-}; shift ;;
+            --switch) switch=1 ;;
+            -n | --no-switch) switch=0 ;;
+            --all) all=1 ;;
+            -h | --help) usage; return ;;
+            --) shift; [[ -z $branch && $# -gt 0 ]] && branch=$1 ;;
+            -*) die "open: unknown option '$1'" ;;
+            *) [[ -z $branch ]] && branch=$1 ;;
+        esac
+        (($#)) && shift
+    done
+    load_ai_tool
+    items=$(wt_items)
+    count=$(jq length <<<"$items")
+    ((count > 0)) || die "open: no worktrees found (run inside a worktrunk project)"
+    if ((all)); then
+        open_all "$items" "$switch"
+        return
+    fi
+    if [[ -z $branch ]]; then
+        if ((count == 1)); then
+            branch=$(jq -r '.[0].branch' <<<"$items")
+        elif [[ -t 0 && -t 1 ]] && command -v fzf >/dev/null 2>&1; then
+            branch=$(jq -r 'sort_by([(.main | not), .branch]) | .[].branch' <<<"$items" \
+                | fzf --prompt="Worktree: " --height=40% --reverse) || return 0
+            [[ -n $branch ]] || return 0
+        else
+            die "open: name the branch (or install fzf for a picker)"
+        fi
+    fi
+    wt_path=$(jq -r --arg b "$branch" '.[] | select(.branch == $b) | .path' <<<"$items")
+    [[ -n $wt_path ]] || die "open: no worktree for '$branch'"
+    main=$(jq -r --arg b "$branch" '.[] | select(.branch == $b) | .main' <<<"$items")
+    pf=$(prompt_arg "$text" "$file")
+    ensure_window "$branch" "$wt_path" "$pf" "$([[ $main == true ]] && echo 1)"
+    open_finish "$wt_path" "$branch" "$switch"
+}
+
+# Every worktree, main first. Inside tmux, a launcher that is a single bare
+# pane in this project (outside any feature worktree) becomes main's window,
+# when it is main's window already or main has none; it is laid out last,
+# since respawning it ends this process.
+open_all() {
+    local items=$1 switch=$2 session first_window main_path adopt="" branch path main
+    local cur_session cur_path cur_window cur_panes inside
+    session=$(session_for "$(jq -r '.[0].path' <<<"$items")")
+    items=$(jq -c 'sort_by([(.main | not), .branch])' <<<"$items")
+    first_window=$(jq -r '.[0].branch | gsub("/"; "-")' <<<"$items")
+    main_path=$(jq -r '[.[] | select(.main)][0].path // empty' <<<"$items")
+    if [[ -n ${TMUX:-} && -n ${TMUX_PANE:-} && -n $main_path ]]; then
+        cur_session=$(tmux display-message -t "$TMUX_PANE" -p '#{session_name}' 2>/dev/null) || cur_session=""
+        cur_path=$(tmux display-message -t "$TMUX_PANE" -p '#{pane_current_path}' 2>/dev/null) || cur_path=""
+        cur_window=$(tmux display-message -t "$TMUX_PANE" -p '#{window_name}' 2>/dev/null) || cur_window=""
+        cur_panes=$(tmux display-message -t "$TMUX_PANE" -p '#{window_panes}' 2>/dev/null) || cur_panes=""
+        inside=$(jq -r --arg c "$cur_path" \
+            'any(.[]; .path as $p | (.main | not) and ($c == $p or ($c | startswith($p + "/"))))' <<<"$items")
+        if [[ $cur_session == "$session" && $inside == false && ${cur_panes:-1} == 1 ]] \
+            && ! pane_runs_agent "$TMUX_PANE" \
+            && { [[ $cur_window == "$first_window" ]] || ! window_id "$session" "$first_window" >/dev/null; }; then
+            adopt=$TMUX_PANE
+        fi
+    fi
+    while IFS=$'\t' read -r branch path main; do
+        if [[ $main == true && -n $adopt ]]; then
+            tmux rename-window -t "$adopt" "${branch//\//-}"
+            tmux set-window-option -t "$adopt" allow-rename off 2>/dev/null || true
+            printf '  adopt   %s:%s  (%s)\n' "$session" "${branch//\//-}" "$(window_tool "$path" 1)"
+            continue
+        fi
+        ensure_window "$branch" "$path" "" "$([[ $main == true ]] && echo 1)"
+    done < <(jq -r '.[] | "\(.branch)\t\(.path)\t\(.main)"' <<<"$items")
+    if [[ -n $adopt ]]; then
+        layout "$adopt" "$main_path" "$(window_tool "$main_path" 1)" "" ""
+    elif ((switch)); then
+        goto_window "$session" "$first_window"
+    fi
+}
+
+cmd_layout() {
+    local tool="" text="" file="" k9s="" pf dir
+    while (($#)); do
+        case $1 in
+            -t | --tool) optval $# "$1"; tool=${2-}; shift ;;
+            -f | --prompt-file) optval $# "$1"; file=${2-}; shift ;;
+            -p | --prompt) optval $# "$1"; text=${2-}; shift ;;
+            --k9s) k9s=1 ;;
+            -h | --help) usage; return ;;
+            --) shift; break ;;
+            -*) die "layout: unknown option '$1'" ;;
+            *) break ;;
+        esac
+        shift
+    done
+    (($#)) && text="$*"
+    [[ -n ${TMUX:-} && -n ${TMUX_PANE:-} ]] || die "layout: run it inside tmux"
+    pane_runs_agent "$TMUX_PANE" && die "layout: an agent runs in this pane; laying it out would end it"
+    if [[ -z $tool ]]; then
+        tool=${AI_TOOL:-}
+        [[ -n $tool ]] || { load_ai_tool; tool=$AI_TOOL; }
+    fi
+    dir=$PWD
+    pf=$(prompt_arg "$text" "$file")
+    tmux rename-window -t "$TMUX_PANE" "$(basename "$dir")"
+    layout "$TMUX_PANE" "$dir" "$tool" "$pf" "$k9s"
+}
+
 # ── close ─────────────────────────────────────────────────────────────────────
 
 cmd_close() {
@@ -806,7 +1465,7 @@ cmd_close() {
     fi
     since=$(date +%s)
     wt -C "$main_path" remove "$branch" --foreground --yes \
-        || die "close: wt remove failed; the window is closed but the worktree and its claims remain (reopen with wtc -n $branch)"
+        || die "close: wt remove failed; the window is closed but the worktree and its claims remain (reopen with wto open $branch)"
     # The worktree is gone, so the grant pass drops its claims and hands them
     # on. worktrunk's post-remove hook may have run it already, out of sight,
     # so report every grant made since the removal started.
@@ -831,6 +1490,9 @@ main() {
         header) require jq git; cmd_header "$@" ;;
         claim) require wt jq git; cmd_claim "$@" ;;
         close) require wt jq git tmux; cmd_close "$@" ;;
+        new) require wt jq git tmux; cmd_new "$@" ;;
+        open) require wt jq git tmux; cmd_open "$@" ;;
+        layout) require jq git tmux; cmd_layout "$@" ;;
         '' | -h | --help | help) usage ;;
         *) die "unknown command '$cmd' (see wto --help)" ;;
     esac
