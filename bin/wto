@@ -80,14 +80,26 @@ state_dir() {
 wt_list() {
     local raw
     raw=$(wt list --format json 2>/dev/null) || die "wt list failed (run inside a worktrunk project)"
-    # Worktrunk before 0.77 prints a bare array with path, is_main and
-    # working_tree at the top level; lift those into the newer .worktree shape.
+    # Worktrunk 0.77+ emits schema 2 ({schema, items}, facts under .worktree).
+    # Older versions emit a bare array (schema 1) whose .worktree is only the
+    # location flags — path, is_main and working_tree sit at the top level.
+    # Lift schema 1 into the fields the rest of this script reads. A schema-1
+    # .worktree is an object, so "has no .worktree" is not the test.
     jq -c '(if type == "array" then {items: .} else . end)
         | .items |= ((. // []) | map(
-            if (.worktree | type) != "object" and (.path | type) == "string" then
-                . + {worktree: {path: .path, main: (.is_main == true),
-                                changes: (if (.working_tree | type) == "object"
-                                          then .working_tree else null end)}}
+            if (.worktree.path | type) != "string" and (.path | type) == "string" then
+                .worktree = ((.worktree // {}) + {
+                    path: .path,
+                    main: (.is_main == true),
+                    current: (.is_current == true),
+                    previous: (.is_previous == true),
+                    changes: (if (.working_tree | type) == "object"
+                              then .working_tree else null end)})
+                | .default_branch = (if (.main | type) == "object" then .main else null end)
+                | .display = {state: (.main_state // null)}
+                | if (.integration_reason | type) == "string" then
+                    .default_branch = ((.default_branch // {}) + {integration: {reason: .integration_reason}})
+                  else . end
             else . end))
         | (.items | map(select((.worktree.path // "") != ""))) as $items
         | {default: (.repo.default_branch
