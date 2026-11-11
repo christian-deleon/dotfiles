@@ -27,7 +27,7 @@ Claude loads `~/.claude/rules/` files with no `paths:` frontmatter in every sess
 ~/.dotfiles/ai/rules/
 ├── common/
 │   ├── prefer-mcp.md
-│   └── no-auto-commit.md
+│   └── auto-commit.md
 └── …
 ```
 
