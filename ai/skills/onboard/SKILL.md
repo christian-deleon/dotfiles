@@ -28,7 +28,7 @@ details into a public file.
 | Finding | Write to |
 |---|---|
 | `AGENTS.md` is tracked in the repo (`git ls-files AGENTS.md`) | That file. It is a change to the project, made the way the project takes changes. |
-| `AGENTS.md` is a symlink into `~/.dotfiles/agent-files/projects/<name>/` (a `dot agent` overlay) | The overlay's source file, never the project. Its private submodule commits on its own. |
+| `AGENTS.md` is a symlink into `~/.dotfiles/agent-files/projects/<name>/` (a `dot agent` overlay) | The overlay's source file, never the project. Commit it inside the submodule, which is its own repository; never push it. |
 | No `AGENTS.md` | Ask: create one in the repo, or use `dot agent link` for a project that must not carry agent files. |
 | Only a `CLAUDE.md` | Ask before touching it; the user may want it migrated to `AGENTS.md` first. |
 
@@ -110,6 +110,8 @@ Show the whole draft and wait.
 - The profile goes into the file chosen in step 1. Keep the rest of the file as
   it is; replace an existing profile section rather than adding a second one.
 - Run `wto claim define` if approved.
+- Commit the profile where it was written: in the project like any change to
+  it, or in the overlay submodule.
 - Project code and skill changes follow the project's process: commit them on a
   personal project; on a review-required one, put them on a branch for its
   merge-request flow and leave the merging to the user.
