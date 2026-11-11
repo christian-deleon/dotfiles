@@ -1,24 +1,24 @@
 ---
 name: wtc
-description: Spawn sibling tmux+worktree agent(s) via shell wtc when the user explicitly approves (slash /wtc, "wtc that", "spawn a fix agent", "one for each", …). When this skill runs, execute wtc yourself — never tell the user a /wtc or shell command to re-run. Builds a full -p handoff; always -n so focus is not stolen. Without approval, only suggest /wtc lines.
+description: Spawn sibling tmux+worktree agent(s) with `wto new` when the user explicitly approves (slash /wtc, "wtc that", "spawn a fix agent", "one for each", …). When this skill runs, spawn yourself — never tell the user a /wtc or shell command to re-run. Builds a full handoff and picks the model and effort. Without approval, only suggest /wtc lines.
 argument-hint: "[branch] [message…] | each: … | (empty = from context)"
 user-invocable: true
 ---
 
 # /wtc — spawn a parallel fix agent
 
-`/wtc` hands a bug or task to a fresh agent in a new worktree + tmux window. It
-wraps the shell function `wtc` from `functions.d/worktrunk.sh`: create (or switch
-to) a worktree, open a `tav` layout, launch `$AI_TOOL` with an initial prompt.
+`/wtc` hands a bug or task to a fresh agent in a new worktree + tmux window. You
+run `wto new`, the program behind the user's `wtc` shortcut: it creates (or
+switches to) a worktree, opens the `tav` layout, and launches `$AI_TOOL` with an
+initial prompt. It is on `PATH` in every shell; nothing needs sourcing.
 
-**Interactive shell `wtc` jumps by default** (what humans want when they type it).
-**Agent invocations must always pass `-n` / `--no-switch`** so the new window is
-created without stealing focus from the user's current window.
+`wto new` leaves the user's focus where it is. Never pass `--switch`; the user's
+own `wtc` jumps by default because a person typing it wants that.
 
 **Two ways this gets used:**
 
 1. **User runs `/wtc`** (or says "wtc that" / "spawn a fix agent" / "one worktree
-   for each") — this skill is active. **You spawn.** Run `wtc -n -p …` via the
+   for each") — this skill is active. **You spawn.** Run `wto new …` via the
    shell tool yourself. That **is** approval for this turn. Do **not** reply with
    a `/wtc …` line, a shell command, or "here's what to run" for the user to
    copy — they already invoked the skill; your job is to execute.
@@ -28,12 +28,12 @@ created without stealing focus from the user's current window.
 
 **Authorization for this turn only.** User slash `/wtc` or an explicit natural-
 language spawn order this turn is the only permission you need — do not re-ask.
-Outside of that, never run `wtc` / `wta` / `wtaa`.
+Outside of that, never run `wto new` / `wto open` (or `wtc` / `wta` / `wtaa`).
 
 The most common failure mode is treating "we found a bug" as a reason to spawn.
 It is not — **suggest** `/wtc …` and wait. Another is a thin prompt ("fix the
-bug") that leaves the child with no context — always pack the handoff into `-p`.
-A third is bare `wtc` without `-n` (steals focus). A fourth is **keeping ownership
+bug") that leaves the child with no context — always pass a full handoff.
+A third is `--switch` (steals focus). A fourth is **keeping ownership
 after spawn**: still implementing the child's task, or treating child work as open
 on *this* session's checklist when the user asks "is everything resolved?" —
 spawn transfers accountability; see **Ownership after spawn**. A fifth is **when
@@ -42,12 +42,12 @@ executing** — that is always wrong.
 ## Arguments — how to pass a message
 
 `$ARGUMENTS` is freeform text after `/wtc`. That text **is** the message seed
-(plus optional branch). There is no separate flag in the slash command — the
-shell form uses `-p` under the hood; you build that from args + conversation.
+(plus optional branch). There is no separate flag in the slash command — you
+build the handoff from args + conversation and pass it to `wto new`.
 
 | What you type | What happens |
 |---|---|
-| `/wtc fix/session-null Null deref at auth/session.go:142 after idle` | Branch = `fix/session-null`. Message seed = everything after the branch. Expanded with conversation context into full `-p` handoff. |
+| `/wtc fix/session-null Null deref at auth/session.go:142 after idle` | Branch = `fix/session-null`. Message seed = everything after the branch. Expanded with conversation context into a full handoff. |
 | `/wtc Null deref at auth/session.go:142 after idle` | No branch token → invent `fix/<kebab-slug>` from the message. Rest is the seed. |
 | `/wtc` | Empty args → derive branch + full prompt from the **current** problem in this conversation. |
 | `/wtc each of the four we found` / `/wtc one for each` / `/wtc` after you listed N issues and said spawn all | **Multi-spawn** — one worktree + agent per item (see below). |
@@ -59,7 +59,7 @@ shell form uses `-p` under the hood; you build that from args + conversation.
 Branch names: short, descriptive (`fix/auth-null-session`, not `fix/thing`).
 Window name = branch with `/` → `-`.
 
-Optional base branch is rare; only pass shell `wtc`'s second positional base if
+Optional base branch is rare; only pass `wto new`'s second positional base if
 the user named one explicitly (e.g. `/wtc hotfix/login production …` for a
 single spawn).
 
@@ -71,9 +71,9 @@ worktree for each", "spawn all of these", or a multi-item list in `$ARGUMENTS`:
 1. Build an ordered list of tasks from `$ARGUMENTS` **and/or** the conversation
    (what you already suggested, what they just listed).
 2. For **each** task, invent a distinct branch (`fix/…` / `feat/…`) and a full
-   self-contained `-p` prompt (same template as single spawn). Do not put all
+   self-contained prompt (same template as single spawn). Do not put all
    four bugs into one prompt.
-3. Run `wtc -n` **once per task**, sequentially. Focus never moves; the user
+3. Run `wto new` **once per task**, sequentially. Focus never moves; the user
    stays on their current window the whole time.
 4. Report a compact table: branch → window → one-line task.
 
@@ -117,36 +117,33 @@ unknowns ("suspected — not confirmed") rather than guessing.
 ### 2. Preconditions
 
 - Cwd must be inside the target git repo (project is resolved from cwd).
-- `$AI_TOOL` / `$AI_TOOL_RESUME` must be set (else `wtc` errors — tell the user
-  to run `dot ai-tool`).
-- Shell agents often lack interactive functions — source once before the first
-  call:
+- `$AI_TOOL` / `$AI_TOOL_RESUME` must be set, in the environment or in
+  `~/.localrc` (else `wto new` errors — tell the user to run `dot ai-tool`).
 
-```bash
-source "$HOME/.dotfiles/functions.d/worktrunk.sh"
-```
-
-### 3. Run `wtc` yourself (once, or once per task)
+### 3. Run `wto new` yourself (once, or once per task)
 
 **Execute in the shell tool.** Do not dry-run. Do not re-confirm. Do not paste
 the command (or a `/wtc …` re-invoke) into chat for the user to run — you run it.
 
-**Always pass `-n` / `--no-switch`.** Interactive shell `wtc` (no flag) jumps by
-default for humans; agent use must not.
+Write the handoff to a file and pass it with `-f`, so no quoting can break it
+(`-p '<text>'` works for a short one). `wto new` reads the file and leaves it.
 
 **Single:**
 
 ```bash
-source "$HOME/.dotfiles/functions.d/worktrunk.sh"
-wtc -n -m opus -e xhigh -p '<full child prompt>' '<branch>'
+handoff=$(mktemp)
+cat >"$handoff" <<'EOF'
+<full child prompt>
+EOF
+wto new -m opus -e xhigh -f "$handoff" '<branch>'
+rm -f "$handoff"
 ```
 
-**Multi** — same, looped; distinct branch + prompt each time:
+**Multi** — one `wto new` per item, each with its own branch and handoff file:
 
 ```bash
-source "$HOME/.dotfiles/functions.d/worktrunk.sh"
-wtc -n -m sonnet -e medium -p '<prompt for item 1>' 'fix/slug-one'
-wtc -n -m opus -e xhigh -p '<prompt for item 2>' 'fix/slug-two'
+wto new -m sonnet -e medium -f "$handoff_one" 'fix/slug-one'
+wto new -m opus -e xhigh -f "$handoff_two" 'fix/slug-two'
 # …
 ```
 
@@ -161,20 +158,18 @@ decide. A model the user names wins, and the project profile's `Models:` line
 | Unknown cause, several parts of the system, or risky (migrations, concurrency, security) | `-m fable -e xhigh` | `-m grok-4.7` |
 
 The harness is the first word of `$AI_TOOL`. OpenCode takes neither flag; leave
-them off and say it runs on its configured default. `wtc` saves the choice for
-the worktree, so a reopened session keeps it.
+them off and say it runs on its configured default. `wto new` saves the choice
+for the worktree, so a reopened session keeps it.
 
 Notes:
 
-- `-p` is required whenever there is a task description (almost always).
-- `-n` / `--no-switch` is required for every call from this skill.
-- Escape quotes carefully so the shell sees one prompt string.
-- `wtc` creates a real worktree + branch and a new tmux window; with `-n` it
-  does **not** switch the client to that window.
+- A handoff is required whenever there is a task description (almost always).
+- `wto new` creates a real worktree + branch and a new tmux window, and does
+  **not** switch the client to it.
 
 ### 4. Report back (after the spawn actually ran)
 
-Only after `wtc` has succeeded (or failed) in the shell, briefly list each spawn:
+Only after `wto new` has succeeded (or failed) in the shell, briefly list each spawn:
 
 - Branch and worktree path
 - Tmux `session:window` (created; focus stayed put)
@@ -186,7 +181,7 @@ block — the work is done. The user switches when ready (`wta <branch>`, tmux
 window picker, etc.).
 ## Ownership after spawn
 
-**Once `wtc` successfully creates a worktree + agent for a task, that task is no
+**Once `wto new` successfully creates a worktree + agent for a task, that task is no
 longer this session's problem.** Parallel agents own their items end-to-end
 (implement, verify, residual report). The parent only owns work still on **this**
 branch / worktree.
@@ -204,10 +199,10 @@ An orchestrator session (`/orchestrate`) is the standing exception: it keeps a
 roster of the sessions it started and sends them notices, but it still never
 does, re-debugs, or re-verifies their work.
 
-Reopening a dormant worktree's window is `wtc -n <existing-branch>` (it continues
+Reopening a dormant worktree's window is `wto open <existing-branch>` (it continues
 that session's conversation); it needs the same approval as a new spawn.
 
-Spawning is a clean cut: full `-p` handoff goes out; accountability does not stay
+Spawning is a clean cut: the full handoff goes out; accountability does not stay
 behind as dual ownership.
 
 ## Examples
@@ -256,18 +251,18 @@ above — never answer an active `/wtc` with another suggestion block.
 
 ## Do not
 
-- Run `wtc` / `wta` / `wtaa` just because you noticed side work — **suggest**
+- Run `wto new` / `wto open` (or `wtc` / `wta` / `wtaa`) just because you noticed side work — **suggest**
   `/wtc …` line(s) instead; only execute when this skill was invoked or the user
   explicitly ordered a spawn this turn.
 - When this skill **is** active: tell the user to run `/wtc …` again, paste a
-  shell `wtc …` for them to copy, or dry-run with "here's the command" instead
+  shell command for them to copy, or dry-run with "here's the command" instead
   of calling the shell tool yourself.
-- Run bare `wtc` without `-n` from this skill — that steals the user's focus.
+- Pass `--switch` from this skill — that steals the user's focus.
 - Cram multiple unrelated bugs into a **single** child prompt when the user
   asked for one worktree each — split.
 - Spawn into a different repo than the user's current project without an
   explicit path/repo ask.
-- Pass an empty `-p` when you have conversation context to hand off.
+- Spawn without a handoff when you have conversation context to hand off.
 - Keep working a child's task, or report child residuals as this session's
   unfinished work, unless the user re-assigns it here.
 - Clean up worktrees afterward unless asked (`wt remove` is a separate explicit

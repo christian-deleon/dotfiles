@@ -59,7 +59,7 @@ state, not the message, is the authorization. Say in one line when you do it.
    |---|---|
    | Live | `session.state` working, idle, or blocked |
    | Waiting on the user | `blocked` — they have a question open |
-   | Dormant | a worktree with no session; `wtc -n <branch>` reopens it (needs the user's go-ahead) |
+   | Dormant | a worktree with no session; `wto open <branch>` reopens it (needs the user's go-ahead) |
    | Done | `state` integrated or empty: candidates for close-out |
    | Needs attention | `operation` set (rebase in progress), `rebase_conflicts`, or session `unknown` |
 
@@ -144,8 +144,8 @@ Work arrives as a description from the user, issue numbers (from `/spinoff`,
    no two needing the same claimed resource at once. One line per item: branch,
    task, source, and the model and effort from the `wtc` skill's table (within
    the profile's `Models:` line) with a few words on why.
-4. On the user's approval, spawn each with `wtc -n -m <model> -e <effort> -p`
-   following the `wtc` skill's handoff template, one session per item.
+4. On the user's approval, spawn each with `wto new -m <model> -e <effort> -f
+   <handoff>` following the `wtc` skill's handoff template, one session per item.
    Approving the batch approves the models; the user can change one in a word.
    A single item the user orders directly is spawned at once; say which model
    and effort you picked and why.
