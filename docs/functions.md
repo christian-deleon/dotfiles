@@ -582,9 +582,9 @@ An executable in `bin/` (linked to `~/.local/bin/wto` by the installer and `dot 
 | `wto claim bump <branch>` | Move that branch's waiting requests to the front of the queue, then hand over. |
 | `wto close <branch>` | Close a finished session from another worktree: kills its tmux window, frees its claims, and runs `wt remove --foreground --yes`. Refuses the main worktree, the calling worktree, uncommitted changes, and a branch `wt list` does not report as integrated or empty. |
 
-Claims belong to a worktree, not a process, so they survive a restart or a night with the machine off. All changes happen under a lock file (`flock`, or a `mkdir` lock where `flock` is missing); a lock busy for 5 seconds exits 75. Waiters without a live agent session keep their place but are skipped. The worktrunk user config runs `wto claim gc` after every `wt remove`, so `wrf` and `wt merge` free claims too.
+Claims belong to a worktree, not a process, so they survive a restart or a night with the machine off. All changes happen under a lock file (`flock`, or perl's `flock()` on macOS, which has no `flock` command); a lock busy for 5 seconds exits 75. Waiters without a live agent session keep their place but are skipped. The worktrunk user config runs `wto claim gc` after every `wt remove`, so `wrf` and `wt merge` free claims too.
 
-Sessions are found by the pane tags `tav` sets. A session opened before those tags existed shows state `unknown`, found by its harness process; reopen it with `wta` to tag it.
+Sessions are found by the pane tags `tav` sets. A session opened before those tags existed shows state `unknown`, found by its harness process; close its window and run `wta` to reopen it tagged.
 
 ```bash
 wto ls                  # who is working, idle, blocked on a question, or exited

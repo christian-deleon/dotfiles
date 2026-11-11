@@ -63,8 +63,8 @@ state, not the message, is the authorization. Say in one line when you do it.
    | Needs attention | `operation` set (rebase in progress), `rebase_conflicts`, or session `unknown` |
 
    `unknown` means the window predates pane tags; `wto send` refuses it. Tell
-   the user it can be reopened with `wta <branch>` (it continues its
-   conversation).
+   the user to close that window and run `wta <branch>`, which reopens it
+   tagged and continues its conversation (`wta` skips a window that exists).
 5. **Paused yesterday?** If `"$(wto dir)/paused.json"` exists, offer to resume
    (section 3).
 6. **Announce.** Send the announce message to every live session not listed in
