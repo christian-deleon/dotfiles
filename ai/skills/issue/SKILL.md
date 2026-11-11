@@ -1,6 +1,6 @@
 ---
 name: issue
-description: File an issue in the current repo's own tracker (GitHub, Gitea, GitLab) from the conversation. Use for /issue, 'make an issue for this', 'track this for later', 'this is too big, file it', or 'split this into issues'. Detects the forge from the git remote and uses its CLI. Checks for duplicates; always drafts first.
+description: File an issue in the current repo's own tracker (GitHub, Gitea, GitLab) from the conversation. Use for /issue, 'make an issue for this', 'track this for later', 'this is too big, file it', or 'split this into issues'. Detects the forge from the git remote and uses its CLI. Checks for duplicates; drafts first unless the project profile says direct.
 argument-hint: "[what to track | split: <effort>] (empty = from context)"
 user-invocable: true
 ---
@@ -120,10 +120,23 @@ list open questions in the parent instead.
 For an update to an existing issue, draft only the comment: what's new since
 the issue was written, in the same style as its template's "What we know" or "Notes" section.
 
-## 6. Show the draft and wait
+## 6. Show the draft and wait — unless the project says direct
 
-Always present before writing anything to the tracker — this is the user's
-standing preference, and it covers updates as well as new issues:
+Whether the user reviews drafts depends on the project. Read the `## Project
+profile` section of the project's `AGENTS.md` (it is in your context when
+present):
+
+| Profile | Do |
+|---|---|
+| `Issue drafts: direct` (personal private projects) | File without waiting, then report what you filed (step 8). |
+| `Issue drafts: review`, `Kind: work` or `Kind: public` | Show the draft and wait. |
+| No profile, or anything unclear | Show the draft and wait. |
+
+Even on a direct project, show the draft first when this conversation touched
+anything private or the issue reaches beyond what the user asked for.
+
+When reviewing, present before writing anything to the tracker; this covers
+updates as well as new issues:
 
 - Target: forge, `owner/repo`, tool
 - New issue: title, labels, full body
@@ -132,7 +145,9 @@ standing preference, and it covers updates as well as new issues:
   updates an existing issue instead
 
 Write nothing until the user approves. Apply their edits and re-show if the
-change is substantive. Their approval authorizes exactly what was shown.
+change is substantive. Their approval authorizes exactly what was shown. On a
+direct project, filing authorizes exactly the issue you drafted; a split still
+gets shown first.
 
 ## 7. Create or update
 
