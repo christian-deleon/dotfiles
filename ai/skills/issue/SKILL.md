@@ -53,8 +53,9 @@ tell the user, don't retry).
 
 - **Issue templates:** `.github/ISSUE_TEMPLATE/`, `.gitea/ISSUE_TEMPLATE/`,
   `.gitlab/issue_templates/`. If one fits, follow its sections.
-- **Labels:** list existing labels and use only ones that clearly fit. Never
-  create labels.
+- **Labels:** list existing labels and use only ones that clearly fit. Where
+  the project uses scoped labels (`type/`, `area/`, `priority/`), give the issue
+  one `type/` and the `area/` it belongs to. Never create labels.
 
 | Tool | Labels |
 |---|---|
