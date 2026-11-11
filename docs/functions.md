@@ -526,7 +526,7 @@ wta feature/auth -p "add a contact page"   # ...and start the AI tool on that pr
 
 ---
 
-### `wtc [-p|--prompt <text>] [-n|--no-switch] [-m|--model <model>] [-e|--effort <level>] <branch> [base]`
+### `wtc [-p|--prompt <text>] [-n|--no-switch] [-j|--job <job>] [-m|--model <model>] [-e|--effort <level>] <branch> [base]`
 
 Create a worktree for `<branch>` and open it in a tmux window with the `tav` layout — the create-first counterpart to [`wta`](#wta--p--prompt-text-branch-). If `<branch>` doesn't exist locally or on `origin`, runs `wt switch --create <branch> [--base <base>]` to create it; if it already exists (local branch, or a remote-only branch someone else pushed), runs plain `wt switch <branch>` instead, which finds-or-creates the worktree and auto-creates a local tracking branch from `origin/<branch>` as needed (`base` is ignored in this case, with a warning). Either way it uses `--no-cd` to materialize the worktree without pulling the calling shell into it, resolves its path, then hands off to the same window/layout helper `wta` uses (so it lands in the project's session as a window named after the sanitized branch, with a fresh launch of `$AI_TOOL`, or `oca` / `cca` when the harness is OpenCode or Claude Code). **By default it then jumps to that window** (interactive default). Run it from anywhere inside the worktrunk project — the project is resolved from your current directory, and the new window is built separately so your current window stays free until the optional jump.
 
@@ -534,11 +534,12 @@ Pass `-p`/`--prompt` to forward an initial prompt into the new session's AI tool
 
 Pass `-n`/`--no-switch` to create the window without switching the tmux client to it — stay on the current window. Required for agent/script spawns so focus is not stolen; humans use plain `wtc` when they want to land in the new window. Windows are always created detached; only the final jump moves the client, so `-n` really keeps focus. The window is built from outside: `wto` creates it, splits it and starts the agent in it, rather than typing a `tav` command into a new shell. Per-directory trust prompts are skipped (Grok: `--trust`, `GROK_FOLDER_TRUST=0`, and a grant written for the new worktree; Claude Code: `hasTrustDialogAccepted` set for it in `~/.claude.json`) so a `-n` agent starts without anyone switching over to press **y**.
 
-Pass `-m`/`--model` and `-e`/`--effort` to pick the session's model and effort level. They are saved in the worktree's git directory (`ai-launch`), so every later launch there (`wta`, `wtaa`, `tav`, a continued conversation) uses them too, and `git worktree remove` deletes them with the worktree. Running `wtc` again on an existing worktree with either flag changes the saved value; it takes effect the next time the session starts. Claude Code gets `--model`/`--effort`, Grok `-m`/`--reasoning-effort`; OpenCode has no per-session flag, so nothing is saved and it starts on its configured default (`wtc` says so). A flag already in the launch command wins.
+Pass `-j`/`--job` to start the session on a job's model and effort from `ai/models.yaml` (`plan`, `implement`, `review`, `small`) for the harness in `$AI_TOOL`; it reads the merged table `dot update` writes. Pass `-m`/`--model` and `-e`/`--effort` to pick the session's model and effort level directly; either one overrides the job's. They are saved in the worktree's git directory (`ai-launch`), so every later launch there (`wta`, `wtaa`, `tav`, a continued conversation) uses them too, and `git worktree remove` deletes them with the worktree. Running `wtc` again on an existing worktree with either flag changes the saved value; it takes effect the next time the session starts. Claude Code gets `--model`/`--effort`, Grok `-m`/`--reasoning-effort`; OpenCode has no per-session flag, so nothing is saved and it starts on its configured default (`wtc` says so). A flag already in the launch command wins.
 
 Requires `$AI_TOOL` / `$AI_TOOL_RESUME` — run `dot ai-tool` first.
 
 ```bash
+wtc -n -j implement -p "fix the retry loop" fix/retry   # spawn on the implement job's model
 wtc -n -m opus -e xhigh -p "fix the retry loop" fix/retry   # spawn on a chosen model and effort
 wtc feature/auth                          # create feature/auth off the default branch, open + tav + jump
 wtc hotfix/login main                     # create off an explicit base branch

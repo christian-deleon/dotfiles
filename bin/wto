@@ -39,9 +39,10 @@ Usage: wto <command> [args]
   claim gc                     drop claims of removed worktrees, then hand over
   close <branch>               close a finished session: kill its window, remove its worktree
 
-  new [-m model] [-e effort] [-p text | -f file] [--switch] <branch> [base]
+  new [-j job] [-m model] [-e effort] [-p text | -f file] [--switch] <branch> [base]
                                create a worktree and open its agent window (stays put
-                               unless --switch); -m/-e are saved for later launches
+                               unless --switch); -j takes the model and effort from
+                               ai/models.yaml, -m/-e override it; saved for later launches
   open [-p text | -f file] [--switch] [<branch>]
                                open a worktree's window, continuing its conversation;
                                no branch: the only worktree, or a picker
@@ -940,6 +941,24 @@ launch_save() {
     printf 'model=%s\neffort=%s\n' "${model:-$old_model}" "${effort:-$old_effort}" >"$file"
 }
 
+# The model and effort ai/models.yaml gives job $1 for the harness in $AI_TOOL,
+# as model|effort, from the table the dotfiles installer merges.
+job_settings() {
+    local job=$1 file harness
+    file=${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles/ai-models.json
+    [[ -f $file ]] || die "new: no job table at $file; run dot update"
+    jq -e --arg j "$job" 'has($j)' "$file" >/dev/null \
+        || die "new: unknown job '$job' (jobs: $(jq -r 'keys | join(", ")' "$file"))"
+    case ${AI_TOOL%% *} in
+        cl | cca | claude) harness=claude ;;
+        gr | gra | grok) harness=grok ;;
+        oc | oca | opencode) harness=opencode ;;
+        *) die "new: cannot tell the harness of AI_TOOL '$AI_TOOL' for -j" ;;
+    esac
+    jq -r --arg j "$job" --arg h "$harness" \
+        '.[$j][$h] // {} | "\(.model // "")|\(.effort // "")"' "$file"
+}
+
 # <project>/<branch>, the name Claude sessions get so peers can address them.
 session_name() {
     local dir=$1 common branch
@@ -1331,7 +1350,8 @@ prompt_arg() {
 }
 
 cmd_new() {
-    local branch="" base="" text="" file="" model="" effort="" switch=0 pf wt_path
+    local branch="" base="" text="" file="" model="" effort="" job="" switch=0 pf wt_path
+    local job_model job_effort settings
     local name_re='^[A-Za-z0-9._:@/-]+(\[[A-Za-z0-9]+\])?$'
     while (($#)); do
         case $1 in
@@ -1339,6 +1359,7 @@ cmd_new() {
             -f | --prompt-file) optval $# "$1"; file=${2-}; shift ;;
             -m | --model) optval $# "$1"; model=${2-}; shift ;;
             -e | --effort) optval $# "$1"; effort=${2-}; shift ;;
+            -j | --job) optval $# "$1"; job=${2-}; shift ;;
             -n | --no-switch) switch=0 ;;
             --switch) switch=1 ;;
             -h | --help) usage; return ;;
@@ -1352,11 +1373,17 @@ cmd_new() {
         esac
         shift
     done
-    [[ -n $branch ]] || die "new: name the branch (wto new [-m model] [-e effort] [-p text] <branch> [base])"
+    [[ -n $branch ]] || die "new: name the branch (wto new [-j job] [-m model] [-e effort] [-p text] <branch> [base])"
+    load_ai_tool
+    if [[ -n $job ]]; then
+        settings=$(job_settings "$job") || exit 1
+        IFS='|' read -r job_model job_effort <<<"$settings"
+        model=${model:-$job_model}
+        effort=${effort:-$job_effort}
+    fi
     if [[ -n $model && ! $model =~ $name_re ]] || [[ -n $effort && ! $effort =~ ^[a-z]+$ ]]; then
         die "new: bad --model or --effort value"
     fi
-    load_ai_tool
 
     # A branch that exists locally or on origin is switched to (wt then makes
     # a local tracking branch); only a new one takes a base.
