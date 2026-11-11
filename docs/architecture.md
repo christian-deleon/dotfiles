@@ -156,7 +156,7 @@ Shared AI agent configuration owned by this dotfiles repo at `~/.dotfiles/ai/`. 
 **Which harnesses are configured:** `scripts/lib.sh` holds the registry (`AI_HARNESSES=(claude grok opencode)`, path helpers, `read_active_profile`, `profile_mcp_json`, `profile_ai_default`). `ai_harness_enabled <h>` is true when the active profile lists `<h>` in `items:`, or, with no active profile, when the harness is installed. Every installer and MCP writer returns early for a harness that is not enabled. With an active profile, `dot install`, `install_item`, and the manual picker refuse a harness the profile doesn't list (`ai_harness_allowed`).
 
 **What `install_ai_grok()` does:**
-- Symlinks `ai/skills/*`, `ai/agents/*`, and `ai/hooks/*` into `~/.grok/{skills,agents,hooks}/` (Grok registers hooks by filename prefix)
+- Symlinks `ai/skills/*`, `ai/agents/*`, and `ai/hooks/*` into `~/.grok/{skills,agents,hooks}/` (`ai/hooks/dotfiles.json` registers the hooks)
 - Flattens `ai/rules/**/*.md` into `~/.grok/rules/<basename>.md`
 - Seeds `~/.grok/config.toml` from `grok/.grok/config.toml` only if missing; never overwrites the live file
 - Forces `[compat.claude]` off (the Claude installer fills `~/.claude`, so Grok would load everything twice) and `[folder_trust] enabled = false`; merges trusted folders
@@ -173,7 +173,7 @@ Shared AI agent configuration owned by this dotfiles repo at `~/.dotfiles/ai/`. 
 - `ensure_claude_settings` merges the Stop / Notification (permission and elicitation prompts only) / UserPromptSubmit command hooks into `~/.claude/settings.json`
 - Sets `attribution` to `{commit: "", pr: "", sessionUrl: false}` in the same file so Claude never adds `Co-Authored-By` trailers, PR bylines, or session links
 
-**Hooks:** scripts live once in `ai/hooks/`; registration is per harness (Grok by filename prefix, Claude via the `settings.json` merge above, OpenCode via the `opencode/.config/opencode/plugins/notify-sound/tui.js` plugin that calls `stop_notify.sh`). Grok's hook payload is camelCase and Claude's is snake_case, so shared scripts read only fields spelled the same in both (e.g. `cwd`).
+**Hooks:** scripts live once in `ai/hooks/`; registration is per harness (Grok via `ai/hooks/dotfiles.json`, Claude via the `settings.json` merge above, OpenCode via the `opencode/.config/opencode/plugins/notify-sound/tui.js` plugin that calls `stop_notify.sh`). Grok's hook payload is camelCase and Claude's is snake_case, so shared scripts read only fields spelled the same in both (e.g. `cwd`).
 
 **Per-env instructions:** `dot agent env link` links `agent-files/env/<name>/AGENTS.md` into each enabled harness's user instructions file. See [dot-agent.md](dot-agent.md).
 

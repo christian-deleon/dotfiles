@@ -1,17 +1,11 @@
 #!/usr/bin/env bash
 # Notification hook — toast + bell when the assistant is waiting on the user.
-# Grok registers it by the `notification_` filename prefix; the Claude adapter adds it to
-# ~/.claude/settings.json (ensure_claude_settings).
+# Registered for Grok by dotfiles.json and for Claude by ensure_claude_settings.
 
 # shellcheck source=notify_common.sh
 . "${BASH_SOURCE[0]%/*}/notify_common.sh"
 
 notify::collect_context
-
-# Grok fires Notification alongside Stop on every turn-end. Suppressing
-# under Grok avoids the double-toast. Remove this guard if Grok's
-# semantics ever change.
-[[ "$tool" == "Grok" ]] && exit 0
 
 notify-send -a "$tool" -i dialog-information -u normal -t 6000 \
     "${tool} · ${project}${worktree:+ · $worktree}" "Waiting for input"

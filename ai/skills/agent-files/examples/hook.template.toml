@@ -1,12 +1,6 @@
-# Grok Build hook example. Place inline in ~/.grok/config.toml,
-# OR as a standalone hooks.json under ~/.grok/, OR as event-prefixed
-# scripts in ~/.grok/hooks/ (auto-registered by filename).
-#
-# Filename auto-registration: scripts in ~/.grok/hooks/ named
-#   pre_tool_use_*.sh    -> PreToolUse
-#   post_tool_use_*.sh   -> PostToolUse
-#   session_start_*.sh   -> SessionStart
-# (etc.) are picked up automatically — no TOML needed.
+# Grok Build hook example, inline in ~/.grok/config.toml. The same object can
+# live in a JSON file under ~/.grok/hooks/ (this repo uses ai/hooks/dotfiles.json).
+# Scripts in ~/.grok/hooks/ are not registered by their filename.
 
 [[hooks.PreToolUse]]
 matcher = "^Bash$"

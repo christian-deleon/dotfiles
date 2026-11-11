@@ -5,6 +5,7 @@
 #   tool      invoking agent: Claude / Grok / OpenCode / Agent (default)
 #   project   tmux session name in tmux, else basename of payload .cwd
 #   worktree  cwd basename when in tmux AND it differs from session; else empty
+#   hook_reason  Stop reason (Grok only; empty under Claude)
 #
 # Walks the process tree to find the agent — env vars are unreliable
 # here because they leak across shells if you launched one agent from
@@ -14,6 +15,7 @@ notify::collect_context() {
 
     payload="$(cat 2>/dev/null || printf '{}')"
     cwd="$(jq -r '.cwd // ""' <<<"$payload" 2>/dev/null)"
+    hook_reason="$(jq -r '.reason // ""' <<<"$payload" 2>/dev/null)"
     # Prefer the git worktree root so the basename reflects the worktree
     # (e.g. branch-named wt dir) rather than a deeper subdirectory.
     if [[ -n "$cwd" ]] && toplevel="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)"; then
