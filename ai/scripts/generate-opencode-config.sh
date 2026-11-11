@@ -3,13 +3,15 @@
 # OpenCode: JSON agents + instructions generated from ai/ (OpenCode wants
 # them as opencode.json keys).
 #
-# Scans ai/agents/*.md for YAML frontmatter (name, description, model, tools)
-# and converts each to OpenCode JSON agent format. Collects ai/rules/**/*.md
+# Scans ai/agents/*.md for YAML frontmatter (name, description, model, job,
+# tools, disallowedTools) and converts each to OpenCode JSON agent format. An
+# agent with a job gets that job's opencode model and effort (as the variant)
+# from the merged models table; Write or Edit in disallowedTools denies edits. Collects ai/rules/**/*.md
 # as instruction paths. Re-applies opencode.json.tpl (providers, plugins) each
 # run; personal keys (mcp, etc.) win. Commercial Bedrock is omitted when
 # BEDROCK_AWS_ACCOUNT_ID is unset so empty {env:} ARNs never land in the live file.
 #
-# Usage: generate-opencode-config.sh <ai_dir> <opencode_config_dir>
+# Usage: generate-opencode-config.sh <ai_dir> <opencode_config_dir> [models_json]
 #
 # Dependencies: bash, jq, sed, awk
 
@@ -19,6 +21,7 @@ AI_DIR="${1:?Usage: generate-opencode-config.sh <ai_dir> <opencode_config_dir>}"
 OC_DIR="${2:?Usage: generate-opencode-config.sh <ai_dir> <opencode_config_dir>}"
 OC_CFG="$OC_DIR/opencode.json"
 OC_TPL="${OC_CFG%.json}.json.tpl"
+MODELS="${3:-}"
 
 # Ensure jq is available
 if ! command -v jq &>/dev/null; then
@@ -52,6 +55,8 @@ for agent_file in "$AI_DIR"/agents/*.md; do
     description="$(echo "$frontmatter" | sed -n 's/^description:[[:space:]]*//p' | tr -d '"' | tr -d "'")"
     model="$(echo "$frontmatter" | sed -n 's/^model:[[:space:]]*//p' | tr -d '"' | tr -d "'")"
     tools_line="$(echo "$frontmatter" | sed -n 's/^tools:[[:space:]]*//p')"
+    job="$(echo "$frontmatter" | sed -n 's/^job:[[:space:]]*//p' | tr -d '"' | tr -d "'")"
+    disallowed="$(echo "$frontmatter" | sed -n 's/^disallowedTools:[[:space:]]*//p')"
 
     [[ -z "$name" ]] && continue
 
@@ -62,6 +67,15 @@ for agent_file in "$AI_DIR"/agents/*.md; do
         */*)                  model_id="$model" ;;
         *)                    model_id="" ;;
     esac
+
+    variant=""
+    if [[ -n "$job" ]]; then
+        model_id=""
+        if [[ -f "$MODELS" ]]; then
+            model_id="$(jq -r --arg j "$job" '.[$j].opencode.model // ""' "$MODELS")"
+            variant="$(jq -r --arg j "$job" '.[$j].opencode.effort // ""' "$MODELS")"
+        fi
+    fi
 
     # Extract body (everything after the second ---)
     body="$(awk 'seen == 2 { print; next } /^---$/ { seen++ }' "$agent_file")"
@@ -79,33 +93,19 @@ for agent_file in "$AI_DIR"/agents/*.md; do
         done <<< "$tools_clean"
     fi
 
-    # Build agent entry. Omit model so OpenCode uses its configured default
-    # unless the frontmatter already named a full provider id.
-    if [[ -n "$model_id" ]]; then
-        agent_entry="$(jq -n \
-            --arg desc "$description" \
-            --arg model "$model_id" \
-            --arg prompt "$body" \
-            --argjson tools "$tools_json" \
-            '{
-                description: $desc,
-                model: $model,
-                prompt: $prompt,
-                mode: "subagent",
-                tools: $tools
-            }')"
-    else
-        agent_entry="$(jq -n \
-            --arg desc "$description" \
-            --arg prompt "$body" \
-            --argjson tools "$tools_json" \
-            '{
-                description: $desc,
-                prompt: $prompt,
-                mode: "subagent",
-                tools: $tools
-            }')"
-    fi
+    # Omit model so OpenCode uses its configured default unless the
+    # frontmatter or the job named a full provider id.
+    agent_entry="$(jq -n \
+        --arg desc "$description" \
+        --arg model "$model_id" \
+        --arg variant "$variant" \
+        --arg prompt "$body" \
+        --arg disallowed "$disallowed" \
+        --argjson tools "$tools_json" \
+        '{description: $desc, prompt: $prompt, mode: "subagent", tools: $tools}
+        + (if $model != "" then {model: $model} else {} end)
+        + (if $model != "" and $variant != "" then {variant: $variant} else {} end)
+        + (if ($disallowed | test("\\b(Write|Edit)\\b")) then {permission: {edit: "deny"}} else {} end)')"
 
     agents_json="$(jq --arg name "$name" --argjson entry "$agent_entry" \
         '. + {($name): $entry}' <(echo "$agents_json"))"
@@ -137,6 +137,14 @@ if [[ -f "$OC_TPL" ]]; then
 else
     tpl_json='{}'
 fi
+
+# A job model on a provider the template dropped would fail to load; inherit.
+overlay="$(jq --argjson tpl "$tpl_json" '
+    .agent |= map_values(
+        if .model and ((.model | split("/")[0]) as $p
+            | ($tpl.provider // {} | has($p) | not) and $p == "amazon-bedrock")
+        then del(.model, .variant) else . end)
+' <<<"$overlay")"
 
 personal_clean="$(jq 'del(.agent, .command, .instructions, .plugins, .provider)' "$OC_CFG")"
 jq -s '.[0] * .[1] * .[2]' \

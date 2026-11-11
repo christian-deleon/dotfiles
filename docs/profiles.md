@@ -24,6 +24,9 @@ mcp:
   enable: [string]          # MCP servers from ai/mcp-servers.json.tpl
   override:                 # per-server launch-field patches
     <server>: {command, args, env, url, headers, type}
+models:                     # replaces ai/models.yaml entries on this machine
+  <job>:
+    <harness>: {model, effort}
 ```
 
 ### `requires:`
@@ -77,6 +80,17 @@ mcp:
   override:
     kubernetes:
       command: kubernetes-mcp-server   # Ubuntu npm wedges `npx @latest`
+```
+
+### `models:`
+
+Same shape as `ai/models.yaml`. Each `<job>.<harness>` entry replaces that whole entry (an omitted `effort` means none); jobs and harnesses not named keep the shared values. See [ai.md](ai.md#models-per-job).
+
+```yaml
+models:
+  plan:
+    grok: { model: us-gov.xai.grok-4.7 }
+    opencode: { model: amazon-bedrock-gov/work-grok-4.7, effort: xhigh }
 ```
 
 ## Authoring a new profile

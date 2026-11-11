@@ -9,7 +9,7 @@ Guidelines for AI coding agents working in this personal dotfiles repo. Manages 
 **Key components:**
 - Shell configs: `.commonrc` (cross-platform), `.zshrc` (macOS), `.bashrc` (reference only — never symlinked)
 - Omarchy desktop: personal Hypr/Omarchy overlays via handlers; other app configs via GNU Stow + omadot (alacritty, btop, fastfetch, lazygit, nvim, tmux, starship, …)
-- AI config: `ai/` (skills, agents, hooks, rules); MCP roster at `ai/mcp-servers.json.tpl`. Claude Code, Grok and OpenCode are peers, each installed straight from `ai/` (`scripts/handlers/ai.sh`); never make one harness read another's tree. The profile's `items` pick the harnesses (Claude Code must never be on `wsl-work`), its `mcp:` block is the only source of enabled MCP servers, and `ai.default` sets `AI_TOOL`. See [docs/ai.md](docs/ai.md).
+- AI config: `ai/` (skills, agents, hooks, rules); MCP roster at `ai/mcp-servers.json.tpl`. Claude Code, Grok and OpenCode are peers, each installed straight from `ai/` (`scripts/handlers/ai.sh`); never make one harness read another's tree. The profile's `items` pick the harnesses (Claude Code must never be on `wsl-work`), its `mcp:` block is the only source of enabled MCP servers, and `ai.default` sets `AI_TOOL`. Models live only in `ai/models.yaml` (per job, per harness; profile `models:` overrides): agents set `job:` and skills name jobs, never a model. See [docs/ai.md](docs/ai.md).
 - Package + config management: `manifest.yaml` + `profiles/*.yaml` + `scripts/lib.sh` + `scripts/handlers/*.sh`
 - Desired absences for retired tools: `tombstones.yaml` (applied by `apply_tombstones` on `dot update` / install)
 - Windows bootstrap: `windows/bootstrap.ps1`
@@ -81,6 +81,7 @@ Before committing:
 - [ ] `yq '.' manifest.yaml` parses; every `config.handler` references a function in `scripts/handlers/*.sh`
 - [ ] `yq '.' profiles/<name>.yaml` parses for any modified profile
 - [ ] `yq '.' tombstones.yaml` parses if modified; path names are single segments only
+- [ ] `yq '.' ai/models.yaml` parses if modified
 - [ ] New stow packages are declared in `manifest.yaml` (`config.type: stow`) AND follow `<dir>/.config/<dir>/` layout. Do not add `hypr` or `omarchy` as stow packages.
 - [ ] No hardcoded personal info (use `.gitconfig.local`, `.localrc`)
 - [ ] No hardcoded OS-specific paths (use `$OSTYPE` detection)
