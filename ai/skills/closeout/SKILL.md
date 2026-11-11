@@ -64,9 +64,11 @@ the message to main, which tells that session it is its turn.
 
 ## 4. Tell main
 
-If `wto here` succeeds, message the orchestrator (your harness's own session
-messaging to `<project>/<main branch>` with the `wto header` line first, or
-`wto send --main`):
+If `wto here` succeeds, message the orchestrator. Prefer your harness's own
+messaging: in Claude Code load the deferred `ListAgents` and `SendMessage`
+tools, find the row whose tmux pane is `.pane` from `wto here` (its name is
+often generated, not `<project>/main`), and send to it with the `wto header`
+line first. With no such row, use `wto send --main`:
 
 ```text
 Closed out feat/login-rework: merged into main as a1b2c3d (squashed, 3 files).

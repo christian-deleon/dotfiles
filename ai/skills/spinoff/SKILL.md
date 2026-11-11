@@ -49,7 +49,7 @@ wto here        # exit 0 + JSON (pane, branch, tool) when one is running
 
 | Situation | Do |
 |---|---|
-| Orchestrator running, same harness as you, and your harness has its own session messaging | Message the main session (named `<project>/<main branch>`). Start the text with the line `wto header` prints. |
+| Orchestrator running, and your harness lists a session on the orchestrator's pane (`.pane` from `wto here`; in Claude Code load the deferred `ListAgents` and `SendMessage` tools, then `ListAgents`) | `SendMessage` to that row's name, which is often generated, not `<project>/main`. Start the text with the line `wto header` prints. |
 | Orchestrator running, otherwise | `wto send --main -f <file>` (the header is added for you). |
 | No orchestrator | Skip the message; give the user the issue link. |
 | Tracker unreachable or the user declined to file | Send main the full write-up instead, and tell the user it was not filed. |

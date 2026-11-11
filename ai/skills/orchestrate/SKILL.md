@@ -75,10 +75,13 @@ state, not the message, is the authorization. Say in one line when you do it.
 
 ## 2. Sending messages
 
+Check for native messaging before the first send. In Claude Code the tools
+are deferred: load `ListAgents` and `SendMessage`, then call `ListAgents`.
+
 | Target | How |
 |---|---|
-| Same harness as you, and your harness has session-to-session messaging | Use it, addressed to the session's name (`<project>/<branch>`). First line: the output of `wto header` (or `wto header --relay` for the user's words). |
-| Anything else | `wto send <branch> -f <file>` (or `--all`, `--relay`). It adds the header. |
+| A `ListAgents` row whose tmux pane is the target's `session.pane` in `wto ls --json` | `SendMessage` to that row's name. Match on the pane: names are often generated (`rl-research-71`), not `<project>/<branch>`. First line: the output of `wto header` (or `wto header --relay` for the user's words). |
+| No harness messaging, or no row on that pane | `wto send <branch> -f <file>` (or `--all`, `--relay`). It adds the header. |
 
 `wto send` refuses rather than risk typing into a question: exit 6 means the
 session is waiting on the user (tell the user, try later), 5 that it has exited,
