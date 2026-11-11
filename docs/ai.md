@@ -112,7 +112,7 @@ One agent session per worktree, each in its own tmux window (`wtc`, `wta`, `wtaa
 | `bin/wto` | Roster (`ls`), messages with an origin header (`send`, `header`), shared-resource claims (`claim`), closing merged sessions (`close`), the orchestrator marker (`here`). See [functions.md](functions.md#wto-command). |
 | `ai/hooks/session_state.sh` | Records working / idle / blocked / exited on the AI pane, so `wto send` never types into a question or a dead pane. |
 | `ai/rules/common/session-messages.md` | How every session tells a peer message from the user. |
-| `/orchestrate` | Run in the main worktree: status, broadcasts, pause and resume, rebase notices, dispatching work, claims, close-outs. Never does task work. |
+| `/orchestrate` | Run in the main worktree: status, broadcasts, pause and resume, rebase notices, dispatching work (with a model and effort per session), claims, close-outs. Never does task work. |
 | `/spinoff` | Run in a feature session: file unrelated work as an issue and hand the number to main. |
 | `/closeout` | Run in a feature session when done: merge (if the project allows), free claims, ask main to close the window. |
 | `/backlog` | Run in the orchestrator: pick a capped batch of issues that can run side by side. |
@@ -120,7 +120,7 @@ One agent session per worktree, each in its own tmux window (`wtc`, `wta`, `wtaa
 
 Messages use the harness's own session messaging where the receiver has it (Claude Code between Claude sessions; the OpenCode server for OpenCode) and a bracketed paste into the tmux pane otherwise (Grok). State that must survive restarts lives in `<git-common-dir>/orchestrate/`, which every worktree shares and git never tracks.
 
-**Project profile.** Project specifics never go into `ai/`. `/onboard` writes a `## Project profile` section into the project's `AGENTS.md` (or its `dot agent` overlay) recording kind (personal, work, public), issue-draft review, merge policy, tracker and priority, session cap, shared resources, main-only and work-producing skills, branch naming, and instructions for the named orchestration moments (`ai/skills/orchestrate/moments.md`). `/issue`, `/closeout`, `/orchestrate` and `/backlog` read it; without one they use cautious defaults (drafts reviewed, merges asked, cap 5).
+**Project profile.** Project specifics never go into `ai/`. `/onboard` writes a `## Project profile` section into the project's `AGENTS.md` (or its `dot agent` overlay) recording kind (personal, work, public), issue-draft review, merge policy, tracker and priority, session cap, model default and limits, shared resources, main-only and work-producing skills, branch naming, and instructions for the named orchestration moments (`ai/skills/orchestrate/moments.md`). `/issue`, `/closeout`, `/orchestrate` and `/backlog` read it; without one they use cautious defaults (drafts reviewed, merges asked, cap 5).
 
 ## MCP
 
