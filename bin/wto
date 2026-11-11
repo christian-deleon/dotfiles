@@ -1169,8 +1169,9 @@ target_geometry() {
             *) lines=$status ;;
         esac
     else
-        x=$(tput cols 2>/dev/null) || x=""
-        y=$(tput lines 2>/dev/null) || y=""
+        # Not tput: inside $() with stderr redirected it cannot see the
+        # terminal and prints terminfo's 80x24.
+        read -r y x < <(stty size </dev/tty 2>/dev/null) || true
         lines=1
     fi
     [[ $x =~ ^[0-9]+$ ]] || x=220
@@ -1299,10 +1300,10 @@ ensure_window() {
         # The trailing colon makes this a session target even when a window
         # shares the session's name. -d keeps the client where it is.
         pane=$(tmux new-window -d -t "=$session:" -n "$window" -c "$wt_path" -P -F '#{pane_id}' "$PLACEHOLDER")
-        # Size it for its client before the splits; resize-window pins the
-        # session to window-size manual, so restore the inherited default.
+        # Size it for its client before the splits; resize-window sets the
+        # window's own window-size to manual, which would pin it at this size.
         tmux resize-window -t "$pane" -x "$x" -y "$y" 2>/dev/null || true
-        tmux set-option -u -t "=$session" window-size 2>/dev/null || true
+        tmux set-option -w -u -t "$pane" window-size 2>/dev/null || true
     else
         [[ -n $pf ]] && rm -f -- "$pf"
         printf '  skip    %s:%s (already exists)\n' "$session" "$window"
