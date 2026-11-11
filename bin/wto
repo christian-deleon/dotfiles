@@ -17,7 +17,8 @@ usage() {
     cat <<'EOF'
 Usage: wto <command> [args]
 
-  ls [--json] [--files]        roster: every worktree with its git state and agent session
+  ls [--json] [--files]        roster: every worktree with its git state, agent session,
+                               and the model and effort wtc saved for it
   here                         print the live orchestrator marker (exit 1 if none)
   here --orchestrator          mark the calling pane as this project's orchestrator
   here --clear [--force]       remove the orchestrator marker
@@ -115,17 +116,38 @@ harness_procs() {
         }'
 }
 
+# {<worktree path>: {model, effort}} from the ai-launch file that `wtc
+# --model/--effort` writes into each worktree's git dir.
+launch_json() {
+    local path gitdir key value model effort out=()
+    while IFS= read -r path; do
+        gitdir=$(git -C "$path" rev-parse --path-format=absolute --git-dir 2>/dev/null) || continue
+        [[ -f $gitdir/ai-launch ]] || continue
+        model="" effort=""
+        while IFS='=' read -r key value; do
+            case $key in
+                model) model=$value ;;
+                effort) effort=$value ;;
+            esac
+        done <"$gitdir/ai-launch"
+        out+=("$(jq -n -c --arg p "$path" --arg m "$model" --arg e "$effort" \
+            '{($p): {model: (if $m == "" then null else $m end), effort: (if $e == "" then null else $e end)}}')")
+    done < <(jq -r '.items[].worktree.path' <<<"$1")
+    printf '%s\n' "${out[@]}" | jq -s -c 'add // {}'
+}
+
 roster_json() {
-    local list panes now claims='{}' dir orch_pane=""
+    local list panes launch now claims='{}' dir orch_pane=""
     # Explicit returns: callers use `|| ...`, which turns off set -e in here.
     list=$(wt_list) || return 1
     panes=$(panes_json) || return 1
+    launch=$(launch_json "$list") || return 1
     now=$(date +%s)
     dir=$(state_dir)
     [[ -s $dir/claims/state.json ]] && claims=$(<"$dir/claims/state.json")
     marker_valid "$dir/orchestrator.json" && orch_pane=$(jq -r '.pane // ""' "$dir/orchestrator.json")
     jq -n -c --argjson list "$list" --argjson panes "$panes" --argjson now "$now" \
-        --argjson claims "$claims" --arg orch "$orch_pane" '
+        --argjson claims "$claims" --argjson launch "$launch" --arg orch "$orch_pane" '
         def under($p): . == $p or startswith($p + "/");
         def auto($args):
             if $args == null then null
@@ -161,6 +183,7 @@ roster_json() {
               unacked_grants: [($claims.holders // {}) | to_entries[]
                   | select(.value.wt == $path and .value.granted_at != null and .value.acked_at == null) | .key],
               queued: [($claims.queue // [])[] | select(.wt == $path) | .res[]],
+              launch: ($launch[$path] // null),
               session: (if $pane == null then null else {
                   pane: $pane.pane,
                   window: $pane.window,
@@ -214,13 +237,15 @@ cmd_ls() {
         return
     fi
     jq -r '
-        ["BRANCH", "SESSION", "TOOL", "AHEAD", "BEHIND", "DIRTY", "REBASE", "CLAIMS", "WINDOW"],
+        ["BRANCH", "SESSION", "TOOL", "MODEL", "AHEAD", "BEHIND", "DIRTY", "REBASE", "CLAIMS", "WINDOW"],
         (.[] | [
             (.branch // "(detached)") + (if .main then " *" else "" end),
             (if .session == null then "-"
              else .session.state + (if .session.state_age != null then " " + (.session.state_age / 60 | floor | tostring) + "m" else "" end)
              end),
             (.session.tool // "-"),
+            (if .launch == null then "-"
+             else [(.launch.model // "default"), (.launch.effort // empty)] | join(" ") end),
             (.ahead // "-" | tostring), (.behind // "-" | tostring),
             (if .dirty == null then "?" elif .dirty then "yes" else "-" end),
             (if .operation != null then .operation

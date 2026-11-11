@@ -34,6 +34,22 @@ function _tav_expand_launch() {
         expanded+=" --name $(printf '%q' "$name")"
     fi
 
+    # Model and effort saved by `wtc --model/--effort` for this worktree, so a
+    # reopened session runs on the same model it was spawned with.
+    local saved model="" effort=""
+    if [[ $bin == claude || $bin == grok ]] && saved=$(_tav_launch_settings "$PWD"); then
+        IFS='|' read -r model effort <<<"$saved"
+    fi
+    if [[ $bin == claude ]]; then
+        [[ -n $model && " $expanded " != *' --model '* ]] && expanded+=" --model $(printf '%q' "$model")"
+        [[ -n $effort && " $expanded " != *' --effort '* ]] && expanded+=" --effort $(printf '%q' "$effort")"
+    elif [[ $bin == grok ]]; then
+        [[ -n $model && " $expanded " != *' --model '* && " $expanded " != *' -m '* ]] \
+            && expanded+=" -m $(printf '%q' "$model")"
+        [[ -n $effort && " $expanded " != *' --reasoning-effort '* && " $expanded " != *' --effort '* ]] \
+            && expanded+=" --reasoning-effort $(printf '%q' "$effort")"
+    fi
+
     if [[ -z $prompt ]]; then
         printf '%s' "$expanded"
     elif [[ $bin == opencode ]]; then
@@ -52,6 +68,38 @@ function _tav_session_name() {
     branch=$(git branch --show-current 2>/dev/null)
     [[ -n $branch ]] || branch=$(basename "$PWD")
     printf '%s/%s\n' "$(basename "$(dirname "$common")")" "$branch"
+}
+
+# internal: per-worktree file holding the model and effort to launch with
+function _tav_launch_file() {
+    # In the worktree's own git dir, so `git worktree remove` deletes it.
+    local gitdir
+    gitdir=$(git -C "${1:-$PWD}" rev-parse --path-format=absolute --git-dir 2>/dev/null) || return 1
+    printf '%s/ai-launch\n' "$gitdir"
+}
+
+# internal: print "<model>|<effort>" saved for a worktree
+function _tav_launch_settings() {
+    local file key value model="" effort=""
+    file=$(_tav_launch_file "$1") || return 1
+    [[ -f $file ]] || return 1
+    while IFS='=' read -r key value; do
+        case $key in
+            model)  model=$value ;;
+            effort) effort=$value ;;
+        esac
+    done < "$file"
+    printf '%s|%s\n' "$model" "$effort"
+}
+
+# internal: save model/effort for a worktree; an empty one keeps the saved value
+function _tav_launch_save() {
+    local dir=$1 model=$2 effort=$3 file saved old_model="" old_effort=""
+    file=$(_tav_launch_file "$dir") || return 1
+    if saved=$(_tav_launch_settings "$dir"); then
+        IFS='|' read -r old_model old_effort <<<"$saved"
+    fi
+    printf 'model=%s\neffort=%s\n' "${model:-$old_model}" "${effort:-$old_effort}" > "$file"
 }
 
 # internal: wrap grok so DA/CPR replies never reach the TUI

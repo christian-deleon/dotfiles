@@ -372,15 +372,18 @@ function wtc() {
         return 1
     fi
 
-    # Usage: wtc [-p|--prompt <text>] [-n|--no-switch] <branch> [base]
+    # Usage: wtc [-p|--prompt <text>] [-n|--no-switch] [-m|--model <m>] [-e|--effort <e>] <branch> [base]
     #   -p/--prompt    forwarded to tav as the session's initial prompt
     #   -n/--no-switch create the window but stay on the current one (agent/script use)
+    #   -m/--model, -e/--effort  saved for the worktree; every later launch uses them
     # Default (interactive): jump to the new window after create.
-    local branch="" base="" prompt="" no_switch=0 pos=0
+    local branch="" base="" prompt="" model="" effort="" no_switch=0 pos=0
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -p|--prompt)    prompt="$2"; shift 2 ;;
             -n|--no-switch) no_switch=1; shift ;;
+            -m|--model)     model="$2"; shift 2 ;;
+            -e|--effort)    effort="$2"; shift 2 ;;
             -*)             echo "wtc: unknown option '$1'" >&2; return 1 ;;
             *)
                 if   [[ $pos -eq 0 ]]; then branch="$1"; pos=1
@@ -390,7 +393,12 @@ function wtc() {
         esac
     done
     if [[ -z "$branch" ]]; then
-        echo "Usage: wtc [-p <prompt>] [-n|--no-switch] <branch> [base]"
+        echo "Usage: wtc [-p <prompt>] [-n|--no-switch] [-m <model>] [-e <effort>] <branch> [base]"
+        return 1
+    fi
+    local name_re='^[A-Za-z0-9._:@/-]+(\[[A-Za-z0-9]+\])?$'
+    if [[ -n "$model" && ! "$model" =~ $name_re ]] || [[ -n "$effort" && ! "$effort" =~ ^[a-z]+$ ]]; then
+        echo "wtc: bad --model or --effort value" >&2
         return 1
     fi
 
@@ -425,6 +433,17 @@ function wtc() {
     if [[ -z "$wt_path" || "$wt_path" == "null" ]]; then
         echo "Error: worktree for '$branch' not found after create"
         return 1
+    fi
+
+    if [[ -n "$model" || -n "$effort" ]]; then
+        if ! _tav_launch_save "$wt_path" "$model" "$effort"; then
+            echo "Error: could not save model/effort for '$branch'" >&2
+            return 1
+        fi
+        case "${AI_TOOL%% *}" in
+            oc|oca|opencode)
+                echo "wtc: OpenCode takes no per-session model or effort; it starts on its configured default" >&2 ;;
+        esac
     fi
 
     # Reuse wta's helper to build the window + tav layout (fresh AI launch,
