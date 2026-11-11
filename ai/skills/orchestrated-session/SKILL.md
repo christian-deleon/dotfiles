@@ -28,9 +28,10 @@ a project with none, the work goes from ready straight to review and merge.
 
 ### 1. Finish and check the work
 
-1. **Tests first,** where the project takes tests: write the test, see it fail,
-   then make it pass. Where the project's instructions say no tests, skip this
-   and prove the change by running the real thing; the report says what you ran.
+1. **Build through the `implementer`,** following the `plan-implement-review`
+   skill. Where the project takes tests, the plan puts the failing test first.
+   Where its instructions say no tests, the plan proves the change by running
+   the real thing, and the report says what was run.
 2. **The project's full checks:** whatever its `AGENTS.md` names before claiming
    done.
 3. **Review your own diff** with the `reviewer` subagent, following the

@@ -22,10 +22,12 @@ when starting one of these subagents; each one's definition already sets it.
 | Session | Plan | Implement | Review |
 |---|---|---|---|
 | The user is here | The session, with the user | `implementer` | `reviewer` |
-| Unattended (a worktree handoff, an orchestrated session) | `planner`, when the handoff says plan first, the cause is unknown, the work spans several parts of the system, or it is risky; otherwise none | The session | `reviewer` |
+| Unattended (a worktree handoff, an orchestrated session) | `planner`, when the handoff says plan first, the cause is unknown, the work spans several parts of the system, or it is risky; otherwise the session writes a short plan | `implementer` | `reviewer` |
 
-A small, fully specified change (a rename, a config value, a known error with
-an obvious cause) skips the plan but still gets the review.
+Unattended, the session never edits the code itself: the `implementer` builds,
+and it needs a plan file even for a one-line fix. With the user here, a small,
+fully specified change (a rename, a config value, a known error with an obvious
+cause) skips the plan but still gets the review.
 
 Only the session starts subagents. Never ask one stage's subagent to start
 another.
@@ -48,6 +50,9 @@ The plan has these sections; the `planner` returns them in this shape:
 | Checks | Exact commands that prove it works |
 | Out of scope | What not to touch |
 | Open questions | Decisions only the user can make |
+
+A plan the session writes itself uses the same sections, kept short: leave out
+empty ones, but never Goal, Steps or Checks.
 
 Settle every open question before implementing. With the user here, ask.
 Unattended, report them as a blocker instead of guessing.
