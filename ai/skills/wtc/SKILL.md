@@ -107,9 +107,12 @@ Each child gets a self-contained prompt with **no** access to this conversation:
   /spinoff for unrelated work, and `wto claim` for shared resources.
 
 ## How to work
-- <risky row only> Plan first with the `planner` subagent, then implement.
-- Before calling it done, have the `reviewer` subagent check the diff. The
-  `plan-implement-review` skill covers both.
+Follow the `plan-implement-review` skill:
+- <risky row only> Plan first with the `planner` subagent.
+- <other rows> Skip the `planner`; read the code and write a short plan yourself.
+- Build through the `implementer` subagent from that plan, not by editing the
+  code yourself.
+- Before calling it done, have the `reviewer` subagent check the diff.
 
 ## Done when
 <acceptance check — what "fixed" looks like>
@@ -158,11 +161,11 @@ wto new -j implement -f "$handoff_two" 'fix/slug-two'
 override the job. The project profile's `Models:` line (`wto profile`, when
 present) can rule a job out or name a model.
 
-| The task as described | Job | Handoff |
+| The task as described | Job | Plan |
 |---|---|---|
-| Small and fully specified: a known error with an obvious cause, a rename, a config change | `-j small` | |
-| An ordinary bug or feature where "done" is clear | `-j implement` | |
-| Unknown cause, several parts of the system, or risky (migrations, concurrency, security) | `-j implement` | Plan first with the `planner` |
+| Small and fully specified: a known error with an obvious cause, a rename, a config change | `-j small` | The session writes a short one |
+| An ordinary bug or feature where "done" is clear | `-j implement` | The session writes a short one |
+| Unknown cause, several parts of the system, or risky (migrations, concurrency, security) | `-j implement` | The `planner` first |
 
 OpenCode sessions start on their configured default whatever the job; say so.
 Its subagents still run on their own jobs' models. `wto new` saves the choice
