@@ -80,8 +80,16 @@ state_dir() {
 wt_list() {
     local raw
     raw=$(wt list --format json 2>/dev/null) || die "wt list failed (run inside a worktrunk project)"
+    # Worktrunk before 0.77 prints a bare array with path, is_main and
+    # working_tree at the top level; lift those into the newer .worktree shape.
     jq -c '(if type == "array" then {items: .} else . end)
-        | (.items // [] | map(select((.worktree.path // "") != ""))) as $items
+        | .items |= ((. // []) | map(
+            if (.worktree | type) != "object" and (.path | type) == "string" then
+                . + {worktree: {path: .path, main: (.is_main == true),
+                                changes: (if (.working_tree | type) == "object"
+                                          then .working_tree else null end)}}
+            else . end))
+        | (.items | map(select((.worktree.path // "") != ""))) as $items
         | {default: (.repo.default_branch
                      // ($items | map(select(.worktree.main == true)) | first | .branch)),
            items: $items}' <<<"$raw"
