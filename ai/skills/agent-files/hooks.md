@@ -111,7 +111,7 @@ Grok's envelope is **camelCase**, not Claude snake_case. A script reading `.tool
 
 Common fields on every event: `hookEventName`, `sessionId`, `cwd`, `workspaceRoot`, `timestamp`, `permissionMode` (`default`, `auto`, `plan`, `bypassPermissions`). Tool events add `toolName`, `toolInput`, `toolUseId`. `PostToolUse` output is `toolResult` (not `tool_response`).
 
-Defensive parsing: treat extra fields as optional. The shared notify hooks read only `.cwd`, which both harnesses spell the same.
+Defensive parsing: treat extra fields as optional. The shared notify hooks read only `.cwd` (both harnesses spell it the same) and Grok's `.reason` / `.subagentType`, which are absent under Claude.
 
 Env always injected: `GROK_HOOK_EVENT`, `GROK_HOOK_NAME`, `GROK_SESSION_ID`, `GROK_WORKSPACE_ROOT`. `CLAUDE_PROJECT_DIR` is also set (alias for workspace root) — don't build new hooks around the Claude name.
 
@@ -180,11 +180,11 @@ Read **both** camelCase and snake_case when the script runs under Grok and Claud
 
 ## Claude Code registration
 
-`ensure_claude_settings` (run by `install_ai_claude`) merges three command hooks into `~/.claude/settings.json`: `Stop` → `stop_notify.sh`, `Notification` (matcher `permission_prompt|elicitation_dialog`) → `notification_notify.sh`, `UserPromptSubmit` → `user_prompt_submit_clear.sh`. The command path is the script in `ai/hooks/`. The matcher skips `idle_prompt`, which would repeat the Stop toast about a minute after each turn. Re-running the installer replaces a stale entry for the same `command` instead of adding a second one. To register another script for Claude, add an `ensure_hook` line there.
+`ensure_claude_settings` (run by `install_ai_claude`) removes every hook whose command points into `ai/hooks/`, then adds the wanted set, so a renamed script leaves nothing behind and other tools' hooks (e.g. herdr's SessionStart) stay. The set: `Stop` → `stop_notify.sh` + `session_state.sh idle`, `Notification` (matcher `permission_prompt|elicitation_dialog`) → `notification_notify.sh` + `session_state.sh blocked`, `UserPromptSubmit` → `user_prompt_submit_clear.sh` + `session_state.sh working`, `PreToolUse` (matcher `AskUserQuestion`) → `session_state.sh blocked`, `PostToolUse` → `session_state.sh working`, `SessionStart` → `session_state.sh idle`, `SessionEnd` → `session_state.sh exited`. The Notification matcher skips `idle_prompt`, which would repeat the Stop toast about a minute after each turn. To register another script for Claude, add it to the `$wanted` list there.
 
 ## OpenCode — plugins, not hooks
 
-OpenCode has no hook system. TypeScript plugins subscribe to `tool.execute.before`, `session.created`, etc. Plugins live in the stowed `opencode/.config/opencode/plugins/`; `notify-sound/tui.js` calls `stop_notify.sh`. For another shared behavior, write a plugin that shells out to the `ai/hooks/` script.
+OpenCode has no hook system. TypeScript plugins subscribe to `tool.execute.before`, `session.created`, etc. Plugins live in the stowed `opencode/.config/opencode/plugins/`; `notify-sound/tui.js` calls `stop_notify.sh` and `session_state.sh`. In OpenCode 2.2 the TUI never receives `session.idle`; a turn ends with `session.execution.succeeded` / `failed` / `interrupted`. For another shared behavior, write a plugin that shells out to the `ai/hooks/` script.
 
 ## After authoring
 

@@ -44,7 +44,7 @@ Harnesses are manifest items (`claude`, `grok`, `opencode`). With an active prof
 | `ai/skills/<name>/` | `~/.claude/skills/<name>` (per-directory symlink; `skills/synced/` is Claude's and is left alone) |
 | `ai/agents/*.md` | `~/.claude/agents/` |
 | `ai/rules/**/*.md` | `~/.claude/rules/<basename>.md` (flattened) |
-| `ai/hooks/{stop,notification,user_prompt_submit}_*.sh` | merged into `~/.claude/settings.json` `hooks`, plus blank commit/PR attribution |
+| `ai/hooks/*.sh` (notify toasts, `session_state.sh`) | merged into `~/.claude/settings.json` `hooks`, plus blank commit/PR attribution |
 
 Do not add a project `CLAUDE.md`. Claude Code reads a repo `AGENTS.md` on its own, and ignores it when a `CLAUDE.md` is also present in that directory or a parent.
 

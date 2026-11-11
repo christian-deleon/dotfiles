@@ -1,16 +1,40 @@
 {
   "hooks": {
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "session_state.sh", "args": ["idle"] }] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "user_prompt_submit_clear.sh" }] },
+      { "hooks": [{ "type": "command", "command": "session_state.sh", "args": ["working"] }] }
+    ],
+    "PostToolUse": [
+      { "hooks": [{ "type": "command", "command": "session_state.sh", "args": ["working"], "timeout": 5 }] }
+    ],
     "Stop": [
-      { "hooks": [{ "type": "command", "command": "stop_notify.sh", "timeout": 10 }] }
+      { "hooks": [{ "type": "command", "command": "stop_notify.sh", "timeout": 10 }] },
+      { "hooks": [{ "type": "command", "command": "session_state.sh", "args": ["idle"], "timeout": 5 }] }
+    ],
+    "StopFailure": [
+      { "hooks": [{ "type": "command", "command": "session_state.sh", "args": ["idle"] }] }
+    ],
+    "StopCancelled": [
+      { "hooks": [{ "type": "command", "command": "session_state.sh", "args": ["idle"] }] }
     ],
     "Notification": [
       {
         "matcher": "permission_prompt",
-        "hooks": [{ "type": "command", "command": "notification_notify.sh" }]
+        "hooks": [
+          { "type": "command", "command": "notification_notify.sh" },
+          { "type": "command", "command": "session_state.sh", "args": ["blocked"] }
+        ]
+      },
+      {
+        "matcher": "idle_prompt",
+        "hooks": [{ "type": "command", "command": "session_state.sh", "args": ["idle"] }]
       }
     ],
-    "UserPromptSubmit": [
-      { "hooks": [{ "type": "command", "command": "user_prompt_submit_clear.sh" }] }
+    "SessionEnd": [
+      { "hooks": [{ "type": "command", "command": "session_state.sh", "args": ["exited"] }] }
     ]
   }
 }
