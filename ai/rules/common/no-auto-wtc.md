@@ -33,3 +33,11 @@ wtc -n -p '<full child prompt>' '<branch>'
 
 Bare `wtc` without `-n` or without a task prompt is wrong for agent spawns. The
 user may also run `/wtc` or shell `wtc` themselves at any time.
+
+**Orchestrator mode.** In a session running `/orchestrate`, the user's request to
+start work, or their approval of a proposed batch, is the spawn order for exactly
+those items, nothing more.
+
+**Side work in a feature worktree.** When `wto here` succeeds (an orchestrator is
+running), suggest `/spinoff <one line>` instead of a `/wtc` line; it files the
+issue and hands it to main. File nothing until the user agrees.
