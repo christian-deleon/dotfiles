@@ -60,11 +60,15 @@ state_dir() {
     printf '%s\n' "$common/orchestrate"
 }
 
-wt_items() {
+# {"default": <default branch>, "items": [<worktree>...]} from wt list.
+wt_list() {
     local raw
     raw=$(wt list --format json 2>/dev/null) || die "wt list failed (run inside a worktrunk project)"
-    jq -c '(if type == "array" then . else (.items // []) end)
-        | map(select((.worktree.path // "") != ""))' <<<"$raw"
+    jq -c '(if type == "array" then {items: .} else . end)
+        | (.items // [] | map(select((.worktree.path // "") != ""))) as $items
+        | {default: (.repo.default_branch
+                     // ($items | map(select(.worktree.main == true)) | first | .branch)),
+           items: $items}' <<<"$raw"
 }
 
 # Panes that run, or were tagged for, an agent session. Untagged panes (opened
@@ -92,10 +96,11 @@ panes_json() {
 
 # "<pane pid>\t<harness>\t<args>" for each harness process under a pane.
 harness_procs() {
-    ps -e -o pid=,ppid=,comm=,args= | awk -v panes="$1" -v re="^($HARNESSES)$" '
+    # ucomm, not comm: BSD ps prints comm as the full executable path.
+    ps -e -o pid=,ppid=,ucomm=,args= | awk -v panes="$1" -v re="^($HARNESSES)$" '
         BEGIN { n = split(panes, p, ","); for (i = 1; i <= n; i++) pane[p[i]] = 1 }
         {
-            pid = $1; ppid[pid] = $2; comm[pid] = $3
+            pid = $1; ppid[pid] = $2; comm[pid] = $3; sub(/.*\//, "", comm[pid])
             $1 = $2 = $3 = ""; sub(/^ +/, ""); args[pid] = $0
         }
         END {
@@ -111,30 +116,39 @@ harness_procs() {
 }
 
 roster_json() {
-    local items panes now claims='{}' claims_file
-    items=$(wt_items)
-    panes=$(panes_json)
+    local list panes now claims='{}' dir orch_pane=""
+    # Explicit returns: callers use `|| ...`, which turns off set -e in here.
+    list=$(wt_list) || return 1
+    panes=$(panes_json) || return 1
     now=$(date +%s)
-    claims_file=$(state_dir)/claims/state.json
-    [[ -s $claims_file ]] && claims=$(<"$claims_file")
-    jq -n -c --argjson items "$items" --argjson panes "$panes" --argjson now "$now" \
-        --argjson claims "$claims" '
+    dir=$(state_dir)
+    [[ -s $dir/claims/state.json ]] && claims=$(<"$dir/claims/state.json")
+    marker_valid "$dir/orchestrator.json" && orch_pane=$(jq -r '.pane // ""' "$dir/orchestrator.json")
+    jq -n -c --argjson list "$list" --argjson panes "$panes" --argjson now "$now" \
+        --argjson claims "$claims" --arg orch "$orch_pane" '
         def under($p): . == $p or startswith($p + "/");
         def auto($args):
             if $args == null then null
             else ($args | test("bypassPermissions|--dangerously-skip-permissions|--always-approve|--auto(\\s|$)"))
             end;
-        ($items | map(select(.worktree.main == true)) | first | .branch // null) as $default
-        | $items | map(
+        $list.default as $default
+        | $list.items | map(
             .worktree.path as $path
+            # A live harness beats a pane left over from an earlier one, and in
+            # main the orchestrator pane beats other agent panes.
             | (([$panes[] | select(.tag_wt == $path)]
-                + [$panes[] | select(.tag_wt == "" and (.cwd | under($path)))]) | first) as $pane
+                + [$panes[] | select(.tag_wt == "" and (.cwd | under($path)))])
+               | sort_by([(if .proc != null and .state != "exited" then 0 else 1 end),
+                          (if .pane == $orch then 0 else 1 end)])
+               | first) as $pane
           | {
               branch: (.branch // null),
               path: .worktree.path,
               main: (.worktree.main == true),
               detached: (.worktree.detached == true),
-              dirty: ([.worktree.changes // {} | .staged, .modified, .untracked, .renamed, .deleted] | any),
+              # wt reports no changes object when its status check timed out.
+              dirty: (if .worktree.changes == null then null
+                      else [.worktree.changes | .staged, .modified, .untracked, .renamed, .deleted] | any end),
               conflicted_files: (.worktree.changes.conflicted == true),
               ahead: (.default_branch.ahead // null),
               behind: (.default_branch.behind // null),
@@ -163,13 +177,19 @@ roster_json() {
 }
 
 add_conflict_files() {
-    local roster=$1 default branch files out=()
-    default=$(jq -r '[.[] | select(.main)][0].branch // empty' <<<"$roster")
+    local roster=$1 default branch merged rc files out=()
+    default=$(jq -r '[.[].default_branch | select(. != null)][0] // empty' <<<"$roster")
     [[ -n $default ]] || { printf '%s\n' "$roster"; return; }
     while IFS= read -r branch; do
         [[ -n $branch ]] || continue
-        files=$(git merge-tree --write-tree --name-only --no-messages "$default" "$branch" 2>/dev/null \
-            | tail -n +2 | jq -R -s -c 'split("\n") | map(select(length > 0)) | unique') || files='[]'
+        # Exit 1 means "conflicts", which is the case this runs for.
+        rc=0
+        merged=$(git merge-tree --write-tree --name-only --no-messages "$default" "$branch" 2>/dev/null) || rc=$?
+        if ((rc == 0 || rc == 1)); then
+            files=$(tail -n +2 <<<"$merged" | jq -R -s -c 'split("\n") | map(select(length > 0)) | unique')
+        else
+            files=null
+        fi
         out+=("$(jq -n -c --arg b "$branch" --argjson f "$files" '{($b): $f}')")
     done < <(jq -r '.[] | select(.rebase_conflicts and .branch != null) | .branch' <<<"$roster")
     jq -c --argjson files "$(printf '%s\n' "${out[@]}" | jq -s -c 'add // {}')" \
@@ -202,7 +222,7 @@ cmd_ls() {
              end),
             (.session.tool // "-"),
             (.ahead // "-" | tostring), (.behind // "-" | tostring),
-            (if .dirty then "yes" else "-" end),
+            (if .dirty == null then "?" elif .dirty then "yes" else "-" end),
             (if .operation != null then .operation
              elif .rebase_conflicts then "conflicts"
              elif (.behind // 0) > 0 then "clean" else "-" end),
@@ -251,7 +271,7 @@ cmd_here() {
         write)
             [[ -n ${TMUX_PANE-} ]] || die "here: not inside tmux (TMUX_PANE unset)"
             top=$(git rev-parse --show-toplevel)
-            main_path=$(wt_items | jq -r '[.[] | select(.worktree.main == true)][0].worktree.path // empty')
+            main_path=$(wt_list | jq -r '[.items[] | select(.worktree.main == true)][0].worktree.path // empty')
             [[ $top == "$main_path" ]] || die "here: the orchestrator runs in the main worktree ($main_path)"
             if marker_valid "$marker" && [[ $(jq -r .pane "$marker") != "$TMUX_PANE" ]]; then
                 printf 'wto: an orchestrator is already running in %s\n' "$(jq -r .window "$marker")" >&2
@@ -332,7 +352,7 @@ deliver() {
     if [[ $state == blocked ]] || { [[ $state == unknown ]] && ((!force)); }; then
         printf '%s: %s; not sent%s\n' "$branch" \
             "$([[ $state == blocked ]] && echo 'waiting on a question' || echo 'state unknown (session predates pane tags)')" \
-            "$([[ $state == unknown ]] && echo ', reopen it with wta or pass --force')"
+            "$([[ $state == unknown ]] && echo '; close its window and run wta to reopen it tagged, or pass --force')"
         return 6
     fi
     if [[ $state == starting ]] && ((age >= 0 && age < 15)); then
@@ -427,33 +447,26 @@ self_label() {
     printf '%s\n' "$b"
 }
 
-# Run "$@" while holding the claims lock. flock where it exists; elsewhere
-# (macOS) a mkdir lock with the holder's pid, broken when that pid is gone.
+# Run "$@" in a subshell holding the claims lock: flock(1) where it exists,
+# else perl's flock() on the same fd (macOS ships perl but not flock). Either
+# way it is a flock(2) lock on the subshell's fd 9, held until the subshell
+# exits and released by the kernel if it dies.
 with_lock() {
-    local dir lock lockdir waited=0 owner rc=0
-    dir=$(claims_dir)
-    lock=$dir/lock
-    if command -v flock >/dev/null 2>&1; then
-        (
+    local lock
+    lock=$(claims_dir)/lock
+    (
+        if command -v flock >/dev/null 2>&1; then
             flock -w 5 9 || exit 75
-            "$@"
-        ) 9>>"$lock"
-        return
-    fi
-    lockdir=$lock.d
-    until mkdir -- "$lockdir" 2>/dev/null; do
-        owner=$(cat -- "$lockdir/pid" 2>/dev/null) || owner=""
-        if [[ -n $owner ]] && ! kill -0 "$owner" 2>/dev/null; then
-            rm -rf -- "$lockdir"
-            continue
+        elif command -v perl >/dev/null 2>&1; then
+            # shellcheck disable=SC2016  # perl program, not shell
+            perl -MFcntl=:flock -e 'open(my $f, ">&=", 9) or exit 1;
+                for (1 .. 50) { exit 0 if flock($f, LOCK_EX | LOCK_NB); select(undef, undef, undef, 0.1) }
+                exit 75' || exit $?
+        else
+            die "claim: needs flock or perl to lock the claims ledger"
         fi
-        ((waited++ < 50)) || return 75
-        sleep 0.1
-    done
-    printf '%s\n' "$$" >"$lockdir/pid"
-    "$@" || rc=$?
-    rm -rf -- "$lockdir"
-    return "$rc"
+        "$@"
+    ) 9>>"$lock"
 }
 
 claims_read() {
@@ -462,10 +475,14 @@ claims_read() {
     if [[ -s $f ]]; then cat -- "$f"; else printf '{"holders":{},"queue":[],"seq":0,"log":[]}\n'; fi
 }
 
+# A failed jq upstream hands this nothing; writing that would erase every claim.
 claims_write() {
-    local f
+    local f data
     f=$(claims_dir)/state.json
-    cat >"$f.tmp"
+    data=$(cat)
+    jq -e 'type == "object" and has("holders") and has("queue")' <<<"$data" >/dev/null 2>&1 \
+        || { printf 'wto: claims ledger update failed; left unchanged\n' >&2; return 1; }
+    printf '%s\n' "$data" >"$f.tmp"
     mv -- "$f.tmp" "$f"
 }
 
@@ -478,19 +495,36 @@ registry_check() {
     done
 }
 
-# JSON array of worktree paths that still exist, and of those with a live session.
+# JSON array of worktree paths that still exist, read inside the lock so a
+# worktree created a moment ago keeps its claim. A failed or empty listing
+# would read as "every worktree is gone", so it fails instead.
 existing_wts() {
-    git worktree list --porcelain | awk '$1 == "worktree" { print substr($0, 10) }' | jq -R -s -c 'split("\n") | map(select(length > 0))'
+    local list exist
+    list=$(git worktree list --porcelain) || list=""
+    exist=$(awk '$1 == "worktree" { print substr($0, 10) }' <<<"$list" \
+        | jq -R -s -c 'split("\n") | map(select(length > 0))')
+    if [[ $(jq -r 'length > 0' <<<"$exist" 2>/dev/null) != true ]]; then
+        printf 'wto: cannot list worktrees; claims left unchanged\n' >&2
+        return 1
+    fi
+    printf '%s\n' "$exist"
 }
 
+# JSON array of worktree paths with a live session, plus any paths given.
 live_wts() {
-    roster_json | jq -c '[.[] | select(.session.running == true and .session.state != "exited") | .path]'
+    local roster
+    roster=$(roster_json) || return 1
+    jq -c --args '[.[] | select(.session.running == true and .session.state != "exited") | .path]
+        + $ARGS.positional | unique' "$@" <<<"$roster"
 }
 
 # Drop entries for removed worktrees, then walk the queue in order. A waiter is
 # granted when everything it asked for is free and no earlier live waiter asked
-# for any of it, so a multi-resource request cannot starve. Waiters without a
-# live session keep their place but are skipped and reserve nothing.
+# for any of it, so a multi-resource request cannot starve. A waiter that
+# already holds part of its request only needs the rest free: earlier waiters
+# cannot get what it holds, so honouring their reservations would deadlock.
+# Waiters without a live session keep their place but are skipped and reserve
+# nothing.
 # shellcheck disable=SC2016  # jq program, not shell
 readonly GRANT_JQ='
     . as $st
@@ -501,7 +535,8 @@ readonly GRANT_JQ='
         | if ([$e.res[] | $acc.holders[.].wt == $e.wt] | all) then .
         elif ($live | index($e.wt)) == null then .queue += [$e]
         elif ([$e.res[] | $acc.holders[.] == null or $acc.holders[.].wt == $e.wt] | all)
-            and ([$e.res[] | . as $r | ($acc.blocked | index($r)) == null] | all)
+            and (([$e.res[] | $acc.holders[.].wt == $e.wt] | any)
+                 or ([$e.res[] | . as $r | ($acc.blocked | index($r)) == null] | all))
         then .holders += ($e.res | map({key: ., value: {wt: $e.wt, branch: $e.branch, since: $now,
                  note: $e.note, granted_at: $now, acked_at: null}}) | from_entries)
             | .grants += [{branch: $e.branch, wt: $e.wt, res: $e.res}]
@@ -514,8 +549,9 @@ report_grants() {
 }
 
 claim_take_locked() {
-    local wt=$1 label=$2 note=$3 live=$4 exist=$5 now st out
-    shift 5
+    local wt=$1 label=$2 note=$3 live=$4 exist now st out
+    shift 4
+    exist=$(existing_wts) || return 1
     now=$(date +%s)
     st=$(claims_read)
     out=$(jq -c --arg wt "$wt" --arg label "$label" --arg note "$note" --argjson now "$now" \
@@ -523,7 +559,9 @@ claim_take_locked() {
         ($ARGS.positional | unique) as $res
         | . as $st
         | if ([$res[] | $st.holders[.].wt == $wt] | all) then .
-          elif any(.queue[]?; .wt == $wt and ([.res[] | IN($res[])] | any)) then .
+          elif any(.queue[]?; .wt == $wt and ([.res[] | IN($res[])] | any)) then
+              first(.queue | to_entries[] | select(.value.wt == $wt and ([.value.res[] | IN($res[])] | any)) | .key) as $i
+              | .queue[$i].res |= (. + $res | unique)
           else .seq += 1 | .queue += [{id: .seq, wt: $wt, branch: $label, res: $res, note: $note, at: $now}]
           end
         | '"$GRANT_JQ"'
@@ -532,23 +570,28 @@ claim_take_locked() {
         | . + {mine: ([.state.holders | to_entries[] | select(.value.wt == $wt) | .key]),
                position: ([.state.queue[] | select(.wt as $w | $live | index($w))] | map(.wt) | index($wt))}
         ' "$@" <<<"$st")
-    jq -c '.state' <<<"$out" | claims_write
+    [[ -n $out ]] || return 1
+    jq -c '.state' <<<"$out" | claims_write || return 1
     jq -r --args '
         ($ARGS.positional) as $want
         | if (.mine as $m | [$want[] | IN($m[])] | all) then "held: \($want | join(","))"
-          else "queued at position \((.position // 0) + 1) for \($want | join(","))" end' "$@" <<<"$out"
-    jq -r '.grants[] | select(.wt != "'"$wt"'") | "granted \(.res | join(",")) to \(.branch) — tell that session it is its turn"' <<<"$out"
+          else "queued at position \((.position // 0) + 1) for \($want | join(","))"
+            + (if (.mine | length) > 0 then "\nnote: still holding \(.mine | join(",")) while waiting; a session waiting for those cannot proceed, so free what you can or take everything in one call" else "" end)
+          end' "$@" <<<"$out"
+    jq -r --arg wt "$wt" '.grants[] | select(.wt != $wt) | "granted \(.res | join(",")) to \(.branch) — tell that session it is its turn"' <<<"$out"
     [[ $(jq -r --args '.mine as $m | [$ARGS.positional[] | IN($m[])] | all' "$@" <<<"$out") == true ]] || return 2
 }
 
 claim_free_locked() {
-    local wt=$1 label=$2 all=$3 force=$4 live=$5 exist=$6 now st out
-    shift 6
+    local wt=$1 label=$2 all=$3 force=$4 live=$5 exist now st out
+    shift 5
+    exist=$(existing_wts) || return 1
     now=$(date +%s)
     st=$(claims_read)
     out=$(jq -c --arg wt "$wt" --arg label "$label" --argjson all "$all" --argjson force "$force" \
         --argjson now "$now" --argjson live "$live" --argjson exist "$exist" --args '
-        ($ARGS.positional) as $res
+        ($all == 1) as $all | ($force == 1) as $force
+        | ($ARGS.positional) as $res
         | (if $all then [.holders | to_entries[] | select(.value.wt == $wt) | .key] else $res end) as $targets
         | . as $st
         | ([$targets[] | select($st.holders[.] != null and $st.holders[.].wt != $wt)]) as $others
@@ -559,32 +602,37 @@ claim_free_locked() {
             | (if $all then .queue |= map(select(.wt != $wt)) else . end)
             | '"$GRANT_JQ"'
           end' "$@" <<<"$st")
+    [[ -n $out ]] || return 1
     if [[ $(jq -r '.error // empty' <<<"$out") ]]; then
         die "claim free: $(jq -r .error <<<"$out")"
     fi
-    jq -c '.state' <<<"$out" | claims_write
+    jq -c '.state' <<<"$out" | claims_write || return 1
     report_grants <<<"$out"
 }
 
 claim_gc_locked() {
-    local live=$1 exist=$2 now out
+    local live=$1 exist now out
+    exist=$(existing_wts) || return 1
     now=$(date +%s)
     out=$(claims_read | jq -c --argjson now "$now" --argjson live "$live" --argjson exist "$exist" "$GRANT_JQ")
-    jq -c '.state' <<<"$out" | claims_write
+    [[ -n $out ]] || return 1
+    jq -c '.state' <<<"$out" | claims_write || return 1
     report_grants <<<"$out"
 }
 
 claim_bump_locked() {
-    local branch=$1 live=$2 exist=$3 now out
+    local branch=$1 live=$2 exist now out
+    exist=$(existing_wts) || return 1
     now=$(date +%s)
     out=$(claims_read | jq -c --arg b "$branch" --argjson now "$now" --argjson live "$live" --argjson exist "$exist" '
         if any(.queue[]?; .branch == $b) | not then {error: "\($b) is not waiting for anything"}
         else .queue = ([.queue[] | select(.branch == $b)] + [.queue[] | select(.branch != $b)]) | '"$GRANT_JQ"'
         end')
+    [[ -n $out ]] || return 1
     if [[ $(jq -r '.error // empty' <<<"$out") ]]; then
         die "claim bump: $(jq -r .error <<<"$out")"
     fi
-    jq -c '.state' <<<"$out" | claims_write
+    jq -c '.state' <<<"$out" | claims_write || return 1
     report_grants <<<"$out"
 }
 
@@ -605,13 +653,13 @@ claims_status() {
     fi
     jq -r '
         (if (.holders | length) == 0 then "no claims held"
-         else (.holders | to_entries[] | "\(.key)\theld by \(.value.branch)\t\(if .value.acked_at == null then "granted, not yet acknowledged" else "" end)\t\(.value.note // "")") end),
-        (.queue | to_entries[] | "\(.value.res | join(","))\twaiting #\(.key + 1): \(.value.branch)\t\t\(.value.note // "")")
+         else (.holders | to_entries[] | "\(.key)\theld by \(.value.branch)\t\(if .value.acked_at == null then "granted, not yet acknowledged" else "in use" end)\t\(.value.note // "")") end),
+        (.queue | to_entries[] | "\(.value.res | join(","))\twaiting #\(.key + 1): \(.value.branch)\tqueued\t\(.value.note // "")")
     ' <<<"$st" | column -t -s $'\t'
 }
 
 cmd_claim() {
-    local sub=${1:-status} wt label note="" all=0 force=0 json=0 timeout=60 deadline rc
+    local sub=${1:-status} wt label live note="" all=0 force=0 json=0 timeout=60 deadline rc
     (($#)) && shift
     local -a names=()
     while (($#)); do
@@ -629,6 +677,9 @@ cmd_claim() {
     done
     wt=$(self_wt)
     label=$(self_label)
+    case $sub in
+        take | free | bump | gc) live=$(live_wts "$wt") || die "claim: cannot read the session roster; claims left unchanged" ;;
+    esac
 
     case $sub in
         define)
@@ -641,12 +692,11 @@ cmd_claim() {
         take)
             ((${#names[@]})) || die "claim take: name at least one resource"
             registry_check "${names[@]}"
-            with_lock claim_take_locked "$wt" "$label" "$note" \
-                "$(live_wts | jq -c --arg wt "$wt" '. + [$wt] | unique')" "$(existing_wts)" "${names[@]}"
+            with_lock claim_take_locked "$wt" "$label" "$note" "$live" "${names[@]}"
             ;;
         free)
             ((all || ${#names[@]})) || die "claim free: name resources or pass --all"
-            with_lock claim_free_locked "$wt" "$label" "$all" "$force" "$(live_wts)" "$(existing_wts)" "${names[@]}"
+            with_lock claim_free_locked "$wt" "$label" "$all" "$force" "$live" "${names[@]}"
             ;;
         check)
             ((${#names[@]})) || die "claim check: name at least one resource"
@@ -673,8 +723,9 @@ cmd_claim() {
             while ((SECONDS < deadline)); do
                 # Hand over on our own behalf too: a waiter with no agent
                 # session is skipped by everyone else's grant pass.
-                with_lock claim_gc_locked "$(live_wts | jq -c --arg wt "$wt" '. + [$wt] | unique')" \
-                    "$(existing_wts)" >/dev/null 2>&1 || true
+                if live=$(live_wts "$wt" 2>/dev/null); then
+                    with_lock claim_gc_locked "$live" >/dev/null 2>&1 || true
+                fi
                 if [[ $(claims_read | jq -r --arg wt "$wt" 'any(.queue[]?; .wt == $wt)') != true ]]; then
                     with_lock claim_ack_locked "$wt" 2>/dev/null || true
                     printf 'granted\n'
@@ -688,9 +739,9 @@ cmd_claim() {
         status) claims_status "$json" ;;
         bump)
             ((${#names[@]} == 1)) || die "claim bump: name one branch"
-            with_lock claim_bump_locked "${names[0]}" "$(live_wts)" "$(existing_wts)"
+            with_lock claim_bump_locked "${names[0]}" "$live"
             ;;
-        gc) with_lock claim_gc_locked "$(live_wts)" "$(existing_wts)" ;;
+        gc) with_lock claim_gc_locked "$live" ;;
         *) die "claim: unknown subcommand '$sub'" ;;
     esac
 }
@@ -698,7 +749,7 @@ cmd_claim() {
 # ── close ─────────────────────────────────────────────────────────────────────
 
 cmd_close() {
-    local branch=${1:-} entry path main_path state dirty pane window
+    local branch=${1:-} entry path main_path state dirty status pane window since
     [[ -n $branch && $branch != -* ]] || die "close: name the branch to close"
     entry=$(roster_json | jq -c --arg b "$branch" '.[] | select(.branch == $b)')
     [[ -n $entry ]] || die "close: no worktree for '$branch'"
@@ -708,18 +759,33 @@ cmd_close() {
     [[ $(self_wt) != "$path" ]] || die "close: run it from another worktree, not the one being closed"
     dirty=$(jq -r .dirty <<<"$entry")
     state=$(jq -r '.state // ""' <<<"$entry")
-    [[ $dirty == false ]] || die "close: $branch has uncommitted changes"
+    [[ $dirty == false ]] || die "close: $branch has uncommitted changes (or wt could not read its status)"
     [[ $state == integrated || $state == empty ]] \
         || die "close: $branch is not merged into $(jq -r .default_branch <<<"$entry") (state: ${state:-unknown})"
+    # Everything wt remove could still refuse is checked before the window goes.
+    if git worktree list --porcelain | awk -v p="$path" '
+        $1 == "worktree" { cur = substr($0, 10) } $1 == "locked" && cur == p { found = 1 } END { exit !found }'; then
+        die "close: $branch's worktree is locked (git worktree unlock)"
+    fi
+    status=$(git -C "$path" status --porcelain) || die "close: cannot read the status of $path"
+    [[ -z $status ]] || die "close: $branch has uncommitted changes"
 
     pane=$(jq -r '.session.pane // empty' <<<"$entry")
     if [[ -n $pane ]]; then
         window=$(tmux display-message -p -t "$pane" '#{window_id}' 2>/dev/null) || window=""
         [[ -n $window ]] && tmux kill-window -t "$window"
     fi
-    (cd -- "$path" && with_lock claim_free_locked "$path" "$branch" 1 0 '[]' "$(existing_wts)") >/dev/null || true
-    wt -C "$main_path" remove "$branch" --foreground --yes
-    with_lock claim_gc_locked "$(live_wts)" "$(existing_wts)" || true
+    since=$(date +%s)
+    wt -C "$main_path" remove "$branch" --foreground --yes \
+        || die "close: wt remove failed; the window is closed but the worktree and its claims remain (reopen with wtc -n $branch)"
+    # The worktree is gone, so the grant pass drops its claims and hands them
+    # on. worktrunk's post-remove hook may have run it already, out of sight,
+    # so report every grant made since the removal started.
+    with_lock claim_gc_locked "$(live_wts)" >/dev/null || true
+    claims_read | jq -r --argjson since "$since" '
+        [.holders | to_entries[] | select((.value.granted_at // 0) >= $since and .value.acked_at == null)]
+        | group_by(.value.wt)[]
+        | "granted \(map(.key) | join(",")) to \(.[0].value.branch) — tell that session it is its turn"'
     printf 'closed %s\n' "$branch"
 }
 
