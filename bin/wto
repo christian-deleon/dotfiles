@@ -519,12 +519,12 @@ live_wts() {
 }
 
 # Drop entries for removed worktrees, then walk the queue in order. A waiter is
-# granted when everything it asked for is free and no earlier live waiter asked
-# for any of it, so a multi-resource request cannot starve. A waiter that
-# already holds part of its request only needs the rest free: earlier waiters
-# cannot get what it holds, so honouring their reservations would deadlock.
-# Waiters without a live session keep their place but are skipped and reserve
-# nothing.
+# granted when what it still needs is free and no earlier live waiter asked for
+# any of it, so a multi-resource request cannot starve. The one exception: an
+# earlier waiter that wants something this waiter already holds cannot proceed
+# before this one frees it, so its reservation is not honoured (that would
+# deadlock both). Waiters without a live session keep their place but are
+# skipped and reserve nothing.
 # shellcheck disable=SC2016  # jq program, not shell
 readonly GRANT_JQ='
     . as $st
@@ -532,15 +532,17 @@ readonly GRANT_JQ='
     | ($st.queue // [] | map(select(.wt as $w | $exist | index($w)))) as $q
     | reduce $q[] as $e ({holders: $h, queue: [], blocked: [], grants: []};
         . as $acc
-        | if ([$e.res[] | $acc.holders[.].wt == $e.wt] | all) then .
+        | [$acc.holders | to_entries[] | select(.value.wt == $e.wt) | .key] as $mine
+        | ($e.res - $mine) as $need
+        | if ($need | length) == 0 then .
         elif ($live | index($e.wt)) == null then .queue += [$e]
-        elif ([$e.res[] | $acc.holders[.] == null or $acc.holders[.].wt == $e.wt] | all)
-            and (([$e.res[] | $acc.holders[.].wt == $e.wt] | any)
-                 or ([$e.res[] | . as $r | ($acc.blocked | index($r)) == null] | all))
-        then .holders += ($e.res | map({key: ., value: {wt: $e.wt, branch: $e.branch, since: $now,
+        elif ([$need[] | $acc.holders[.] == null] | all)
+            and ([$acc.blocked[] | select(.wt != $e.wt and ([.res[] | IN($need[])] | any))
+                  | [.res[] | IN($mine[])] | any] | all)
+        then .holders += ($need | map({key: ., value: {wt: $e.wt, branch: $e.branch, since: $now,
                  note: $e.note, granted_at: $now, acked_at: null}}) | from_entries)
-            | .grants += [{branch: $e.branch, wt: $e.wt, res: $e.res}]
-        else .queue += [$e] | .blocked += $e.res
+            | .grants += [{branch: $e.branch, wt: $e.wt, res: $need}]
+        else .queue += [$e] | .blocked += [{wt: $e.wt, res: $e.res}]
         end)
     | {state: ($st + {holders: .holders, queue: .queue}), grants: .grants}'
 
@@ -558,11 +560,13 @@ claim_take_locked() {
         --argjson live "$live" --argjson exist "$exist" --args '
         ($ARGS.positional | unique) as $res
         | . as $st
-        | if ([$res[] | $st.holders[.].wt == $wt] | all) then .
-          elif any(.queue[]?; .wt == $wt and ([.res[] | IN($res[])] | any)) then
-              first(.queue | to_entries[] | select(.value.wt == $wt and ([.value.res[] | IN($res[])] | any)) | .key) as $i
-              | .queue[$i].res |= (. + $res | unique)
-          else .seq += 1 | .queue += [{id: .seq, wt: $wt, branch: $label, res: $res, note: $note, at: $now}]
+        # What this worktree neither holds nor already waits for joins the back
+        # of the queue; growing an earlier request would jump the queue.
+        | ([$st.holders | to_entries[] | select(.value.wt == $wt) | .key]
+           + [$st.queue[]? | select(.wt == $wt) | .res[]]) as $have
+        | ($res - $have) as $new
+        | if ($new | length) == 0 then .
+          else .seq += 1 | .queue += [{id: .seq, wt: $wt, branch: $label, res: $new, note: $note, at: $now}]
           end
         | '"$GRANT_JQ"'
         | .state.holders |= with_entries(if .value.wt == $wt and .value.acked_at == null and .value.granted_at == $now
@@ -749,7 +753,7 @@ cmd_claim() {
 # ── close ─────────────────────────────────────────────────────────────────────
 
 cmd_close() {
-    local branch=${1:-} entry path main_path state dirty status pane window since
+    local branch=${1:-} entry path main_path state dirty status pane window since live
     [[ -n $branch && $branch != -* ]] || die "close: name the branch to close"
     entry=$(roster_json | jq -c --arg b "$branch" '.[] | select(.branch == $b)')
     [[ -n $entry ]] || die "close: no worktree for '$branch'"
@@ -759,7 +763,7 @@ cmd_close() {
     [[ $(self_wt) != "$path" ]] || die "close: run it from another worktree, not the one being closed"
     dirty=$(jq -r .dirty <<<"$entry")
     state=$(jq -r '.state // ""' <<<"$entry")
-    [[ $dirty == false ]] || die "close: $branch has uncommitted changes (or wt could not read its status)"
+    [[ $dirty == false ]] || die "close: $branch has uncommitted changes, or wt could not read its status (a worktree whose directory is gone needs git worktree prune)"
     [[ $state == integrated || $state == empty ]] \
         || die "close: $branch is not merged into $(jq -r .default_branch <<<"$entry") (state: ${state:-unknown})"
     # Everything wt remove could still refuse is checked before the window goes.
@@ -781,7 +785,9 @@ cmd_close() {
     # The worktree is gone, so the grant pass drops its claims and hands them
     # on. worktrunk's post-remove hook may have run it already, out of sight,
     # so report every grant made since the removal started.
-    with_lock claim_gc_locked "$(live_wts)" >/dev/null || true
+    if ! live=$(live_wts) || ! with_lock claim_gc_locked "$live" >/dev/null; then
+        printf 'wto: claims of %s not handed over yet; run wto claim gc\n' "$branch" >&2
+    fi
     claims_read | jq -r --argjson since "$since" '
         [.holders | to_entries[] | select((.value.granted_at // 0) >= $since and .value.acked_at == null)]
         | group_by(.value.wt)[]
