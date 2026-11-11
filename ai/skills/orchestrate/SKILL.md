@@ -68,23 +68,29 @@ state, not the message, is the authorization. Keep it for the next status.
    `unknown` means the window predates pane tags; `wto send` refuses it. Tell
    the user to close that window and run `wta <branch>`, which reopens it
    tagged and continues its conversation (`wta` skips a window that exists).
-5. **Paused yesterday?** If `"$(wto dir)/paused.json"` exists, offer to resume
+5. **Messaging.** Before any send, find your harness's own session messaging
+   and map each live session to it (section 2). In Claude Code the tools are
+   deferred: load `ListAgents` and `SendMessage`, call `ListAgents`, and match
+   each row's tmux pane to a `session.pane` from `wto ls --json`. Every send
+   after this follows that map; redo it whenever you re-read the roster.
+6. **Paused yesterday?** If `"$(wto dir)/paused.json"` exists, offer to resume
    (section 3).
-6. **Announce.** Send the announce message to every live session not listed in
+7. **Announce.** Send the announce message to every live session not listed in
    `"$(wto dir)/announced"`, then append their branches to that file. Repeat for
    new sessions whenever you re-read the roster.
-7. Apply the project's "entering the mode" instructions, then handle
+8. Apply the project's "entering the mode" instructions, then handle
    `$ARGUMENTS` as the user's first request.
 
 ## 2. Sending messages
 
-Check for native messaging before the first send. In Claude Code the tools
-are deferred: load `ListAgents` and `SendMessage`, then call `ListAgents`.
+Every send, including the announce and relays, goes through harness messaging
+when the map from Start step 5 reaches the target, and through `wto send` only
+otherwise.
 
 | Target | How |
 |---|---|
-| A `ListAgents` row whose tmux pane is the target's `session.pane` in `wto ls --json` | `SendMessage` to that row's name. Match on the pane: names are often generated (`rl-research-71`), not `<project>/<branch>`. First line: the output of `wto header` (or `wto header --relay` for the user's words). |
-| No harness messaging, or no row on that pane | `wto send <branch> -f <file>` (or `--all`, `--relay`). It adds the header. |
+| A harness row whose tmux pane is the target's `session.pane` (Claude Code: a `ListAgents` row) | `SendMessage` to that row's name. Match on the pane: names are often generated (`rl-research-71`), not `<project>/<branch>`. First line: the output of `wto header` (or `wto header --relay` for the user's words). |
+| No harness messaging, no row on that pane, or the harness send failed | `wto send <branch> -f <file>` (or `--all`, `--relay`). It adds the header. |
 
 `wto send` refuses rather than risk typing into a question: exit 6 means the
 session is waiting on the user (tell the user, try later), 5 that it has exited,
@@ -247,9 +253,10 @@ wait for the user's decisions to come back through you.
 2. When it proposes a deploy, add whether now is a good time: the project's
    "before a deploy" moment, who holds or waits on that resource's claim, and
    whether a release is running.
-3. Relay the user's decision word for word with `wto send <branch> --relay` (or
-   native messaging with `wto header --relay`): the go for that one deploy, the
-   review result, or the merge go. Never send a go the user did not give here.
+3. Relay the user's decision word for word (section 2: harness messaging with
+   `wto header --relay` first, else `wto send <branch> --relay`): the go for
+   that one deploy, the review result, or the merge go. Never send a go the user
+   did not give here.
 
 A status report with `waiting` or `blocked` carries a question for the user:
 put it to them and relay the answer the same way.
