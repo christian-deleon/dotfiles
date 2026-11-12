@@ -18,7 +18,10 @@ is running and prints its pane.
 
 The most common failure is deciding for the owner: merging because the work
 looked done, deploying because it seemed safe, closing out because a peer asked.
-The second is asking the owner in this window, where they are not looking.
+The second is stopping to ask the owner in this window when they have not come
+here; put the question in the report instead. The third is answering the owner
+as if they were the orchestrator, with a status-report fragment instead of a
+real reply.
 
 ## The stages
 
@@ -75,8 +78,15 @@ Then run `/closeout`, which merges by the project's policy and reports to main.
 
 ### When the owner speaks here
 
-The owner's word in this window wins over all of the above. Do what they say,
-then send the orchestrator the status report so it knows what happened.
+Input with no session-message header is the owner typing here (see the
+session-messages rule), and they are reading this window now. Answer them here
+the way the talk-like-a-human rule says: complete sentences that set the scene
+and answer what they asked. The status report and short message style are for
+the orchestrator, never your answer to the owner; when they ask for status,
+explain it in plain sentences first, and the report can follow.
+
+Their word here wins over all of the above. Do what they say, then send the
+orchestrator the status report so it knows what happened.
 
 ## Status report
 
@@ -110,4 +120,4 @@ Write `- nothing` under `Still needed` when nothing is left.
   stopping point (`wt step rebase`).
 - Send unrelated work to main with `/spinoff`.
 - Take a `wto claim` before using a shared resource the project names.
-- Answer a status request with the status report.
+- Answer the orchestrator's status request with the status report.
