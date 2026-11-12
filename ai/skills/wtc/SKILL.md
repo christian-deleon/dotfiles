@@ -57,6 +57,9 @@ build the handoff from args + conversation and pass it to `wto new`.
 (`type/slug`, or contains `/`). Otherwise the whole string is message seed.
 
 Branch names: short, descriptive (`fix/auth-null-session`, not `fix/thing`).
+When the task comes from a tracker issue, put its number after the type
+(`fix/142-auth-null-session`); the orchestrator and `/backlog` tell which
+issues already have a session from it.
 Window name = branch with `/` → `-`.
 
 Optional base branch is rare; only pass `wto new`'s second positional base if
