@@ -12,7 +12,8 @@
     ],
     "Stop": [
       { "hooks": [{ "type": "command", "command": "stop_notify.sh", "timeout": 10 }] },
-      { "hooks": [{ "type": "command", "command": "session_state.sh", "args": ["idle"], "timeout": 5 }] }
+      { "hooks": [{ "type": "command", "command": "session_state.sh", "args": ["idle"], "timeout": 5 }] },
+      { "hooks": [{ "type": "command", "command": "issue_close_gate.sh", "timeout": 30 }] }
     ],
     "StopFailure": [
       { "hooks": [{ "type": "command", "command": "session_state.sh", "args": ["idle"] }] }

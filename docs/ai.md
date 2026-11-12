@@ -123,10 +123,11 @@ One agent session per worktree, each in its own tmux window (`wtc`, `wta`, `wtaa
 |---|---|
 | `bin/wto` | Roster (`ls`), messages with an origin header (`send`, `header`), shared-resource claims (`claim`), closing merged sessions (`close`), the orchestrator marker (`here`). See [functions.md](functions.md#wto-command). |
 | `ai/hooks/session_state.sh` | Records working / idle / blocked / exited on the AI pane, so `wto send` never types into a question or a dead pane. |
+| `ai/hooks/issue_close_gate.sh` | Stop gate (Claude Code and Grok): once an issue branch (`fix/142-…`) has its commits in main, the session cannot end a turn while issue #142 is still open on the tracker. Lets the stop through when the tracker can't be reached, or while the closing comment waits on the owner. OpenCode has no hooks, so there it is the `/closeout` step alone. |
 | `ai/rules/common/session-messages.md` | How every session tells a peer message from the user. |
 | `/orchestrate` | Run in the main worktree: status, broadcasts, pause and resume, rebase notices, dispatching work (with a model and effort per session), claims, close-outs. Never does task work. Fixes the project's own orchestration setup when it proves wrong; suggests changes to the skills and tools instead of making them. |
 | `/spinoff` | Run in a feature session: file unrelated work as an issue and hand the number to main. |
-| `/closeout` | Run in a feature session when done: merge (if the project allows), free claims, ask main to close the window. |
+| `/closeout` | Run in a feature session when done: merge (if the project allows), close the branch's issue with a short comment, free claims, ask main to close the window. |
 | `/backlog` | Run in the orchestrator: pick a capped batch of issues that can run side by side. |
 | `/onboard` | Run once per project: write its project profile. |
 | `orchestrated-session` | Loaded by a feature session when an orchestrator runs: test, check and review its own work, report with one fixed status report, and deploy or merge only on the owner's go relayed by the orchestrator. Not a slash command. |

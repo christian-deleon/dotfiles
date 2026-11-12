@@ -74,7 +74,9 @@ Then:
 
 The owner reviews every branch before it merges. Never merge into main or run
 `/closeout` until the orchestrator relays the owner's merge go for this branch.
-Then run `/closeout`, which merges by the project's policy and reports to main.
+Then run `/closeout`, which merges by the project's policy, closes the
+branch's issue, and reports to main. Where the project reviews issue text, the
+closing comment comes back to the owner as a `waiting` report first.
 
 ### When the owner speaks here
 

@@ -366,7 +366,7 @@ ensure_claude_settings() {
           ["UserPromptSubmit", group(""; [cmd("user_prompt_submit_clear.sh"), cmd("session_state.sh working")])],
           ["PreToolUse", group("AskUserQuestion"; [cmd("session_state.sh blocked")])],
           ["PostToolUse", group(""; [cmd("session_state.sh working")])],
-          ["Stop", group(""; [cmd("stop_notify.sh"), cmd("session_state.sh idle")])],
+          ["Stop", group(""; [cmd("stop_notify.sh"), cmd("session_state.sh idle"), cmd("issue_close_gate.sh")])],
           ["Notification", group("permission_prompt|elicitation_dialog";
             [cmd("notification_notify.sh"), cmd("session_state.sh blocked")])],
           ["SessionEnd", group(""; [cmd("session_state.sh exited")])]
