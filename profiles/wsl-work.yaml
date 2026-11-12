@@ -52,6 +52,9 @@ models:
   small:
     grok: { model: us-gov.xai.grok-4.7 }
     opencode: { model: amazon-bedrock-gov/work-grok-4.7, effort: medium }
+  monitor:
+    grok: { model: us-gov.xai.grok-4.7 }
+    opencode: { model: amazon-bedrock-gov/work-grok-4.7, effort: low }
 
 mcp:
   enable: [context7, firecrawl, kubernetes]
