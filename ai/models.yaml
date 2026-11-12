@@ -10,7 +10,7 @@
 # one job and harness on that machine. Run `dot update` after editing.
 
 plan:
-  claude: { model: fable, effort: xhigh }
+  claude: { model: opus, effort: xhigh }
   grok: { model: grok-4.7, effort: xhigh }
   opencode: { model: amazon-bedrock/deleon-claude-opus-5.5, effort: xhigh }
 
@@ -20,7 +20,7 @@ implement:
   opencode: { model: amazon-bedrock/deleon-claude-opus-5.5, effort: high }
 
 review:
-  claude: { model: fable, effort: high }
+  claude: { model: opus, effort: high }
   grok: { model: grok-4.7, effort: high }
   opencode: { model: amazon-bedrock/deleon-claude-opus-5.5, effort: high }
 
