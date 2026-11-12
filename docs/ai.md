@@ -101,7 +101,7 @@ Claude models on `amazon-bedrock` declare explicit `low`…`max` variants that s
 
 ## Models per job
 
-`ai/models.yaml` names a model and effort for each job (`plan`, `implement`, `review`, `small`), once per harness. Nothing else in `ai/` names a model:
+`ai/models.yaml` names a model and effort for each job (`plan`, `implement`, `review`, `small`, `monitor`), once per harness. Nothing else in `ai/` names a model:
 
 - An agent sets `job: <name>` in its frontmatter. The Claude and Grok installers render it into a real file with that job's `model` and `effort` instead of a symlink; the OpenCode generator sets `model` and `variant` (the effort, which must be a variant the provider declares). A job with no entry for a harness leaves the agent on the session's model.
 - `wto new -j <job>` starts a session on the job's model for the harness in `$AI_TOOL`; `-m` / `-e` override it. OpenCode takes no per-session model.
@@ -109,7 +109,7 @@ Claude models on `amazon-bedrock` declare explicit `low`…`max` variants that s
 
 A profile's `models:` block replaces single job + harness entries for that machine (`wsl-work` puts every job on GovCloud Grok 4.7). The installer writes the merged table to `~/.local/state/dotfiles/ai-models.json`, which `wto` reads. After editing either file, run `dot update`: rendered agents do not follow edits to `ai/agents/` until then.
 
-The planner, implementer and reviewer agents carry the plan, implement and review jobs; the `plan-implement-review` skill runs them.
+The planner, implementer and reviewer agents carry the plan, implement and review jobs; the `plan-implement-review` skill runs them. The monitor agent carries the monitor job: any session hands it a wait on a job, deploy, or CI run, and it paces its checks to the time left.
 
 ## Per-env instructions
 

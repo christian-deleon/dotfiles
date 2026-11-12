@@ -30,3 +30,10 @@ small:
   claude: { model: sonnet, effort: medium }
   grok: { model: grok-4.7-build-fast }
   opencode: { model: amazon-bedrock/deleon-claude-sonnet-5.5, effort: medium }
+
+# Long watches that mostly wait (the monitor agent): read state, follow the
+# brief, report.
+monitor:
+  claude: { model: haiku }
+  grok: { model: grok-4.7-build-fast }
+  opencode: { model: amazon-bedrock/deleon-claude-sonnet-5.5, effort: low }
