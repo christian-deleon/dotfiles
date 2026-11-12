@@ -180,6 +180,10 @@ Work arrives as a description from the user, issue numbers (from `/spinoff`,
 5. Keep the rest in `"$(wto dir)/next-up.md"` (issue, one line, why it waits)
    and offer it when a slot frees up.
 
+Name every branch in the profile's `Branch naming`. A branch for an issue
+carries its number (`fix/142-retry-backoff`), whether the issue came from
+`/backlog`, `/spinoff`, or the user; step 1 finds covered issues by it.
+
 Start an "investigate only" session only when the user asks for one. Its handoff
 says: make no changes, post findings on the issue, report back to main.
 
