@@ -12,7 +12,13 @@ local home = os.getenv("HOME") or ""
 
 local SCRATCHPAD = "special:scratchpad"
 -- Only windows opened this soon after login are sent to the scratchpad.
-local ROUTE_WINDOW_MS = 120000
+local ROUTE_WINDOW_S = 120
+-- A config reload re-runs this file in a fresh Lua state but never fires
+-- hyprland.start again, and Omarchy's monitor watcher reloads at login while
+-- dock displays are still modeless. The deadline lives in the compositor
+-- environment, which survives reloads, tagged with this session's signature.
+local DEADLINE_ENV = "DOT_SCRATCHPAD_ROUTE_UNTIL"
+local SESSION = os.getenv("HYPRLAND_INSTANCE_SIGNATURE") or ""
 
 local APPS = {
   mail = {
@@ -95,18 +101,28 @@ hl.layout.register("scratchpad", {
 
 hl.workspace_rule({ workspace = SCRATCHPAD, layout = "lua:scratchpad" })
 
-local routing = false
+local function routing()
+  local owner, deadline = (os.getenv(DEADLINE_ENV) or ""):match("^(.*):(%d+)$")
+  return owner == SESSION and os.time() < tonumber(deadline)
+end
+
 -- slot -> address of the window routed into it. Only one window per app is
 -- routed; a second copy (e.g. two launchers racing) would push the layout
--- into its grid fallback.
+-- into its grid fallback. Seeded from the scratchpad so a reload keeps it.
 local routed = {}
+for _, window in ipairs(hl.get_workspace_windows(SCRATCHPAD) or {}) do
+  local slot = slot_of[window.class]
+  if slot and not routed[slot] then
+    routed[slot] = window.address
+  end
+end
 
 -- Spotify (XWayland) can map before its class is set, so also route on class
 -- change. window.class also fires before a window maps; skip that one and let
 -- window.open route it.
 local function route(window)
-  local slot = routing and window and window.mapped and slot_of[window.class]
-  if not slot or routed[slot] then
+  local slot = window and window.mapped and slot_of[window.class]
+  if not slot or routed[slot] or not routing() then
     return
   end
   routed[slot] = window.address
@@ -128,10 +144,7 @@ hl.on("window.class", route)
 hl.on("window.close", release)
 
 hl.on("hyprland.start", function()
-  routing = true
-  hl.timer(function()
-    routing = false
-  end, { timeout = ROUTE_WINDOW_MS, type = "oneshot" })
+  hl.env(DEADLINE_ENV, SESSION .. ":" .. (os.time() + ROUTE_WINDOW_S))
 
   for _, app in pairs(APPS) do
     hl.exec_cmd(app.launch)
