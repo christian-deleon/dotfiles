@@ -39,7 +39,11 @@ curl -fsSLo "$TMP/$FILE" "$URL"
 curl -fsSLo "$TMP/$FILE.sha256" "$URL.sha256"
 
 EXPECTED="$(cut -d' ' -f1 "$TMP/$FILE.sha256")"
-ACTUAL="$(openssl dgst -sha256 "$TMP/$FILE" | awk '{print $NF}')"
+if command -v sha256sum &>/dev/null; then
+    ACTUAL="$(sha256sum "$TMP/$FILE" | awk '{print $1}')"
+else
+    ACTUAL="$(openssl dgst -sha256 "$TMP/$FILE" | awk '{print $NF}')"
+fi
 if [[ -z "$EXPECTED" || "$EXPECTED" != "$ACTUAL" ]]; then
     echo "Error: checksum mismatch for $FILE"
     exit 1
