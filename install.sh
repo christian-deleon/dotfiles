@@ -196,6 +196,8 @@ ensure_jq() {
     success "jq installed"
 }
 
+# Without stow (Amazon Linux 2023 does not package it), install_stow_config
+# makes the same single directory symlink stow would.
 ensure_stow() {
     if command -v stow &>/dev/null; then
         return 0
@@ -209,15 +211,18 @@ ensure_stow() {
         sudo pacman -S --noconfirm stow
     elif command -v apt-get &>/dev/null; then
         sudo apt-get install -y stow
-    else
-        error "Cannot auto-install stow — install it manually"
-        return 1
+    elif command -v dnf &>/dev/null; then
+        sudo dnf install -y stow &>/dev/null || true
     fi
-    success "GNU Stow installed"
+    if command -v stow &>/dev/null; then
+        success "GNU Stow installed"
+    else
+        info "GNU Stow not available — configs will be symlinked directly"
+    fi
 }
 
 ensure_omadot() {
-    if command -v omadot &>/dev/null; then
+    if command -v omadot &>/dev/null || ! command -v stow &>/dev/null; then
         return 0
     fi
 
@@ -1092,12 +1097,14 @@ install_stow_config() {
         rm "$target"
     fi
 
-    if ! omadot put "$pkg"; then
-        error "Failed to stow $pkg"
-        return 1
+    # A missing ~/.config would let stow fold all of ~/.config into this package.
+    mkdir -p "$HOME/.config"
+    if command -v stow &>/dev/null && command -v omadot &>/dev/null; then
+        omadot put "$pkg" || { error "Failed to stow $pkg"; return 1; }
     else
-        success "Stowed $pkg"
+        ln -s "$src" "$target" || { error "Failed to link $pkg"; return 1; }
     fi
+    success "Stowed $pkg"
 }
 
 # Call the handler function named by an item's config.handler field.
