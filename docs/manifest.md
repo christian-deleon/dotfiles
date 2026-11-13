@@ -85,6 +85,7 @@ Each predicate is a function `host_has_<name>` in `scripts/predicates.sh`. Avail
 | `linux`    | `$OSTYPE != darwin*` |
 | `darwin`   | `$OSTYPE == darwin*` |
 | `wsl`      | `/proc/version` contains "microsoft" |
+| `amazonlinux` | `/etc/os-release` has `ID=amzn` |
 | `omarchy`  | `~/.local/share/omarchy/` exists |
 | `hyprland` | `Hyprland` command on PATH |
 | `fprintd`  | `pam_fprintd.so` present in `/etc/pam.d/` |

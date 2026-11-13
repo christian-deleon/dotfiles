@@ -1,6 +1,6 @@
 # Dotfiles
 
-Personal dotfiles for macOS, Linux (including [Omarchy](https://omarchy.org/)), and WSL2. Shell configs, dev tools, and app configs managed across machines.
+Personal dotfiles for macOS, Linux (including [Omarchy](https://omarchy.org/) and a headless Amazon Linux 2023 server), and WSL2. Shell configs, dev tools, and app configs managed across machines.
 
 ## Install
 
@@ -22,7 +22,7 @@ git -C ~/.dotfiles remote set-url origin git@github.com:christian-deleon/dotfile
 
 Only the bare minimum runs unconditionally — shell config and the `dot` CLI. Then you pick:
 
-- **A profile** — a curated, hand-authored set of tools + configs for a specific machine context (`omarchy-personal`, `wsl-personal`, `wsl-work`, `macos-personal`, …). Only profiles whose `requires:` predicates pass on the host appear in the picker.
+- **A profile** — a curated, hand-authored set of tools + configs for a specific machine context (`omarchy-personal`, `wsl-personal`, `wsl-work`, `macos-personal`, `dev-server`, …). Only profiles whose `requires:` predicates pass on the host appear in the picker.
 - **Manual selection** — ad-hoc picker of core extras + individual items from `manifest.yaml`. Use this on a brand-new machine type, then author a profile when you're ready to reproduce it elsewhere.
 
 The picker auto-suggests the first compatible profile based on host detection (Hyprland present → omarchy, Darwin → macos, microsoft in `/proc/version` → wsl). On `dot update`, the active profile is reconciled (missing items get installed; profile reconcile is add-only). Residue from *retired* tools is cleaned via [`tombstones.yaml`](tombstones.yaml) — see [docs/tombstones.md](docs/tombstones.md).

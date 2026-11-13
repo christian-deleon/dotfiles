@@ -1,0 +1,53 @@
+# profiles/dev-server.yaml
+# Headless Amazon Linux 2023 dev server, reached over SSH, for long-lived agent
+# sessions in tmux. Provisioning installs it unattended:
+#   ~/.dotfiles/install.sh --profile dev-server
+# The host provides git, docker, awscli, op, node, tofu, just, uv, flux, helm
+# and the 1Password service account token, so those items are left out here.
+# No ssh-config: the host owns ~/.ssh and there is no 1Password SSH agent.
+
+name: dev-server
+description: Headless Amazon Linux 2023 dev server (SSH + tmux agent sessions)
+
+requires: [amazonlinux]
+
+core_extras:
+  - git-submodules
+  - git-config
+  - ai-tool
+
+items:
+  - bat
+  - blesh
+  - btop
+  - claude
+  - cloc
+  - delta
+  - fd
+  - flux-operator-mcp
+  - fzf
+  - gh
+  - gitea-mcp
+  - granted
+  - grok
+  - gum
+  - jq
+  - k9s
+  - kubectl
+  - lazygit
+  - mise
+  - neovim
+  - opencode
+  - ripgrep
+  - skaffold
+  - starship
+  - tea
+  - tmux
+  - worktrunk
+  - yq
+
+ai:
+  default: claude   # tav/wta/wtc and commit messages; ~/.localrc AI_TOOL wins
+
+mcp:
+  enable: [aws, context7, firecrawl, flux, gitea, kubernetes]
