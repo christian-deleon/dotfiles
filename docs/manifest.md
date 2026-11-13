@@ -17,6 +17,7 @@ Profiles in `profiles/*.yaml` reference manifest items by name. See [docs/profil
     arch:    string|null          # pacman/yay package name
     apt:     string|null          # apt package name
     brew:    string|null          # homebrew formula (may include "--cask " prefix)
+    dnf:     string|null          # dnf package name (Amazon Linux 2023)
     script:  string|null          # filename in scripts/tools/, fallback when no native package
     command: string|null          # binary name for `command -v` check + CLI alias (default: <item-name>)
     update:  bool                 # default false; if true, rebuilt by `dot update`

@@ -19,6 +19,18 @@ elif command -v apt-get &>/dev/null; then
     echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
     sudo apt-get update && sudo apt-get install -y gum
 else
-    echo "Error: Could not determine package manager to install gum"
-    exit 1
+    ARCH="$(uname -m)"
+    case "$ARCH" in
+        x86_64)  ARCH="x86_64" ;;
+        aarch64) ARCH="arm64" ;;
+        *)
+            echo "Error: Unsupported architecture: $ARCH"
+            exit 1
+            ;;
+    esac
+    NAME="gum_${GUM_VERSION}_Linux_${ARCH}"
+    curl -fsSLo /tmp/gum.tar.gz "https://github.com/charmbracelet/gum/releases/download/v${GUM_VERSION}/${NAME}.tar.gz"
+    tar -xzf /tmp/gum.tar.gz -C /tmp "${NAME}/gum"
+    sudo install "/tmp/${NAME}/gum" /usr/local/bin/gum
+    rm -rf /tmp/gum.tar.gz "/tmp/${NAME}"
 fi

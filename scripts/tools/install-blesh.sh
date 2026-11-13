@@ -33,6 +33,8 @@ if [[ ${#missing[@]} -gt 0 ]]; then
     elif command -v apt-get &>/dev/null; then
         # the `xz` binary ships in xz-utils on Debian/Ubuntu
         sudo apt-get install -y "${missing[@]/xz/xz-utils}"
+    elif command -v dnf &>/dev/null; then
+        sudo dnf install -y "${missing[@]}"
     else
         echo "Error: need ${missing[*]} but no supported package manager found" >&2
         exit 1

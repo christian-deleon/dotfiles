@@ -34,6 +34,7 @@ bat:
     arch: bat
     apt: bat
     brew: bat
+    script: install-bat.sh
 
 blesh:
   description: Bash autosuggestions + syntax highlighting (ble.sh)
@@ -95,6 +96,7 @@ fd:
     arch: fd
     apt: fd-find
     brew: fd
+    script: install-fd.sh
 
 flux:
   description: GitOps toolkit
@@ -116,6 +118,7 @@ fzf:
     arch: fzf
     apt: fzf
     brew: fzf
+    script: install-fzf.sh
 
 gh:
   description: GitHub CLI
@@ -177,6 +180,7 @@ jq:
     arch: jq
     apt: jq
     brew: jq
+    dnf: jq
 
 just:
   description: Task runner
@@ -275,6 +279,7 @@ ripgrep:
     arch: ripgrep
     apt: ripgrep
     brew: ripgrep
+    script: install-ripgrep.sh
     command: rg
 
 sccache:
@@ -323,6 +328,7 @@ tmux:
     arch: tmux
     apt: tmux
     brew: tmux
+    dnf: tmux
   config:
     type: stow
 
