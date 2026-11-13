@@ -1337,6 +1337,8 @@ install_from_profile() {
     fi
 
     info "Installing profile: ${BOLD}$name${RESET}"
+    # Profile lookups (harness gating, ai.default, mcp) read the YAML with jq.
+    ensure_jq
 
     # Core extras from profile
     local extras=() e
