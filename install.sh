@@ -187,6 +187,8 @@ ensure_jq() {
         sudo pacman -S --noconfirm jq
     elif command -v apt-get &>/dev/null; then
         sudo apt-get install -y jq
+    elif command -v dnf &>/dev/null; then
+        sudo dnf install -y jq
     else
         error "Cannot auto-install jq — install it manually"
         return 1

@@ -40,6 +40,8 @@ detect_pkg_manager() {
         echo "arch"
     elif command -v apt-get &>/dev/null; then
         echo "apt"
+    elif command -v dnf &>/dev/null; then
+        echo "dnf"
     else
         echo "unknown"
     fi
@@ -341,6 +343,9 @@ install_tool() {
             ;;
         apt)
             sudo apt-get install -y "$pkg_name"
+            ;;
+        dnf)
+            sudo dnf install -y "$pkg_name"
             ;;
         *)
             _error "Unknown package manager: $pkg_manager"
