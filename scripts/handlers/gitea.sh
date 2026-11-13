@@ -2,7 +2,7 @@
 # Gitea handler — referenced from manifest.yaml (tea config).
 # Sourced by install.sh. Uses helpers: info, success, warn.
 
-GITEA_OP_ITEM="op://ujvoilqaehz2gozzpp2jqyhxsu/5u3m57x7mqfutefx7vlovda7zq"
+GITEA_OP_ITEM="op://oemsd2j65rk7difjj4ch2jgblu/3wscshj4ordtqjwjyeko2impvm"
 
 # Adds the personal Gitea login to tea from the same 1Password item the MCP
 # server uses. Existing logins are kept: after rotating the token, run

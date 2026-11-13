@@ -1,7 +1,7 @@
 {
   "context7": {
     "command": "npx",
-    "args": ["-y", "@upstash/context7-mcp", "--api-key", "op://ujvoilqaehz2gozzpp2jqyhxsu/g2vxfluvjcei5hfwmjbszlso44/credential"],
+    "args": ["-y", "@upstash/context7-mcp", "--api-key", "op://oemsd2j65rk7difjj4ch2jgblu/5y7lr6xutke4vgiklog5q44lfu/credential"],
     "description": "Live documentation lookup",
     "default": true
   },
@@ -62,8 +62,8 @@
     "command": "gitea-mcp",
     "args": ["-t", "stdio"],
     "env": {
-      "GITEA_HOST": "op://ujvoilqaehz2gozzpp2jqyhxsu/5u3m57x7mqfutefx7vlovda7zq/hostname",
-      "GITEA_ACCESS_TOKEN": "op://ujvoilqaehz2gozzpp2jqyhxsu/5u3m57x7mqfutefx7vlovda7zq/credential"
+      "GITEA_HOST": "op://oemsd2j65rk7difjj4ch2jgblu/3wscshj4ordtqjwjyeko2impvm/hostname",
+      "GITEA_ACCESS_TOKEN": "op://oemsd2j65rk7difjj4ch2jgblu/3wscshj4ordtqjwjyeko2impvm/credential"
     },
     "description": "Personal self-hosted Gitea (Netbird only; not for work)"
   },
@@ -71,7 +71,7 @@
     "command": "npx",
     "args": ["-y", "firecrawl-mcp"],
     "env": {
-      "FIRECRAWL_API_KEY": "op://ujvoilqaehz2gozzpp2jqyhxsu/qqxnvcu3mzmw6yosgtijqh3hv4/credential"
+      "FIRECRAWL_API_KEY": "op://oemsd2j65rk7difjj4ch2jgblu/rf6srw7ypyhf2enujj25exm4na/credential"
     },
     "description": "Web scraping and crawling",
     "default": true
