@@ -12,6 +12,8 @@ cd ~/.dotfiles
 ./install.sh          # bare-minimum core, then pickers for everything else
 ```
 
+For provisioning tools with no terminal, `./install.sh --profile <name>` installs that profile without the picker. It is safe to run again; see [docs/profiles.md](docs/profiles.md#unattended-install).
+
 After install (1Password + SSH agent now configured), switch the remote to SSH:
 
 ```bash

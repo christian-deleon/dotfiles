@@ -127,6 +127,12 @@ Residue from **retired** tools (paths we used to create) is handled separately b
 
 If no profile is active (e.g. you used Manual mode), `dot update` skips item reconciliation entirely — it still pulls dotfiles, refreshes AI, applies tombstones, and rebuilds source tools.
 
+## Unattended install
+
+`./install.sh --profile <name>` runs the core config and then that profile with no picker, for provisioning tools such as Ansible. Re-running it is safe: installed tools are skipped, links are re-checked, and `.active-profile` is rewritten. It exits non-zero if the profile is unknown or its `requires:` fail.
+
+With no terminal, the `git-config` extra only links `~/.gitconfig` and leaves `~/.gitconfig.local` as it is, so the provisioner writes that file first. A profile without the `ssh-config` extra skips the `.ssh` submodule.
+
 ## Manual mode
 
 The picker always includes "Manual selection" as the last option. Picking it shows the core-extras picker (host-appropriate defaults pre-selected) and then the full item picker. No active-profile state is written — manual mode is ephemeral.
