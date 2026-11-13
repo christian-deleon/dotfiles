@@ -242,7 +242,8 @@ ensure_omadot() {
 
 # ─── 1Password multi-account injection ───────────────────────────────────────
 
-# Resolve op:// references across multiple 1Password accounts.
+# Resolve op:// references across multiple 1Password accounts. A service
+# account has no account list and reads every ref directly.
 # Usage: op_inject_multi <template> <output>
 #
 # macOS ships /bin/bash 3.2 — no associative arrays. Encode the vault→account
@@ -262,57 +263,67 @@ op_inject_multi() {
         return 0
     fi
 
-    local op_check
-    if ! op_check="$(op account list 2>&1)"; then
-        error "1Password CLI cannot connect to desktop app"
-        if echo "$op_check" | grep -q "cannot connect to 1Password app"; then
-            error "Make sure 1Password desktop app is running and CLI integration is enabled"
-        fi
-        return 1
-    fi
+    local service_account=0
+    op_load_service_account && service_account=1
 
     # vault_id → account URL map (bash 3.2-safe)
     local vault_account_map=""
-    local acct acct_url vault_line vid
-    while IFS= read -r acct; do
-        [[ -z "$acct" ]] && continue
-        acct_url="$(echo "$acct" | awk '{print $1}')"
-        # Skip table header if present
-        [[ -z "$acct_url" || "$acct_url" == "URL" ]] && continue
-        while IFS= read -r vault_line; do
-            [[ -z "$vault_line" ]] && continue
-            vid="$(echo "$vault_line" | awk '{print $1}')"
-            [[ -z "$vid" || "$vid" == "ID" ]] && continue
-            vault_account_map+="${vid}"$'\t'"${acct_url}"$'\n'
-        done < <(op vault list --account "$acct_url" 2>/dev/null | tail -n +2)
-    done < <(printf '%s\n' "$op_check" | tail -n +2)
+    if ((!service_account)); then
+        local op_check
+        if ! op_check="$(op account list 2>&1)"; then
+            error "1Password CLI cannot connect to desktop app"
+            if echo "$op_check" | grep -q "cannot connect to 1Password app"; then
+                error "Make sure 1Password desktop app is running and CLI integration is enabled"
+            fi
+            return 1
+        fi
+
+        local acct acct_url vault_line vid
+        while IFS= read -r acct; do
+            [[ -z "$acct" ]] && continue
+            acct_url="$(echo "$acct" | awk '{print $1}')"
+            # Skip table header if present
+            [[ -z "$acct_url" || "$acct_url" == "URL" ]] && continue
+            while IFS= read -r vault_line; do
+                [[ -z "$vault_line" ]] && continue
+                vid="$(echo "$vault_line" | awk '{print $1}')"
+                [[ -z "$vid" || "$vid" == "ID" ]] && continue
+                vault_account_map+="${vid}"$'\t'"${acct_url}"$'\n'
+            done < <(op vault list --account "$acct_url" 2>/dev/null | tail -n +2)
+        done < <(printf '%s\n' "$op_check" | tail -n +2)
+    fi
 
     local failed=0
     local ref vault_id account secret map_line map_vid
+    local -a account_args
     while IFS= read -r ref; do
         [[ -z "$ref" ]] && continue
-        # op://VAULT/item/field → vault is field 3 of /-split with empty first from op:
-        #   op://vault/... → cut -d/ -f3
-        vault_id="$(echo "$ref" | cut -d'/' -f3)"
-        account=""
-        while IFS= read -r map_line; do
-            [[ -z "$map_line" ]] && continue
-            map_vid="${map_line%%$'\t'*}"
-            if [[ "$map_vid" == "$vault_id" ]]; then
-                account="${map_line#*$'\t'}"
-                break
-            fi
-        done <<EOF
+        account_args=()
+        if ((!service_account)); then
+            # op://VAULT/item/field → vault is field 3 of /-split with empty first from op:
+            #   op://vault/... → cut -d/ -f3
+            vault_id="$(echo "$ref" | cut -d'/' -f3)"
+            account=""
+            while IFS= read -r map_line; do
+                [[ -z "$map_line" ]] && continue
+                map_vid="${map_line%%$'\t'*}"
+                if [[ "$map_vid" == "$vault_id" ]]; then
+                    account="${map_line#*$'\t'}"
+                    break
+                fi
+            done <<EOF
 $vault_account_map
 EOF
 
-        if [[ -z "$account" ]]; then
-            warn "Vault $vault_id not found in any account"
-            failed=1
-            continue
+            if [[ -z "$account" ]]; then
+                warn "Vault $vault_id not found in any account"
+                failed=1
+                continue
+            fi
+            account_args=(--account "$account")
         fi
 
-        secret="$(op read "$ref" --account "$account" 2>/dev/null)" || {
+        secret="$(op read "$ref" "${account_args[@]}" 2>/dev/null)" || {
             warn "Failed to read $ref"
             failed=1
             continue

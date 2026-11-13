@@ -22,6 +22,7 @@ install_tea_login() {
     fi
 
     local url token
+    op_load_service_account || true
     url="$(op read "$GITEA_OP_ITEM/hostname" 2>/dev/null)"
     token="$(op read "$GITEA_OP_ITEM/credential" 2>/dev/null)"
     if [[ -z "$url" || -z "$token" ]]; then

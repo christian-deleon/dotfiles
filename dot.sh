@@ -96,6 +96,12 @@ check_1password() {
         return 0
     fi
 
+    if op_load_service_account; then
+        op user get --me &>/dev/null && return 0
+        _error "1Password rejected the service account token in $OP_SERVICE_ACCOUNT_TOKEN_FILE"
+        return 1
+    fi
+
     local op_check
     if ! op_check="$(op account list 2>&1)"; then
         echo

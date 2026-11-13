@@ -740,6 +740,21 @@ ai_enabled_harnesses() {
     done
 }
 
+# ─── 1Password service account ────────────────────────────────────────────────
+
+# Headless hosts without the desktop app read secrets with a service account.
+# The host leaves its token in this file; it is exported only into dot and
+# install.sh, not into every shell. Returns 0 when a service account is in use.
+OP_SERVICE_ACCOUNT_TOKEN_FILE="${OP_SERVICE_ACCOUNT_TOKEN_FILE:-$HOME/.config/op/service-account-token}"
+
+op_load_service_account() {
+    [[ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ]] && return 0
+    [[ -r "$OP_SERVICE_ACCOUNT_TOKEN_FILE" ]] || return 1
+    OP_SERVICE_ACCOUNT_TOKEN="$(<"$OP_SERVICE_ACCOUNT_TOKEN_FILE")"
+    [[ -n "$OP_SERVICE_ACCOUNT_TOKEN" ]] || return 1
+    export OP_SERVICE_ACCOUNT_TOKEN
+}
+
 # ─── Gum Bootstrap ────────────────────────────────────────────────────────────
 
 ensure_gum() {

@@ -29,6 +29,8 @@ The picker auto-suggests the first compatible profile based on host detection (H
 
 If `op` (1Password CLI) is missing, MCP servers that need secrets are skipped automatically; the keyless ones still install.
 
+On a headless host without the 1Password app, put a service account token in `~/.config/op/service-account-token` (mode 600, directory 700). `dot` and the installer read secrets through it; the token is not exported into your shells. Service accounts cannot read Personal or Private vaults, so the items they need must live in a shared vault.
+
 ## `dot` CLI
 
 ```bash
