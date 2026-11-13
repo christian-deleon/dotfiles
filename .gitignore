@@ -9,3 +9,6 @@ __pycache__/
 # Omarchy upgrade residue — generated next to live configs, never source
 **/*omarchy-upgrade-to-quattro*
 omarchy/.config/omarchy/current/
+
+# Install metadata the worktrunk installer writes into the stowed config dir
+worktrunk/.config/worktrunk/worktrunk-receipt.json
