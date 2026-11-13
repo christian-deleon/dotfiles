@@ -6,8 +6,9 @@
 # or pick items manually from the universal manifest.
 #
 # Usage:
-#   ./install.sh        Interactive install (profile or manual)
-#   ./install.sh --help Show usage
+#   ./install.sh                  Interactive install (profile or manual)
+#   ./install.sh --profile <name> Install a profile without prompts
+#   ./install.sh --help           Show usage
 #
 
 set -e
@@ -500,15 +501,24 @@ install_zsh_config() {
     done
 }
 
+# Profiles without the ssh-config extra never read .ssh, so it is not cloned.
 install_git_submodules() {
     ensure_ssh_auth_sock
+
+    local want_ssh=1 profile_file
+    if profile_file="$(active_profile_file)" &&
+        ! yq -e '.core_extras // [] | contains(["ssh-config"])' "$profile_file" &>/dev/null; then
+        want_ssh=0
+    fi
 
     info "Initializing critical submodules (.ssh, tpm)..."
     git -C "$DOTFILES_DIR" submodule sync --recursive .ssh .tmux/plugins/tpm 2>/dev/null || \
         git -C "$DOTFILES_DIR" submodule sync --recursive .ssh
 
     local failed=0
-    if git -C "$DOTFILES_DIR" submodule update --init --recursive .ssh; then
+    if ((!want_ssh)); then
+        info "Profile has no ssh-config — skipping the .ssh submodule"
+    elif git -C "$DOTFILES_DIR" submodule update --init --recursive .ssh; then
         success "SSH config submodule initialized"
         # `submodule update --init` leaves the submodule in detached HEAD.
         # For branch-tracking submodules (.ssh), put it on its configured
@@ -666,6 +676,11 @@ install_git_config() {
     fi
 
     local git_local="$HOME/.gitconfig.local"
+
+    if [[ ! -t 0 ]]; then
+        [[ -f "$git_local" ]] || warn "No terminal to ask for Git name/email — write ${git_local} or rerun ./install.sh in a terminal"
+        return 0
+    fi
 
     if [[ -f "$git_local" ]]; then
         info "Local Git config already exists at ${DIM}$git_local${RESET}"
@@ -1406,10 +1421,11 @@ install_manual() {
 
 usage() {
     cat <<EOF
-Usage: $(basename "$0")
+Usage: $(basename "$0") [--profile <name>]
 
 Dotfiles installer. Pick a profile (curated set of items) or pick items
-manually from the universal manifest.
+manually from the universal manifest. --profile installs that profile with
+no picker; safe to re-run, and needs no terminal when ~/.gitconfig.local exists.
 
 Core Config (always runs):
   Shell config   .commonrc, .aliases, .functions + inject into .bashrc
@@ -1433,10 +1449,22 @@ EOF
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 main() {
-    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-        usage
-        exit 0
-    fi
+    local profile=""
+    case "${1:-}" in
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        --profile)
+            profile="${2:-}"
+            [[ -n "$profile" ]] || { error "Usage: $(basename "$0") --profile <name>"; exit 1; }
+            ;;
+        "") ;;
+        *)
+            error "Unknown argument: $1"
+            exit 1
+            ;;
+    esac
 
     if [[ "$OSTYPE" == darwin* ]]; then
         ensure_homebrew
@@ -1449,8 +1477,10 @@ main() {
 
     run_core_config
 
-    local choice
-    choice="$(select_profile)" || { warn "No selection made — exiting"; exit 1; }
+    local choice="$profile"
+    if [[ -z "$choice" ]]; then
+        choice="$(select_profile)" || { warn "No selection made — exiting"; exit 1; }
+    fi
 
     if [[ "$choice" == "manual" ]]; then
         install_manual
