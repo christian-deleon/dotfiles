@@ -17,7 +17,7 @@ case "$ARCH" in
         ;;
 esac
 
-VERSION="$(curl -fsSL https://api.github.com/repos/junegunn/fzf/releases/latest | grep '"tag_name"' | cut -d'"' -f4 | sed 's/^v//')"
+VERSION="$(curl -fsSL https://api.github.com/repos/junegunn/fzf/releases/latest | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4 | sed 's/^v//')"
 
 echo "Installing fzf v${VERSION}..."
 curl -fsSLo /tmp/fzf.tar.gz "https://github.com/junegunn/fzf/releases/download/v${VERSION}/fzf-${VERSION}-linux_${ARCH}.tar.gz"

@@ -16,7 +16,7 @@ case "$ARCH" in
         ;;
 esac
 
-TAG="$(curl -fsSL https://api.github.com/repos/sharkdp/bat/releases/latest | grep '"tag_name"' | cut -d'"' -f4)"
+TAG="$(curl -fsSL https://api.github.com/repos/sharkdp/bat/releases/latest | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4)"
 NAME="bat-${TAG}-${ARCH}-unknown-linux-musl"
 
 echo "Installing bat ${TAG}..."
