@@ -40,7 +40,11 @@ curl -fsSLo "$TMP/$TARBALL" "${BASE}/${TARBALL}"
 curl -fsSLo "$TMP/checksums.txt" "${BASE}/gitea-mcp_${VERSION}_checksums.txt"
 
 EXPECTED="$(grep " ${TARBALL}\$" "$TMP/checksums.txt" | cut -d' ' -f1)"
-ACTUAL="$(openssl dgst -sha256 "$TMP/$TARBALL" | awk '{print $NF}')"
+if command -v sha256sum &>/dev/null; then
+    ACTUAL="$(sha256sum "$TMP/$TARBALL" | awk '{print $1}')"
+else
+    ACTUAL="$(openssl dgst -sha256 "$TMP/$TARBALL" | awk '{print $NF}')"
+fi
 if [[ -z "$EXPECTED" || "$EXPECTED" != "$ACTUAL" ]]; then
     echo "Error: checksum mismatch for $TARBALL"
     exit 1
