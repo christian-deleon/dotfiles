@@ -31,7 +31,7 @@ models:                     # replaces ai/models.yaml entries on this machine
 
 ### `requires:`
 
-A list of `host_has_<predicate>` predicates that must all pass on the current host for the profile to be selectable. If any predicate fails, the profile is filtered out of the picker entirely (not shown as disabled — just hidden). Available predicates: `linux`, `darwin`, `wsl`, `omarchy`, `hyprland`, `fprintd` (defined in `scripts/predicates.sh`).
+A list of `host_has_<predicate>` predicates that must all pass on the current host for the profile to be selectable. If any predicate fails, the profile is filtered out of the picker entirely (not shown as disabled — just hidden). Available predicates: `linux`, `darwin`, `wsl`, `amazonlinux`, `omarchy`, `hyprland`, `fprintd` (defined in `scripts/predicates.sh`).
 
 Examples:
 - `requires: [omarchy]` — Omarchy-only
@@ -61,7 +61,7 @@ List of manifest.yaml top-level keys. The installer iterates them in order, invo
 
 Aliases (e.g. `nvim` for `neovim`, `op` for `1password-cli`) are accepted but canonical names are preferred for clarity.
 
-The AI harness items (`claude`, `grok`, `opencode`) also gate which harnesses get configured: only listed ones receive skills, agents, rules, MCP, and `dot agent env` links. With an active profile, `dot install <harness>`, `install_item`, and the manual picker refuse a harness the profile doesn't list. The personal profiles list all three; `wsl-work` lists `grok` and `opencode`.
+The AI harness items (`claude`, `grok`, `opencode`) also gate which harnesses get configured: only listed ones receive skills, agents, rules, MCP, and `dot agent env` links. With an active profile, `dot install <harness>`, `install_item`, and the manual picker refuse a harness the profile doesn't list. The personal profiles and `dev-server` list all three; `wsl-work` lists `grok` and `opencode`.
 
 ### `ai:`
 

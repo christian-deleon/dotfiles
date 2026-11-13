@@ -17,6 +17,10 @@ host_has_wsl() {
     grep -qi microsoft /proc/version 2>/dev/null
 }
 
+host_has_amazonlinux() {
+    grep -qsE '^ID="?amzn"?$' /etc/os-release
+}
+
 host_has_omarchy() {
     [[ -d "$HOME/.local/share/omarchy" ]]
 }

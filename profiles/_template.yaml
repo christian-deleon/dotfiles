@@ -19,7 +19,7 @@ description: One-line summary of this profile's purpose
 
 # Host predicates that must all pass for this profile to appear in the picker.
 # Available predicates (defined in scripts/predicates.sh):
-#   linux, darwin, wsl, omarchy, hyprland, fprintd
+#   linux, darwin, wsl, amazonlinux, omarchy, hyprland, fprintd
 # Leave empty (or omit) to make the profile compatible everywhere.
 requires: []
 # Examples:
