@@ -361,7 +361,7 @@ install_tools() {
     local failed=()
 
     for item in "${items[@]}"; do
-        if command -v gum &>/dev/null; then
+        if [[ -t 1 ]] && command -v gum &>/dev/null; then
             local output
             if output=$(gum spin --spinner dot --title "Installing $item..." -- bash -c "source '$DOTFILES_DIR/scripts/lib.sh' && install_tool '$item'" 2>&1); then
                 _success "Installed ${_BOLD}$item${_RESET}"
@@ -415,7 +415,7 @@ update_source_tools() {
             continue
         fi
 
-        if command -v gum &>/dev/null; then
+        if [[ -t 1 ]] && command -v gum &>/dev/null; then
             local output
             if output=$(gum spin --spinner dot --title "Rebuilding $item..." -- bash "$script_path" --force 2>&1); then
                 _success "Rebuilt ${_BOLD}$item${_RESET}"
