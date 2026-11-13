@@ -35,3 +35,11 @@ mako:
   description: Retired Quattro predecessor — notifications are now omarchy-shell
   requires: [omarchy]
   xdg_config: [mako]
+
+blesh-dev-server:
+  description: ble.sh redraws every keystroke over SSH; it lags on the dev server's relayed link
+  requires: [amazonlinux]
+  xdg_config: [blesh]
+  xdg_data: [blesh]
+  xdg_state: [blesh]
+  xdg_cache: [blesh]

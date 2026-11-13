@@ -5,6 +5,7 @@
 # The host provides git, docker, awscli, op, node, tofu, just, uv, flux, helm
 # and the 1Password service account token, so those items are left out here.
 # No ssh-config: the host owns ~/.ssh and there is no 1Password SSH agent.
+# No blesh: its per-keystroke redraws lag over the relayed SSH link (tombstoned).
 
 name: dev-server
 description: Headless Amazon Linux 2023 dev server (SSH + tmux agent sessions)
@@ -18,7 +19,6 @@ core_extras:
 
 items:
   - bat
-  - blesh
   - btop
   - claude
   - cloc
