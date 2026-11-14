@@ -47,6 +47,8 @@ Drop:
   issue numbers, and `"$(wto dir)/next-up.md"` lists what is queued.
 - Issues assigned to someone else, or labeled as blocked, waiting, or needing
   information.
+- Issues the profile's `Issues:` line hands to agents: those carrying its
+  agents' label or assigned to its agents' account.
 
 Rank by, in order: the profile's priority signal; priority or severity labels;
 bugs over features over chores; a near milestone; recent activity. Keep a

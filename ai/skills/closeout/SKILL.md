@@ -42,6 +42,7 @@ Read `Merge to main:` in the project profile (`wto profile`):
 | Profile | Do |
 |---|---|
 | `direct` | `wt merge --no-remove` (squash, rebase onto main, fast-forward main). Keep the worktree: main removes it. |
+| `direct`, and the line says `with push` | The same merge, then push as below. The merge go covers the push. |
 | `review-required` | Do not merge. Point the user at the process the profile names (for example the project's merge-request skill); when the branch carries an issue number, the merge request says `Closes #<n>` so the forge closes it on merge. Stop here; skip steps 3–5. |
 | No profile | Ask once: "Merge this branch into main directly?" Merge only on yes. |
 
@@ -51,13 +52,22 @@ some other way) and go on.
 If the rebase conflicts, `wt merge` stops. Resolve it here only if the user wants
 that; otherwise report the conflicting files and stop.
 
-Do not push, tag, or open anything on the remote unless the user asks. If main is
-now ahead of its remote, say so.
+**With push:** push main fast-forward only, then delete the work branch on the
+remote if it was pushed. A rejected push goes to the user; never force it.
+
+```bash
+git push origin main
+git ls-remote --exit-code --heads origin <branch> >/dev/null && git push origin --delete <branch>
+```
+
+Otherwise do not push, tag, or open anything on the remote unless the user asks.
+If main is now ahead of its remote, say so.
 
 ## 3. Close the issue
 
 A branch for a tracker issue carries its number after the type
-(`fix/142-retry-backoff` is #142). With no number, skip this step. The work
+(`fix/142-retry-backoff` is #142). With no number, close the open issue whose
+body names the branch, if there is one; otherwise skip this step. The work
 has landed, so the issue is done; leaving it open is the failure this step
 prevents.
 

@@ -100,10 +100,14 @@ Each child gets a self-contained prompt with **no** access to this conversation:
 - Merged commits already on the base branch that the child must not redo: <sha and subject>. Do not re-implement that work.
 
 ## Do not
-- Do not push, merge, or open a merge request unless the owner asks. Commit as
-  you go in logical groups.
+- Do not push, merge, or open a merge request unless the owner asks or the
+  own-work line below covers it. Commit as you go in logical groups.
 
 ## Coordination
+- <only when the profile's `Issues:` line has an `own work:` part> This is the
+  owner's own work. Before starting, check that the branch is pushed and that an
+  open issue names it. Offer once to file the missing issue (through the `issue`
+  skill, assigned as the profile says) and to push the branch.
 - If `wto here` succeeds, an orchestrator session runs in the main worktree:
   load the `orchestrated-session` skill first and follow it. It covers reporting
   ready, deploys and merges only on the owner's relayed go, rebase notices,

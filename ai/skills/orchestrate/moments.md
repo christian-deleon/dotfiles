@@ -21,8 +21,8 @@ says so. A moment with no project text uses the default below.
 | Field | Used for |
 |---|---|
 | `Kind` | Whether to show issue drafts (through the `issue` skill) |
-| `Merge to main` | What a close-out does (through the `closeout` skill) |
-| `Issues`, `priority` | Where `/backlog` looks and what it ranks by |
+| `Merge to main` | What a close-out does (through the `closeout` skill), and whether it pushes main |
+| `Issues`, `priority` | Where `/backlog` looks and what it ranks by; `agents:` issues it skips; `own work:` how `wtc` and `issue` file the owner's own work |
 | `Session cap` | How many feature sessions may run at once |
 | `Deploy` | The skill or recipe sessions use to deploy and verify; named in your deploy advice |
 | `Models` | The default model and effort for spawned sessions, and any limits; without it, the `wtc` skill's table |

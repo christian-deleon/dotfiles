@@ -56,6 +56,10 @@ tell the user, don't retry).
 - **Labels:** list existing labels and use only ones that clearly fit. Where
   the project uses scoped labels (`type/`, `area/`, `priority/`), give the issue
   one `type/` and the `area/` it belongs to. Never create labels.
+- **Assignee:** only when the project profile's `Issues:` line says who takes
+  an issue of this kind (for example the owner's own work, assigned to them).
+  An issue for the owner's own work never gets the label the profile reserves
+  for agents.
 
 | Tool | Labels |
 |---|---|
@@ -156,10 +160,10 @@ directory if it has one) and pass it by file — no shell-quoting of Markdown.
 
 | Tool | Create |
 |---|---|
-| `gh` | `gh issue create -R owner/repo --title "<t>" --body-file <f> [--label a,b]` |
-| `tea` | `tea issues create --login <name> --repo owner/repo --title "<t>" --description-file <f> [--labels a,b]` |
-| `glab` | `glab issue create -R owner/repo --title "<t>" --description-file <f> [--label a,b] --yes` |
-| `gitea` MCP | the issue write tool's create method, with owner, repo, title, body |
+| `gh` | `gh issue create -R owner/repo --title "<t>" --body-file <f> [--label a,b] [--assignee u]` |
+| `tea` | `tea issues create --login <name> --repo owner/repo --title "<t>" --description-file <f> [--labels a,b] [--assignees u]` |
+| `glab` | `glab issue create -R owner/repo --title "<t>" --description-file <f> [--label a,b] [--assignee u] --yes` |
+| `gitea` MCP | the issue write tool's create method, with owner, repo, title, body (and assignees) |
 
 | Tool | Comment on an existing issue |
 |---|---|

@@ -91,8 +91,8 @@ The profile block:
 # Project profile
 - Kind: personal | work | public
 - Issue drafts: direct | review
-- Merge to main: direct | review-required (<how: e.g. the merge-request skill>)
-- Issues: <where they live>; priority: <what marks it>
+- Merge to main: direct [, with push] | review-required (<how: e.g. the merge-request skill>)
+- Issues: <where they live>; priority: <what marks it>[; agents: <label>, <account>][; own work: assigned to <login>, names the branch]
 - Session cap: <n>
 - Models: <job limits | the wtc skill's table>
 - Shared resources: <names>; gate: <entry point | none>
@@ -108,7 +108,11 @@ The profile block:
 - When a side issue arrives: <…>
 ```
 
-`Issue drafts: direct` only for a personal project that is not public. Leave out
+`Issue drafts: direct` only for a personal project that is not public. `with
+push` makes the merge go cover a fast-forward push of main and deleting the
+pushed work branch. `agents:` names the label and account through which an
+agent service takes issues; `own work:` says how the owner's own work is
+tracked, which `wtc` and `issue` then follow. Leave out
 moments with nothing project-specific; [the orchestrate skill's moments.md](../orchestrate/moments.md)
 lists them and their defaults.
 

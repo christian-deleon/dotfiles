@@ -12,7 +12,8 @@ Applies only where the `gitea` MCP server or `tea` is installed.
   go looking for another route.
 - **The token is the user's own account**, so Gitea's `main` branch protection
   does not stop agents. Work on a branch, push it, and open a pull request.
-  Never push to or merge into `main`.
+  Never push to or merge into `main`, except where the project profile's
+  `Merge to main:` line says `with push` and the owner gave the merge go.
 - **MCP first, `tea` second.** Use the MCP tools by default. Fall back to
   `tea` when the MCP server lacks the operation. Mutations (create, merge,
   delete, settings, releases) follow `live-mutations.md`.

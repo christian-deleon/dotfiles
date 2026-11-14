@@ -39,7 +39,8 @@ a project with none, the work goes from ready straight to review and merge.
    done.
 3. **Review your own diff** with the `reviewer` subagent, following the
    `plan-implement-review` skill. Fix what it confirms and rerun the checks.
-4. **Commit** in logical groups. Never push.
+4. **Commit** in logical groups. Never push; a `with push` merge pushes main
+   through `closeout`.
 
 ### 2. Report ready, then wait
 
