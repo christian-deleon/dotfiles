@@ -69,7 +69,7 @@ mcp:
 - `enable` — roster names; unknown names warn and are ignored.
 - `override.<server>` — any of `command`, `args`, `env`, `url`, `headers`, `type`. A `command` without `args` drops the roster's args. Applied before 1Password injection and `$HOME` expansion.
 
-Personal profiles enable aws, context7, firecrawl, flux, gitea, grafana, kubernetes, playwright.
+Personal profiles enable aws, context7, firecrawl, flux, gitea, grafana, kubernetes, paperclip, playwright.
 
 ## Docs / web split (current roster)
 
