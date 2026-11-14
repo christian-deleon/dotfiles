@@ -67,9 +67,7 @@ hl.unbind("SUPER + CTRL + X")
 o.bind("SUPER + CTRL + X", "Dictation (start)", dictate)
 o.bind("SUPER + CTRL + X", "Dictation (stop)", "voxtype record stop", { release = true })
 
-hl.unbind("PRINT")
-o.bind("PRINT", "Screenshot to dev server", home .. "/.config/hypr/screenshot-to-dev.sh")
-o.bind("SHIFT + PRINT", "Screenshot", "omarchy-capture-screenshot")
+o.bind("SHIFT + PRINT", "Screenshot to dev server", home .. "/.config/hypr/screenshot-to-dev.sh")
 
 o.bind("SUPER + CTRL + M", "Cycle monitor arrangement", home .. "/.config/hypr/monitor-setup.sh --swap")
 

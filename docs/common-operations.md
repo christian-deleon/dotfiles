@@ -74,7 +74,7 @@ foo:
 Personal desktop files (not the Omarchy package):
 
 - Binds, monitors, input, looknfeel, autostart, scratchpad layout, work layout, global workspaces 1–10 (`classic-workspaces.lua` undoes Omarchy 4.5's per-monitor workspaces) → `hypr/overlays/<file>.lua`
-- Desktop helper scripts → `hypr/scripts/` (`monitor-setup.sh`, `monitor-listener.sh`, `screen-rescue.sh`, `square-tile-toggle.sh`, `airpods-autoconnect.sh`, `screenshot-to-dev.sh` (Print, with the stock screenshot moved to Shift+Print: region screenshot onto the dev server, remote path copied for pasting into Claude Code over SSH) are installed; `lid-handler.sh` / `lock-session.sh` are kept in-repo only)
+- Desktop helper scripts → `hypr/scripts/` (`monitor-setup.sh`, `monitor-listener.sh`, `screen-rescue.sh`, `square-tile-toggle.sh`, `airpods-autoconnect.sh`, `screenshot-to-dev.sh` (Shift+Print: region screenshot onto the dev server, remote path copied for pasting into Claude Code over SSH) are installed; `lid-handler.sh` / `lock-session.sh` are kept in-repo only)
 - Custom themes → `omarchy/.config/omarchy/themes/<name>/` (git submodules)
 - Branding → `omarchy/.config/omarchy/branding/`
 - Menu overrides → `omarchy/.config/omarchy/extensions/omarchy-menu.jsonc`
