@@ -1,5 +1,5 @@
 #!/bin/bash
-# SHIFT+PRINT: screenshot a region onto the dev server and copy its remote path.
+# PRINT: screenshot a region onto the dev server and copy its remote path.
 # Claude Code over SSH can't read this machine's clipboard, but it reads the
 # image when the pasted path is in the prompt. Prunes shots older than a week.
 set -euo pipefail
