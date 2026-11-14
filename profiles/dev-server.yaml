@@ -50,4 +50,4 @@ ai:
   default: claude   # tav/wta/wtc and commit messages; ~/.localrc AI_TOOL wins
 
 mcp:
-  enable: [aws, context7, firecrawl, flux, gitea, kubernetes]
+  enable: [aws, context7, firecrawl, flux, gitea, kubernetes, paperclip]

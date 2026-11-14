@@ -67,6 +67,15 @@
     },
     "description": "Personal self-hosted Gitea (Netbird only; not for work)"
   },
+  "paperclip": {
+    "command": "npx",
+    "args": ["-y", "@paperclipai/mcp-server"],
+    "env": {
+      "PAPERCLIP_API_URL": "op://oemsd2j65rk7difjj4ch2jgblu/tz6cchko4fsc67k3xdgkvig5nq/url",
+      "PAPERCLIP_API_KEY": "op://oemsd2j65rk7difjj4ch2jgblu/tz6cchko4fsc67k3xdgkvig5nq/credential"
+    },
+    "description": "Personal Paperclip server (issues, agents, approvals)"
+  },
   "firecrawl": {
     "command": "npx",
     "args": ["-y", "firecrawl-mcp"],
