@@ -71,8 +71,8 @@
     "command": "npx",
     "args": ["-y", "@paperclipai/mcp-server"],
     "env": {
-      "PAPERCLIP_API_URL": "op://jbwranppkfyzfvibz3ie2leuny/3xaxktldxifuiujbcnahu3khhu/url",
-      "PAPERCLIP_API_KEY": "op://jbwranppkfyzfvibz3ie2leuny/3xaxktldxifuiujbcnahu3khhu/credential"
+      "PAPERCLIP_API_URL": "op://oemsd2j65rk7difjj4ch2jgblu/37enfzlr7hqwl2crhnyjetvkgy/url",
+      "PAPERCLIP_API_KEY": "op://oemsd2j65rk7difjj4ch2jgblu/37enfzlr7hqwl2crhnyjetvkgy/credential"
     },
     "description": "Personal Paperclip server (issues, agents, approvals)"
   },
