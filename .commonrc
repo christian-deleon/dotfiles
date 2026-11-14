@@ -23,6 +23,12 @@ fi
 [[ -f "$HOME/.env" ]]     && source "$HOME/.env"
 [[ -f "$HOME/.localrc" ]] && source "$HOME/.localrc"
 
+# Headless hosts (no 1Password app) sign `op` in with a service account token
+# the host provisions; hosts with the app have no such file.
+if [[ -z "${OP_SERVICE_ACCOUNT_TOKEN:-}" && -r "$HOME/.config/op/service-account-token" ]]; then
+    export OP_SERVICE_ACCOUNT_TOKEN="$(<"$HOME/.config/op/service-account-token")"
+fi
+
 # Export the active dotfiles profile for scripts that branch on it (e.g.
 # `dot update` reconciliation). .localrc can override by setting it first.
 # DOTFILES_PROFILE_FROM_STATE tells dot to re-read .active-profile, which
