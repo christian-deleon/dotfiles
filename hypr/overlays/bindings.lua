@@ -67,6 +67,8 @@ hl.unbind("SUPER + CTRL + X")
 o.bind("SUPER + CTRL + X", "Dictation (start)", dictate)
 o.bind("SUPER + CTRL + X", "Dictation (stop)", "voxtype record stop", { release = true })
 
+o.bind("SHIFT + PRINT", "Screenshot to dev server", home .. "/.config/hypr/screenshot-to-dev.sh")
+
 o.bind("SUPER + CTRL + M", "Cycle monitor arrangement", home .. "/.config/hypr/monitor-setup.sh --swap")
 
 -- Stock SUPER+CTRL+R is reminder-set; rescue stays on this chord.
