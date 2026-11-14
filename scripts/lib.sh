@@ -743,8 +743,9 @@ ai_enabled_harnesses() {
 # ─── 1Password service account ────────────────────────────────────────────────
 
 # Headless hosts without the desktop app read secrets with a service account.
-# The host leaves its token in this file; it is exported only into dot and
-# install.sh, not into every shell. Returns 0 when a service account is in use.
+# The host leaves its token in this file; .commonrc exports it into shells, and
+# this covers dot and install.sh run outside one. Returns 0 when a service
+# account is in use.
 OP_SERVICE_ACCOUNT_TOKEN_FILE="${OP_SERVICE_ACCOUNT_TOKEN_FILE:-$HOME/.config/op/service-account-token}"
 
 op_load_service_account() {
