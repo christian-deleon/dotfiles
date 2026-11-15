@@ -1,0 +1,14 @@
+{
+  "general": {
+    "language": "en"
+  },
+  "shortcuts": {
+    "toggle": "Ctrl+Alt+Space",
+    "hold": "LeftSuper",
+    "cancel": "Escape"
+  },
+  "vocabulary": [
+    "Omarchy",
+    "Superwhisper"
+  ]
+}
