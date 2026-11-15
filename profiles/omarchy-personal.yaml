@@ -54,6 +54,7 @@ items:
   - sccache
   - skaffold
   - starship
+  - superwhisper
   - tea
   - terraform
   - tmux

@@ -332,6 +332,13 @@ tmux:
   config:
     type: stow
 
+superwhisper:
+  description: Superwhisper dictation settings (applied through its CLI)
+  config:
+    type: handler
+    handler: install_superwhisper_config
+  requires: [linux]
+
 uv:
   description: Fast Python package installer (provides uv + uvx)
   install:
