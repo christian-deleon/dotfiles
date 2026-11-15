@@ -122,7 +122,7 @@ Skills, agents, rules, hooks, and the MCP roster live once in `ai/` and feed thr
 
 `dot update` re-links every harness on the profile. See [docs/ai.md](docs/ai.md).
 
-**Coordinating worktree sessions.** With one agent session per worktree, `/orchestrate` turns the main worktree's session into a coordinator: it tracks the other sessions (`wto ls`), relays messages, pauses everyone before a shutdown and resumes them the next day, sends rebase notices when main moves, hands out shared resources with `wto claim`, and starts new sessions when you ask. Feature sessions hand off unrelated work with `/spinoff` and finish with `/closeout`; `/onboard` records a project's own rules. See [docs/ai.md](docs/ai.md#orchestrating-worktree-sessions).
+**Coordinating worktree sessions.** With one agent session per worktree, `/orchestrate` turns the main worktree's session into a coordinator: it tracks the other sessions (`wto ls`), relays messages, pauses everyone before a shutdown and resumes them the next day, sends rebase notices when main moves, hands out shared resources with `wto claim`, and starts new sessions when you ask. In a project with a profile, a session in the main worktree offers to move its whole conversation onto a new branch (`wto new --fork`) before it starts real work. Feature sessions hand off unrelated work with `/spinoff` and finish with `/closeout`; `/onboard` records a project's own rules. See [docs/ai.md](docs/ai.md#orchestrating-worktree-sessions).
 
 ## Manifest and Profiles
 
