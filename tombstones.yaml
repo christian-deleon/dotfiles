@@ -43,3 +43,9 @@ blesh-dev-server:
   xdg_data: [blesh]
   xdg_state: [blesh]
   xdg_cache: [blesh]
+
+voxtype:
+  description: Retired Voxtype dictation — Superwhisper is now Omarchy's dictation backend
+  requires: [linux]
+  xdg_config: [voxtype]
+  xdg_data: [voxtype]
