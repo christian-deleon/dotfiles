@@ -1,6 +1,6 @@
 ---
 name: wtc
-description: Spawn sibling tmux+worktree agent(s) with `wto new` when the user explicitly approves (slash /wtc, "wtc that", "spawn a fix agent", "one for each", …). When this skill runs, spawn yourself — never tell the user a /wtc or shell command to re-run. Builds a full handoff and picks the job (model and effort). Without approval, only suggest /wtc lines.
+description: Spawn sibling tmux+worktree agent(s) with `wto new` when the user explicitly approves (slash /wtc, "wtc that", "spawn a fix agent", "one for each", …), or move this conversation onto a new branch when they say yes to the move. When this skill runs, spawn yourself — never tell the user a command to re-run. Without approval, only suggest /wtc lines.
 argument-hint: "[branch] [message…] | each: … | (empty = from context)"
 user-invocable: true
 ---
@@ -25,6 +25,9 @@ own `wtc` jumps by default because a person typing it wants that.
 2. **You find side work** while on another task (skill **not** invoked) — only
    *suggest* ready `/wtc …` line(s) (see always-on rule `no-auto-wtc`); do **not**
    execute until they approve.
+3. **The user says yes to moving this conversation** onto a branch (the offer
+   in `no-auto-wtc`, or "move this to a branch") — fork it; see
+   **Move this conversation** below.
 
 **Authorization for this turn only.** User slash `/wtc` or an explicit natural-
 language spawn order this turn is the only permission you need — do not re-ask.
@@ -196,6 +199,28 @@ Only after `wto new` has succeeded (or failed) in the shell, briefly list each s
 Then stop. Do not end with "run this" / "try `/wtc …`" / a copy-paste shell
 block — the work is done. The user switches when ready (`wta <branch>`, tmux
 window picker, etc.).
+
+## Move this conversation
+
+When the user says yes to moving this conversation onto a branch, fork it
+instead of writing a handoff: the new window continues this same conversation,
+so it already has their wording and every small decision.
+
+```bash
+wto new --fork "$CLAUDE_CODE_SESSION_ID" '<branch>'
+```
+
+- Branch naming as above. No `-j`: the fork stays on the harness default
+  model; pass `-m`/`-e` only when the user names one.
+- `wto` moves this worktree's uncommitted changes into the new one and sends
+  the fork its notice (the call succeeded, edit only there, the own-work
+  check). Add `-p '<one line>'` only for something the conversation lacks.
+- Claude Code only. With another harness `wto` refuses: spawn with a normal
+  handoff instead, and tell the user the conversation stayed here.
+- Then tell the user the window to continue in, whether the changes moved or
+  stayed (from `wto`'s output), and that this session stops on the task.
+  Stop: the task is the new window's now (see below).
+
 ## Ownership after spawn
 
 **Once `wto new` successfully creates a worktree + agent for a task, that task is no

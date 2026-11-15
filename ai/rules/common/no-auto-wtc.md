@@ -38,3 +38,10 @@ those items, nothing more.
 **Side work in a feature worktree.** When `wto here` succeeds (an orchestrator is
 running), suggest `/spinoff <one line>` instead of a `/wtc` line; it files the
 issue and hands it to main. File nothing until the user agrees.
+
+**Moving a conversation out of main.** In the main worktree (first in
+`git worktree list`) of a project where `wto profile` finds a profile, offer once,
+before the first edit that is real work on a task: "This needs a branch. Move this
+conversation to `<type>/<slug>`?" A yes is the spawn order for that one move: load
+the `wtc` skill and follow its **Move this conversation** section. A no means work
+here, with no second offer for that task. An orchestrator session never offers.
