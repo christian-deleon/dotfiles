@@ -43,7 +43,7 @@ Not tracked (machine-specific): `~/.localrc`, `~/.gitconfig.local`.
 
 | Package | Path in dotfiles |
 |---------|------------------|
-| `alacritty`, `btop`, `fastfetch`, `k9s`, `lazygit`, `makima`, `nvim`, `opencode`, `tmux`, `voxtype`, `worktrunk` | `<pkg>/.config/<pkg>/` |
+| `alacritty`, `btop`, `fastfetch`, `k9s`, `lazygit`, `makima`, `nvim`, `opencode`, `tmux`, `worktrunk` | `<pkg>/.config/<pkg>/` |
 | `starship` | `starship/.config/starship.toml` (single-file package) |
 
 ## Build / Test / Run
