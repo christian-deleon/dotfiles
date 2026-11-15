@@ -56,16 +56,16 @@ o.bind("SUPER + SHIFT + ALT + H", "HomeAssistant", 'omarchy-launch-webapp "http:
 o.bind("SUPER + SHIFT + ALT + S", "Slack", 'omarchy-launch-webapp "https://app.slack.com/client/" --profile-directory="Profile 1"')
 o.bind("SUPER + SHIFT + ALT + V", "TradingView", 'omarchy-launch-webapp "https://www.tradingview.com/chart/" --profile-directory="Default"')
 
--- Copilot key / SUPER+CTRL+X: push-to-talk (stock is menu + toggle).
--- voxbridge-dictate sends to the Windows VM when VMware has focus, else types
--- locally; hosts without voxbridge get plain Voxtype.
-local dictate = "if command -v voxbridge-dictate >/dev/null; then voxbridge-dictate; else voxtype record start; fi"
+-- Copilot key / SUPER+CTRL+X: push-to-talk with whichever dictation backend
+-- Omarchy has selected (stock is menu + toggle).
 hl.unbind("SUPER + SHIFT + code:201")
-o.bind("SUPER + SHIFT + code:201", "Dictation (start)", dictate)
-o.bind("SUPER + SHIFT + code:201", "Dictation (stop)", "voxtype record stop", { release = true })
 hl.unbind("SUPER + CTRL + X")
-o.bind("SUPER + CTRL + X", "Dictation (start)", dictate)
-o.bind("SUPER + CTRL + X", "Dictation (stop)", "voxtype record stop", { release = true })
+if o.dictation_installed and o.dictation_installed() then
+  o.bind("SUPER + SHIFT + code:201", "Dictation (start)", "omarchy-dictation start")
+  o.bind("SUPER + SHIFT + code:201", "Dictation (stop)", "omarchy-dictation stop", { release = true })
+  o.bind("SUPER + CTRL + X", "Dictation (start)", "omarchy-dictation start")
+  o.bind("SUPER + CTRL + X", "Dictation (stop)", "omarchy-dictation stop", { release = true })
+end
 
 o.bind("SHIFT + PRINT", "Screenshot to dev server", home .. "/.config/hypr/screenshot-to-dev.sh")
 
