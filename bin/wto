@@ -39,10 +39,13 @@ Usage: wto <command> [args]
   claim gc                     drop claims of removed worktrees, then hand over
   close <branch>               close a finished session: kill its window, remove its worktree
 
-  new [-j job] [-m model] [-e effort] [-p text | -f file] [--switch] <branch> [base]
+  new [-j job] [-m model] [-e effort] [-p text | -f file] [--fork session-id] [--switch] <branch> [base]
                                create a worktree and open its agent window (stays put
                                unless --switch); -j takes the model and effort from
-                               ai/models.yaml, -m/-e override it; saved for later launches
+                               ai/models.yaml, -m/-e override it; saved for later launches.
+                               --fork continues that Claude session there, moves this
+                               worktree's uncommitted changes along, and sends a notice
+                               as the first prompt (-p/-f adds a line to it)
   open [-p text | -f file] [--switch] [<branch>]
                                open a worktree's window, continuing its conversation;
                                no branch: the only worktree, or a picker
@@ -1308,13 +1311,18 @@ wt_items() {
         | {branch, path: .worktree.path, main: (.worktree.main == true)}]'
 }
 
-# Create one worktree's window and start its layout. Prints what it did. The
-# prompt file is consumed either way.
+# Create one worktree's window and start its layout, as a fork of Claude
+# session $5 when given. Prints what it did. The prompt file is consumed either
+# way.
 ensure_window() {
-    local branch=$1 wt_path=$2 pf=$3 fresh=$4 session window tool x y pane
+    local branch=$1 wt_path=$2 pf=$3 fresh=$4 fork=${5-} session window tool x y pane
     session=$(session_for "$wt_path")
     window=${branch//\//-}
-    tool=$(window_tool "$wt_path" "$fresh")
+    if [[ -n $fork ]]; then
+        tool=$(auto_tool "$AI_TOOL --resume $fork --fork-session")
+    else
+        tool=$(window_tool "$wt_path" "$fresh")
+    fi
     read -r x y < <(target_geometry)
     if ! tmux has-session -t "=$session" 2>/dev/null; then
         pane=$(tmux new-session -d -s "$session" -n "$window" -c "$wt_path" -x "$x" -y "$y" \
@@ -1353,9 +1361,73 @@ prompt_arg() {
     return 0
 }
 
+fork_check() {
+    local id=$1
+    local -a found
+    [[ $id =~ ^[0-9a-fA-F-]{36}$ ]] || die "new: --fork takes a Claude session id, such as \$CLAUDE_CODE_SESSION_ID"
+    case ${AI_TOOL%% *} in
+        cl | cca | claude) ;;
+        *) die "new: --fork continues a Claude Code conversation; AI_TOOL is '$AI_TOOL'" ;;
+    esac
+    found=("${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/projects/*/"$id".jsonl)
+    ((${#found[@]} > 0)) || die "new: no Claude session $id"
+}
+
+# Move the calling worktree's uncommitted changes, untracked files included,
+# into dir. Only onto the same commit in a clean tree, where applying the stash
+# cannot conflict. Prints moved or kept, or nothing when there was nothing.
+carry_changes() {
+    local dir=$1 here
+    here=$(self_wt)
+    [[ -n $(git -C "$here" status --porcelain) ]] || return 0
+    if [[ $(git -C "$here" rev-parse HEAD) != "$(git -C "$dir" rev-parse HEAD)" \
+        || -n $(git -C "$dir" status --porcelain) ]]; then
+        printf 'wto: %s has uncommitted changes; they stay there (%s is on another commit or not clean)\n' \
+            "$here" "$dir" >&2
+        printf 'kept\n'
+        return 0
+    fi
+    git -C "$here" stash push --include-untracked --quiet -m "wto: moving to $dir" \
+        || die "new: could not stash the changes in $here"
+    git -C "$dir" stash pop --quiet \
+        || die "new: the changes from $here are stashed but did not apply in $dir; see git stash list"
+    printf 'moved\n'
+}
+
+# The first prompt of a forked session. It ends on the `wto new --fork` call
+# that is still running, which it would otherwise take as unfinished.
+fork_notice() {
+    local branch=$1 dir=$2 carried=$3 extra=$4 here path profile=""
+    here=$(self_wt)
+    if path=$(profile_path); then
+        profile=$(<"$path")
+    else
+        profile=$(legacy_profile) || profile=""
+    fi
+    caller_header 0
+    cat <<EOF
+This window continues the conversation above on branch $branch, in $dir.
+- The \`wto new --fork\` call the conversation ends on succeeded: it opened this window. Do not run it again.
+- Work only in $dir. Paths under $here in the conversation above belong to that worktree; do not edit there.
+EOF
+    case $carried in
+        moved) printf -- '- The uncommitted changes from %s were moved here.\n' "$here" ;;
+        kept) printf -- '- %s has uncommitted changes that stayed there. Ask the owner before bringing any over.\n' "$here" ;;
+    esac
+    printf -- '- The session there has stopped and will not work on this.\n'
+    if grep -Eq '^[-*][[:space:]]*Issues:.*own work:' <<<"$profile"; then
+        printf -- '- This is the owner'\''s own work. Check that the branch is pushed and that an open issue names it. Offer once to file the missing issue (through the `issue` skill, assigned as the project profile says) and to push the branch.\n'
+    fi
+    printf -- '- Run `wto here`. If it succeeds, an orchestrator runs in the main worktree: load the `orchestrated-session` skill first and follow it.\n'
+    printf 'Then carry on where the conversation left off.\n'
+    if [[ -n $extra ]]; then
+        printf '\nFrom the session that moved you: %s\n' "$extra"
+    fi
+}
+
 cmd_new() {
-    local branch="" base="" text="" file="" model="" effort="" job="" switch=0 pf wt_path
-    local job_model job_effort settings
+    local branch="" base="" text="" file="" model="" effort="" job="" fork="" switch=0 pf wt_path
+    local job_model job_effort settings carried
     local name_re='^[A-Za-z0-9._:@/-]+(\[[A-Za-z0-9]+\])?$'
     while (($#)); do
         case $1 in
@@ -1364,6 +1436,7 @@ cmd_new() {
             -m | --model) optval $# "$1"; model=${2-}; shift ;;
             -e | --effort) optval $# "$1"; effort=${2-}; shift ;;
             -j | --job) optval $# "$1"; job=${2-}; shift ;;
+            --fork) optval $# "$1"; fork=${2-}; shift ;;
             -n | --no-switch) switch=0 ;;
             --switch) switch=1 ;;
             -h | --help) usage; return ;;
@@ -1379,6 +1452,14 @@ cmd_new() {
     done
     [[ -n $branch ]] || die "new: name the branch (wto new [-j job] [-m model] [-e effort] [-p text] <branch> [base])"
     load_ai_tool
+    if [[ -n $fork ]]; then
+        fork_check "$fork"
+        if [[ -n $file ]]; then
+            [[ -f $file ]] || die "prompt file not found: $file"
+            text=$(<"$file")
+            file=""
+        fi
+    fi
     if [[ -n $job ]]; then
         settings=$(job_settings "$job") || exit 1
         IFS='|' read -r job_model job_effort <<<"$settings"
@@ -1411,8 +1492,16 @@ cmd_new() {
             *) launch_save "$wt_path" "$model" "$effort" || die "new: could not save model/effort for '$branch'" ;;
         esac
     fi
+    if [[ -n $fork ]]; then
+        [[ $wt_path != "$(self_wt)" ]] || die "new: --fork needs a branch other than this worktree's"
+        if window_id "$(session_for "$wt_path")" "${branch//\//-}" >/dev/null; then
+            die "new: $branch already has a window; nothing was moved"
+        fi
+        carried=$(carry_changes "$wt_path")
+        text=$(fork_notice "$branch" "$wt_path" "$carried" "$text")
+    fi
     pf=$(prompt_arg "$text" "$file")
-    ensure_window "$branch" "$wt_path" "$pf" ""
+    ensure_window "$branch" "$wt_path" "$pf" "" "$fork"
     open_finish "$wt_path" "$branch" "$switch"
 }
 
