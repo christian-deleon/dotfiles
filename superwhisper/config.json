@@ -4,7 +4,7 @@
   },
   "shortcuts": {
     "toggle": "Ctrl+Alt+Space",
-    "hold": "LeftSuper",
+    "hold": "none",
     "cancel": "Escape"
   },
   "vocabulary": [
