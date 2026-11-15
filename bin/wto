@@ -1397,13 +1397,18 @@ carry_changes() {
 # The first prompt of a forked session. It ends on the `wto new --fork` call
 # that is still running, which it would otherwise take as unfinished.
 fork_notice() {
-    local branch=$1 dir=$2 carried=$3 extra=$4 here path profile=""
+    local branch=$1 dir=$2 carried=$3 extra=$4 here path profile="" issues
     here=$(self_wt)
     if path=$(profile_path); then
         profile=$(<"$path")
     else
         profile=$(legacy_profile) || profile=""
     fi
+    # The Issues item often wraps onto indented lines, and /onboard's template
+    # leaves its wording free.
+    issues=$(awk 'tolower($0) ~ /^[-*][[:space:]]*issues:/ { on = 1; print; next }
+        on && /^[[:space:]]+[^[:space:]]/ { print; next }
+        { on = 0 }' <<<"$profile")
     caller_header 0
     cat <<EOF
 This window continues the conversation above on branch $branch, in $dir.
@@ -1415,7 +1420,7 @@ EOF
         kept) printf -- '- %s has uncommitted changes that stayed there. Ask the owner before bringing any over.\n' "$here" ;;
     esac
     printf -- '- The session there has stopped and will not work on this.\n'
-    if grep -Eq '^[-*][[:space:]]*Issues:.*own work:' <<<"$profile"; then
+    if [[ ${issues,,} == *'own work:'* ]]; then
         printf -- '- This is the owner'\''s own work. Check that the branch is pushed and that an open issue names it. Offer once to file the missing issue (through the `issue` skill, assigned as the project profile says) and to push the branch.\n'
     fi
     printf -- '- Run `wto here`. If it succeeds, an orchestrator runs in the main worktree: load the `orchestrated-session` skill first and follow it.\n'
