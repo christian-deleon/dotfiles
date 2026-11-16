@@ -55,6 +55,16 @@ cargo:
     type: handler
     handler: install_cargo_config
 
+cargo-sweep:
+  description: Daily size cap on the shared Athenis Rust build dir (systemd timer)
+  install:
+    arch: cargo-sweep
+    command: cargo-sweep
+  config:
+    type: handler
+    handler: install_cargo_sweep_timer
+  requires: [linux]
+
 claude:
   description: Claude Code CLI + skills, agents, rules, hooks from ai/
   install:

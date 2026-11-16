@@ -22,6 +22,7 @@ items:
   - blesh
   - btop
   - cargo
+  - cargo-sweep
   - claude
   - cloc
   - delta
