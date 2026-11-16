@@ -19,19 +19,25 @@
 #
 # Outside a repo it falls back to a ~-relative path showing the last two
 # components, mirroring the previous [directory] truncation feel.
+#
+# Runs on every prompt: one git call, no other forks. starship sources it from
+# a single bash (see [custom.path]), so it must not rely on its shebang.
 
-set -o pipefail
-
-common=$(git rev-parse --git-common-dir 2>/dev/null) || common=
-if [[ -n $common ]]; then
-    common=$(cd "$common" 2>/dev/null && pwd) || common=
-    projdir=$(dirname "$common") # dir holding the shared .git/.bare
-    project=$(basename "$projdir")
+# git prints the common dir before failing on --show-toplevel, so read both
+# lines whatever the exit status. Both paths are physical; match them against
+# a physical PWD so a symlinked checkout does not leak the whole path.
+out=$(git rev-parse --path-format=absolute --git-common-dir --show-toplevel 2>/dev/null)
+if [[ -n $out ]]; then
+    common=${out%%$'\n'*}
+    top=
+    [[ $out == *$'\n'* ]] && top=${out#*$'\n'}
+    cd -P . 2>/dev/null || true
+    projdir=${common%/*} # dir holding the shared .git/.bare
+    project=${projdir##*/}
     # Anchor on the worktree root, or fall back to the project dir when there is
     # no work tree — e.g. standing at the bare project root in a bare-repo
     # worktree layout, where `--show-toplevel` fails. Without the fallback `top`
     # is empty and the whole PWD leaks into `rel`, doubling the project name.
-    top=$(git rev-parse --show-toplevel 2>/dev/null)
     base=${top:-$projdir}
     rel=${PWD#"$base"} # subpath within the worktree, e.g. /docs (empty at root)
     rel=${rel#/}
@@ -54,7 +60,8 @@ fi
 # shellcheck disable=SC2088 # literal ~ is intentional: this is display text, not a path to expand
 [[ $p == "$HOME"/* ]] && p="~/${p#"$HOME"/}"
 if [[ $p == */*/* ]]; then
-    printf '…/%s/%s' "$(basename "$(dirname "$p")")" "$(basename "$p")"
+    parent=${p%/*}
+    printf '…/%s/%s' "${parent##*/}" "${p##*/}"
 else
     printf '%s' "$p"
 fi
