@@ -125,31 +125,56 @@ if [[ -n "$BASH_VERSION" ]]; then
     # `history -r` reload is needed — one would double-load. Keeps the last
     # occurrence of each command (trailing space ignored, timestamp preserved),
     # drops HISTIGNORE matches, and only rewrites when the result differs.
+    # Skipped when the file's mtime equals the stamp left by the last run.
     # Siblings keep appending with `history -a`, so the rewrite is abandoned
     # when the file grew after it was read. A symlinked HISTFILE keeps its link.
-    _hist_cmd_ignored() {
-        local cmd=$1
-        [[ -n ${HISTIGNORE-} ]] || return 1
-        local -a pats
-        IFS=':' read -ra pats <<< "$HISTIGNORE"
-        local pat
-        for pat in "${pats[@]}"; do
-            [[ $pat == '&' || -z $pat ]] && continue
-            # shellcheck disable=SC2254 # glob match against HISTIGNORE patterns
-            [[ $cmd == $pat ]] && return 0
-        done
-        return 1
-    }
     _hist_dedup_file() {
-        local f="${1:-${HISTFILE:-$HOME/.bash_history}}" tmp filtered size
-        local pend= have=0 line
+        local f="${1:-${HISTFILE:-$HOME/.bash_history}}" stamp size tmp
         [[ -s "$f" ]] || return 0
         if [[ -L "$f" ]]; then
             f="$(readlink -f -- "$f")" && [[ -s "$f" ]] || return 0
         fi
+        stamp="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles/hist-dedup/${f//\//%}"
+        [[ "$f" -nt "$stamp" || "$f" -ot "$stamp" ]] || return 0
         size="$(wc -c <"$f")" || return 0
         tmp="$(mktemp "${f}.XXXXXX")" || return 0
-        if ! awk '
+        # HISTIGNORE patterns become one anchored ERE: `*` and `?` map to `.*`
+        # and `.`, `[...]` stays a class, everything else is literal. extglob
+        # forms are not translated. C locale so `.` matches any byte.
+        if ! LC_ALL=C _HIST_IGNORE="${HISTIGNORE-}" awk '
+                function lit(ch) {
+                    return index("\\^$.[]|()*+?{}", ch) ? "\\" ch : ch
+                }
+                function glob_re(g,    re, i, j, n, ch, cls) {
+                    re = ""; n = length(g)
+                    for (i = 1; i <= n; i++) {
+                        ch = substr(g, i, 1)
+                        if (ch == "*") { re = re ".*"; continue }
+                        if (ch == "?") { re = re "."; continue }
+                        if (ch == "\\" && i < n) { re = re lit(substr(g, ++i, 1)); continue }
+                        if (ch == "[") {
+                            j = i + 1
+                            if (substr(g, j, 1) == "!" || substr(g, j, 1) == "^") j++
+                            if (substr(g, j, 1) == "]") j++
+                            while (j <= n && substr(g, j, 1) != "]") j++
+                            if (j <= n) {
+                                cls = substr(g, i + 1, j - i - 1)
+                                if (substr(cls, 1, 1) == "!") cls = "^" substr(cls, 2)
+                                re = re "[" cls "]"; i = j; continue
+                            }
+                        }
+                        re = re lit(ch)
+                    }
+                    return re
+                }
+                BEGIN {
+                    np = split(ENVIRON["_HIST_IGNORE"], pats, ":")
+                    for (i = 1; i <= np; i++) {
+                        if (pats[i] == "" || pats[i] == "&") continue
+                        ign = ign (ign == "" ? "" : "|") glob_re(pats[i])
+                    }
+                    if (ign != "") ign = "^(" ign ")$"
+                }
                 /^#[0-9]+$/ { pend=$0; have=1; next }
                 {
                     c=$0
@@ -166,7 +191,7 @@ if [[ -n "$BASH_VERSION" ]]; then
                 END {
                     for (i=1; i<=n; i++) {
                         c=order[i]
-                        if (last[c]==i) {
+                        if (last[c]==i && !(ign != "" && c ~ ign)) {
                             if (ts[c] != "") print ts[c]
                             print c
                         }
@@ -176,32 +201,17 @@ if [[ -n "$BASH_VERSION" ]]; then
             rm -f "$tmp"
             return 0
         fi
-        filtered="$(mktemp "${f}.XXXXXX")" || { rm -f "$tmp"; return 0; }
-        while IFS= read -r line || [[ -n $line ]]; do
-            if [[ $line =~ ^#[0-9]+$ ]]; then
-                pend=$line
-                have=1
-                continue
-            fi
-            if _hist_cmd_ignored "$line"; then
-                have=0
-                continue
-            fi
-            if ((have)); then
-                printf '%s\n' "$pend"
-                have=0
-            fi
-            printf '%s\n' "$line"
-        done <"$tmp" >"$filtered"
-        rm -f "$tmp"
-        if [[ -s "$filtered" ]] && ! cmp -s "$filtered" "$f"; then
-            chmod --reference="$f" "$filtered" 2>/dev/null
-            if (($(wc -c <"$f") != size)) || ! mv -f "$filtered" "$f"; then
-                rm -f "$filtered"
-            fi
+        if cmp -s "$tmp" "$f"; then
+            rm -f "$tmp"
         else
-            rm -f "$filtered"
+            chmod --reference="$f" "$tmp" 2>/dev/null
+            if (($(wc -c <"$f") != size)) || ! mv -f "$tmp" "$f"; then
+                rm -f "$tmp"
+                return 0
+            fi
         fi
+        [[ -d "${stamp%/*}" ]] || command mkdir -p "${stamp%/*}"
+        touch -r "$f" "$stamp" 2>/dev/null
     }
     # Flush each command to the shared file as it runs (`history -a`) but never
     # read the file back into this session, so sibling terminals don't bleed into
