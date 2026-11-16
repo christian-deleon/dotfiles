@@ -12,6 +12,6 @@ bin_dir="${DOTFILES_BIN_DIR:-$HOME/.local/bin}"
 mkdir -p "$bin_dir"
 installer="$(mktemp)"
 trap 'rm -f -- "$installer"' EXIT
-curl -fsSL -o "$installer" https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+curl -fsSL -o "$installer" https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4
 # The installer fails unless the new helm is on PATH.
 PATH="$bin_dir:$PATH" HELM_INSTALL_DIR="$bin_dir" USE_SUDO=false bash "$installer"
