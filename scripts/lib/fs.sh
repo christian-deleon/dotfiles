@@ -147,19 +147,23 @@ ensure_link() {
     note_change "linked ~/${2#"$HOME"/}"
 }
 
-# Remove symlinks in a directory that point into ai/ or ecc/ (migration).
+# Remove symlinks in directory $1 that point into ai/ or ecc/ (migration),
+# except the names listed in $2 (one per line). Real files are never touched.
+# Only links not kept are resolved, so a clean run forks nothing.
 clean_ai_symlinks() {
-    local target_dir="$1"
+    local target_dir="$1" keep="${2:-}" nl=$'\n'
+    local item raw_target resolved_target
     [[ -d "$target_dir" ]] || return 0
 
     for item in "$target_dir"/*; do
         [[ -L "$item" ]] || continue
-        local raw_target resolved_target
+        case "$nl$keep" in *"$nl${item##*/}$nl"*) continue ;; esac
         raw_target="$(readlink "$item")"
         resolved_target="$(readlink -f "$item" 2>/dev/null)"
         if [[ "$resolved_target" == "$DOTFILES_DIR/ai/"* ]] || [[ "$raw_target" == "$DOTFILES_DIR/ai/"* ]] \
         || [[ "$resolved_target" == "$DOTFILES_DIR/ecc/"* ]] || [[ "$raw_target" == "$DOTFILES_DIR/ecc/"* ]]; then
-            rm "$item"
+            rm -- "$item"
+            note_change "removed stale link ~/${item#"$HOME"/}"
         fi
     done
 }
