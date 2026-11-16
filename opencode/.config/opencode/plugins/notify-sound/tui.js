@@ -34,6 +34,9 @@ function recordSession(context) {
 function run(script, args, payload) {
   const child = spawn(`${HOOKS}/${script}`, args, { stdio: ["pipe", "ignore", "ignore"] })
   child.on("error", () => {})
+  // A hook that exits without reading its input (or never started) gives
+  // EPIPE here; unhandled, that error would crash the TUI.
+  child.stdin.on("error", () => {})
   child.stdin.end(JSON.stringify(payload))
 }
 
