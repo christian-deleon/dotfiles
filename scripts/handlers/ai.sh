@@ -114,67 +114,138 @@ ai_models_resolve() {
 # First line of every agent file rendered below; marks it as ours to replace.
 AI_RENDERED_MARK='# Rendered by the dotfiles installer from ai/agents/'
 
-# $1 agent file. Prints its `job:` value, if any.
+# $1 agent file. Sets REPLY to its `job:` value, if any, without forking.
 agent_job() {
-    sed -n '1{/^---$/!q};1d;/^---$/q;s/^job:[[:space:]]*//p' "$1" | tr -d "\"'"
+    local line v nl=$'\n' first=1
+    REPLY=""
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if ((first)); then
+            [[ "$line" == "---" ]] || break
+            first=0
+            continue
+        fi
+        [[ "$line" == "---" ]] && break
+        [[ "$line" == job:* ]] || continue
+        v="${line#job:}"
+        v="${v#"${v%%[![:space:]]*}"}"
+        v="${v//\"/}"
+        REPLY+="${v//\'/}$nl"
+    done < "$1"
+    while [[ "$REPLY" == *"$nl" ]]; do REPLY="${REPLY%"$nl"}"; done
 }
 
-# Print agent $1 for harness $2 with its job's model and effort from table $3.
-# A job with no entry for the harness renders without a model (inherit).
+# Set REPLY to agent $1 rendered with model $2 and effort $3 (empty: inherit
+# the session's).
 render_agent() {
-    local file="$1" h="$2" table="$3" job name model="" effort="" entry
-    job="$(agent_job "$file")"
-    name="$(basename "$file")"
-    if entry="$(jq -re --arg j "$job" --arg h "$h" \
-        '.[$j][$h] | select(. != null) | "\(.model)|\(.effort // "")"' "$table" 2>/dev/null)"; then
-        IFS='|' read -r model effort <<<"$entry"
-    else
-        _warn "Agent ${name%.md}: job '$job' has no $h entry in ai/models.yaml — it inherits the session's model"
-    fi
-    awk -v mark="$AI_RENDERED_MARK$name; edit that file and ai/models.yaml, then run dot update." \
-        -v model="$model" -v effort="$effort" '
-        NR == 1 && $0 == "---" { print; print mark; fm = 1; next }
-        fm && $0 == "---" {
-            if (model != "") printf "model: \"%s\"\n", model
-            if (effort != "") printf "effort: \"%s\"\n", effort
-            print; fm = 0; next
-        }
-        fm && /^(job|model|effort):/ { next }
-        { print }
-    ' "$file"
+    local file="$1" model="$2" effort="$3" line nl=$'\n' n=0 fm=0
+    REPLY=""
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        n=$((n + 1))
+        if ((n == 1)) && [[ "$line" == "---" ]]; then
+            REPLY+="$line$nl$AI_RENDERED_MARK${file##*/}; edit that file and ai/models.yaml, then run dot update.$nl"
+            fm=1
+            continue
+        fi
+        if ((fm)); then
+            if [[ "$line" == "---" ]]; then
+                [[ -n "$model" ]] && REPLY+="model: \"$model\"$nl"
+                [[ -n "$effort" ]] && REPLY+="effort: \"$effort\"$nl"
+                fm=0
+            else
+                case "$line" in job:* | model:* | effort:*) continue ;; esac
+            fi
+        fi
+        REPLY+="$line$nl"
+    done < "$file"
 }
 
 # Agents without a job are symlinked; agents with one are rendered for harness
-# $1 into $2, since each harness names its models differently.
+# $1 into $2, since each harness names its models differently. A rendered file
+# is rewritten only when it changes, and kept as is when the models table
+# cannot be resolved.
 install_ai_agents() {
-    local h="$1" dest="$2" src="$DOTFILES_DIR/ai/agents" table="" f name tmp
+    local h="$1" dest="$2" src="$DOTFILES_DIR/ai/agents"
+    local f name cur line2 models="" entry model effort tmp nl=$'\n' tab=$'\t'
+    local jobs="" rendered=0 resolved=0 i
+    local -a _AI_LINK_SRCS=() job_files=() job_names=()
     [[ -d "$src" ]] || return 0
-    mkdir -p "$dest"
-    clean_ai_symlinks "$dest"
-    for f in "$dest"/*.md; do
-        [[ -f "$f" && ! -L "$f" ]] || continue
-        if [[ "$(head -n 2 -- "$f" | tail -n 1)" == "$AI_RENDERED_MARK"* ]]; then
-            rm -f -- "$f"
-        fi
-    done
+    [[ -d "$dest" ]] || mkdir -p "$dest"
+
     for f in "$src"/*.md; do
         [[ -f "$f" ]] || continue
-        name="$(basename "$f")"
-        if [[ -e "$dest/$name" && ! -L "$dest/$name" ]]; then
-            _warn "Path already exists, skipping: $dest/$name"
-            continue
+        agent_job "$f"
+        if [[ -z "$REPLY" ]]; then
+            _AI_LINK_SRCS+=("$f")
+        else
+            job_files+=("$f")
+            job_names+=("$REPLY")
+            jobs+="${f##*/}$nl"
         fi
-        if [[ -z "$(agent_job "$f")" ]]; then
-            ln -snf "$f" "$dest/$name"
-            continue
-        fi
-        if [[ -z "$table" ]]; then
-            ai_models_resolve || { _warn "Skipping job agents for $h"; return 0; }
-            table="$AI_MODELS_TABLE"
-        fi
-        tmp="$(mktemp "$dest/.$name.XXXXXX")"
-        render_agent "$f" "$h" "$table" > "$tmp" && chmod 644 "$tmp" && mv -- "$tmp" "$dest/$name"
     done
+
+    # Rendered files whose source is gone or no longer has a job.
+    for f in "$dest"/*.md; do
+        [[ -f "$f" && ! -L "$f" ]] || continue
+        case "$nl$jobs" in *"$nl${f##*/}$nl"*) continue ;; esac
+        line2=""
+        { IFS= read -r _ && IFS= read -r line2; } < "$f" || true
+        if [[ "$line2" == "$AI_RENDERED_MARK"* ]]; then
+            rm -f -- "$f"
+            note_change "removed ~/${f#"$HOME"/}"
+        fi
+    done
+
+    _ai_sync_links "$dest" "Path already exists, skipping"
+    ((${#job_files[@]})) || return 0
+
+    if ai_models_resolve; then
+        resolved=1
+        models="$(jq -r --arg h "$h" 'to_entries[] | select(.value[$h] != null)
+            | "\(.key)\t\(.value[$h].model)\t\(.value[$h].effort // "")"' "$AI_MODELS_TABLE")" || resolved=0
+    fi
+    if ((!resolved)); then
+        _warn "Skipping job agents for $h — keeping their last rendered files"
+        return 0
+    fi
+
+    for ((i = 0; i < ${#job_files[@]}; i++)); do
+        f="${job_files[i]}"
+        name="${f##*/}"
+        if [[ -e "$dest/$name" && ! -L "$dest/$name" ]]; then
+            line2=""
+            { IFS= read -r _ && IFS= read -r line2; } < "$dest/$name" || true
+            if [[ "$line2" != "$AI_RENDERED_MARK"* ]]; then
+                _warn "Path already exists, skipping: $dest/$name"
+                continue
+            fi
+        fi
+        model="" effort="" entry="$nl$models$nl"
+        case "$entry" in
+            *"$nl${job_names[i]}$tab"*)
+                entry="${entry#*"$nl${job_names[i]}$tab"}"
+                entry="${entry%%"$nl"*}"
+                model="${entry%%"$tab"*}"
+                effort="${entry#*"$tab"}"
+                ;;
+            *)
+                _warn "Agent ${name%.md}: job '${job_names[i]}' has no $h entry in ai/models.yaml — it inherits the session's model"
+                ;;
+        esac
+        render_agent "$f" "$model" "$effort"
+        cur=""
+        if [[ -f "$dest/$name" && ! -L "$dest/$name" ]]; then
+            IFS= read -r -d '' cur < "$dest/$name" || true
+            [[ "$cur" == "$REPLY" ]] && continue
+        fi
+        tmp="$dest/.$name.$$"
+        if printf '%s' "$REPLY" > "$tmp" && chmod 644 "$tmp" && mv -f -- "$tmp" "$dest/$name"; then
+            rendered=$((rendered + 1))
+        else
+            rm -f -- "$tmp"
+            _warn "Could not render $dest/$name"
+        fi
+    done
+    ((rendered == 0)) || note_change "rendered $rendered agents in ~/${dest#"$HOME"/}"
 }
 
 # ─── Grok ─────────────────────────────────────────────────────────────────────
