@@ -70,11 +70,11 @@ fi
 - Dotfiles: `.filename` (`.commonrc`, `.aliases`, `.functions`)
 - Function fragments: `functions.d/<topic>.sh` (`kubernetes.sh`, `git.sh`, …) — one category per file, sourced by `.functions`
 - Scripts: `lowercase-with-hyphens.sh` (`install.sh`)
-- Install scripts: `scripts/tools/install-<tool>.sh` (referenced as `install-<tool>.sh` in manifest)
+- Install scripts: `scripts/tools/install-<tool>.sh` (referenced as `install-<tool>.sh` in manifest), only for tools a manifest `install.release` entry cannot cover
 - Brewfiles: `Brewfile-profile` (`Brewfile-home`)
 
 **Functions:**
-- Descriptive names: `update_dotfiles()`, `install_tool()`
+- Descriptive names: `update_dotfiles()`, `install_items()`
 - Kubernetes prefix: `k*` (`kcs`, `kn`, `kl`, `ke`, `kdp`)
 - Git prefix: `g*` (`gc`, `gcb`)
 - Many support fzf when called without arguments
