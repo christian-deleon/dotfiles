@@ -45,8 +45,8 @@ agent_require_git_repo() {
 
 # Project root = parent of the common git dir.
 # In a regular checkout, common-dir is `<toplevel>/.git`, so dirname → toplevel.
-# In a worktrunk layout, common-dir is `<project>/.git`, so dirname → project root
-# (the parent of all per-branch worktrees), regardless of which worktree we're in.
+# In a bare-project layout, common-dir is `<project>/.git`, so dirname → project root
+# (the parent of all worktrees), regardless of which worktree we're in.
 agent_project_root() {
     local common
     common="$(git rev-parse --git-common-dir 2>/dev/null)" || return 1
@@ -55,7 +55,7 @@ agent_project_root() {
     dirname "$common"
 }
 
-# All current worktree paths, skipping the bare entry that worktrunk exposes.
+# All current worktree paths, skipping the bare repository's own entry.
 agent_worktree_paths() {
     git worktree list --porcelain 2>/dev/null | awk '
         $1 == "worktree" { path=$2 }
@@ -957,8 +957,7 @@ agent_help() {
     echo "moved into the submodule first (CLAUDE.md is renamed to AGENTS.md),"
     echo "then committed there."
     echo
-    echo "New worktrees are handled automatically via the worktrunk post-start"
-    echo "hook in the user config."
+    echo "New worktrees from wto new (wtc) are linked automatically."
     echo
     echo "Usage: dot agent <subcommand>"
     echo

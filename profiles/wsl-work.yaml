@@ -33,7 +33,6 @@ items:
   - starship
   - tmux
   - windows-terminal
-  - worktrunk
   - yq
 
 ai:

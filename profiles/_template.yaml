@@ -60,7 +60,6 @@ items: []
 #   - ripgrep
 #   - starship
 #   - tmux
-#   - worktrunk
 #   - yq
 
 # Default AI harness for tav/wta/wtc and commit messages (claude, grok or

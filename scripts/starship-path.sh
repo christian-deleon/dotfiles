@@ -7,7 +7,7 @@
 # worktree-per-branch layout the worktree dir is just the branch name, which the
 # prompt's git_branch module already shows; anchoring on the project removes that
 # duplication. Derived from `git rev-parse --git-common-dir`, so it is identical
-# for every worktrunk layout:
+# for every worktree layout:
 #
 #   nested   project/<branch>                 -> project
 #   sibling  ../<branch> (main: project)      -> project

@@ -52,7 +52,6 @@ items:
   - terraform
   - tmux
   - uv
-  - worktrunk
   - yq
 
 ai:

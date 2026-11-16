@@ -10,5 +10,3 @@ __pycache__/
 **/*omarchy-upgrade-to-quattro*
 omarchy/.config/omarchy/current/
 
-# Install metadata the worktrunk installer writes into the stowed config dir
-worktrunk/.config/worktrunk/worktrunk-receipt.json
