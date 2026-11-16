@@ -15,6 +15,19 @@ No ask is needed.
   merge, tag, open pull requests, force push, or rebase/amend commits that
   are already pushed — unless the user explicitly asks for that action.
 
+## Correcting your own commit
+
+When the user says a commit you made was not what they wanted, fix the
+commit, not the log: undo it in history and recommit the right change, so a
+reviewer never reads a wrong commit followed by its revert.
+
+- **Unpushed and near the tip** (the last few commits, nothing built on top
+  that is hard to untangle): `git reset --soft` back past it, or amend, and
+  recommit. Also fold in any earlier correction you already made, so the
+  result is one clean commit.
+- **Pushed, or buried under later work:** a `git revert` commit is fine.
+  Never rewrite pushed history to avoid one.
+
 ## Detached HEAD
 
 On a detached HEAD in a `wtc` folder, name the branch before the first
