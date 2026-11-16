@@ -98,10 +98,12 @@ _release_plan() {
     printf 'ok\x1f%s\x1f%s\x1f%s\x1f%s\x1f$\n' "$latest" "$url" "$sums" "$bins"
 }
 
-# Print the latest tag behind a "latest" URL: the last path segment of its
-# redirect, or the first line of its body when it answers 200.
+# Print the latest tag behind a "latest" URL: the last path segment of a
+# redirect when it looks like a version (v1.2.3, 0.18.2), or the first line of
+# the body when it answers 200. Other redirects (CDN hops) are followed, at
+# most five.
 release_latest_tag() {
-    local url="$1" out meta code loc tag
+    local url="$1" hops="${2:-0}" out meta code loc tag
     if ! out="$(curl -sS --max-time 30 -w '\n%{http_code} %{redirect_url}' "$url")"; then
         _error "Could not reach $url"
         return 1
@@ -112,7 +114,17 @@ release_latest_tag() {
     case "$code" in
         301 | 302 | 303 | 307 | 308)
             loc="${loc%/}"
-            tag="${loc##*/}"
+            case "${loc##*/}" in
+                [0-9]* | v[0-9]*) tag="${loc##*/}" ;;
+                *)
+                    if [[ -z "$loc" || "$hops" -ge 5 ]]; then
+                        _error "No release tag found at $url"
+                        return 1
+                    fi
+                    release_latest_tag "$loc" "$((hops + 1))"
+                    return
+                    ;;
+            esac
             ;;
         200)
             out="${out%$'\n'*}"
