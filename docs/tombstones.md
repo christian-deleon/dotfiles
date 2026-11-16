@@ -45,10 +45,10 @@ File: `tombstones.yaml` (repo root).
 
 | Entry point | Order |
 |-------------|--------|
-| `dot update` | After git pull / stale-symlink cleanup; before source-tool rebuild and profile reconcile |
-| `./install.sh` / `dot install` core config | Right after `clean_stale_dotfile_symlinks` |
+| `dot update` | After the pull, submodule update and stale-symlink cleanup; before profile reconcile |
+| `./install.sh` core config | Right after `clean_stale_dotfile_symlinks` |
 
-Implementation: `apply_tombstones()` in `scripts/lib.sh`.
+Implementation: `apply_tombstones()` in `scripts/lib/engine.sh`.
 
 ## Example — retired script-installed tool
 

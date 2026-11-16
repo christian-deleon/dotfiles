@@ -14,13 +14,13 @@ agent-files/
   env/<env-name>/skills/<skill>/      # per-env skills (symlinked into the skill dirs)
 ```
 
-Commits inside the submodule are made automatically with a generated message; **push is always manual** (`cd ~/.dotfiles/agent-files && git push`) so remote sync stays an explicit decision. Once you bump the pointer, `git push` in `~/.dotfiles` pushes the submodule commits first (`push.recurseSubmodules=on-demand`, set repo-locally by the installer and `dot update`). If the parent still reaches origin ahead of the submodule (e.g. pushed from a machine without that setting), `dot update` elsewhere stops with "recorded commit … is not on origin/main" instead of silently missing the new skill or overlay.
+Commits inside the submodule are made automatically with a generated message; **push is always manual** (`cd ~/.dotfiles/agent-files && git push`) so remote sync stays an explicit decision. Once you bump the pointer, `git push` in `~/.dotfiles` pushes the submodule commits first (`push.recurseSubmodules=on-demand`, set repo-locally by the installer and `dot update`). If the parent still reaches origin ahead of the submodule (e.g. pushed from a machine without that setting), `dot update` elsewhere warns "recorded commit … is not on origin/main" instead of silently missing the new skill or overlay.
 
 The implementation for both scopes lives in `scripts/dot/agent.sh` (`manage_agent_files`, `agent_*`, `agent_env_*` helpers) — sourced by `dot.sh`.
 
 ## Submodule lazy-init
 
-`agent-files` is intentionally not initialized by the installer or by `dot update --init` — it's lazy-initialized the first time a `dot agent` subcommand needs it, and `dot update` only refreshes it if it's already initialized. This keeps locked-down machines (no SSH access to the private repo) working without errors.
+`agent-files` is intentionally not initialized by the installer or by `dot update` — it's lazy-initialized the first time a `dot agent` subcommand needs it, and `dot update` only refreshes it if it's already initialized (over the shared SSH connection, see [architecture.md](architecture.md#network-and-1password)). This keeps locked-down machines (no SSH access to the private repo) working without errors.
 
 ## Per-project — `dot agent link`
 
@@ -45,7 +45,7 @@ A leftover managed `CLAUDE.md → AGENTS.md` hop in the worktree is removed. Unt
 
 **Project name resolution** — `[name]` defaults to the basename of the *project root* (parent of the common git dir), so it works inside a session folder whose basename is a generated name or a branch.
 
-**New sessions** — `wto new` (behind `wtc`) runs `dot agent link` in every folder it creates, before the agent starts, and warns if the link fails.
+**New sessions** — `wto new` (behind `wtc`) runs `dot agent link` in every folder it creates, before the agent starts, and warns if the link fails. That implicit call never prompts: a submodule clone it starts runs with `GIT_TERMINAL_PROMPT=0` and SSH in batch mode with a connect timeout. Worktree paths may contain spaces.
 
 **Worktree removal** — no cleanup needed. Symlinks live inside the worktree dir, so `wto close` / `git worktree remove` takes them with the directory.
 
