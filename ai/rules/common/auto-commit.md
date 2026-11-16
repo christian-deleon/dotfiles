@@ -15,14 +15,10 @@ No ask is needed.
   merge, tag, open pull requests, force push, or rebase/amend commits that
   are already pushed — unless the user explicitly asks for that action.
 
-## Name the branch before the first commit
+## Detached HEAD
 
-A session folder from `wtc` starts on a detached HEAD. In a linked worktree on
-a detached HEAD with no rebase or bisect running, offer a branch name once,
-when the work becomes clear, and run `git switch -c <type>/<slug>` in place
-before the first commit. Follow the project profile's branch naming and put
-an issue number right after the type (`fix/142-retry-backoff`). Never rename
-a branch that is already pushed.
+On a detached HEAD in a `wtc` folder, name the branch before the first
+commit; see `detached-session-folders.md`.
 
 ## Review-first environments
 
