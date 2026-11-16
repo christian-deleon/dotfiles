@@ -133,8 +133,19 @@ link_file() {
     backup_item "$dest"
     ln -snf "$src" "$dest"
     _success "Linked ${_DIM}${dest#"$HOME"/}${_RESET}"
+    note_change "linked ~/${dest#"$HOME"/}"
 }
 
+
+# ln -snf without a backup, skipped when the link is already right. Returns 0
+# only when it changed the link.
+ensure_link() {
+    if [[ -L "$2" && "$2" -ef "$1" ]]; then
+        return 1
+    fi
+    ln -snf "$1" "$2"
+    note_change "linked ~/${2#"$HOME"/}"
+}
 
 # Remove symlinks in a directory that point into ai/ or ecc/ (migration).
 clean_ai_symlinks() {
@@ -168,6 +179,7 @@ clean_stale_dotfile_symlinks() {
         resolved="$(resolve_path "$link" || true)"
         [[ -n "$resolved" ]] || continue
         if [[ "$resolved" == "$dotfiles_real"/* ]] && [[ ! -e "$resolved" ]]; then
+            note_change "removed stale link $link"
             printf '%b\n' "Removing stale dotfile symlink: $link"
             rm "$link"
         fi
@@ -199,10 +211,12 @@ migrate_legacy_dotfiles_symlinks() {
             if [[ -e "$new_target" ]]; then
                 ln -snf "$new_target" "$link"
                 _success "Migrated ${_DIM}${link#"$HOME"/}${_RESET} → ${_DIM}${new_target#"$HOME"/}${_RESET}"
+                note_change "remapped ~/${link#"$HOME"/}"
                 fixed=$((fixed + 1))
             elif [[ ! -e "$link" ]]; then
                 rm -f "$link"
                 _info "Removed dangling legacy link ${_DIM}${link#"$HOME"/}${_RESET}"
+                note_change "removed ~/${link#"$HOME"/}"
                 removed=$((removed + 1))
             fi
         done < <(

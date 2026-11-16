@@ -219,6 +219,7 @@ _tombstone_remove_path() {
     [[ -e "$path" || -L "$path" ]] || return 0
     rm -rf -- "$path"
     _info "Removed retired path: $path"
+    note_change "removed retired $path"
     _tombstone_removed=1
 }
 
@@ -339,6 +340,7 @@ install_stow_config() {
     else
         ln -s "$src" "$target" || { _error "Failed to link $pkg"; return 1; }
     fi
+    note_change "stowed $pkg"
     _success "Stowed $pkg"
 }
 
