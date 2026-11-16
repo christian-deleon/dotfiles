@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# wto — coordinate agent sessions across a project's worktrees
+# wto — coordinate agent sessions across a project's git worktrees
 #
-# Usage: wto <command> [args]   (run anywhere inside a worktrunk project)
+# Usage: wto <command> [args]   (run anywhere inside the project)
 # shellcheck disable=SC2329 # the *_locked functions run through with_lock
 set -Eeuo pipefail
 shopt -s inherit_errexit nullglob
@@ -14,18 +14,24 @@ die() {
     exit 1
 }
 
+warn() {
+    printf 'wto: %s\n' "$*" >&2
+}
+
 usage() {
     cat <<'EOF'
 Usage: wto <command> [args]
 
   ls [--json] [--files]        roster: every worktree with its git state, agent session,
                                and the model and effort wtc saved for it
+  default [--refresh]          print the default branch; --refresh fetches origin and
+                               fast-forwards the local default branch to it
   here                         print the live orchestrator marker (exit 1 if none)
   here --orchestrator          mark the calling pane as this project's orchestrator
   here --clear [--force]       remove the orchestrator marker
   dir                          print this project's state directory
   profile [--path]             print the project profile (exit 1 if there is none)
-  send <branch|--main|--all> [--relay] [--force] [-f file | message...]
+  send <name|--orchestrator|--all> [--relay] [--force] [-f file | message...]
                                deliver a message to another session, with the origin header
   header [--relay]             print the origin header for this session
 
@@ -35,23 +41,24 @@ Usage: wto <command> [args]
   claim check <resource>...    exit 0 only if this worktree holds all of them
   claim wait [--timeout secs]  wait for this worktree's queued request (default 60s)
   claim status [--json]        holders and the queue
-  claim bump <branch>          move that branch's waiting requests to the front
+  claim bump <name>            move that session's waiting requests to the front
   claim gc                     drop claims of removed worktrees, then hand over
-  close <branch>               close a finished session: kill its window, remove its worktree
+  close <name>                 close a finished session: kill its window, remove its
+                               worktree, delete its branch
 
-  new [-j job] [-m model] [-e effort] [-p text | -f file] [--fork session-id] [--switch] <branch> [base]
-                               create a worktree and open its agent window (stays put
-                               unless --switch); -j takes the model and effort from
-                               ai/models.yaml, -m/-e override it; saved for later launches.
-                               --fork continues that Claude session there, moves this
-                               worktree's uncommitted changes along, and sends a notice
-                               as the first prompt (-p/-f adds a line to it)
-  open [-p text | -f file] [--switch] [<branch>]
+  new [-j job] [-m model] [-e effort] [-p text | -f file] [--switch] [<branch> [base]]
+                               open a session in a new codename folder (stays put unless
+                               --switch). No branch: detached at the latest default branch.
+                               -j takes the model and effort from ai/models.yaml, -m/-e
+                               override it; saved for later launches.
+  open [-p text | -f file] [--switch] [<name>]
                                open a worktree's window, continuing its conversation;
-                               no branch: the only worktree, or a picker
-  open --all [--switch]        open every worktree; main always starts fresh
+                               no name: the only worktree, or a picker
+  open --all [--switch]        open every worktree
   layout [--k9s] [-t tool] [-p text | -f file | prompt...]
                                lay out the calling pane: agent, editor, shell
+
+A <name> is a branch or a worktree folder name.
 
 Agent commands come from $AI_TOOL / $AI_TOOL_RESUME (read from ~/.localrc
 when unset); the shortcuts cl, cca, gr, gra, oc and oca mean what .aliases says.
@@ -60,8 +67,8 @@ Exit codes for send to one target: 4 no session, 5 exited, 6 blocked on a
 question or state unknown (--force sends anyway), 7 launched too recently.
 claim exits 75 when the claim lock stays busy for 5 seconds.
 
-Run inside a worktrunk project. Agent sessions are found by the tmux pane
-options that tav sets (@ai_tool, @ai_wt, @ai_state).
+Agent sessions are found by the tmux pane options that tav sets (@ai_tool,
+@ai_wt, @ai_state).
 EOF
 }
 
@@ -72,43 +79,228 @@ require() {
     done
 }
 
+# merge-tree --write-tree needs git 2.38.
+require_git() {
+    local v major minor
+    v=$(git version) || die "git is required"
+    v=${v#git version }
+    IFS=. read -r major minor _ <<<"$v"
+    ((major > 2 || (major == 2 && minor >= 38))) || die "git 2.38 or newer is required (found $v)"
+}
+
+common_dir() {
+    git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || die "not inside a git repository"
+}
+
+# The folder that holds the worktrees: the parent of a bare project's .git.
+project_root() {
+    local common
+    common=$(common_dir)
+    realpath -- "$(dirname "$common")"
+}
+
+is_bare_project() {
+    [[ $(git --git-dir="$(common_dir)" rev-parse --is-bare-repository 2>/dev/null) == true ]]
+}
+
+# The calling worktree, or the project root when called from a bare project's
+# root, which has no work tree.
+self_top() {
+    git rev-parse --show-toplevel 2>/dev/null || project_root
+}
+
+self_wt() {
+    git rev-parse --show-toplevel 2>/dev/null \
+        || die "run this inside a session folder, not at the project root"
+}
+
+# A branch name, or the folder name when detached or outside a work tree.
+label_for() {
+    local dir=$1 b=""
+    if [[ $(git -C "$dir" rev-parse --is-inside-work-tree 2>/dev/null) == true ]]; then
+        b=$(git -C "$dir" symbolic-ref -q --short HEAD 2>/dev/null) || b=""
+    fi
+    printf '%s\n' "${b:-${dir##*/}}"
+}
+
+self_label() {
+    label_for "$(self_top)"
+}
+
 state_dir() {
     local common
-    common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) \
-        || die "not inside a git repository"
+    common=$(common_dir)
     mkdir -p -- "$common/orchestrate"
     printf '%s\n' "$common/orchestrate"
 }
 
-# {"default": <default branch>, "items": [<worktree>...]} from wt list.
-wt_list() {
-    local raw
-    raw=$(wt list --format json 2>/dev/null) || die "wt list failed (run inside a worktrunk project)"
-    # Worktrunk 0.77+ emits schema 2 ({schema, items}, facts under .worktree).
-    # Older versions emit a bare array (schema 1) whose .worktree is only the
-    # location flags — path, is_main and working_tree sit at the top level.
-    # Lift schema 1 into the fields the rest of this script reads. A schema-1
-    # .worktree is an object, so "has no .worktree" is not the test.
-    jq -c '(if type == "array" then {items: .} else . end)
-        | .items |= ((. // []) | map(
-            if (.worktree.path | type) != "string" and (.path | type) == "string" then
-                .worktree = ((.worktree // {}) + {
-                    path: .path,
-                    main: (.is_main == true),
-                    current: (.is_current == true),
-                    previous: (.is_previous == true),
-                    changes: (if (.working_tree | type) == "object"
-                              then .working_tree else null end)})
-                | .default_branch = (if (.main | type) == "object" then .main else null end)
-                | .display = {state: (.main_state // null)}
-                | if (.integration_reason | type) == "string" then
-                    .default_branch = ((.default_branch // {}) + {integration: {reason: .integration_reason}})
-                  else . end
-            else . end))
-        | (.items | map(select((.worktree.path // "") != ""))) as $items
-        | {default: (.repo.default_branch
-                     // ($items | map(select(.worktree.main == true)) | first | .branch)),
-           items: $items}' <<<"$raw"
+# ── default branch ────────────────────────────────────────────────────────────
+
+default_branch() {
+    local ref b
+    if ref=$(git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null); then
+        printf '%s\n' "${ref#origin/}"
+        return 0
+    fi
+    for b in main master; do
+        if git show-ref --verify --quiet "refs/heads/$b"; then
+            printf '%s\n' "$b"
+            return 0
+        fi
+    done
+    git --git-dir="$(common_dir)" symbolic-ref -q --short HEAD 2>/dev/null
+}
+
+fetch_origin() {
+    local -a cmd=(git fetch --quiet origin)
+    [[ -n ${WTO_NO_FETCH-} ]] && return 0
+    git remote get-url origin >/dev/null 2>&1 || return 0
+    command -v timeout >/dev/null 2>&1 && cmd=(timeout 20 "${cmd[@]}")
+    if ! GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND=${GIT_SSH_COMMAND:-ssh -o BatchMode=yes} "${cmd[@]}" </dev/null; then
+        warn "could not fetch origin; using local refs"
+    fi
+    if ! git show-ref --verify --quiet refs/remotes/origin/HEAD; then
+        git remote set-head origin --auto >/dev/null 2>&1 || true
+    fi
+}
+
+# Keep the local default branch at or ahead of origin's: closeout fast-forwards
+# only the local ref, and rebases, merge checks and the issue gate read it.
+# Prints the ref new sessions start from.
+sync_default() {
+    local d=$1 local_ref=refs/heads/$1 origin_ref=refs/remotes/origin/$1 l o
+    o=$(git rev-parse -q --verify "$origin_ref^{commit}" 2>/dev/null) || o=""
+    l=$(git rev-parse -q --verify "$local_ref^{commit}" 2>/dev/null) || l=""
+    if [[ -z $o ]]; then
+        [[ -n $l ]] || die "no branch $d here or on origin"
+        printf '%s\n' "$local_ref"
+        return 0
+    fi
+    if [[ -z $l ]] || { [[ $l != "$o" ]] && git merge-base --is-ancestor "$l" "$o"; }; then
+        if git fetch --quiet . "$origin_ref:$local_ref" 2>/dev/null; then
+            printf '%s\n' "$local_ref"
+        else
+            warn "$d is checked out in a folder and behind origin; left as is, starting from origin/$d"
+            printf '%s\n' "$origin_ref"
+        fi
+        return 0
+    fi
+    if [[ $l != "$o" ]] && ! git merge-base --is-ancestor "$o" "$l"; then
+        warn "$d and origin/$d have diverged; starting from the local $d"
+    fi
+    printf '%s\n' "$local_ref"
+}
+
+cmd_default() {
+    local refresh=0 d
+    while (($#)); do
+        case $1 in
+            --refresh) refresh=1 ;;
+            -h | --help) usage; return ;;
+            *) die "default: unknown option '$1'" ;;
+        esac
+        shift
+    done
+    ((refresh)) && fetch_origin
+    d=$(default_branch) || die "cannot tell the default branch (git remote set-head origin --auto)"
+    ((refresh)) && sync_default "$d" >/dev/null
+    printf '%s\n' "$d"
+}
+
+# ── roster ────────────────────────────────────────────────────────────────────
+
+# path, HEAD, branch, locked, prunable for each worktree, \x1f-separated (read
+# collapses runs of tab separators). The bare repository's own entry is left out.
+worktree_rows() {
+    git worktree list --porcelain | awk '
+        function flush() {
+            if (path != "" && !bare) printf "%s\037%s\037%s\037%s\037%s\n", path, head, branch, locked, prunable
+            path = ""; head = ""; branch = ""; bare = 0; locked = 0; prunable = 0
+        }
+        /^worktree / { flush(); path = substr($0, 10); next }
+        /^HEAD / { head = substr($0, 6); next }
+        /^branch / { branch = substr($0, 8); sub(/^refs\/heads\//, "", branch); next }
+        /^bare$/ { bare = 1; next }
+        /^locked/ { locked = 1; next }
+        /^prunable/ { prunable = 1; next }
+        END { flush() }'
+}
+
+# How commit $1 is already part of $2: ancestor, or trees when merging it would
+# change nothing (a squash merge). Fails when it is not.
+integrated_reason() {
+    local head=$1 target=$2 tree
+    git rev-parse -q --verify "$target^{commit}" >/dev/null 2>&1 || return 1
+    if git merge-base --is-ancestor "$head" "$target" 2>/dev/null; then
+        printf 'ancestor\n'
+        return 0
+    fi
+    tree=$(git merge-tree --write-tree --no-messages "$target" "$head" 2>/dev/null) || return 1
+    [[ ${tree%%$'\n'*} == "$(git rev-parse "$target^{tree}")" ]] || return 1
+    printf 'trees\n'
+}
+
+git_operation() {
+    local gitdir
+    gitdir=$(git -C "$1" rev-parse --path-format=absolute --git-dir 2>/dev/null) || return 0
+    if [[ -d $gitdir/rebase-merge || -d $gitdir/rebase-apply ]]; then printf 'rebase\n'
+    elif [[ -f $gitdir/MERGE_HEAD ]]; then printf 'merge\n'
+    elif [[ -f $gitdir/CHERRY_PICK_HEAD ]]; then printf 'cherry-pick\n'
+    elif [[ -f $gitdir/REVERT_HEAD ]]; then printf 'revert\n'
+    elif [[ -f $gitdir/BISECT_LOG ]]; then printf 'bisect\n'
+    fi
+}
+
+# One JSON object per worktree. Fast mode leaves out everything that needs a
+# status or merge check.
+worktree_facts() {
+    local fast=$1 default=$2 path head branch real dirty conflicted op
+    local ahead behind state reason rconf fresh counts status log rc tree default_ref=""
+    [[ -n $default ]] && git show-ref --verify --quiet "refs/heads/$default" && default_ref=refs/heads/$default
+    while IFS=$'\037' read -r path head branch _ _; do
+        real=$(realpath -e -- "$path" 2>/dev/null) || real=$path
+        dirty=null conflicted=false op="" ahead=null behind=null state="" reason="" rconf=false fresh=null
+        if ((!fast)) && [[ -d $real ]]; then
+            if status=$(GIT_OPTIONAL_LOCKS=0 git -C "$real" status --porcelain 2>/dev/null); then
+                if [[ -n $status ]]; then dirty=true; else dirty=false; fi
+            fi
+            [[ -n $(git -C "$real" ls-files -u 2>/dev/null) ]] && conflicted=true
+            op=$(git_operation "$real")
+            if [[ -n $default_ref && -n $head ]] \
+                && counts=$(git rev-list --left-right --count "$default_ref...$head" 2>/dev/null); then
+                read -r behind ahead <<<"$counts"
+                if ((ahead == 0)); then
+                    reason=ancestor
+                    if ((behind == 0)); then state=empty; else state=integrated; fi
+                else
+                    rc=0
+                    tree=$(git merge-tree --write-tree --no-messages "$default_ref" "$head" 2>/dev/null) || rc=$?
+                    if ((rc == 1)); then
+                        rconf=true
+                    elif ((rc == 0)) && [[ ${tree%%$'\n'*} == "$(git rev-parse "$default_ref^{tree}")" ]]; then
+                        reason=trees
+                        state=integrated
+                    fi
+                fi
+                fresh=false
+                if ((ahead == 0)); then
+                    log=$(git -C "$real" reflog show --format=%gs HEAD 2>/dev/null) || log=""
+                    grep -Eq '^(commit|rebase|merge|cherry-pick|am|revert)' <<<"$log" || fresh=true
+                fi
+            fi
+        fi
+        jq -n -c --arg path "$real" --arg head "$head" --arg branch "$branch" \
+            --argjson dirty "$dirty" --argjson conflicted "$conflicted" --arg op "$op" \
+            --argjson ahead "$ahead" --argjson behind "$behind" --arg state "$state" \
+            --arg reason "$reason" --argjson rconf "$rconf" --argjson fresh "$fresh" \
+            --arg default "$default" '
+            def nul: if . == "" then null else . end;
+            {branch: ($branch | nul), name: ($path | split("/") | last), path: $path,
+             head: ($head | nul), detached: ($branch == ""), dirty: $dirty,
+             conflicted_files: $conflicted, ahead: $ahead, behind: $behind,
+             rebase_conflicts: $rconf, integrated: ($reason | nul), state: ($state | nul),
+             fresh: $fresh, operation: ($op | nul), default_branch: ($default | nul)}'
+    done < <(worktree_rows)
 }
 
 # Panes that run, or were tagged for, an agent session. Untagged panes (opened
@@ -132,6 +324,18 @@ panes_json() {
                state: .[5], state_at: .[6], cwd: .[7], oc_session: (.[8] // "")}
             | . + {proc: $by_pid[.pid]})
         | map(select(.tag_tool != "" or .proc != null))'
+}
+
+# {<worktree path>: <window id>} for windows with a pane tagged for a worktree.
+# #{@ai_wt} resolves the pane option first, then the window's.
+windows_json() {
+    if ! tmux info >/dev/null 2>&1; then
+        printf '{}\n'
+        return
+    fi
+    tmux list-panes -a -F '#{@ai_wt}'$'\t''#{window_id}' | jq -R -s -c '
+        split("\n") | map(select(length > 0) | split("\t") | select(.[0] != ""))
+        | reduce .[] as $r ({}; if has($r[0]) then . else . + {($r[0]): $r[1]} end)'
 }
 
 # "<pane pid>\t<harness>\t<args>" for each harness process under a pane.
@@ -164,58 +368,48 @@ launch_json() {
         IFS='|' read -r model effort <<<"$saved"
         out+=("$(jq -n -c --arg p "$path" --arg m "$model" --arg e "$effort" \
             '{($p): {model: (if $m == "" then null else $m end), effort: (if $e == "" then null else $e end)}}')")
-    done < <(jq -r '.items[].worktree.path' <<<"$1")
+    done < <(jq -r '.[].path' <<<"$1")
     printf '%s\n' "${out[@]}" | jq -s -c 'add // {}'
 }
 
+# The roster; `roster_json fast` skips the git status and merge checks.
 roster_json() {
-    local list panes launch now claims='{}' dir orch_pane=""
+    local fast=0 default facts panes windows launch now claims='{}' dir orch_pane=""
+    [[ ${1-} == fast ]] && fast=1
     # Explicit returns: callers use `|| ...`, which turns off set -e in here.
-    list=$(wt_list) || return 1
+    default=$(default_branch) || default=""
+    facts=$(worktree_facts "$fast" "$default" | jq -s -c .) || return 1
     panes=$(panes_json) || return 1
-    launch=$(launch_json "$list") || return 1
+    windows=$(windows_json) || return 1
+    launch=$(launch_json "$facts") || return 1
     now=$(date +%s)
     dir=$(state_dir)
     [[ -s $dir/claims/state.json ]] && claims=$(<"$dir/claims/state.json")
     marker_valid "$dir/orchestrator.json" && orch_pane=$(jq -r '.pane // ""' "$dir/orchestrator.json")
-    jq -n -c --argjson list "$list" --argjson panes "$panes" --argjson now "$now" \
-        --argjson claims "$claims" --argjson launch "$launch" --arg orch "$orch_pane" '
+    jq -n -c --argjson facts "$facts" --argjson panes "$panes" --argjson now "$now" \
+        --argjson claims "$claims" --argjson launch "$launch" --argjson windows "$windows" \
+        --arg orch "$orch_pane" '
         def under($p): . == $p or startswith($p + "/");
         def auto($args):
             if $args == null then null
             else ($args | test("bypassPermissions|--dangerously-skip-permissions|--always-approve|--auto(\\s|$)"))
             end;
-        $list.default as $default
-        | $list.items | map(
-            .worktree.path as $path
-            # A live harness beats a pane left over from an earlier one, and in
-            # main the orchestrator pane beats other agent panes.
+        $facts | map(
+            .path as $path
+            # A live harness beats a pane left over from an earlier one, and the
+            # orchestrator pane beats other agent panes.
             | (([$panes[] | select(.tag_wt == $path)]
                 + [$panes[] | select(.tag_wt == "" and (.cwd | under($path)))])
                | sort_by([(if .proc != null and .state != "exited" then 0 else 1 end),
                           (if .pane == $orch then 0 else 1 end)])
                | first) as $pane
-          | {
-              branch: (.branch // null),
-              path: .worktree.path,
-              main: (.worktree.main == true),
-              detached: (.worktree.detached == true),
-              # wt reports no changes object when its status check timed out.
-              dirty: (if .worktree.changes == null then null
-                      else [.worktree.changes | .staged, .modified, .untracked, .renamed, .deleted] | any end),
-              conflicted_files: (.worktree.changes.conflicted == true),
-              ahead: (.default_branch.ahead // null),
-              behind: (.default_branch.behind // null),
-              rebase_conflicts: (.default_branch.merge_conflicts // false),
-              integrated: (.default_branch.integration.reason // null),
-              state: (.display.state // null),
-              operation: (.worktree.operation // .operation // null),
-              default_branch: $default,
+            | del(.head) + {
               claims: [($claims.holders // {}) | to_entries[] | select(.value.wt == $path) | .key],
               unacked_grants: [($claims.holders // {}) | to_entries[]
                   | select(.value.wt == $path and .value.granted_at != null and .value.acked_at == null) | .key],
               queued: [($claims.queue // [])[] | select(.wt == $path) | .res[]],
               launch: ($launch[$path] // null),
+              window_id: ($windows[$path] // null),
               session: (if $pane == null then null else {
                   pane: $pane.pane,
                   window: $pane.window,
@@ -231,24 +425,46 @@ roster_json() {
             })'
 }
 
+# The one roster entry a branch, folder name or path names.
+resolve_entry() {
+    local roster=$1 name=$2 what=$3 matches n
+    matches=$(jq -c --arg n "$name" '
+        [.[] | select(.path == $n)] as $exact
+        | if ($exact | length) > 0 then $exact
+          else [.[] | select(.branch == $n or .name == $n)] end' <<<"$roster")
+    n=$(jq length <<<"$matches")
+    ((n > 0)) || die "$what: no worktree for '$name'"
+    ((n == 1)) || die "$what: '$name' names more than one worktree ($(jq -r 'map(.path) | join(", ")' <<<"$matches")); pass the folder path"
+    jq -c '.[0]' <<<"$matches"
+}
+
+# {<worktree path>: <branch or folder name>} for printing claim holders.
+labels_json() {
+    worktree_rows | jq -R -s -c '
+        split("\n") | map(select(length > 0) | split("\u001f")
+            | {key: .[0], value: (if .[2] != "" then .[2] else (.[0] | split("/") | last) end)})
+        | from_entries'
+}
+
 add_conflict_files() {
-    local roster=$1 default branch merged rc files out=()
+    local roster=$1 default head path merged rc files out=()
     default=$(jq -r '[.[].default_branch | select(. != null)][0] // empty' <<<"$roster")
     [[ -n $default ]] || { printf '%s\n' "$roster"; return; }
-    while IFS= read -r branch; do
-        [[ -n $branch ]] || continue
+    while IFS= read -r path; do
+        [[ -n $path ]] || continue
+        head=$(git -C "$path" rev-parse HEAD 2>/dev/null) || continue
         # Exit 1 means "conflicts", which is the case this runs for.
         rc=0
-        merged=$(git merge-tree --write-tree --name-only --no-messages "$default" "$branch" 2>/dev/null) || rc=$?
+        merged=$(git merge-tree --write-tree --name-only --no-messages "$default" "$head" 2>/dev/null) || rc=$?
         if ((rc == 0 || rc == 1)); then
             files=$(tail -n +2 <<<"$merged" | jq -R -s -c 'split("\n") | map(select(length > 0)) | unique')
         else
             files=null
         fi
-        out+=("$(jq -n -c --arg b "$branch" --argjson f "$files" '{($b): $f}')")
-    done < <(jq -r '.[] | select(.rebase_conflicts and .branch != null) | .branch' <<<"$roster")
+        out+=("$(jq -n -c --arg p "$path" --argjson f "$files" '{($p): $f}')")
+    done < <(jq -r '.[] | select(.rebase_conflicts) | .path' <<<"$roster")
     jq -c --argjson files "$(printf '%s\n' "${out[@]}" | jq -s -c 'add // {}')" \
-        'map(. + {conflict_files: ($files[.branch] // null)})' <<<"$roster"
+        'map(. + {conflict_files: ($files[.path] // null)})' <<<"$roster"
 }
 
 cmd_ls() {
@@ -269,9 +485,10 @@ cmd_ls() {
         return
     fi
     jq -r '
-        ["BRANCH", "SESSION", "TOOL", "MODEL", "AHEAD", "BEHIND", "DIRTY", "REBASE", "CLAIMS", "WINDOW"],
+        ["BRANCH", "FOLDER", "SESSION", "TOOL", "MODEL", "AHEAD", "BEHIND", "DIRTY", "REBASE", "CLAIMS", "WINDOW"],
         (.[] | [
-            (.branch // "(detached)") + (if .main then " *" else "" end),
+            (.branch // "(no branch)"),
+            .name,
             (if .session == null then "-"
              else .session.state + (if .session.state_age != null then " " + (.session.state_age / 60 | floor | tostring) + "m" else "" end)
              end),
@@ -289,6 +506,9 @@ cmd_ls() {
             (.session.window // "-")
         ])
         | @tsv' <<<"$roster" | column -t -s $'\t'
+    jq -r '.[] | select(.detached and (.ahead // 0) > 0 and .operation == null)
+        | "wto: \(.name) has \(.ahead) commit(s) on no branch; name one there with git switch -c <branch>"' \
+        <<<"$roster" >&2
 }
 
 marker_valid() {
@@ -306,7 +526,7 @@ marker_valid() {
 }
 
 cmd_here() {
-    local mode=show force=0 dir marker top main_path
+    local mode=show force=0 dir marker top
     while (($#)); do
         case $1 in
             --orchestrator) mode='write' ;;
@@ -327,9 +547,7 @@ cmd_here() {
             ;;
         write)
             [[ -n ${TMUX_PANE-} ]] || die "here: not inside tmux (TMUX_PANE unset)"
-            top=$(git rev-parse --show-toplevel)
-            main_path=$(wt_list | jq -r '[.items[] | select(.worktree.main == true)][0].worktree.path // empty')
-            [[ $top == "$main_path" ]] || die "here: the orchestrator runs in the main worktree ($main_path)"
+            top=$(self_wt)
             if marker_valid "$marker" && [[ $(jq -r .pane "$marker") != "$TMUX_PANE" ]]; then
                 printf 'wto: an orchestrator is already running in %s\n' "$(jq -r .window "$marker")" >&2
                 return 3
@@ -339,7 +557,7 @@ cmd_here() {
                 --arg tmux_pid "$(tmux display-message -p '#{pid}')" \
                 --arg window "$(tmux display-message -p -t "$TMUX_PANE" '#{session_name}:#{window_name}')" \
                 --arg tool "$(tmux show-options -pqv -t "$TMUX_PANE" @ai_tool)" \
-                --arg branch "$(git branch --show-current)" \
+                --arg branch "$(label_for "$top")" \
                 --arg path "$top" \
                 --argjson started "$(date +%s)" \
                 '{pane: $pane, tmux_pid: $tmux_pid, window: $window, tool: $tool,
@@ -358,18 +576,15 @@ cmd_here() {
 }
 
 caller_header() {
-    local relay=$1 common project branch role=session kind='agent notice' marker
-    common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) \
-        || die "not inside a git repository"
+    local relay=$1 common project role=session kind='agent notice' marker
+    common=$(common_dir)
     project=$(basename "$(dirname "$common")")
-    branch=$(git branch --show-current 2>/dev/null) || branch=""
-    [[ -n $branch ]] || branch=$(basename "$(git rev-parse --show-toplevel)")
     marker=$common/orchestrate/orchestrator.json
     if [[ -n ${TMUX_PANE-} ]] && marker_valid "$marker" && [[ $(jq -r .pane "$marker") == "$TMUX_PANE" ]]; then
         role=orchestrator
     fi
     ((relay)) && kind="relaying the user's words"
-    printf '[session message · from %s/%s (%s) · %s]\n' "$project" "$branch" "$role" "$kind"
+    printf '[session message · from %s/%s (%s) · %s]\n' "$project" "$(self_label)" "$role" "$kind"
 }
 
 cmd_header() {
@@ -387,10 +602,10 @@ cmd_header() {
 
 # Deliver one message to one roster entry. Returns the documented exit code.
 deliver() {
-    local entry=$1 body_file=$2 force=$3 branch pane tool state age running oc_session path buf
-    branch=$(jq -r '.branch // "(detached)"' <<<"$entry")
+    local entry=$1 body_file=$2 force=$3 label pane tool state age running oc_session path buf
+    label=$(jq -r '.branch // .name' <<<"$entry")
     if [[ $(jq -r '.session == null' <<<"$entry") == true ]]; then
-        printf '%s: no session\n' "$branch"
+        printf '%s: no session\n' "$label"
         return 4
     fi
     # \x1f, not a tab: read collapses runs of whitespace separators, which
@@ -399,28 +614,28 @@ deliver() {
         .session.state, (.session.state_age // -1), .session.running, (.session.opencode_session // ""), .path]
         | map(tostring) | join("\u001f")' <<<"$entry")
     if [[ $pane == "${TMUX_PANE-}" ]]; then
-        printf '%s: is this session, skipped\n' "$branch"
+        printf '%s: is this session, skipped\n' "$label"
         return 4
     fi
     if [[ $state == exited || $running != true ]]; then
-        printf '%s: session has exited\n' "$branch"
+        printf '%s: session has exited\n' "$label"
         return 5
     fi
     if [[ $state == blocked ]] || { [[ $state == unknown ]] && ((!force)); }; then
-        printf '%s: %s; not sent%s\n' "$branch" \
+        printf '%s: %s; not sent%s\n' "$label" \
             "$([[ $state == blocked ]] && echo 'waiting on a question' || echo 'state unknown (session predates pane tags)')" \
             "$([[ $state == unknown ]] && echo '; close its window and run wta to reopen it tagged, or pass --force')"
         return 6
     fi
     if [[ $state == starting ]] && ((age >= 0 && age < 15)); then
-        printf '%s: launched %ss ago; retry shortly\n' "$branch" "$age"
+        printf '%s: launched %ss ago; retry shortly\n' "$label" "$age"
         return 7
     fi
 
     if [[ $tool == opencode && -n $oc_session ]]; then
         (cd -- "$path" && opencode api session.prompt --param "sessionID=$oc_session" \
             --data "$(jq -n -c --rawfile text "$body_file" '{text: $text, delivery: "queue"}')") >/dev/null \
-            || { printf '%s: opencode delivery failed\n' "$branch"; return 1; }
+            || { printf '%s: opencode delivery failed\n' "$label"; return 1; }
     else
         buf="wto-$$-${RANDOM}"
         tmux load-buffer -b "$buf" "$body_file"
@@ -428,15 +643,15 @@ deliver() {
         sleep 0.8
         tmux send-keys -t "$pane" Enter
     fi
-    printf '%s: sent (%s, %s)\n' "$branch" "$tool" "$state"
+    printf '%s: sent (%s, %s)\n' "$label" "$tool" "$state"
 }
 
 cmd_send() {
-    local target="" relay=0 force=0 file="" roster body_file body rc=0 code entry
+    local target="" relay=0 force=0 file="" roster body_file body rc=0 code entry marker orch_path
     local -a words=() entries=()
     while (($#)); do
         case $1 in
-            --main | --all) target=$1 ;;
+            --orchestrator | --all) target=$1 ;;
             --relay) relay=1 ;;
             --force) force=1 ;;
             -f) file=${2:?send: -f needs a file}; shift ;;
@@ -447,7 +662,7 @@ cmd_send() {
         esac
         shift
     done
-    [[ -n $target ]] || die "send: name a branch, --main or --all"
+    [[ -n $target ]] || die "send: name a branch or folder, --orchestrator or --all"
 
     body_file=$(mktemp)
     # shellcheck disable=SC2064  # expand now: body_file is local, the trap runs at exit
@@ -466,12 +681,20 @@ cmd_send() {
     body=$(<"$body_file")
     printf '%s' "$body" >"$body_file"
 
-    roster=$(roster_json)
+    roster=$(roster_json fast)
     case $target in
-        --main) mapfile -t entries < <(jq -c '.[] | select(.main)' <<<"$roster") ;;
-        --all) mapfile -t entries < <(jq -c --arg self "$(git rev-parse --show-toplevel)" \
+        --orchestrator)
+            marker=$(state_dir)/orchestrator.json
+            marker_valid "$marker" || die "send: no orchestrator is running (wto here)"
+            orch_path=$(jq -r '.path // empty' "$marker")
+            mapfile -t entries < <(jq -c --arg p "$orch_path" '.[] | select(.path == $p)' <<<"$roster")
+            ;;
+        --all) mapfile -t entries < <(jq -c --arg self "$(self_top)" \
             '.[] | select(.path != $self and .session != null)' <<<"$roster") ;;
-        *) mapfile -t entries < <(jq -c --arg b "$target" '.[] | select(.branch == $b)' <<<"$roster") ;;
+        *)
+            entry=$(resolve_entry "$roster" "$target" send)
+            entries=("$entry")
+            ;;
     esac
     ((${#entries[@]})) || die "send: no worktree for '$target'"
 
@@ -495,14 +718,9 @@ claims_dir() {
     printf '%s\n' "$d"
 }
 
-self_wt() { git rev-parse --show-toplevel; }
-
-self_label() {
-    local b
-    b=$(git branch --show-current 2>/dev/null) || b=""
-    [[ -n $b ]] || b=$(basename "$(self_wt)")
-    printf '%s\n' "$b"
-}
+# {<worktree path>: label}, read once per run; the label stored with a claim is
+# a snapshot from when it was taken, and a session may name its branch later.
+WTO_LABELS='{}'
 
 # Run "$@" in a subshell holding the claims lock: flock(1) where it exists,
 # else perl's flock() on the same fd (macOS ships perl but not flock). Either
@@ -556,10 +774,14 @@ registry_check() {
 # worktree created a moment ago keeps its claim. A failed or empty listing
 # would read as "every worktree is gone", so it fails instead.
 existing_wts() {
-    local list exist
-    list=$(git worktree list --porcelain) || list=""
-    exist=$(awk '$1 == "worktree" { print substr($0, 10) }' <<<"$list" \
-        | jq -R -s -c 'split("\n") | map(select(length > 0))')
+    local rows="" path exist
+    local -a paths=()
+    rows=$(worktree_rows) || rows=""
+    while IFS=$'\037' read -r path _; do
+        [[ -n $path ]] || continue
+        paths+=("$(realpath -e -- "$path" 2>/dev/null || printf '%s' "$path")")
+    done <<<"$rows"
+    exist=$(jq -n -c '$ARGS.positional' --args "${paths[@]}")
     if [[ $(jq -r 'length > 0' <<<"$exist" 2>/dev/null) != true ]]; then
         printf 'wto: cannot list worktrees; claims left unchanged\n' >&2
         return 1
@@ -570,7 +792,7 @@ existing_wts() {
 # JSON array of worktree paths with a live session, plus any paths given.
 live_wts() {
     local roster
-    roster=$(roster_json) || return 1
+    roster=$(roster_json fast) || return 1
     jq -c --args '[.[] | select(.session.running == true and .session.state != "exited") | .path]
         + $ARGS.positional | unique' "$@" <<<"$roster"
 }
@@ -604,7 +826,8 @@ readonly GRANT_JQ='
     | {state: ($st + {holders: .holders, queue: .queue}), grants: .grants}'
 
 report_grants() {
-    jq -r '.grants[] | "granted \(.res | join(",")) to \(.branch) — tell that session it is its turn"'
+    jq -r --argjson L "$WTO_LABELS" \
+        '.grants[] | "granted \(.res | join(",")) to \($L[.wt] // .branch) — tell that session it is its turn"'
 }
 
 claim_take_locked() {
@@ -639,7 +862,7 @@ claim_take_locked() {
           else "queued at position \((.position // 0) + 1) for \($want | join(","))"
             + (if (.mine | length) > 0 then "\nnote: still holding \(.mine | join(",")) while waiting; a session waiting for those cannot proceed, so free what you can or take everything in one call" else "" end)
           end' "$@" <<<"$out"
-    jq -r --arg wt "$wt" '.grants[] | select(.wt != $wt) | "granted \(.res | join(",")) to \(.branch) — tell that session it is its turn"' <<<"$out"
+    jq -r --arg wt "$wt" '{grants: [.grants[] | select(.wt != $wt)]}' <<<"$out" | report_grants
     [[ $(jq -r --args '.mine as $m | [$ARGS.positional[] | IN($m[])] | all' "$@" <<<"$out") == true ]] || return 2
 }
 
@@ -682,12 +905,12 @@ claim_gc_locked() {
 }
 
 claim_bump_locked() {
-    local branch=$1 live=$2 exist now out
+    local wt=$1 name=$2 live=$3 exist now out
     exist=$(existing_wts) || return 1
     now=$(date +%s)
-    out=$(claims_read | jq -c --arg b "$branch" --argjson now "$now" --argjson live "$live" --argjson exist "$exist" '
-        if any(.queue[]?; .branch == $b) | not then {error: "\($b) is not waiting for anything"}
-        else .queue = ([.queue[] | select(.branch == $b)] + [.queue[] | select(.branch != $b)]) | '"$GRANT_JQ"'
+    out=$(claims_read | jq -c --arg w "$wt" --arg n "$name" --argjson now "$now" --argjson live "$live" --argjson exist "$exist" '
+        if any(.queue[]?; .wt == $w) | not then {error: "\($n) is not waiting for anything"}
+        else .queue = ([.queue[] | select(.wt == $w)] + [.queue[] | select(.wt != $w)]) | '"$GRANT_JQ"'
         end')
     [[ -n $out ]] || return 1
     if [[ $(jq -r '.error // empty' <<<"$out") ]]; then
@@ -712,10 +935,10 @@ claims_status() {
         jq . <<<"$st"
         return
     fi
-    jq -r '
+    jq -r --argjson L "$WTO_LABELS" '
         (if (.holders | length) == 0 then "no claims held"
-         else (.holders | to_entries[] | "\(.key)\theld by \(.value.branch)\t\(if .value.acked_at == null then "granted, not yet acknowledged" else "in use" end)\t\(.value.note // "")") end),
-        (.queue | to_entries[] | "\(.value.res | join(","))\twaiting #\(.key + 1): \(.value.branch)\tqueued\t\(.value.note // "")")
+         else (.holders | to_entries[] | "\(.key)\theld by \($L[.value.wt] // .value.branch)\t\(if .value.acked_at == null then "granted, not yet acknowledged" else "in use" end)\t\(.value.note // "")") end),
+        (.queue | to_entries[] | "\(.value.res | join(","))\twaiting #\(.key + 1): \($L[.value.wt] // .value.branch)\tqueued\t\(.value.note // "")")
     ' <<<"$st" | column -t -s $'\t'
 }
 
@@ -736,10 +959,20 @@ cmd_claim() {
         esac
         shift
     done
-    wt=$(self_wt)
-    label=$(self_label)
     case $sub in
-        take | free | bump | gc) live=$(live_wts "$wt") || die "claim: cannot read the session roster; claims left unchanged" ;;
+        take | free | check | wait)
+            wt=$(self_wt)
+            label=$(self_label)
+            ;;
+        *) wt="" ;;
+    esac
+    case $sub in
+        take | free | bump | gc)
+            live=$(live_wts ${wt:+"$wt"}) || die "claim: cannot read the session roster; claims left unchanged"
+            ;;
+    esac
+    case $sub in
+        free | bump | gc | status | check) WTO_LABELS=$(labels_json) || WTO_LABELS='{}' ;;
     esac
 
     case $sub in
@@ -767,9 +1000,9 @@ cmd_claim() {
                 with_lock claim_ack_locked "$wt" 2>/dev/null || true
                 return 0
             fi
-            claims_read | jq -r --arg wt "$wt" --args '$ARGS.positional[] as $r
+            claims_read | jq -r --arg wt "$wt" --argjson L "$WTO_LABELS" --args '$ARGS.positional[] as $r
                 | if .holders[$r] == null then "\($r): free (take it first)"
-                  elif .holders[$r].wt != $wt then "\($r): held by \(.holders[$r].branch)"
+                  elif .holders[$r].wt != $wt then "\($r): held by \($L[.holders[$r].wt] // .holders[$r].branch)"
                   else empty end' "${names[@]}" >&2
             return 1
             ;;
@@ -799,8 +1032,9 @@ cmd_claim() {
             ;;
         status) claims_status "$json" ;;
         bump)
-            ((${#names[@]} == 1)) || die "claim bump: name one branch"
-            with_lock claim_bump_locked "${names[0]}" "$live"
+            ((${#names[@]} == 1)) || die "claim bump: name one branch or folder"
+            wt=$(resolve_entry "$(roster_json fast)" "${names[0]}" "claim bump" | jq -r .path)
+            with_lock claim_bump_locked "$wt" "${names[0]}" "$live"
             ;;
         gc) with_lock claim_gc_locked "$live" ;;
         *) die "claim: unknown subcommand '$sub'" ;;
@@ -815,7 +1049,7 @@ cmd_claim() {
 
 profile_path() {
     local top target common overlay
-    top=$(git rev-parse --show-toplevel 2>/dev/null) || die "not inside a git repository"
+    top=$(self_top)
     if [[ -f $top/.agents/profile.md ]]; then
         printf '%s\n' "$top/.agents/profile.md"
         return 0
@@ -833,7 +1067,7 @@ profile_path() {
 # A profile still kept as a section of AGENTS.md, from before it had a file.
 legacy_profile() {
     local top section
-    top=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
+    top=$(self_top)
     [[ -f $top/AGENTS.md ]] || return 1
     section=$(awk '/^## Project profile[[:space:]]*$/ { on = 1; print; next }
         on && /^## / { exit }
@@ -860,9 +1094,10 @@ cmd_profile() {
     esac
 }
 
+
 # ── launch: worktree windows and the agent layout ─────────────────────────────
-# wtc, wta, wtaa, tav and tavk in functions.d are thin wrappers over new, open
-# and layout, so agents and people run the same code.
+# wtc, wta, tav and tavk in functions.d are thin wrappers over new, open and
+# layout, so agents and people run the same code.
 
 WTO_HOME=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)
 readonly WTO_HOME
@@ -968,11 +1203,9 @@ job_settings() {
 
 # <project>/<branch>, the name Claude sessions get so peers can address them.
 session_name() {
-    local dir=$1 common branch
+    local dir=$1 common
     common=$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || return 1
-    branch=$(git -C "$dir" branch --show-current 2>/dev/null) || branch=""
-    [[ -n $branch ]] || branch=$(basename "$dir")
-    printf '%s/%s\n' "$(basename "$(dirname "$common")")" "$branch"
+    printf '%s/%s\n' "$(basename "$(dirname "$common")")" "$(label_for "$dir")"
 }
 
 # The full command line for a harness in dir. With a prompt, it ends in
@@ -1124,12 +1357,10 @@ is_grok() {
 }
 
 # The command a worktree window launches: a continued conversation when one
-# exists, unless fresh is set (main always is: it is a home base).
+# exists.
 window_tool() {
-    local wt_path=$1 fresh=$2 resume_id cmd
-    if [[ -n $fresh ]]; then
-        cmd=$AI_TOOL
-    elif is_grok "$AI_TOOL" && resume_id=$(grok_resume_id "$wt_path"); then
+    local wt_path=$1 resume_id cmd
+    if is_grok "$AI_TOOL" && resume_id=$(grok_resume_id "$wt_path"); then
         cmd="$AI_TOOL -r $resume_id"
     elif has_session_history "$wt_path"; then
         cmd=$AI_TOOL_RESUME
@@ -1156,19 +1387,30 @@ session_for() {
     basename "$root"
 }
 
-# Window id (@N) by name. A name with a '.' (chore-upgrade-to-1.7.5) breaks a
-# session:window target, which tmux reads as window.pane.
-window_id() {
-    local session=$1 name=$2 id wname
-    while IFS=$'\t' read -r id wname; do
-        [[ $wname == "$name" ]] && { printf '%s\n' "$id"; return 0; }
-    done < <(tmux list-windows -t "=$session" -F "#{window_id}"$'\t'"#{window_name}" 2>/dev/null)
-    return 1
+# Window id (@N) of a worktree's window: one with a pane tagged for it, else a
+# window that older versions named after the branch (fixed name, so automatic
+# rename off), which then gets the tag. Found windows follow the live branch.
+window_for() {
+    local path=$1 branch=$2 session=$3 wid id wname auto
+    wid=$(windows_json | jq -r --arg p "$path" '.[$p] // empty')
+    if [[ -z $wid && -n $branch ]]; then
+        while IFS=$'\t' read -r id wname auto; do
+            if [[ $wname == "${branch//\//-}" && $auto == 0 ]]; then
+                wid=$id
+                break
+            fi
+        done < <(tmux list-windows -t "=$session" \
+            -F "#{window_id}"$'\t'"#{window_name}"$'\t'"#{automatic-rename}" 2>/dev/null)
+        [[ -n $wid ]] && tmux set-option -w -t "$wid" @ai_wt "$path" 2>/dev/null
+    fi
+    [[ -n $wid ]] || return 1
+    tmux set-option -wu -t "$wid" automatic-rename 2>/dev/null || true
+    tmux set-option -wu -t "$wid" allow-rename 2>/dev/null || true
+    printf '%s\n' "$wid"
 }
 
 goto_window() {
-    local session=$1 name=$2 wid=""
-    wid=$(window_id "$session" "$name") || wid=""
+    local session=$1 wid=${2-}
     if [[ -n ${TMUX:-} ]]; then
         tmux switch-client -t "=$session" 2>/dev/null || true
         [[ -n $wid ]] && tmux select-window -t "$wid" 2>/dev/null
@@ -1197,7 +1439,7 @@ target_geometry() {
     else
         # Not tput: inside $() with stderr redirected it cannot see the
         # terminal and prints terminfo's 80x24.
-        read -r y x < <(stty size </dev/tty 2>/dev/null) || true
+        read -r y x < <(stty size 2>/dev/null </dev/tty) || true
         lines=1
     fi
     [[ $x =~ ^[0-9]+$ ]] || x=220
@@ -1248,8 +1490,11 @@ respawn_agent() {
     case $bin in
         claude | grok | opencode)
             wt_root=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) || wt_root=$dir
+            # The window keeps the tag too, so it is found after the agent pane
+            # is closed.
             tmux set-option -p -t "$pane" @ai_tool "$bin" \; \
                 set-option -p -t "$pane" @ai_wt "$wt_root" \; \
+                set-option -w -t "$pane" @ai_wt "$wt_root" \; \
                 set-option -p -t "$pane" @ai_state starting \; \
                 set-option -p -t "$pane" @ai_state_at "$(date +%s)" \; \
                 set-option -p -u -t "$pane" @ai_session 2>/dev/null || true
@@ -1305,44 +1550,48 @@ layout() {
     respawn_agent "$pane" "$dir" "$launch" "$pf"
 }
 
-# [{branch, path, main}] for the worktrees that have a branch.
-wt_items() {
-    wt_list | jq -c '[.items[] | select((.branch // "") != "")
-        | {branch, path: .worktree.path, main: (.worktree.main == true)}]'
-}
-
-# Create one worktree's window and start its layout, as a fork of Claude
-# session $5 when given. Prints what it did. The prompt file is consumed either
-# way.
+# Create one worktree's window and start its layout, unless it has one. Prints
+# what it did and leaves the window id in WTO_WINDOW. The prompt file is
+# consumed either way.
 ensure_window() {
-    local branch=$1 wt_path=$2 pf=$3 fresh=$4 fork=${5-} session window tool x y pane
+    local wt_path=$1 pf=$2 branch label session tool x y pane wid
+    branch=$(git -C "$wt_path" symbolic-ref -q --short HEAD 2>/dev/null) || branch=""
+    label=${branch:-${wt_path##*/}}
     session=$(session_for "$wt_path")
-    window=${branch//\//-}
-    if [[ -n $fork ]]; then
-        tool=$(auto_tool "$AI_TOOL --resume $fork --fork-session")
-    else
-        tool=$(window_tool "$wt_path" "$fresh")
+    if wid=$(window_for "$wt_path" "$branch" "$session"); then
+        [[ -n $pf ]] && rm -f -- "$pf"
+        WTO_WINDOW=$wid
+        printf '  skip    %s:%s (already has a window)\n' "$session" "$label"
+        return 0
     fi
+    tool=$(window_tool "$wt_path")
     read -r x y < <(target_geometry)
     if ! tmux has-session -t "=$session" 2>/dev/null; then
-        pane=$(tmux new-session -d -s "$session" -n "$window" -c "$wt_path" -x "$x" -y "$y" \
+        pane=$(tmux new-session -d -s "$session" -c "$wt_path" -x "$x" -y "$y" \
             -P -F '#{pane_id}' "$PLACEHOLDER")
-    elif ! window_id "$session" "$window" >/dev/null; then
+    else
         # The trailing colon makes this a session target even when a window
         # shares the session's name. -d keeps the client where it is.
-        pane=$(tmux new-window -d -t "=$session:" -n "$window" -c "$wt_path" -P -F '#{pane_id}' "$PLACEHOLDER")
+        pane=$(tmux new-window -d -t "=$session:" -c "$wt_path" -P -F '#{pane_id}' "$PLACEHOLDER")
         # Size it for its client before the splits; resize-window sets the
         # window's own window-size to manual, which would pin it at this size.
         tmux resize-window -t "$pane" -x "$x" -y "$y" 2>/dev/null || true
         tmux set-option -w -u -t "$pane" window-size 2>/dev/null || true
-    else
-        [[ -n $pf ]] && rm -f -- "$pf"
-        printf '  skip    %s:%s (already exists)\n' "$session" "$window"
-        return 0
     fi
-    tmux set-window-option -t "$pane" allow-rename off 2>/dev/null || true
+    tmux set-option -w -t "$pane" @ai_wt "$wt_path"
+    WTO_WINDOW=$(tmux display-message -p -t "$pane" '#{window_id}')
     layout "$pane" "$wt_path" "$tool" "$pf" ""
-    printf '  create  %s:%s  (%s)\n' "$session" "$window" "$tool"
+    printf '  create  %s:%s  (%s)\n' "$session" "$label" "$tool"
+}
+
+goto_or_report() {
+    local wt_path=$1 switch=$2 session
+    session=$(session_for "$wt_path")
+    if ((switch)); then
+        goto_window "$session" "${WTO_WINDOW-}"
+    else
+        printf '  ready   %s:%s  (staying put)\n' "$session" "$(label_for "$wt_path")"
+    fi
 }
 
 optval() {
@@ -1361,78 +1610,84 @@ prompt_arg() {
     return 0
 }
 
-fork_check() {
-    local id=$1
-    local -a found
-    [[ $id =~ ^[0-9a-fA-F-]{36}$ ]] || die "new: --fork takes a Claude session id, such as \$CLAUDE_CODE_SESSION_ID"
-    case ${AI_TOOL%% *} in
-        cl | cca | claude) ;;
-        *) die "new: --fork continues a Claude Code conversation; AI_TOOL is '$AI_TOOL'" ;;
-    esac
-    found=("${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/projects/*/"$id".jsonl)
-    ((${#found[@]} > 0)) || die "new: no Claude session $id"
+readonly CODENAME_ADJ='amber bold brisk calm clever crisp dapper eager fancy gentle glad golden hardy
+humble jolly keen kind lively lucky mellow merry misty nimble noble plucky polite proud quick quiet
+rapid rosy rustic sandy shiny silent sleek snappy sober solid spry steady sunny swift tidy vivid warm
+witty zesty'
+readonly CODENAME_NOUN='acorn anchor badger basil beacon bison canyon cedar cobalt comet coral crane
+delta dune ember falcon fern finch fjord garnet gecko glacier harbor hazel heron island jasper kestrel
+lagoon lantern maple meadow mesa orchid otter pebble pine quartz raven reef river sparrow summit tundra
+walnut willow yarrow zephyr'
+
+# A name no folder, branch or saved conversation uses: a recycled name would
+# resume an unrelated conversation in the new folder.
+codename_free() {
+    local root=$1 name=$2 path key
+    path=$root/$name
+    [[ ! -e $path ]] || return 1
+    ! git show-ref --verify --quiet "refs/heads/$name" || return 1
+    [[ ! -e ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/${path//[^a-zA-Z0-9]/-} ]] || return 1
+    key=$(jq -nr --arg p "$path" '$p|@uri') || return 1
+    [[ ! -e ${GROK_HOME:-$HOME/.grok}/sessions/$key ]]
 }
 
-# Move the calling worktree's uncommitted changes, untracked files included,
-# into dir. Only onto the same commit in a clean tree, where applying the stash
-# cannot conflict. Prints moved or kept, or nothing when there was nothing.
-carry_changes() {
-    local dir=$1 here
-    here=$(self_wt)
-    [[ -n $(git -C "$here" status --porcelain) ]] || return 0
-    if [[ $(git -C "$here" rev-parse HEAD) != "$(git -C "$dir" rev-parse HEAD)" \
-        || -n $(git -C "$dir" status --porcelain) ]]; then
-        printf 'wto: %s has uncommitted changes; they stay there (%s is on another commit or not clean)\n' \
-            "$here" "$dir" >&2
-        printf 'kept\n'
-        return 0
+# Create a free codename folder under root and print its path. The mkdir is
+# the reservation, so runs in parallel never take the same name.
+reserve_folder() {
+    local root=$1 try name
+    local -a adj noun
+    read -r -d '' -a adj <<<"${WTO_CODENAME_ADJ:-$CODENAME_ADJ}" || true
+    read -r -d '' -a noun <<<"${WTO_CODENAME_NOUN:-$CODENAME_NOUN}" || true
+    ((${#adj[@]} && ${#noun[@]})) || return 1
+    for ((try = 0; try < 60; try++)); do
+        name=${adj[RANDOM % ${#adj[@]}]}-${noun[RANDOM % ${#noun[@]}]}
+        ((try < 50)) || name+=-$(printf '%04x' "$RANDOM")
+        if codename_free "$root" "$name" && mkdir -- "$root/$name" 2>/dev/null; then
+            printf '%s\n' "$root/$name"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# The worktree that has branch $1 checked out, if any.
+checked_out_in() {
+    local path branch
+    while IFS=$'\037' read -r path _ branch _; do
+        if [[ $branch == "$1" ]]; then
+            realpath -e -- "$path" 2>/dev/null || printf '%s\n' "$path"
+            return 0
+        fi
+    done < <(worktree_rows)
+    return 1
+}
+
+add_worktree() {
+    local dir=$1 branch=$2 base=$3 start=$4 l o
+    if [[ -z $branch ]]; then
+        git worktree add --quiet --detach "$dir" "$start"
+        return
     fi
-    git -C "$here" stash push --include-untracked --quiet -m "wto: moving to $dir" \
-        || die "new: could not stash the changes in $here"
-    git -C "$dir" stash pop --quiet \
-        || die "new: the changes from $here are stashed but did not apply in $dir; see git stash list"
-    printf 'moved\n'
-}
-
-# The first prompt of a forked session. It ends on the `wto new --fork` call
-# that is still running, which it would otherwise take as unfinished.
-fork_notice() {
-    local branch=$1 dir=$2 carried=$3 extra=$4 here path profile="" issues
-    here=$(self_wt)
-    if path=$(profile_path); then
-        profile=$(<"$path")
+    if git show-ref --verify --quiet "refs/heads/$branch"; then
+        [[ -n $base ]] && warn "$branch already exists; ignoring base $base"
+        l=$(git rev-parse "refs/heads/$branch")
+        if o=$(git rev-parse -q --verify "refs/remotes/origin/$branch^{commit}" 2>/dev/null) \
+            && [[ $l != "$o" ]] && git merge-base --is-ancestor "$l" "$o"; then
+            git fetch --quiet . "refs/remotes/origin/$branch:refs/heads/$branch" \
+                || warn "could not fast-forward $branch to origin/$branch"
+        fi
+        git worktree add --quiet "$dir" "$branch"
+    elif git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+        [[ -n $base ]] && warn "origin/$branch exists; ignoring base $base"
+        git worktree add --quiet --track -b "$branch" "$dir" "origin/$branch"
     else
-        profile=$(legacy_profile) || profile=""
-    fi
-    # The Issues item often wraps onto indented lines, and /onboard's template
-    # leaves its wording free.
-    issues=$(awk 'tolower($0) ~ /^[-*][[:space:]]*issues:/ { on = 1; print; next }
-        on && /^[[:space:]]+[^[:space:]]/ { print; next }
-        { on = 0 }' <<<"$profile")
-    caller_header 0
-    cat <<EOF
-This window continues the conversation above on branch $branch, in $dir.
-- The \`wto new --fork\` call the conversation ends on succeeded: it opened this window. Do not run it again.
-- Work only in $dir. Paths under $here in the conversation above belong to that worktree; do not edit there.
-EOF
-    case $carried in
-        moved) printf -- '- The uncommitted changes from %s were moved here.\n' "$here" ;;
-        kept) printf -- '- %s has uncommitted changes that stayed there. Ask the owner before bringing any over.\n' "$here" ;;
-    esac
-    printf -- '- The session there has stopped and will not work on this.\n'
-    if [[ ${issues,,} == *'own work:'* ]]; then
-        printf -- '- This is the owner'\''s own work. Check that the branch is pushed and that an open issue names it. Offer once to file the missing issue (through the `issue` skill, assigned as the project profile says) and to push the branch.\n'
-    fi
-    printf -- '- Run `wto here`. If it succeeds, an orchestrator runs in the main worktree: load the `orchestrated-session` skill first and follow it.\n'
-    printf 'Then carry on where the conversation left off.\n'
-    if [[ -n $extra ]]; then
-        printf '\nFrom the session that moved you: %s\n' "$extra"
+        git worktree add --quiet --no-track -b "$branch" "$dir" "${base:-$start}"
     fi
 }
 
 cmd_new() {
-    local branch="" base="" text="" file="" model="" effort="" job="" fork="" switch=0 pf wt_path
-    local job_model job_effort settings carried
+    local branch="" base="" text="" file="" model="" effort="" job="" switch=0 pf wt_path
+    local job_model job_effort settings root default start other
     local name_re='^[A-Za-z0-9._:@/-]+(\[[A-Za-z0-9]+\])?$'
     while (($#)); do
         case $1 in
@@ -1441,7 +1696,6 @@ cmd_new() {
             -m | --model) optval $# "$1"; model=${2-}; shift ;;
             -e | --effort) optval $# "$1"; effort=${2-}; shift ;;
             -j | --job) optval $# "$1"; job=${2-}; shift ;;
-            --fork) optval $# "$1"; fork=${2-}; shift ;;
             -n | --no-switch) switch=0 ;;
             --switch) switch=1 ;;
             -h | --help) usage; return ;;
@@ -1455,16 +1709,7 @@ cmd_new() {
         esac
         shift
     done
-    [[ -n $branch ]] || die "new: name the branch (wto new [-j job] [-m model] [-e effort] [-p text] <branch> [base])"
     load_ai_tool
-    if [[ -n $fork ]]; then
-        fork_check "$fork"
-        if [[ -n $file ]]; then
-            [[ -f $file ]] || die "prompt file not found: $file"
-            text=$(<"$file")
-            file=""
-        fi
-    fi
     if [[ -n $job ]]; then
         settings=$(job_settings "$job") || exit 1
         IFS='|' read -r job_model job_effort <<<"$settings"
@@ -1474,54 +1719,53 @@ cmd_new() {
     if [[ -n $model && ! $model =~ $name_re ]] || [[ -n $effort && ! $effort =~ ^[a-z]+$ ]]; then
         die "new: bad --model or --effort value"
     fi
-
-    # A branch that exists locally or on origin is switched to (wt then makes
-    # a local tracking branch); only a new one takes a base.
-    local -a create=(switch "$branch" --no-cd)
-    if ! git show-ref --verify --quiet "refs/heads/$branch" \
-        && ! git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
-        create=(switch --create "$branch" --no-cd)
-        [[ -n $base ]] && create+=(--base "$base")
-    elif [[ -n $base ]]; then
-        printf 'wto: %s already exists; ignoring base %s\n' "$branch" "$base" >&2
+    if [[ -n $branch ]]; then
+        git check-ref-format --branch "$branch" >/dev/null 2>&1 || die "new: '$branch' is not a valid branch name"
     fi
-    wt "${create[@]}" || die "new: could not create the worktree for '$branch'"
-    wt_path=$(wt_items | jq -r --arg b "$branch" '.[] | select(.branch == $b) | .path')
-    [[ -n $wt_path ]] || die "new: worktree for '$branch' not found after create"
+    is_bare_project || die "new: needs a bare project (<project>/.git, worktrees beside it); this repository has its own checkout"
+    root=$(project_root)
+
+    fetch_origin
+    default=$(default_branch) || die "new: cannot tell the default branch (git remote set-head origin --auto)"
+    start=$(sync_default "$default")
+    if [[ -n $job && $branch == "$default" ]]; then
+        die "new: an agent spawn works on its own branch, not $default"
+    fi
+
+    if [[ -n $branch ]] && other=$(checked_out_in "$branch"); then
+        [[ -n $base ]] && warn "$branch already exists; ignoring base $base"
+        printf 'wto: %s is checked out in %s; opening that\n' "$branch" "$other" >&2
+        pf=$(prompt_arg "$text" "$file")
+        ensure_window "$other" "$pf"
+        goto_or_report "$other" "$switch"
+        return
+    fi
+
+    wt_path=$(reserve_folder "$root") || die "new: no free folder name under $root"
+    if ! add_worktree "$wt_path" "$branch" "$base" "$start"; then
+        rmdir -- "$wt_path" 2>/dev/null || true
+        die "new: could not create the worktree"
+    fi
 
     if [[ -n $model || -n $effort ]]; then
         case ${AI_TOOL%% *} in
             oc | oca | opencode)
-                printf 'wto: OpenCode takes no per-session model or effort; it starts on its configured default\n' >&2
+                warn "OpenCode takes no per-session model or effort; it starts on its configured default"
                 ;;
-            *) launch_save "$wt_path" "$model" "$effort" || die "new: could not save model/effort for '$branch'" ;;
+            *) launch_save "$wt_path" "$model" "$effort" || die "new: could not save model/effort in $wt_path" ;;
         esac
     fi
-    if [[ -n $fork ]]; then
-        [[ $wt_path != "$(self_wt)" ]] || die "new: --fork needs a branch other than this worktree's"
-        if window_id "$(session_for "$wt_path")" "${branch//\//-}" >/dev/null; then
-            die "new: $branch already has a window; nothing was moved"
-        fi
-        carried=$(carry_changes "$wt_path")
-        text=$(fork_notice "$branch" "$wt_path" "$carried" "$text")
+    if command -v dot >/dev/null 2>&1; then
+        (cd -- "$wt_path" && dot agent link >/dev/null) \
+            || warn "dot agent link failed in $wt_path; the session starts without the project's agent files"
     fi
     pf=$(prompt_arg "$text" "$file")
-    ensure_window "$branch" "$wt_path" "$pf" "" "$fork"
-    open_finish "$wt_path" "$branch" "$switch"
-}
-
-open_finish() {
-    local wt_path=$1 branch=$2 switch=$3 session
-    session=$(session_for "$wt_path")
-    if ((switch)); then
-        goto_window "$session" "${branch//\//-}"
-    else
-        printf '  ready   %s:%s  (staying put)\n' "$session" "${branch//\//-}"
-    fi
+    ensure_window "$wt_path" "$pf"
+    goto_or_report "$wt_path" "$switch"
 }
 
 cmd_open() {
-    local branch="" text="" file="" switch=0 all=0 items count pf wt_path main
+    local name="" text="" file="" switch=0 all=0 roster count pf wt_path
     while (($#)); do
         case $1 in
             -p | --prompt) optval $# "$1"; text=${2-}; shift ;;
@@ -1530,76 +1774,49 @@ cmd_open() {
             -n | --no-switch) switch=0 ;;
             --all) all=1 ;;
             -h | --help) usage; return ;;
-            --) shift; [[ -z $branch && $# -gt 0 ]] && branch=$1 ;;
+            --) shift; [[ -z $name && $# -gt 0 ]] && name=$1 ;;
             -*) die "open: unknown option '$1'" ;;
-            *) [[ -z $branch ]] && branch=$1 ;;
+            *) [[ -z $name ]] && name=$1 ;;
         esac
         (($#)) && shift
     done
     load_ai_tool
-    items=$(wt_items)
-    count=$(jq length <<<"$items")
-    ((count > 0)) || die "open: no worktrees found (run inside a worktrunk project)"
+    roster=$(roster_json fast)
+    count=$(jq length <<<"$roster")
+    ((count > 0)) || die "open: this project has no worktrees (wtc starts one)"
     if ((all)); then
-        open_all "$items" "$switch"
+        open_all "$roster" "$switch"
         return
     fi
-    if [[ -z $branch ]]; then
-        if ((count == 1)); then
-            branch=$(jq -r '.[0].branch' <<<"$items")
-        elif [[ -t 0 && -t 1 ]] && command -v fzf >/dev/null 2>&1; then
-            branch=$(jq -r 'sort_by([(.main | not), .branch]) | .[].branch' <<<"$items" \
-                | fzf --prompt="Worktree: " --height=40% --reverse) || return 0
-            [[ -n $branch ]] || return 0
-        else
-            die "open: name the branch (or install fzf for a picker)"
-        fi
+    if [[ -n $name ]]; then
+        wt_path=$(resolve_entry "$roster" "$name" open | jq -r .path)
+    elif ((count == 1)); then
+        wt_path=$(jq -r '.[0].path' <<<"$roster")
+    elif [[ -t 0 && -t 1 ]] && command -v fzf >/dev/null 2>&1; then
+        wt_path=$(jq -r 'sort_by([(.branch // "~"), .name]) | .[]
+                | [(.branch // "(no branch)"), .name, .path] | @tsv' <<<"$roster" \
+            | fzf --prompt="Worktree: " --height=40% --reverse --delimiter=$'\t' --with-nth=1,2 \
+            | cut -f3) || return 0
+        [[ -n $wt_path ]] || return 0
+    else
+        die "open: name the branch or folder (or install fzf for a picker)"
     fi
-    wt_path=$(jq -r --arg b "$branch" '.[] | select(.branch == $b) | .path' <<<"$items")
-    [[ -n $wt_path ]] || die "open: no worktree for '$branch'"
-    main=$(jq -r --arg b "$branch" '.[] | select(.branch == $b) | .main' <<<"$items")
     pf=$(prompt_arg "$text" "$file")
-    ensure_window "$branch" "$wt_path" "$pf" "$([[ $main == true ]] && echo 1)"
-    open_finish "$wt_path" "$branch" "$switch"
+    ensure_window "$wt_path" "$pf"
+    goto_or_report "$wt_path" "$switch"
 }
 
-# Every worktree, main first. Inside tmux, a launcher that is a single bare
-# pane in this project (outside any feature worktree) becomes main's window,
-# when it is main's window already or main has none; it is laid out last,
-# since respawning it ends this process.
 open_all() {
-    local items=$1 switch=$2 session first_window main_path adopt="" branch path main
-    local cur_session cur_path cur_window cur_panes inside
-    session=$(session_for "$(jq -r '.[0].path' <<<"$items")")
-    items=$(jq -c 'sort_by([(.main | not), .branch])' <<<"$items")
-    first_window=$(jq -r '.[0].branch | gsub("/"; "-")' <<<"$items")
-    main_path=$(jq -r '[.[] | select(.main)][0].path // empty' <<<"$items")
-    if [[ -n ${TMUX:-} && -n ${TMUX_PANE:-} && -n $main_path ]]; then
-        cur_session=$(tmux display-message -t "$TMUX_PANE" -p '#{session_name}' 2>/dev/null) || cur_session=""
-        cur_path=$(tmux display-message -t "$TMUX_PANE" -p '#{pane_current_path}' 2>/dev/null) || cur_path=""
-        cur_window=$(tmux display-message -t "$TMUX_PANE" -p '#{window_name}' 2>/dev/null) || cur_window=""
-        cur_panes=$(tmux display-message -t "$TMUX_PANE" -p '#{window_panes}' 2>/dev/null) || cur_panes=""
-        inside=$(jq -r --arg c "$cur_path" \
-            'any(.[]; .path as $p | (.main | not) and ($c == $p or ($c | startswith($p + "/"))))' <<<"$items")
-        if [[ $cur_session == "$session" && $inside == false && ${cur_panes:-1} == 1 ]] \
-            && ! pane_runs_agent "$TMUX_PANE" \
-            && { [[ $cur_window == "$first_window" ]] || ! window_id "$session" "$first_window" >/dev/null; }; then
-            adopt=$TMUX_PANE
+    local roster=$1 switch=$2 path first="" first_path=""
+    while IFS= read -r path; do
+        ensure_window "$path" ""
+        if [[ -z $first ]]; then
+            first=$WTO_WINDOW
+            first_path=$path
         fi
-    fi
-    while IFS=$'\t' read -r branch path main; do
-        if [[ $main == true && -n $adopt ]]; then
-            tmux rename-window -t "$adopt" "${branch//\//-}"
-            tmux set-window-option -t "$adopt" allow-rename off 2>/dev/null || true
-            printf '  adopt   %s:%s  (%s)\n' "$session" "${branch//\//-}" "$(window_tool "$path" 1)"
-            continue
-        fi
-        ensure_window "$branch" "$path" "" "$([[ $main == true ]] && echo 1)"
-    done < <(jq -r '.[] | "\(.branch)\t\(.path)\t\(.main)"' <<<"$items")
-    if [[ -n $adopt ]]; then
-        layout "$adopt" "$main_path" "$(window_tool "$main_path" 1)" "" ""
-    elif ((switch)); then
-        goto_window "$session" "$first_window"
+    done < <(jq -r 'sort_by([(.branch // "~"), .name]) | .[].path' <<<"$roster")
+    if ((switch)) && [[ -n $first_path ]]; then
+        goto_window "$(session_for "$first_path")" "$first"
     fi
 }
 
@@ -1627,69 +1844,100 @@ cmd_layout() {
     fi
     dir=$PWD
     pf=$(prompt_arg "$text" "$file")
-    tmux rename-window -t "$TMUX_PANE" "$(basename "$dir")"
     layout "$TMUX_PANE" "$dir" "$tool" "$pf" "$k9s"
 }
 
 # ── close ─────────────────────────────────────────────────────────────────────
 
 cmd_close() {
-    local branch=${1:-} entry path main_path state dirty status pane window since live
-    [[ -n $branch && $branch != -* ]] || die "close: name the branch to close"
-    entry=$(roster_json | jq -c --arg b "$branch" '.[] | select(.branch == $b)')
-    [[ -n $entry ]] || die "close: no worktree for '$branch'"
+    local name=${1:-} roster entry path branch label head default reason="" target marker
+    local status locked=0 since live common tag wid own_window="" deleted=""
+    local -a windows=()
+    [[ -n $name && $name != -* ]] || die "close: name the branch or folder to close"
+    roster=$(roster_json)
+    entry=$(resolve_entry "$roster" "$name" close)
     path=$(jq -r .path <<<"$entry")
-    main_path=$(roster_json | jq -r '[.[] | select(.main)][0].path')
-    [[ $(jq -r .main <<<"$entry") != true ]] || die "close: refusing to close the main worktree"
-    [[ $(self_wt) != "$path" ]] || die "close: run it from another worktree, not the one being closed"
-    dirty=$(jq -r .dirty <<<"$entry")
-    state=$(jq -r '.state // ""' <<<"$entry")
-    [[ $dirty == false ]] || die "close: $branch has uncommitted changes, or wt could not read its status (a worktree whose directory is gone needs git worktree prune)"
-    [[ $state == integrated || $state == empty ]] \
-        || die "close: $branch is not merged into $(jq -r .default_branch <<<"$entry") (state: ${state:-unknown})"
-    # Everything wt remove could still refuse is checked before the window goes.
-    if git worktree list --porcelain | awk -v p="$path" '
-        $1 == "worktree" { cur = substr($0, 10) } $1 == "locked" && cur == p { found = 1 } END { exit !found }'; then
-        die "close: $branch's worktree is locked (git worktree unlock)"
+    branch=$(jq -r '.branch // ""' <<<"$entry")
+    label=${branch:-${path##*/}}
+    [[ -d $path ]] || die "close: $path is gone; git worktree prune clears its entry"
+    [[ $(self_top) != "$path" ]] || die "close: run it from another worktree, not the one being closed"
+    marker=$(state_dir)/orchestrator.json
+    if marker_valid "$marker" && [[ $(jq -r '.path // ""' "$marker") == "$path" ]]; then
+        die "close: $label is the orchestrator's worktree"
     fi
+    while IFS=$'\037' read -r tag _ _ wid _; do
+        [[ $(realpath -e -- "$tag" 2>/dev/null || printf '%s' "$tag") == "$path" && $wid == 1 ]] && locked=1
+    done < <(worktree_rows)
+    ((!locked)) || die "close: $label's worktree is locked (git worktree unlock)"
     status=$(git -C "$path" status --porcelain) || die "close: cannot read the status of $path"
-    [[ -z $status ]] || die "close: $branch has uncommitted changes"
+    [[ -z $status ]] || die "close: $label has uncommitted changes"
+    [[ $(jq -r '.operation // ""' <<<"$entry") == "" ]] \
+        || die "close: $label is in the middle of a $(jq -r .operation <<<"$entry")"
 
-    pane=$(jq -r '.session.pane // empty' <<<"$entry")
-    if [[ -n $pane ]]; then
-        window=$(tmux display-message -p -t "$pane" '#{window_id}' 2>/dev/null) || window=""
-        [[ -n $window ]] && tmux kill-window -t "$window"
+    default=$(default_branch) || die "close: cannot tell the default branch"
+    head=$(git -C "$path" rev-parse HEAD)
+    for target in "refs/heads/$default" "refs/remotes/origin/$default"; do
+        if reason=$(integrated_reason "$head" "$target"); then
+            break
+        fi
+        reason=""
+    done
+    [[ -n $reason ]] || die "close: $label is not merged into $default or origin/$default"
+    if [[ -z $branch && -n $(git rev-list -n 1 "$head" --not --branches --remotes) ]]; then
+        die "close: $label has commits on no branch; name one there (git switch -c <branch>) first"
     fi
+
+    if [[ -n ${TMUX_PANE-} ]]; then
+        own_window=$(tmux display-message -p -t "$TMUX_PANE" '#{window_id}' 2>/dev/null) || own_window=""
+    fi
+    if tmux info >/dev/null 2>&1; then
+        while IFS=$'\t' read -r tag wid; do
+            [[ $tag == "$path" ]] && windows+=("$wid")
+        done < <(tmux list-panes -a -F '#{@ai_wt}'$'\t''#{window_id}')
+        wid=$(jq -r '.session.pane // empty' <<<"$entry")
+        [[ -n $wid ]] && windows+=("$(tmux display-message -p -t "$wid" '#{window_id}' 2>/dev/null || true)")
+    fi
+    for wid in "${windows[@]}"; do
+        [[ -n $wid && $wid == "$own_window" ]] && die "close: this window belongs to $label; run it from another window"
+    done
+    for wid in $(printf '%s\n' "${windows[@]}" | sort -u); do
+        [[ -n $wid ]] && tmux kill-window -t "$wid" 2>/dev/null
+    done
+
     since=$(date +%s)
-    wt -C "$main_path" remove "$branch" --foreground --yes \
-        || die "close: wt remove failed; the window is closed but the worktree and its claims remain (reopen with wto open $branch)"
-    # The worktree is gone, so the grant pass drops its claims and hands them
-    # on. worktrunk's post-remove hook may have run it already, out of sight,
-    # so report every grant made since the removal started.
-    if ! live=$(live_wts) || ! with_lock claim_gc_locked "$live" >/dev/null; then
-        printf 'wto: claims of %s not handed over yet; run wto claim gc\n' "$branch" >&2
+    common=$(common_dir)
+    git --git-dir="$common" worktree remove "$path" \
+        || die "close: git worktree remove failed; the window is closed but the worktree and its claims remain (wto open $label)"
+    if [[ -n $branch && $branch != "$default" ]]; then
+        tag=$(git rev-parse --short "refs/heads/$branch")
+        git branch -D --quiet "$branch" && deleted=" (deleted branch $branch, was $tag)"
     fi
-    claims_read | jq -r --argjson since "$since" '
+    if ! live=$(live_wts) || ! with_lock claim_gc_locked "$live" >/dev/null; then
+        warn "claims of $label not handed over yet; run wto claim gc"
+    fi
+    WTO_LABELS=$(labels_json) || WTO_LABELS='{}'
+    claims_read | jq -r --argjson since "$since" --argjson L "$WTO_LABELS" '
         [.holders | to_entries[] | select((.value.granted_at // 0) >= $since and .value.acked_at == null)]
         | group_by(.value.wt)[]
-        | "granted \(map(.key) | join(",")) to \(.[0].value.branch) — tell that session it is its turn"'
-    printf 'closed %s\n' "$branch"
+        | "granted \(map(.key) | join(",")) to \($L[.[0].value.wt] // .[0].value.branch) — tell that session it is its turn"'
+    printf 'closed %s%s\n' "$label" "$deleted"
 }
 
 main() {
     local cmd=${1:-}
     (($#)) && shift
     case $cmd in
-        ls) require wt jq git; cmd_ls "$@" ;;
-        here) require wt jq git tmux; cmd_here "$@" ;;
+        ls) require jq git; require_git; cmd_ls "$@" ;;
+        default) require git; cmd_default "$@" ;;
+        here) require jq git tmux; cmd_here "$@" ;;
         dir) require git; state_dir ;;
         profile) require git; cmd_profile "$@" ;;
-        send) require wt jq git tmux; cmd_send "$@" ;;
+        send) require jq git tmux; cmd_send "$@" ;;
         header) require jq git; cmd_header "$@" ;;
-        claim) require wt jq git; cmd_claim "$@" ;;
-        close) require wt jq git tmux; cmd_close "$@" ;;
-        new) require wt jq git tmux; cmd_new "$@" ;;
-        open) require wt jq git tmux; cmd_open "$@" ;;
+        claim) require jq git; cmd_claim "$@" ;;
+        close) require jq git tmux; require_git; cmd_close "$@" ;;
+        new) require jq git tmux; cmd_new "$@" ;;
+        open) require jq git tmux; cmd_open "$@" ;;
         layout) require jq git tmux; cmd_layout "$@" ;;
         '' | -h | --help | help) usage ;;
         *) die "unknown command '$cmd' (see wto --help)" ;;
