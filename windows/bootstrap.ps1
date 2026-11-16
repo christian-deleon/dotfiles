@@ -70,6 +70,10 @@ function Test-WslReady {
     # both indicate VMP isn't active). WSL1-only warnings about the "Windows
     # Subsystem for Linux" component are ignored, since this script never uses
     # WSL1. WSL_UTF8 makes wsl.exe emit UTF-8 so the regex doesn't fight UTF-16.
+    # Under Windows PowerShell 5.1, 'Stop' turns any redirected stderr line
+    # from a native command into a terminating error, which would read as
+    # "not ready".
+    $ErrorActionPreference = 'Continue'
     try {
         $env:WSL_UTF8 = '1'
         $output = & wsl.exe --status 2>&1 | Out-String
@@ -91,6 +95,7 @@ function Test-WslDistroInstalled {
     # WSL_UTF8=1 makes wsl.exe output UTF-8 instead of its default UTF-16, which
     # PowerShell otherwise renders with embedded null bytes.
     param([string]$Name)
+    $ErrorActionPreference = 'Continue'
     try {
         $env:WSL_UTF8 = '1'
         $output = & wsl.exe --list --quiet 2>$null
@@ -119,7 +124,15 @@ $alacrittyUrl = 'https://raw.githubusercontent.com/christian-deleon/dotfiles/ref
 if (-not (Test-Path $alacrittyDir)) {
     New-Item -ItemType Directory -Path $alacrittyDir | Out-Null
 }
-Invoke-WebRequest -Uri $alacrittyUrl -OutFile $alacrittyDst -UseBasicParsing
+$alacrittyNew = "$alacrittyDst.download"
+Invoke-WebRequest -Uri $alacrittyUrl -OutFile $alacrittyNew -UseBasicParsing
+if ((Test-Path $alacrittyDst) -and
+    (Get-FileHash $alacrittyDst).Hash -ne (Get-FileHash $alacrittyNew).Hash) {
+    $alacrittyBak = "$alacrittyDst.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+    Copy-Item -Path $alacrittyDst -Destination $alacrittyBak
+    Write-Host "  Backed up existing config to $alacrittyBak"
+}
+Move-Item -Path $alacrittyNew -Destination $alacrittyDst -Force
 Write-Host "  Wrote $alacrittyDst"
 
 $rebootRequired = $false
@@ -143,9 +156,11 @@ if (-not $rebootRequired) {
         $distroInstalled = $true
     } else {
         & wsl --install --distribution Ubuntu-26.04 --no-launch
-        if ($LASTEXITCODE -eq 0 -and (Test-WslDistroInstalled -Name 'Ubuntu-26.04')) {
+        # Test-WslDistroInstalled runs wsl.exe too and overwrites $LASTEXITCODE.
+        $installCode = $LASTEXITCODE
+        if ($installCode -eq 0 -and (Test-WslDistroInstalled -Name 'Ubuntu-26.04')) {
             $distroInstalled = $true
-        } elseif ($LASTEXITCODE -eq 0) {
+        } elseif ($installCode -eq 0) {
             # `wsl --install --distribution` can return exit 0 while only
             # enabling features (printing "Changes will not be effective until
             # the system is rebooted") — same false-success class as the
