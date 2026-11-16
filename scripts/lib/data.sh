@@ -86,7 +86,7 @@ data_load() {
 # names into rows the engine reads with IFS=$'\x1f'. Fields are joined by
 # 0x1F and end with a "$" sentinel, so empty fields survive `read` on bash
 # 3.2 (tabs are IFS whitespace and would collapse). Rows, in input order:
-#   item    input name canonical requires has_install command pkg script check cfg_type cfg_package handler
+#   item    input name canonical requires has_install command pkg script has_release check cfg_type cfg_package handler
 #   unknown input
 #   post    hook item          (each item's post_install, first-seen order)
 #   tomb    id requires description kind path-name
@@ -109,7 +109,7 @@ def csv: (. // []) | map(tostring) | join(",");
         | ["item", $in, $n, ($v.requires | csv),
            (if $v.install != null then 1 else 0 end),
            ($v.install.command // $n), ($v.install[$pm] // ""), ($v.install.script // ""),
-           ($v.install.check // ""), ($v.config.type // ""),
+           (if $v.install.release != null then 1 else 0 end), ($v.install.check // ""), ($v.config.type // ""),
            ($v.config.package // $n), ($v.config.handler // "")] | row
       end),
   ([$plan[] | select(.name != null) | .name as $n | ($m[$n].post_install // [])[] | [., $n]]

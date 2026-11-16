@@ -19,7 +19,7 @@ MANIFEST_FILE="$DOTFILES_DIR/manifest.yaml"
 TOMBSTONES_FILE="$DOTFILES_DIR/tombstones.yaml"
 BACKUP_DIR="${BACKUP_DIR:-$HOME/dotfiles_backup}"
 
-for _dot_lib in log fs pkg data engine git core; do
+for _dot_lib in log fs pkg release data engine git core; do
     # shellcheck disable=SC1090
     source "$DOTFILES_DIR/scripts/lib/$_dot_lib.sh" || return 1
 done

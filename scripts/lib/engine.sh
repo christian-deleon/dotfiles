@@ -4,7 +4,8 @@
 # install_items acts only on differences, in passes over the plan rows:
 #   1. presence: `command -v <install.command>`, or the install.check path
 #   2. one batched package-manager call for every missing package item
-#      (retried one by one if the batch fails), then install scripts
+#      (retried one by one if the batch fails), then install.release
+#      downloads for items without a package here, then install scripts
 #   3. configs in item order: stow links that are not already right, then
 #      handlers
 #   4. post_install hooks
@@ -55,12 +56,13 @@ install_items() {
     data_load_manifest || return 1
     _profile_json_load
     [[ -n "${_PKG_MANAGER:-}" ]] || _PKG_MANAGER="$(detect_pkg_manager)"
+    release_path_add
 
-    local -a names=() has_inst=() cmds=() pkgs=() scripts=() checks=() ctypes=() cpkgs=() handlers=()
+    local -a names=() has_inst=() cmds=() pkgs=() scripts=() releases=() checks=() ctypes=() cpkgs=() handlers=()
     local -a hooks=() hook_items=() failed=()
-    local kind input name requires has_install cmd pkg script check ctype cpkg handler
+    local kind input name requires has_install cmd pkg script release check ctype cpkg handler
     local skipped="" nl=$'\n' rc=0
-    while IFS=$'\x1f' read -r kind input name requires has_install cmd pkg script check ctype cpkg handler _; do
+    while IFS=$'\x1f' read -r kind input name requires has_install cmd pkg script release check ctype cpkg handler _; do
         case "$kind" in
             unknown)
                 _error "Unknown item: $input"
@@ -79,7 +81,7 @@ install_items() {
                     continue
                 fi
                 names+=("$name") has_inst+=("$has_install") cmds+=("$cmd") pkgs+=("$pkg")
-                scripts+=("$script") checks+=("$check") ctypes+=("$ctype") cpkgs+=("$cpkg")
+                scripts+=("$script") releases+=("$release") checks+=("$check") ctypes+=("$ctype") cpkgs+=("$cpkg")
                 handlers+=("$handler")
                 ;;
             post)
@@ -89,16 +91,24 @@ install_items() {
     done < <(data_plan_rows "$@")
 
     local i n=${#names[@]}
-    local -a batch=() batch_items=() script_items=() script_paths=()
+    local -a batch=() batch_items=() release_items=() release_scripts=() script_items=() script_paths=()
+    local script_path
     for ((i = 0; i < n; i++)); do
         [[ "${has_inst[i]}" == 1 ]] || continue
         _item_present "${cmds[i]}" "${checks[i]}" && continue
+        script_path=""
+        if [[ -n "${scripts[i]}" && -f "$DOTFILES_DIR/scripts/tools/${scripts[i]}" ]]; then
+            script_path="$DOTFILES_DIR/scripts/tools/${scripts[i]}"
+        fi
         if [[ -n "${pkgs[i]}" ]]; then
             batch+=("${pkgs[i]}")
             batch_items+=("${names[i]}")
-        elif [[ -n "${scripts[i]}" && -f "$DOTFILES_DIR/scripts/tools/${scripts[i]}" ]]; then
+        elif [[ "${releases[i]}" == 1 ]]; then
+            release_items+=("${names[i]}")
+            release_scripts+=("$script_path")
+        elif [[ -n "$script_path" ]]; then
             script_items+=("${names[i]}")
-            script_paths+=("$DOTFILES_DIR/scripts/tools/${scripts[i]}")
+            script_paths+=("$script_path")
         else
             _warn "No install method for ${_BOLD}${names[i]}${_RESET} on this system ($_PKG_MANAGER)"
             failed+=("${names[i]}")
@@ -123,6 +133,18 @@ install_items() {
             done
         fi
     fi
+    for ((i = 0; i < ${#release_items[@]}; i++)); do
+        if release_install "${release_items[i]}"; then
+            note_change "installed ${release_items[i]}"
+        elif [[ -n "${release_scripts[i]}" ]]; then
+            _warn "Release install of ${release_items[i]} failed — trying its script"
+            script_items+=("${release_items[i]}")
+            script_paths+=("${release_scripts[i]}")
+        else
+            _error "Failed to install ${release_items[i]}"
+            failed+=("${release_items[i]}")
+        fi
+    done
     for ((i = 0; i < ${#script_items[@]}; i++)); do
         _info "Installing ${_BOLD}${script_items[i]}${_RESET} via script..."
         if bash "${script_paths[i]}"; then
