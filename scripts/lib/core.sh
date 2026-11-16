@@ -292,6 +292,7 @@ write_ai_tool_localrc() {
         echo "export AI_TOOL_RESUME=\"$ai_resume\""
     } >> "$localrc"
 
+    note_change "AI_TOOL=$ai_tool in ~/.localrc"
     _success "Set AI_TOOL=$ai_tool, AI_TOOL_RESUME=\"$ai_resume\" in ${_DIM}~/.localrc${_RESET}"
     _info "Reload current shell: ${_BOLD}source ~/.localrc${_RESET}  (or open a new shell)"
 }
@@ -370,8 +371,9 @@ install_dot_cli() {
     fi
 
     mkdir -p "$HOME/.local/bin"
-    ln -snf "$dot_script" "$HOME/.local/bin/dot"
-    _success "Linked dot CLI to ${_DIM}~/.local/bin/dot${_RESET}"
+    if ensure_link "$dot_script" "$HOME/.local/bin/dot"; then
+        _success "Linked dot CLI to ${_DIM}~/.local/bin/dot${_RESET}"
+    fi
     link_dot_bins
 }
 
@@ -382,7 +384,7 @@ link_dot_bins() {
     mkdir -p "$HOME/.local/bin"
     for name in wto; do
         [[ -x "$DOTFILES_DIR/bin/$name" ]] || continue
-        ln -snf "$DOTFILES_DIR/bin/$name" "$HOME/.local/bin/$name"
+        ensure_link "$DOTFILES_DIR/bin/$name" "$HOME/.local/bin/$name" || true
     done
 }
 

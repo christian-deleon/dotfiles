@@ -169,6 +169,7 @@ update_dotfiles() {
     echo
     _info "Updating dotfiles..."
 
+    phase_start preflight
     if ! ensure_clean_dotfiles; then
         return 1
     fi
@@ -179,6 +180,7 @@ update_dotfiles() {
 
     if [[ -d "$DOTFILES_DIR/.git" ]]; then
         if [[ -z ${DOT_UPDATE_PULLED:-} ]]; then
+            phase_start pull
             _dotfiles_push_submodules_on_demand
 
             local before
@@ -192,12 +194,18 @@ update_dotfiles() {
             fi
             # bash keeps running the dot.sh it started with, so after a pull that
             # changed anything, finish the update with the new code.
-            if [[ $(git -C "$DOTFILES_DIR" rev-parse HEAD) != "$before" ]]; then
+            local after
+            after=$(git -C "$DOTFILES_DIR" rev-parse HEAD)
+            if [[ "$after" != "$before" ]]; then
+                note_change "pulled dotfiles ${before:0:7}..${after:0:7}"
+                phase_end
                 _info "Dotfiles changed; finishing the update with the new version..."
+                export DOT_PHASES DOT_CHANGES
                 DOT_UPDATE_PULLED=1 exec "$DOTFILES_DIR/dot.sh" update
             fi
         fi
 
+        phase_start submodules
         # Update critical submodules — only those already initialized.
         # Branch-tracking submodules (we commit into these) are pulled via
         # _submodule_pull_branch so they stay on their branch instead of
@@ -253,6 +261,7 @@ update_dotfiles() {
         fi
 
         # Refresh each enabled harness from ai/ after the pull (idempotent)
+        phase_start ai
         if [[ -d "$DOTFILES_DIR/ai" ]]; then
             _profile_json_load
             local harness
@@ -260,6 +269,7 @@ update_dotfiles() {
                 "install_ai_$harness" 2>/dev/null || _warn "Failed to install $harness config"
             done < <(ai_enabled_harnesses)
         fi
+        phase_start hygiene
         link_dot_bins
 
         # Reconcile stale symlinks left by dropped stow packages
@@ -268,18 +278,23 @@ update_dotfiles() {
 
     # Desired-state absences: remove residue from retired tools (tombstones.yaml).
     # Runs even when the git pull block was skipped; idempotent no-op if clean.
+    phase_start tombstones
     apply_tombstones || true
 
     # Rebuild source-built tools
+    phase_start source-tools
     update_source_tools || true
 
     # Reconcile active profile (add missing items)
+    phase_start reconcile
     reconcile_profile || true
 
     # After reconcile, so a harness the profile just added has its dirs.
+    phase_start agents
     agent_env_refresh || true
     install_ai_tool_default || true
 
+    print_summary
     _success "Dotfiles updated"
 }
 

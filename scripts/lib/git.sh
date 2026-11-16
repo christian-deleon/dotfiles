@@ -128,8 +128,9 @@ install_git_submodules() {
     if git -C "$DOTFILES_DIR" submodule update --init --recursive .tmux/plugins/tpm 2>/dev/null; then
         _success "tmux tpm submodule initialized"
         mkdir -p "$HOME/.tmux"
-        ln -snf "$DOTFILES_DIR/.tmux/plugins" "$HOME/.tmux/plugins"
-        _success "Linked ${_DIM}~/.tmux/plugins${_RESET}"
+        if ensure_link "$DOTFILES_DIR/.tmux/plugins" "$HOME/.tmux/plugins"; then
+            _success "Linked ${_DIM}~/.tmux/plugins${_RESET}"
+        fi
     else
         # Non-fatal — tpm is HTTPS and usually works; ignore if path missing
         :
