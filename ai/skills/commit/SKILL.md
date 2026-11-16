@@ -85,7 +85,10 @@ When asked to commit changes, follow these steps **in order**:
 ### 1. Assess the Current State
 
 On a detached HEAD in a linked worktree with no rebase or bisect running, name
-the branch first (`git switch -c <type>/<slug>`), as the auto-commit rule says.
+the branch before anything else, following the `detached-session-folders` rule:
+read `New work:` and `Branch naming` from `wto profile`, and file the issue
+first when that line says `issue and branch`. Do not invent a branch name or
+skip the issue.
 
 Run these commands in parallel to understand what needs to be committed:
 
