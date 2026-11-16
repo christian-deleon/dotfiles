@@ -70,7 +70,10 @@ ensure_clean_dotfiles() {
 
         _warn "Dotfiles repo has merge conflicts"
         echo
-        if command -v gum &>/dev/null; then
+        if ! _interactive; then
+            _info "Resolve manually: cd $DOTFILES_DIR && git status"
+            return 1
+        elif command -v gum &>/dev/null; then
             if ! gum confirm "Hard reset dotfiles to $upstream?"; then
                 _info "Aborting — resolve manually: cd $DOTFILES_DIR && git status"
                 return 1
@@ -132,7 +135,11 @@ update_dotfiles() {
     echo
     _info "Updating dotfiles..."
 
-    phase_start preflight
+    if [[ -n ${DOT_UPDATE_PULLED:-} ]]; then
+        phase_start restart
+    else
+        phase_start preflight
+    fi
     ensure_yq || return 1
     ensure_jq || return 1
     if ! ensure_clean_dotfiles; then

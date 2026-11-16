@@ -433,7 +433,7 @@ install_themes() {
         return 0
     fi
 
-    if ! command -v gum &>/dev/null; then
+    if ! _interactive || ! command -v gum &>/dev/null; then
         echo
         _info "Omarchy themes available (use ${_BOLD}dot theme update${_RESET} to install later):"
         printf '  %s\n' "${available_themes[@]}"

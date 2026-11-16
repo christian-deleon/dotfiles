@@ -158,7 +158,7 @@ install_git_config() {
 
     local git_local="$HOME/.gitconfig.local"
 
-    if [[ ! -t 0 ]]; then
+    if ! _interactive; then
         [[ -f "$git_local" ]] || _warn "No terminal to ask for Git name/email — write ${git_local} or rerun ./install.sh in a terminal"
         return 0
     fi
@@ -318,14 +318,15 @@ install_ai_tool() {
             local current
             current="$(grep -E '^export AI_TOOL=' "$localrc" | head -1 | sed -E 's/^export AI_TOOL=//; s/^"(.*)"$/\1/')"
             _info "AI tool already set in ${_DIM}~/.localrc${_RESET}: ${_BOLD}$current${_RESET}"
+            _interactive || return 0
             read -rp "Reconfigure? (y/N): " reconfigure
             if [[ ! "$reconfigure" =~ ^[Yy]$ ]]; then
                 return
             fi
         fi
 
-        if ! command -v gum &>/dev/null; then
-            _warn "gum not available — pass the tool name directly: dot ai-tool {cl|gra|oc}"
+        if ! _interactive || ! command -v gum &>/dev/null; then
+            _warn "No picker here — pass the tool name directly: dot ai-tool {cl|gra|oc}"
             return 0
         fi
 
@@ -390,101 +391,79 @@ link_dot_bins() {
 
 # ─── Core extras ──────────────────────────────────────────────────────────────
 
-# Get the human-readable label for a core extra.
-get_core_extra_label() {
-    case "$1" in
-        git-submodules)    echo "git-submodules — Initialize .ssh and tpm submodules" ;;
-        git-config)        echo "git-config — Symlink .gitconfig and set name/email/signing" ;;
-        ssh-config)        echo "ssh-config — Generate ~/.ssh/config (1Password SSH agent)" ;;
-        zsh-config)        echo "zsh-config — Oh My Zsh + Powerlevel10k + plugins + .zshrc" ;;
-        ai-tool)           echo "ai-tool — Default AI CLI from the profile (or pick one)" ;;
-        omarchy-themes)    echo "omarchy-themes — Choose Omarchy theme submodules to install" ;;
-        default-terminal)  echo "default-terminal — Set Alacritty as the Omarchy default terminal" ;;
-        *)                 echo "$1" ;;
-    esac
+# One row per core extra: name|installer|preselect|description. preselect is
+# a requires-style predicate list ("" = always) for the manual-mode picker.
+# Profiles pick a subset with `core_extras:`.
+_CORE_EXTRAS='git-submodules|install_git_submodules||Initialize .ssh and tpm submodules
+git-config|install_git_config||Symlink .gitconfig and set name/email/signing
+ssh-config|install_ssh_config||Generate ~/.ssh/config (1Password SSH agent)
+zsh-config|install_zsh_config|darwin|Oh My Zsh + Powerlevel10k + plugins + .zshrc
+ai-tool|install_ai_tool_default picker||Default AI CLI from the profile (or pick one)
+omarchy-themes|install_themes|omarchy|Choose Omarchy theme submodules to install
+default-terminal|install_default_terminal|omarchy|Set Alacritty as the Omarchy default terminal'
+
+# Run the named core extras in table order. ai-tool picks among installed
+# harnesses, so it is left for run_deferred_core_extras after the items.
+run_core_extras() {
+    local name fn pre desc want=" $* " nl=$'\n'
+    _CORE_EXTRAS_DEFERRED=""
+    while IFS='|' read -r name fn pre desc; do
+        case "$want" in *" $name "*) ;; *) continue ;; esac
+        if [[ "$name" == ai-tool ]]; then
+            _CORE_EXTRAS_DEFERRED="$fn"
+            continue
+        fi
+        echo
+        _info "${name}..."
+        # shellcheck disable=SC2086 # fn may carry an argument
+        $fn || _warn "${name} failed — continuing"
+    done <<<"$_CORE_EXTRAS$nl"
+    local extra
+    for extra in "$@"; do
+        case "$nl$_CORE_EXTRAS" in
+            *"$nl$extra|"*) ;;
+            *) _warn "Unknown core extra: $extra" ;;
+        esac
+    done
+    return 0
 }
 
-# Dispatch to the installer for a named core extra.
-install_core_extra() {
-    case "$1" in
-        git-submodules)    install_git_submodules ;;
-        git-config)        install_git_config ;;
-        ssh-config)        install_ssh_config ;;
-        zsh-config)        install_zsh_config ;;
-        ai-tool)           install_ai_tool_default picker ;;
-        omarchy-themes)    install_themes ;;
-        default-terminal)  install_default_terminal ;;
-        *)                 _warn "Unknown core extra: $1" ;;
-    esac
-}
-
-# All core extras the installer knows about. Profiles pick a subset via the
-# `core_extras:` field; manual mode shows the picker below.
-list_all_core_extras() {
-    echo "git-submodules"
-    echo "git-config"
-    echo "ssh-config"
-    echo "zsh-config"
-    echo "ai-tool"
-    echo "omarchy-themes"
-    echo "default-terminal"
+run_deferred_core_extras() {
+    [[ -n "${_CORE_EXTRAS_DEFERRED:-}" ]] || return 0
+    echo
+    _info "ai-tool..."
+    # shellcheck disable=SC2086
+    $_CORE_EXTRAS_DEFERRED || _warn "ai-tool failed — continuing"
+    _CORE_EXTRAS_DEFERRED=""
 }
 
 # Manual-mode core extras picker — pre-selects host-compatible ones.
 run_core_extras_picker() {
-    local extras=() labels=() preselect_labels=()
-    local item
-    while IFS= read -r item; do
-        local label
-        label="$(get_core_extra_label "$item")"
-        extras+=("$item")
+    local name fn pre desc label nl=$'\n'
+    local -a labels=() preselect_labels=()
+    while IFS='|' read -r name fn pre desc; do
+        [[ -n "$name" ]] || continue
+        label="$name — $desc"
         labels+=("$label")
-        # Pre-select host-compatible items only
-        case "$item" in
-            zsh-config)
-                [[ "$OSTYPE" == darwin* ]] && preselect_labels+=("$label")
-                ;;
-            omarchy-themes|default-terminal)
-                host_has omarchy && preselect_labels+=("$label")
-                ;;
-            *)
-                preselect_labels+=("$label")
-                ;;
-        esac
-    done < <(list_all_core_extras)
-
-    [[ ${#extras[@]} -eq 0 ]] && return 0
-
-    if ! command -v gum &>/dev/null; then
-        echo
-        _info "gum not available — skipping core extras picker"
-        return 0
-    fi
+        requires_met "$pre" && preselect_labels+=("$label")
+    done <<<"$_CORE_EXTRAS$nl"
 
     echo
     _info "Select core extras to set up (space to toggle, enter to confirm):"
     _info "${_DIM}Host-appropriate defaults pre-selected — adjust to taste.${_RESET}"
     echo
 
-    local preselected
+    local preselected chosen
     preselected="$(IFS=,; echo "${preselect_labels[*]}")"
-
-    local chosen
     chosen="$(printf '%s\n' "${labels[@]}" | gum choose --no-limit --height=10 --selected="$preselected")" || true
 
     [[ -z "$chosen" ]] && { _info "No core extras selected — skipping"; return 0; }
 
-    local selected=()
+    local -a selected=()
     while IFS= read -r label; do
         selected+=("${label%% —*}")
     done <<< "$chosen"
-
-    echo
-    for item in "${selected[@]}"; do
-        echo
-        _info "${item}..."
-        install_core_extra "$item" || _warn "${item} failed — continuing"
-    done
+    run_core_extras "${selected[@]}"
 }
 
 # ─── Profiles ─────────────────────────────────────────────────────────────────
@@ -517,6 +496,10 @@ profile_is_compatible() {
 # user-facing output below is redirected to stderr so it doesn't pollute the
 # return value.
 select_profile() {
+    if ! _interactive; then
+        _error "No terminal for the profile picker — pass --profile <name>" >&2
+        return 1
+    fi
     ensure_yq >&2 || return 1
     ensure_gum >&2 || return 1
 
@@ -593,11 +576,7 @@ install_from_profile() {
     if [[ ${#extras[@]} -gt 0 ]]; then
         echo
         _info "Profile core extras: ${extras[*]}"
-        for extra in "${extras[@]}"; do
-            echo
-            _info "${extra}..."
-            install_core_extra "$extra" || _warn "${extra} failed — continuing"
-        done
+        run_core_extras "${extras[@]}"
     fi
 
     # Items from profile
@@ -612,6 +591,7 @@ install_from_profile() {
         _info "Installing ${#items[@]} items..."
         install_items "${items[@]}" || rc=1
     fi
+    run_deferred_core_extras
 
     # Recorded even when an item failed, so dot update keeps reconciling it.
     echo "$name" > "$PROFILE_STATE_FILE"
@@ -621,6 +601,10 @@ install_from_profile() {
 
 # Manual-mode installer: core extras picker + item picker (no profile state).
 install_manual() {
+    if ! _interactive; then
+        _error "Manual selection needs a terminal — pass --profile <name>"
+        return 1
+    fi
     ensure_gum || return 1
     ensure_jq || return 1
     data_load_manifest || return 1
@@ -648,7 +632,10 @@ install_manual() {
 
     local chosen
     chosen="$(printf '%s\n' "${labels[@]}" | gum choose --no-limit --height=25)" || true
-    [[ -z "$chosen" ]] && return 0
+    if [[ -z "$chosen" ]]; then
+        run_deferred_core_extras
+        return 0
+    fi
 
     local selected=()
     while IFS= read -r label; do
@@ -656,5 +643,8 @@ install_manual() {
     done <<< "$chosen"
 
     echo
-    install_items "${selected[@]}"
+    local rc=0
+    install_items "${selected[@]}" || rc=1
+    run_deferred_core_extras
+    return "$rc"
 }
