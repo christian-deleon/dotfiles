@@ -15,7 +15,8 @@ success_symbol = "[❯](bold cyan)"
 # worktrees all resolve to the project name. See scripts/starship-path.sh.
 [custom.path]
 description = "Worktree-aware path anchored on the project name"
-command = "$HOME/.dotfiles/scripts/starship-path.sh"
+# Sourced, not executed: saves the env + second bash its shebang would start.
+command = '. "$HOME/.dotfiles/scripts/starship-path.sh"'
 when = true
 shell = ["bash", "--noprofile", "--norc"]
 format = "[$output]($style) "
