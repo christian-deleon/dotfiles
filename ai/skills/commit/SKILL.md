@@ -84,6 +84,9 @@ When asked to commit changes, follow these steps **in order**:
 
 ### 1. Assess the Current State
 
+On a detached HEAD in a linked worktree with no rebase or bisect running, name
+the branch first (`git switch -c <type>/<slug>`), as the auto-commit rule says.
+
 Run these commands in parallel to understand what needs to be committed:
 
 ```bash
