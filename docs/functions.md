@@ -60,7 +60,7 @@ hdf      # picker — TAB to mark lines, ENTER to delete them
 
 ### `histdedup` \*
 
-Collapse duplicate commands in your saved history, keeping the most recent copy of each (with its timestamp; trailing space is ignored) and drop lines that match `HISTIGNORE` (so existing `wt remove -D <branch>` entries get purged, not just future ones). New shells already load a cleaned file automatically — `~/.commonrc` rewrites `~/.bash_history` at the end of rc, immediately before ble.sh/bash loads it — so this is only needed to clean a shell that was *already* open. Live typing is also de-duped against the whole in-memory list (`HISTCONTROL=erasedups` plus ble.sh `history_erasedups_limit=` so re-running an older command moves it to the end instead of adding a second copy). It cleans the shared file for future shells **and** refreshes the current shell's recall, de-duping only the in-memory list so other terminals' commands are never imported (per-terminal recall is preserved). bash only; zsh handles this natively via `HIST_SAVE_NO_DUPS`.
+Collapse duplicate commands in your saved history, keeping the most recent copy of each (with its timestamp; trailing space is ignored) and drop lines that match `HISTIGNORE` (so existing ignored entries get purged, not just future ones). New shells already load a cleaned file automatically — `~/.commonrc` rewrites `~/.bash_history` at the end of rc, immediately before ble.sh/bash loads it — so this is only needed to clean a shell that was *already* open. Live typing is also de-duped against the whole in-memory list (`HISTCONTROL=erasedups` plus ble.sh `history_erasedups_limit=` so re-running an older command moves it to the end instead of adding a second copy). It cleans the shared file for future shells **and** refreshes the current shell's recall, de-duping only the in-memory list so other terminals' commands are never imported (per-terminal recall is preserved). bash only; zsh handles this natively via `HIST_SAVE_NO_DUPS`.
 
 ```bash
 histdedup
@@ -445,7 +445,7 @@ sudo-revoke
 
 Open a 3-pane tmux layout in the current window: AI tool in the top-left (70% tall, focused), bash in the bottom-left (30% tall), and `nvim` (LazyVim) on the right (full height, 70% wide). The Neovim pane opens on the project dir and drops straight into the LazyGit view (same as `<leader>gg` / the `nvg` alias); quitting LazyGit leaves you in the project explorer. Must be run from inside tmux. `tav` is a wrapper over [`wto layout`](#wto-command), which refuses to lay out a pane an agent is running in (it would end that agent).
 
-The AI pane is **respawned** with a non-interactive launcher (the harness shortcuts `cl`, `cca`, `gr`, `gra`, `oc`, `oca` expanded from `wto`'s own table, since the launcher runs outside an interactive shell; pending DA/OSC replies drained). Grok is started under `bin/tty-filter-da`, which drops Device Attributes / cursor-position replies (`0;2600;1c`, `84;0;0c`) before they reach the TUI — those keystrokes dismiss Grok’s welcome card permanently (not a session resume) and `C-u` can only clear the leftover prompt text. Neovim (and k9s in `tavk`) start ~2.5s later. A prompt scrub still polls briefly and `C-u`s any DA body that slips through. When the AI tool exits, that pane drops into a normal interactive `$SHELL`. The AI pane is tagged with tmux pane options for [`wto`](#wto-command): `@ai_tool` (`claude`, `grok`, `opencode`), `@ai_wt` (the worktree root), and `@ai_state` / `@ai_state_at` (`starting`, then whatever the hooks in `ai/hooks/session_state.sh` report; `exited` once the AI tool returns). Claude Code sessions get `--name <project>/<branch>` so other sessions can address them, and the model and effort that [`wtc`](#wtc--p--prompt-text--n--no-switch--m--model-model--e--effort-level-branch-base) saved for the worktree. The current dir is pre-trusted for Grok and Claude Code (same grants `wta`/`wtc` write), so neither stops on a trust prompt.
+The AI pane is **respawned** with a non-interactive launcher (the harness shortcuts `cl`, `cca`, `gr`, `gra`, `oc`, `oca` expanded from `wto`'s own table, since the launcher runs outside an interactive shell; pending DA/OSC replies drained). Grok is started under `bin/tty-filter-da`, which drops Device Attributes / cursor-position replies (`0;2600;1c`, `84;0;0c`) before they reach the TUI — those keystrokes dismiss Grok’s welcome card permanently (not a session resume) and `C-u` can only clear the leftover prompt text. Neovim (and k9s in `tavk`) start ~2.5s later. A prompt scrub still polls briefly and `C-u`s any DA body that slips through. When the AI tool exits, that pane drops into a normal interactive `$SHELL`. The AI pane is tagged with tmux pane options for [`wto`](#wto-command): `@ai_tool` (`claude`, `grok`, `opencode`), `@ai_wt` (the worktree root), and `@ai_state` / `@ai_state_at` (`starting`, then whatever the hooks in `ai/hooks/session_state.sh` report; `exited` once the AI tool returns). Claude Code sessions get `--name <project>/<branch or folder>` so other sessions can address them, and the model and effort that [`wtc`](#agent-sessions) saved for the worktree. The current dir is pre-trusted for Grok and Claude Code (same grants `wta`/`wtc` write), so neither stops on a trust prompt.
 
 Bare positional arguments are the **initial prompt** — the AI tool launches straight into it (joined into a single argument, so quoting is optional; OpenCode gets it as `--prompt=`, since its positional argument is a directory). `-f`/`--prompt-file` reads the prompt from a file and leaves the file alone. The prompt reaches the agent through a private temp file that the launcher reads once and deletes, so any size and any quoting arrive intact. The tool defaults to `$AI_TOOL` (set from the profile's `ai.default` or via `dot ai-tool`; `tav` errors when it is unset); use `-t`/`--tool` to override it for one call. The override accepts a full command including flags (e.g. `-t "gra -c"`). Use `--` before a prompt that begins with a dash.
 
@@ -488,7 +488,7 @@ ts    # picker — pick an action with ENTER / Ctrl-X / Ctrl-R
 
 ### `tw` \*
 
-Switch to any tmux window across **all** sessions with fzf and a live preview of the highlighted window's active pane. Useful after `wtaa` restores 10+ windows and you want to jump straight to one without first picking a session.
+Switch to any tmux window across **all** sessions with fzf and a live preview of the highlighted window's active pane. Useful after `wto open --all` restores 10+ windows and you want to jump straight to one without first picking a session.
 
 ```bash
 tw    # fzf picker over every window in every session
@@ -496,109 +496,79 @@ tw    # fzf picker over every window in every session
 
 ---
 
-## Worktrunk
+## Agent sessions
 
-Functions for git worktree management with fzf interactive selection and tmux integration. (For the bare `wt switch` picker, use the `ws` alias.)
+One agent session per git worktree, each in its own tmux window with the `tav` layout. Worktrees live beside a bare repository (`<project>/.git`, set up by [`gcb`](#gcb-repo-url)); every new session gets its own folder with a generated two-word name (`brisk-otter`), and the window shows the branch checked out there. `wtc`, `wta`, `tav` and `tavk` are thin wrappers over [`wto`](#wto-command).
 
-### `wrf` \*
+### `wtc [-p|--prompt <text>] [-n|--no-switch] [-j|--job <job>] [-m|--model <model>] [-e|--effort <level>] [branch [base]]`
 
-Interactive multi-select worktree remover using fzf. Each row shows `clean`/`dirty` (modified, staged, or untracked files) so you don't nuke in-progress work by accident. Tab to multi-select, Enter to remove.
+Start a session. `wto new` fetches `origin` (20-second limit; set `WTO_NO_FETCH=1` to skip), fast-forwards the local default branch to `origin`'s, makes a new codename folder, links the project's agent files there (`dot agent link`), and opens its window. **By default it then jumps to that window.**
+
+- **No branch:** the folder starts on a detached HEAD at the latest default branch. Talk to the agent; once the work is clear it names the branch in place (`git switch -c fix/142-retry-backoff`) before its first commit, and the window label follows. The folder name never changes.
+- **A branch:** a new one is created from `base` (default: the latest default branch) without upstream tracking; an existing local branch is fast-forwarded to `origin` if it is strictly behind; a branch only on `origin` gets a tracking branch. A branch that is already checked out in a folder just opens that folder's window.
+
+Pass `-p`/`--prompt` (or `-f`/`--prompt-file`) to start the agent on a prompt. Pass `-n`/`--no-switch` to stay on the current window; agents spawn this way so focus is not stolen. Windows are built from outside (created detached, split, agent started), and per-directory trust prompts are pre-accepted (Grok: `--trust` and a grant for the folder; Claude Code: `hasTrustDialogAccepted` in `~/.claude.json`), so an unattended agent starts without anyone pressing **y**.
+
+Pass `-j`/`--job` to use a job's model and effort from `ai/models.yaml` (`plan`, `implement`, `review`, `small`) for the harness in `$AI_TOOL`; `-m`/`--model` and `-e`/`--effort` override it. The choice is saved in the worktree's git directory (`ai-launch`), so every later launch there (`wta`, `tav`, a continued conversation) keeps it. OpenCode has no per-session flag and starts on its configured default. A job spawn refuses the default branch itself.
+
+The project must be bare; a normal clone with its own checkout is refused (`wto ls` still works there). Requires `$AI_TOOL` / `$AI_TOOL_RESUME` — run `dot ai-tool` first.
 
 ```bash
-wrf              # fzf multi-select, removes selected worktrees and their branches
+wtc                                         # detached session on the latest default branch, jump to it
+wtc feature/auth -p "add a contact page"    # new branch, start the agent on a prompt
+wtc hotfix/login production                 # new branch off an explicit base
+wtc -n -j implement -f /tmp/handoff.md fix/retry   # agent-style spawn, focus stays put
 ```
 
 ---
 
-### `wta [-p|--prompt <text>] [branch]` \*
+### `wta [-p|--prompt <text>] [branch|folder]` \*
 
-Open a single worktree in tmux with the `tav` layout. If no branch is passed and the project has only one worktree (usually `main`), that one is used; otherwise an fzf picker. The target session is the one you're already in when your current pane sits anywhere inside the project; otherwise it falls back to a session named after the worktrees' parent dir, creating it if needed. (This means launching from a session you named yourself — e.g. `tn ngc` — adds the window to *that* session instead of forking a separate one and orphaning your current window.) It then adds a window named after the sanitized branch and sends a `tav` invocation into it. If the window already exists, just attaches. Feature worktrees resume the current AI tool's last **real** session for that path. Grok is pinned with `-r <session-id>` (skipping empty “just opened” sessions and subagents — Grok’s own `-c` continues the newest cwd session, which is often an empty one from a previous fresh launch). Otherwise `$AI_TOOL`. When the harness is OpenCode (`oc` or `opencode`), that command is the `oca` alias (`opencode --auto`). When it is Claude Code (`cl` or `claude`), that command is `cca` (`claude --permission-mode bypassPermissions`). A resume keeps the extra flags (`oca -c`, `cca -c`) so the pane does not stop on permission prompts. Grok has a session-id probe; Claude Code resumes with `-c` when it has a transcript for that worktree under `~/.claude/projects/`; OpenCode launches fresh. The **main** worktree always launches fresh (`$AI_TOOL`, or `oca` / `cca` for those harnesses) — it's a home base, not a task session.
-
-Pass `-p`/`--prompt` to forward an initial prompt into the session's AI tool (see [`tav`](#tav--t--tool-ai-cmd-f--prompt-file-path-prompt)). It works with both the picker and an explicit branch. `wta` is a wrapper over `wto open --switch`.
-
-Requires `$AI_TOOL` / `$AI_TOOL_RESUME` — run `dot ai-tool` first.
+Go back to a session: open its window, or switch to it if it is open. Takes a branch or a folder name; with none, the only worktree, or an fzf picker showing branch and folder. The target tmux session is the one you are in when your pane sits inside the project, else one named after the project. A reopened session continues its conversation: Grok is pinned with `-r <session-id>` (the last session with real messages, not an empty one), Claude Code resumes with `-c` when it has a transcript for that folder, OpenCode starts fresh. Claude Code and OpenCode launch as `cca` / `oca` so the pane never stops on permission prompts. `wta` is a wrapper over `wto open --switch`.
 
 ```bash
-wta                                   # only one worktree → attach; else fzf picker
-wta feature/auth                      # attach to (or create) feature/auth's window
-wta feature/auth -p "add a contact page"   # ...and start the AI tool on that prompt
-```
-
----
-
-### `wtc [-p|--prompt <text>] [-n|--no-switch] [-j|--job <job>] [-m|--model <model>] [-e|--effort <level>] <branch> [base]`
-
-Create a worktree for `<branch>` and open it in a tmux window with the `tav` layout — the create-first counterpart to [`wta`](#wta--p--prompt-text-branch-). If `<branch>` doesn't exist locally or on `origin`, runs `wt switch --create <branch> [--base <base>]` to create it; if it already exists (local branch, or a remote-only branch someone else pushed), runs plain `wt switch <branch>` instead, which finds-or-creates the worktree and auto-creates a local tracking branch from `origin/<branch>` as needed (`base` is ignored in this case, with a warning). Either way it uses `--no-cd` to materialize the worktree without pulling the calling shell into it, resolves its path, then hands off to the same window/layout helper `wta` uses (so it lands in the project's session as a window named after the sanitized branch, with a fresh launch of `$AI_TOOL`, or `oca` / `cca` when the harness is OpenCode or Claude Code). **By default it then jumps to that window** (interactive default). Run it from anywhere inside the worktrunk project — the project is resolved from your current directory, and the new window is built separately so your current window stays free until the optional jump.
-
-Pass `-p`/`--prompt` to forward an initial prompt into the new session's AI tool (see [`tav`](#tav--t--tool-ai-cmd-f--prompt-file-path-prompt)). `-f`/`--prompt-file` reads it from a file instead. `wtc` is a wrapper over `wto new` (adding `--switch` unless `-n`); agents call `wto new` directly.
-
-Pass `-n`/`--no-switch` to create the window without switching the tmux client to it — stay on the current window. Required for agent/script spawns so focus is not stolen; humans use plain `wtc` when they want to land in the new window. Windows are always created detached; only the final jump moves the client, so `-n` really keeps focus. The window is built from outside: `wto` creates it, splits it and starts the agent in it, rather than typing a `tav` command into a new shell. Per-directory trust prompts are skipped (Grok: `--trust`, `GROK_FOLDER_TRUST=0`, and a grant written for the new worktree; Claude Code: `hasTrustDialogAccepted` set for it in `~/.claude.json`) so a `-n` agent starts without anyone switching over to press **y**.
-
-Pass `-j`/`--job` to start the session on a job's model and effort from `ai/models.yaml` (`plan`, `implement`, `review`, `small`) for the harness in `$AI_TOOL`; it reads the merged table `dot update` writes. Pass `-m`/`--model` and `-e`/`--effort` to pick the session's model and effort level directly; either one overrides the job's. They are saved in the worktree's git directory (`ai-launch`), so every later launch there (`wta`, `wtaa`, `tav`, a continued conversation) uses them too, and `git worktree remove` deletes them with the worktree. Running `wtc` again on an existing worktree with either flag changes the saved value; it takes effect the next time the session starts. Claude Code gets `--model`/`--effort`, Grok `-m`/`--reasoning-effort`; OpenCode has no per-session flag, so nothing is saved and it starts on its configured default (`wtc` says so). A flag already in the launch command wins.
-
-Requires `$AI_TOOL` / `$AI_TOOL_RESUME` — run `dot ai-tool` first.
-
-```bash
-wtc -n -j implement -p "fix the retry loop" fix/retry   # spawn on the implement job's model
-wtc -n -m opus -e xhigh -p "fix the retry loop" fix/retry   # spawn on a chosen model and effort
-wtc feature/auth                          # create feature/auth off the default branch, open + tav + jump
-wtc hotfix/login main                     # create off an explicit base branch
-wtc feature/auth -p "add a contact page"  # create + launch the AI tool on that prompt + jump
-wtc -n -p "fix the flaky test" fix/retry  # create + launch, stay on current window
-wtc remote-only/branch                    # existing local/remote branch: switches instead of erroring
-```
-
----
-
-### `wtaa`
-
-Same per-worktree logic as [`wta`](#wta--p--prompt-text-branch-), but loops every worktree in the project (main first). Use to restore the full project as a single tmux session after a reboot. Feature worktrees still resume `$AI_TOOL_RESUME` when the current AI tool has history for that path; the **main worktree always launches `$AI_TOOL` fresh** (same rule as `wta`) so a restore never continues yesterday's main-branch chat.
-
-If you run it from **outside** tmux, it builds the session detached and `attach`es at the end — so it starts tmux for you. If you run it from **inside** tmux, the launcher window is **adopted** as the main worktree's window (laid out last, in place) — but only when it's a single bare pane (no `tav` split yet), so a laid-out window is never clobbered. This covers two cases: launching from the project root (main has no window yet) and launching from main's own window when it was opened from scratch and never laid out (e.g. you ran `tn ngc` in main, then `wtaa` — previously the existing-but-bare `main` window was skipped, leaving it without the layout). Launch from inside a *non-main* worktree and that window is left as-is.
-
-Window targeting is dot-safe: branches whose sanitized name contains a `.` (e.g. `chore-upgrade-to-1.7.5`) used to break because tmux reads the trailing `.7.5` in a `session:window` target as a `window.pane` spec — `tav` silently never launched in that window. Windows are now addressed by pane id (`%N`) on creation and by window id (`@N`) when switching, so dotted branch names lay out correctly.
-
-`wtaa` is a wrapper over `wto open --all --switch`.
-
-```bash
-wtaa             # one session, one window per worktree
+wta                          # picker (or the only worktree)
+wta feature/auth             # by branch
+wta brisk-otter -p "rebase onto main and rerun the tests"   # by folder, with a prompt
 ```
 
 ---
 
 ### `wto <command>`
 
-An executable in `bin/` (linked to `~/.local/bin/wto` by the installer and `dot update`), not a shell function, so agents and scripts can call it from shells that never load `functions.d/`. It opens and coordinates the agent sessions of one worktrunk project; run it anywhere inside the project. `wtc`, `wta`, `wtaa`, `tav` and `tavk` are thin wrappers over it, so every shell runs the current version. It reads `$AI_TOOL` / `$AI_TOOL_RESUME`, or `~/.localrc` when they are unset.
+An executable in `bin/` (linked to `~/.local/bin/wto` by the installer and `dot update`), so agents and scripts can call it from shells that never load `functions.d/`. Run it anywhere inside the project, including the project root. It reads `$AI_TOOL` / `$AI_TOOL_RESUME`, or `~/.localrc` when they are unset. Needs git 2.38 or newer. A `<name>` below is a branch or a worktree folder name.
 
 | Command | Does |
 |---|---|
-| `wto ls [--json] [--files]` | Roster of every worktree: git state against the default branch (ahead, behind, dirty, whether a rebase would conflict), its agent session (harness, state and how long it has been in it, tmux window), and the model and effort `wtc` saved for it. `--files` names the files a rebase would conflict on. |
+| `wto ls [--json] [--files]` | Roster of every worktree: branch and folder, git state against the default branch (ahead, behind, dirty, whether a rebase would conflict, `integrated` including squash merges), its agent session (harness, state and how long, tmux window), and the model and effort saved for it. `fresh` is true for a session that has not committed yet. Warns about a detached folder holding commits on no branch. `--files` names the files a rebase would conflict on. |
+| `wto default [--refresh]` | Print the default branch. `--refresh` fetches `origin` first and fast-forwards the local default branch to it (left alone, with a warning, when a folder has it checked out). |
+| `wto new …` | What `wtc` runs; stays put unless `--switch`. |
+| `wto open [-p text \| -f file] [--switch] [<name>]` | What `wta` runs. |
+| `wto open --all [--switch]` | Open a window for every worktree, continuing each conversation; skips ones that have a window. Used to restore a project after a reboot. |
+| `wto layout [--k9s] [-t tool] [-p text \| -f file \| prompt...]` | What [`tav`](#tav--t--tool-ai-cmd-f--prompt-file-path-prompt) and `tavk` run: lay out the calling pane. Refuses a pane an agent runs in. |
+| `wto close <name>` | Close a finished session from another window: kills its tmux windows, removes the worktree with git, deletes its branch (printing the old tip), and hands its claims on. Refuses unless the work is merged into the local or `origin` default branch (a squash merge on the forge counts); also refuses uncommitted changes, an operation in progress, a locked worktree, the calling worktree, the orchestrator's, and a detached folder with commits on no branch. |
 | `wto here` | Print the project's live orchestrator marker; exit 1 if none. |
-| `wto here --orchestrator` | Record the calling pane as the orchestrator. Main worktree only; exits 3 if another live pane holds it. |
+| `wto here --orchestrator` | Record the calling pane as the orchestrator; exits 3 if another live pane holds it. |
 | `wto here --clear [--force]` | Remove the marker. |
 | `wto dir` | Print the project's state directory, `<git-common-dir>/orchestrate/` (never committed, shared by every worktree). |
-| `wto profile [--path]` | Print the project profile `/onboard` wrote (`.agents/profile.md`, `profile.md` beside an overlay `AGENTS.md`, or `agent-files/projects/<project>/profile.md`, which work projects use); exit 1 if there is none. A profile still kept as a `## Project profile` section of `AGENTS.md` is printed too, with a note. `--path` prints where the file is. |
-| `wto send <branch\|--main\|--all> [--relay] [--force] [-f file \| message...]` | Deliver a message to another session (stdin works too), prefixed with the origin header from `wto header`. OpenCode sessions get it through the OpenCode server (`session.prompt`, queued behind a running turn); others get a bracketed paste plus Enter in the AI pane. Refuses, with nothing typed, a session that is blocked on a question (exit 6), has exited (5), has unknown state (6, unless `--force`), or launched under 15 seconds ago (7); exit 4 means no session. |
-| `wto header [--relay]` | Print `[session message · from <project>/<branch> (<orchestrator\|session>) · agent notice]` (or `relaying the user's words`), for a message sent through a harness's own session messaging. `ai/rules/common/session-messages.md` tells every session how to read it. |
-| `wto claim define [<resource>...]` | Set the names claims may use for this project (or print them). Once set, a misspelled name is rejected instead of creating a resource nobody else checks. |
+| `wto profile [--path]` | Print the project profile `/onboard` wrote (`.agents/profile.md`, `profile.md` beside an overlay `AGENTS.md`, or `agent-files/projects/<project>/profile.md`); exit 1 if there is none. A profile still kept as a `## Project profile` section of `AGENTS.md` is printed too, with a note. `--path` prints where the file is. |
+| `wto send <name\|--orchestrator\|--all> [--relay] [--force] [-f file \| message...]` | Deliver a message to another session (stdin works too), prefixed with the origin header. OpenCode sessions get it through the OpenCode server (queued behind a running turn); others get a bracketed paste plus Enter. Refuses, with nothing typed, a session blocked on a question (exit 6), exited (5), in unknown state (6, unless `--force`), or launched under 15 seconds ago (7); exit 4 means no session. |
+| `wto header [--relay]` | Print `[session message · from <project>/<branch or folder> (<orchestrator\|session>) · agent notice]` (or `relaying the user's words`), for a message sent through a harness's own session messaging. |
+| `wto claim define [<resource>...]` | Set the names claims may use (or print them); a misspelled name is then rejected. |
 | `wto claim take <resource>... [--note text]` | Take every named resource at once, or join the queue (exit 2). A request queues behind any earlier waiter that wants one of the same resources, so a request for several cannot starve. |
-| `wto claim free [<resource>...\|--all] [--force]` | Free claims and hand them to the next waiter whose whole request is now free; prints who was granted, so the freeing session can tell them. `--all` also leaves the queue. Freeing another worktree's claim needs `--force` and is logged. |
-| `wto claim check <resource>...` | Exit 0 only if this worktree holds all of them; reads without waiting on the lock, so a deploy entry point can gate on it. Also acknowledges a pending grant. |
+| `wto claim free [<resource>...\|--all] [--force]` | Free claims and hand them to the next waiter whose whole request is now free; prints who was granted. `--all` also leaves the queue. Freeing another worktree's claim needs `--force` and is logged. |
+| `wto claim check <resource>...` | Exit 0 only if this worktree holds all of them; reads without the lock, so a deploy entry point can gate on it. Also acknowledges a pending grant. |
 | `wto claim wait [--timeout secs]` | Wait (default 60s) for this worktree's queued request; exit 2 if still waiting. |
 | `wto claim status [--json]`, `wto claim gc` | Show holders and the queue; drop claims of removed worktrees and hand over. |
-| `wto claim bump <branch>` | Move that branch's waiting requests to the front of the queue, then hand over. |
-| `wto new [-j job] [-m model] [-e effort] [-p text \| -f file] [--fork session-id] [--switch] <branch> [base]` | What [`wtc`](#wtc--p--prompt-text--n--no-switch--m--model-model--e--effort-level-branch-base) runs: create the worktree and its agent window. Stays put unless `--switch`, so agents can call it directly. `--fork <id>` (Claude Code only; the wtc skill passes `$CLAUDE_CODE_SESSION_ID`) moves a conversation onto the branch: the window runs `--resume <id> --fork-session`, so the full history continues under the new worktree, where `wta` reopens it later. The calling worktree's uncommitted changes, untracked files included, move with it when both worktrees are on the same commit and the new one is clean; otherwise they stay and the session is told. The first prompt is a notice with the origin header: the `wto new` call the copied conversation ends on succeeded, so don't repeat it; work only in the new worktree; the old session has stopped; and, when the profile's `Issues:` line has an `own work:` part, check the branch is pushed and an issue names it. `-p`/`-f` adds a line to it. |
-| `wto open [-p text \| -f file] [--switch] [<branch>]`, `wto open --all [--switch]` | What [`wta`](#wta--p--prompt-text-branch-) and [`wtaa`](#wtaa) run. |
-| `wto layout [--k9s] [-t tool] [-p text \| -f file \| prompt...]` | What [`tav`](#tav--t--tool-ai-cmd-f--prompt-file-path-prompt) and `tavk` run: lay out the calling pane. Refuses a pane an agent runs in. |
-| `wto close <branch>` | Close a finished session from another worktree: kills its tmux window, frees its claims, and runs `wt remove --foreground --yes`. Refuses the main worktree, the calling worktree, uncommitted changes, and a branch `wt list` does not report as integrated or empty. |
+| `wto claim bump <name>` | Move that session's waiting requests to the front of the queue, then hand over. |
 
-Claims belong to a worktree, not a process, so they survive a restart or a night with the machine off. All changes happen under a lock file (`flock`, or perl's `flock()` on macOS, which has no `flock` command); a lock busy for 5 seconds exits 75. Waiters without a live agent session keep their place but are skipped. The worktrunk user config runs `wto claim gc` after every `wt remove`, so `wrf` and `wt merge` free claims too.
+Claims belong to a worktree path, not a process or a branch name, so they survive a restart and a branch rename. All changes happen under a lock file (`flock`, or perl's `flock()` on macOS); a lock busy for 5 seconds exits 75. Waiters without a live agent session keep their place but are skipped. `claim take`, `free`, `check` and `wait` need a session folder, not the project root.
 
-Sessions are found by the pane tags `tav` sets. A session opened before those tags existed shows state `unknown`, found by its harness process; close its window and run `wta` to reopen it tagged.
+Windows are found by the `@ai_wt` tag on the window and its agent pane, not by name, since the name follows the branch. Sessions are found by the pane tags `tav` sets; a session opened before those tags existed shows state `unknown`. Close its window and run `wta` to reopen it tagged. Claude Code sessions are named `<project>/<branch or folder>` at launch (`--name`); the name does not change when the session later names its branch.
 
 ```bash
 wto ls                  # who is working, idle, blocked on a question, or exited
-wto ls --json | jq '.[] | select(.behind > 0) | .branch'
+wto ls --json | jq -r '.[] | select(.behind > 0) | .branch // .name'
 wto send --all 'main moved: v1.4.0 is released; rebase when you reach a stopping point'
 wto claim take deploy/api --note 'testing the login fix'   # then: wto claim free --all
 ```
@@ -639,13 +609,14 @@ Many of these commands tab-complete their arguments from a live source. Completi
 | `ta` `tk` | tmux session names |
 | `frk` `fkr` `fks` | Flux Kustomization names |
 | `frh` | Flux HelmRelease names |
-| `wta` `ws` `wsr` | worktree branch names |
+| `wta` | worktree branch and folder names |
+| `wto` | subcommands, then branch and folder names |
 | `dot` | subcommands; `dot install <item>`; `dot profile use <name>` |
 
 Notes:
 - Remote sources are bounded (`--request-timeout=2s`) and fail silent — if the cluster is unreachable, completion just returns nothing and the function's fzf fallback still works.
 - Slow AWS API lookups (SSM instance IDs, EKS cluster names) are intentionally **not** completed; use the function's fzf picker instead.
-- Alias completions (`ta` `tk` `frk` `fkr` `fks` `frh` `ws` `wsr`) are bash-only. On zsh the alias expands first, so the underlying tool's native completion (e.g. `_tmux`, `flux`) takes over.
+- Alias completions (`ta` `tk` `frk` `fkr` `fks` `frh`) are bash-only. On zsh the alias expands first, so the underlying tool's native completion (e.g. `_tmux`, `flux`) takes over.
 
 ---
 
@@ -654,5 +625,5 @@ Notes:
 - Functions marked with \* use fzf for interactive selection
 - Most Kubernetes functions respect the current namespace context
 - Many functions provide both interactive (fzf) and direct argument modes
-- Worktrunk functions require a bare repo clone (use `gcb` to set up)
-- `wta` / `wtaa` create tmux sessions — use `tl` to list and `tka` to kill all
+- `wtc` needs a bare repo clone (use `gcb` to set up)
+- `wtc` / `wta` create tmux sessions — use `tl` to list and `tka` to kill all

@@ -218,44 +218,6 @@ Kubernetes development workflow tool shortcuts.
 
 ---
 
-## Worktrunk
-
-Naming scheme: top-level `wt` commands use `w<letter>` (with a trailing modifier letter for flag variants). `wt step` subcommands use the `wx<letter>` prefix.
-
-### List
-
-- `wl` - List all worktrees (`wt list`)
-- `wlf` - List worktrees with full details — CI, diffstat, summaries (`wt list --full`)
-- `wj` - List worktrees as JSON (`wt list --format json`)
-
-### Switch
-
-- `ws` - Switch to a worktree (`wt switch`)
-- `wsc` - Create and switch to a new worktree (`wt switch --create`)
-- `wsr` - Switch to a worktree, picker includes remote branches (`wt switch --remotes`)
-
-### Merge & Remove
-
-- `wm` - Merge current worktree into default branch (`wt merge`)
-- `wmn` - Merge current worktree but keep it (`wt merge --no-remove`)
-- `wms` - Merge only staged changes, keep worktree (`wt merge --no-remove --stage none`)
-- `wmu` - Merge without squashing, keep commit history (`wt merge --no-squash`)
-- `wr` - Remove current worktree (`wt remove`)
-
-### `wt step` subcommands (`wx*`)
-
-- `wxc` - Stage and commit current worktree with LLM-generated message (`wt step commit`)
-- `wxcs` - Commit only already-staged changes with LLM-generated message, nothing else staged (`wt step commit --stage none`)
-- `wxs` - Squash current worktree's commits with LLM-generated message (`wt step squash`)
-- `wxr` - Rebase current worktree onto default branch (`wt step rebase`)
-- `wxp` - Fast-forward default branch to current worktree (`wt step push`)
-- `wxf` - Run a command in all worktrees (`wt step for-each --`)
-- `wxfr` - Rebase all worktrees onto default branch (`wt step for-each -- wt step rebase`)
-- `wxpr` - Prune stale worktrees (`wt step prune`)
-- `wxprd` - Preview stale worktrees to prune (`wt step prune --dry-run`)
-
----
-
 ## Starship
 
 - `stk` - Toggle Kubernetes module in prompt (`starship toggle kubernetes`)
@@ -264,15 +226,6 @@ Naming scheme: top-level `wt` commands use `w<letter>` (with a trailing modifier
 - `stn` - Toggle Node.js module in prompt (`starship toggle nodejs`)
 - `stt` - Toggle Terraform module in prompt (`starship toggle terraform`)
 - `stp` - Toggle Python module in prompt (`starship toggle python`)
-
----
-
-## Tmux Keybindings
-
-These are tmux keybindings (not shell aliases) defined in `tmux/.config/tmux/tmux.conf` (stowed to `~/.config/tmux/tmux.conf`):
-
-- `prefix + W` - Popup fzf worktree switcher — select a branch and `wt switch` runs in the original pane
-- `prefix + S` - Popup worktree status dashboard — shows `wt list` output
 
 ---
 
@@ -287,5 +240,4 @@ These are tmux keybindings (not shell aliases) defined in `tmux/.config/tmux/tmu
 - Many Kubernetes operations have interactive fzf-enabled functions available — see [functions.md](functions.md)
 - Aliases prefixed with `k` are Kubernetes-related
 - Aliases prefixed with `f` are Flux CD-related
-- Aliases prefixed with `w` are Worktrunk-related (see also [functions.md](functions.md) for fzf-enabled functions)
 - Most aliases support standard command arguments after the alias

@@ -58,7 +58,7 @@ dot brew save <profile>        # macOS: save current Homebrew packages
 
 Two scopes of overlay agent files, sourced from the private `agent-files` submodule (synced across machines via private GitHub). Content is committed automatically inside the submodule; push to the remote is always manual. Once the pointer is bumped, `git push` in `~/.dotfiles` pushes the submodule commits first, so other machines never get a pointer to a commit GitHub doesn't have.
 
-**Per-project — `dot agent link`.** For projects where `AGENTS.md` can't be committed and `.gitignore` can't be modified. Content lives in `agent-files/projects/<project>/AGENTS.md`; the project gets a symlink excluded via the shared `.git/info/exclude`. An untracked leftover `CLAUDE.md` is migrated to `AGENTS.md`. A worktrunk `post-start` hook auto-links every newly created worktree.
+**Per-project — `dot agent link`.** For projects where `AGENTS.md` can't be committed and `.gitignore` can't be modified. Content lives in `agent-files/projects/<project>/AGENTS.md`; the project gets a symlink excluded via the shared `.git/info/exclude`. An untracked leftover `CLAUDE.md` is migrated to `AGENTS.md`. `wtc` links every new session folder automatically.
 
 **Per-environment — `dot agent env link <name>`.** For machine- or environment-scoped context. Content lives in `agent-files/env/<env>/AGENTS.md` and is symlinked into the user instructions file of each AI harness on the machine (`~/.claude/CLAUDE.md`, `~/.grok/AGENTS.md`, `~/.config/opencode/AGENTS.md`). Machine-only skills in `agent-files/env/<env>/skills/` link into each harness's skills dir. The symlinks themselves are the state. Opt out with `dot agent env unlink`.
 
@@ -112,7 +112,7 @@ Stale `~/.config/<pkg>` symlinks from packages that have since been dropped are 
 
 ## AI Config
 
-Skills, agents, rules, hooks, and the MCP roster live once in `ai/` and feed three peer AI harnesses: **Claude Code**, **Grok Build**, and **OpenCode**. Each machine's profile lists the harnesses it gets (the personal profiles have all three; the work profile has Grok and OpenCode), which MCP servers are on, and the default harness that `tav`, `wta`, `wtc` and commit messages use.
+Skills, agents, rules, hooks, and the MCP roster live once in `ai/` and feed three peer AI harnesses: **Claude Code**, **Grok Build**, and **OpenCode**. Each machine's profile lists the harnesses it gets (the personal profiles have all three; the work profile has Grok and OpenCode), which MCP servers are on, and the default harness that `tav`, `wtc` and `wta` launch.
 
 - **Claude Code** — skills, agents, and flattened rules symlink into `~/.claude/`; notify, session-state, and issue close-out hooks merge into `settings.json`; MCP servers merge into `~/.claude.json`. Aliases: `cl`, `cca`.
 - **Grok Build** — skills, agents, hooks, and flattened rules symlink into `~/.grok/`; `config.toml` seeded if missing, with `grok/.grok/base.toml` and an optional per-profile overlay merged in; MCP written as `[mcp_servers.*]`. Aliases: `gr`, `gra`.
@@ -122,7 +122,7 @@ Skills, agents, rules, hooks, and the MCP roster live once in `ai/` and feed thr
 
 `dot update` re-links every harness on the profile. See [docs/ai.md](docs/ai.md).
 
-**Coordinating worktree sessions.** With one agent session per worktree, `/orchestrate` turns the main worktree's session into a coordinator: it tracks the other sessions (`wto ls`), relays messages, pauses everyone before a shutdown and resumes them the next day, sends rebase notices when main moves, hands out shared resources with `wto claim`, and starts new sessions when you ask. In a project with a profile, a session in the main worktree offers to move its whole conversation onto a new branch (`wto new --fork`) before it starts real work. Feature sessions hand off unrelated work with `/spinoff` and finish with `/closeout`; `/onboard` records a project's own rules. See [docs/ai.md](docs/ai.md#orchestrating-worktree-sessions).
+**Coordinating worktree sessions.** `wtc` starts an agent session in a new worktree folder with a generated name, on the latest default branch; the session names its branch once the work is clear, and the tmux window shows that branch. `/orchestrate` turns one session into a coordinator: it tracks the other sessions (`wto ls`), relays messages, pauses everyone before a shutdown and resumes them the next day, sends rebase notices when the default branch moves, hands out shared resources with `wto claim`, and starts new sessions when you ask. Feature sessions hand off unrelated work with `/spinoff` and finish with `/closeout`; `/onboard` records a project's own rules. See [docs/ai.md](docs/ai.md#orchestrating-worktree-sessions).
 
 ## Manifest and Profiles
 

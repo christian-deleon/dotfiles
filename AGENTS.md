@@ -31,7 +31,7 @@ Guidelines for AI coding agents working in this personal dotfiles repo. Manages 
 | `.commonrc` | Core config — sourced by both bash and zsh |
 | `.aliases` | Personal aliases |
 | `.functions` | Loader that sources `~/.dotfiles/functions.d/*.sh` |
-| `functions.d/*.sh` | Topic fragments (general, kubernetes, flux, aws, git, sudo, tmux, worktrunk, …) — not symlinked, sourced from the repo by the loader |
+| `functions.d/*.sh` | Topic fragments (general, kubernetes, flux, aws, git, sudo, tmux, …) — not symlinked, sourced from the repo by the loader |
 | `completions.d/*.sh` | Tab-completion fragments — not symlinked, sourced from the repo by a loop in `.commonrc` (bash + zsh via bashcompinit). See [docs/common-operations.md](docs/common-operations.md) |
 | `.zshrc`, `.p10k.zsh` | macOS only |
 | `.gitconfig.dotfiles` → `~/.gitconfig` | Shared git config |
@@ -43,7 +43,7 @@ Not tracked (machine-specific): `~/.localrc`, `~/.gitconfig.local`.
 
 | Package | Path in dotfiles |
 |---------|------------------|
-| `alacritty`, `btop`, `fastfetch`, `k9s`, `lazygit`, `makima`, `nvim`, `opencode`, `tmux`, `worktrunk` | `<pkg>/.config/<pkg>/` |
+| `alacritty`, `btop`, `fastfetch`, `k9s`, `lazygit`, `makima`, `nvim`, `opencode`, `tmux` | `<pkg>/.config/<pkg>/` |
 | `starship` | `starship/.config/starship.toml` (single-file package) |
 
 ## Build / Test / Run
@@ -55,6 +55,7 @@ for f in functions.d/*.sh; do bash -n "$f"; done
 for f in completions.d/*.sh; do bash -n "$f"; done
 for f in scripts/*.sh; do bash -n "$f"; done
 for f in bin/wto ai/hooks/*.sh; do bash -n "$f"; done
+sh -n tmux/.config/tmux/window-label.sh
 bash scripts/check-descriptions.sh   # function/alias descriptions ≤60 chars, single line
 
 # Install / manage
@@ -74,7 +75,7 @@ When you change behavior, also update: `README.md` (high-level), `docs/functions
 
 Before committing:
 
-- [ ] `bash -n <script>`, `for f in scripts/*.sh bin/wto ai/hooks/*.sh; do bash -n "$f"; done`, `for f in functions.d/*.sh; do bash -n "$f"; done`, and `for f in completions.d/*.sh; do bash -n "$f"; done`
+- [ ] `bash -n <script>`, `for f in scripts/*.sh bin/wto ai/hooks/*.sh; do bash -n "$f"; done`, `sh -n tmux/.config/tmux/window-label.sh`, `for f in functions.d/*.sh; do bash -n "$f"; done`, and `for f in completions.d/*.sh; do bash -n "$f"; done`
 - [ ] `bash scripts/check-descriptions.sh`
 - [ ] `source .functions && <function-name>` works; aliases work in new shell
 - [ ] New aliases/functions evaluated for `HISTIGNORE` in `.commonrc` — add high-frequency, low-recall-value ones (navigation, list/status, fire-and-forget toggles, picker/AI launchers). A **bare** pattern (`name`) only filters the no-arg form and keeps `name <args>` recallable; use `name *` (or escaped `\&\&` for compounds) only when the args themselves are noise. Don't add mutating commands you'd want for audit/repeat.
