@@ -8,9 +8,9 @@ Guidelines for AI coding agents working in this personal dotfiles repo. Manages 
 
 **Key components:**
 - Shell configs: `.commonrc` (cross-platform), `.zshrc` (macOS), `.bashrc` (reference only — never symlinked)
-- Omarchy desktop: personal Hypr/Omarchy overlays via handlers; other app configs via GNU Stow + omadot (alacritty, btop, fastfetch, lazygit, nvim, tmux, starship, …)
+- Omarchy desktop: personal Hypr/Omarchy overlays via handlers; other app configs via GNU Stow + omadot (alacritty, btop, lazygit, nvim, tmux, starship, …)
 - AI config: `ai/` (skills, agents, hooks, rules); MCP roster at `ai/mcp-servers.json.tpl`. Claude Code, Grok and OpenCode are peers, each installed straight from `ai/` (`scripts/handlers/ai.sh`); never make one harness read another's tree. The profile's `items` pick the harnesses (Claude Code must never be on `wsl-work`), its `mcp:` block is the only source of enabled MCP servers, and `ai.default` sets `AI_TOOL`. Models live only in `ai/models.yaml` (per job, per harness; profile `models:` overrides): agents set `job:` and skills name jobs, never a model. See [docs/ai.md](docs/ai.md).
-- Package + config management: `manifest.yaml` + `profiles/*.yaml` + `scripts/lib.sh` + `scripts/handlers/*.sh`
+- Package + config management: `manifest.yaml` + `profiles/*.yaml` + `scripts/lib.sh` (loader for `scripts/lib/*.sh`, layout in [docs/architecture.md](docs/architecture.md#library--scriptslibsh)) + `scripts/handlers/*.sh`. `install.sh` is only the bootstrap; `dot.sh` never sources it.
 - Desired absences for retired tools: `tombstones.yaml` (applied by `apply_tombstones` on `dot update` / install)
 - Windows bootstrap: `windows/bootstrap.ps1`
 
@@ -18,11 +18,12 @@ Guidelines for AI coding agents working in this personal dotfiles repo. Manages 
 
 1. **Source into, never replace.** `~/.bashrc` is system-owned (Omarchy/Ubuntu/etc.). `install.sh` injects `source ~/.commonrc`; we never symlink `.bashrc`. The same rule applies to `~/.config/hypr` and `~/.config/omarchy` — Omarchy owns those directories; this repo only copies personal overlays in. Machine-specific config goes in untracked `~/.localrc`.
 2. **Most `~/.config/<tool>/` is managed via omadot/Stow.** Exceptions: `hypr` and `omarchy` (handlers). See "CRITICAL" section below.
-3. **Idempotent.** Every install module must be safe to re-run. Use `ln -snf`, check before stowing, clean stale symlinks.
+3. **Idempotent.** Every install module must be safe to re-run and change nothing when nothing is missing: leave links that are already right alone, check before stowing, clean stale symlinks. Record each on-disk change with `note_change` (it feeds the `dot update` summary; a clean second run prints "No changes").
 4. **OS-aware.** Detect with `$OSTYPE` and `requires:` predicates. Supports macOS, Omarchy/Arch, Ubuntu/Pop!_OS, Debian, and headless Amazon Linux 2023 (dnf; no stow, so stow packages are symlinked directly). Omarchy is documented heavily because of its unique integration points — that does **not** mean the user is on Omarchy. Always check the actual environment.
 5. **Privacy.** Never commit secrets, tokens, or credentials.
 6. **Persist OS settings in the repo.** When you change an Omarchy/Hyprland default or a hardware-specific setting, put it in a tracked file that the installer applies. Don't leave it only in `~/.config` or a live IPC call. Omarchy shell settings (`~/.config/omarchy/shell.json`: idle timings, plugin settings such as `omarchy-shell lock setBlankDelay`) go in `omarchy/shell.overlay.json`, which is merged by key; plugin entries are matched by `id`. After changing a setting live, copy it into the overlay as well. If a setting has no tracked home yet, add one or ask the user.
-7. **No TDD.** Do not add tests, a test runner, or a red/green cycle. Prove changes by running the real command (`bash -n`, `dot`, `claude mcp list` / `grok mcp doctor`, a new shell). Leave existing `ai/scripts/test_*.py` files alone unless asked.
+7. **bash 3.2.** `install.sh`, `dot.sh`, `scripts/lib*`, `scripts/handlers/*` and `scripts/dot/*` run under macOS `/bin/bash`: no `mapfile`, `declare -A`, `local -n`, `${x,,}`, `[[ -v`, `wait -n`; jq 1.6 features only.
+8. **No TDD.** Do not add tests, a test runner, or a red/green cycle. Prove changes by running the real command (`bash -n`, `dot`, `claude mcp list` / `grok mcp doctor`, a new shell). Leave existing `ai/scripts/test_*.py` files alone unless asked.
 
 ## Files symlinked to $HOME
 
@@ -43,7 +44,7 @@ Not tracked (machine-specific): `~/.localrc`, `~/.gitconfig.local`.
 
 | Package | Path in dotfiles |
 |---------|------------------|
-| `alacritty`, `btop`, `fastfetch`, `k9s`, `lazygit`, `makima`, `nvim`, `opencode`, `tmux` | `<pkg>/.config/<pkg>/` |
+| `alacritty`, `blesh`, `btop`, `k9s`, `lazygit`, `makima`, `nvim`, `opencode`, `tmux` | `<pkg>/.config/<pkg>/` |
 | `starship` | `starship/.config/starship.toml` (single-file package) |
 
 ## Build / Test / Run
@@ -53,15 +54,16 @@ Not tracked (machine-specific): `~/.localrc`, `~/.gitconfig.local`.
 bash -n .functions
 for f in functions.d/*.sh; do bash -n "$f"; done
 for f in completions.d/*.sh; do bash -n "$f"; done
-for f in scripts/*.sh; do bash -n "$f"; done
+for f in install.sh dot.sh scripts/*.sh scripts/lib/*.sh scripts/dot/*.sh scripts/handlers/*.sh scripts/tools/*.sh; do bash -n "$f"; done
 for f in bin/wto ai/hooks/*.sh; do bash -n "$f"; done
 sh -n tmux/.config/tmux/window-label.sh
 bash scripts/check-descriptions.sh   # function/alias descriptions ≤60 chars, single line
 
 # Install / manage
 ./install.sh                          # Interactive: pick profile or items manually
+./install.sh --profile <name>         # No picker; runs without a terminal
 dot install [<name>...]               # Picker, or install specific items
-dot update                            # Pull + AI refresh + tombstones + source tools + reconcile active profile
+dot update                            # Pull + submodules + cleanup + reconcile active profile + AI refresh
 dot profile list | show | use <name>
 dot agent link [name]                 # See docs/dot-agent.md
 omadot put <pkg>                      # Stow a config (never `--all`)
@@ -75,11 +77,12 @@ When you change behavior, also update: `README.md` (high-level), `docs/functions
 
 Before committing:
 
-- [ ] `bash -n <script>`, `for f in scripts/*.sh bin/wto ai/hooks/*.sh; do bash -n "$f"; done`, `sh -n tmux/.config/tmux/window-label.sh`, `for f in functions.d/*.sh; do bash -n "$f"; done`, and `for f in completions.d/*.sh; do bash -n "$f"; done`
+- [ ] `bash -n <script>`, `for f in install.sh dot.sh scripts/*.sh scripts/lib/*.sh scripts/dot/*.sh scripts/handlers/*.sh scripts/tools/*.sh bin/wto ai/hooks/*.sh; do bash -n "$f"; done`, `sh -n tmux/.config/tmux/window-label.sh`, `for f in functions.d/*.sh; do bash -n "$f"; done`, and `for f in completions.d/*.sh; do bash -n "$f"; done`
 - [ ] `bash scripts/check-descriptions.sh`
 - [ ] `source .functions && <function-name>` works; aliases work in new shell
 - [ ] New aliases/functions evaluated for `HISTIGNORE` in `.commonrc` — add high-frequency, low-recall-value ones (navigation, list/status, fire-and-forget toggles, picker/AI launchers). A **bare** pattern (`name`) only filters the no-arg form and keeps `name <args>` recallable; use `name *` (or escaped `\&\&` for compounds) only when the args themselves are noise. Don't add mutating commands you'd want for audit/repeat.
 - [ ] `yq '.' manifest.yaml` parses; every `config.handler` references a function in `scripts/handlers/*.sh`
+- [ ] A tool with no package on some host gets an `install.release` entry (and `install.check` when it has no command on `PATH`); add a `scripts/tools/install-*.sh` only for a custom upstream installer. See [docs/manifest.md](docs/manifest.md)
 - [ ] `yq '.' profiles/<name>.yaml` parses for any modified profile
 - [ ] `yq '.' tombstones.yaml` parses if modified; path names are single segments only
 - [ ] `yq '.' ai/models.yaml` parses if modified
@@ -146,6 +149,6 @@ profiles/*.yaml                      ← profiles that include the item
 - Write files directly to a **stowed** `~/.config/<tool>/` — they won't be tracked
 - Use `omadot get` for a brand-new config that doesn't yet exist in `~/.config/`; only use it to *import* an existing config
 - Use `omadot put --all`
-- Skip the manifest entry — the installer no longer auto-discovers stow packages from the filesystem
+- Skip the manifest entry — the installer does not auto-discover stow packages from the filesystem
 
 For mechanics of how stowing, stale-symlink cleanup, and special-handler configs work, see [docs/architecture.md](docs/architecture.md).
