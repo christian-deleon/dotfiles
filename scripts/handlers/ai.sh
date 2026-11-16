@@ -450,14 +450,14 @@ ensure_claude_settings() {
     ensure_jq || return 0
     if [[ ! -f "$dest" ]]; then
         printf '{}\n' > "$dest"
-    elif ! jq -e 'type == "object"' "$dest" >/dev/null 2>&1; then
-        _warn "Could not parse ~/.claude/settings.json — leaving Claude settings unchanged"
-        return 0
     fi
 
+    # Prints nothing when the merge leaves the settings as they are.
     tmp="$(mktemp "$dest.XXXXXX")"
     if ! jq --arg dir "$hooks_dir" '
-        def cmd($script): {type: "command", command: ($dir + "/" + $script)};
+        if type != "object" then error("not an object") else . end
+        | . as $orig
+        | def cmd($script): {type: "command", command: ($dir + "/" + $script)};
         def group($matcher; $hooks):
           {hooks: $hooks} + (if $matcher == "" then {} else {matcher: $matcher} end);
         def ours: ((.command // "") | startswith($dir + "/"));
@@ -476,16 +476,18 @@ ensure_claude_settings() {
             | with_entries(select(.value | length > 0)))
         | reduce $wanted[] as $w (.; .hooks[$w[0]] = ((.hooks[$w[0]] // []) + [$w[1]]))
         | .attribution = ((.attribution // {}) + {commit: "", pr: "", sessionUrl: false})
-        ' "$dest" > "$tmp"; then
-        _warn "Could not merge Claude settings into settings.json"
+        | if . == $orig then empty else . end
+        ' "$dest" > "$tmp" 2>/dev/null; then
+        _warn "Could not parse or merge ~/.claude/settings.json — leaving Claude settings unchanged"
         rm -f -- "$tmp"
         return 0
     fi
-    if jq -e --slurpfile new "$tmp" '. == $new[0]' "$dest" >/dev/null 2>&1; then
+    if [[ ! -s "$tmp" ]]; then
         rm -f -- "$tmp"
         return 0
     fi
     mv -- "$tmp" "$dest"
+    note_change "updated Claude hooks in ~/.claude/settings.json"
 }
 
 # Never runs where the profile leaves Claude out, so ~/.claude is not created
@@ -623,11 +625,15 @@ write_opencode_mcp() {
         _warn "Failed to merge OpenCode MCP servers into opencode.json"
         return 1
     fi
+    jq -r 'keys[]' "$resolved" > "$written"
+    if cmp -s -- "$tmp" "$oc_cfg"; then
+        rm -f -- "$tmp"
+        return 0
+    fi
     chmod 600 "$tmp"
     mv -- "$tmp" "$oc_cfg"
-    jq -r 'keys[]' "$resolved" > "$written"
+    note_change "updated OpenCode MCP servers"
     _OPENCODE_RELOAD=1
-    reload_opencode_service
     _success "Updated OpenCode MCP servers in opencode.json"
 }
 
@@ -694,6 +700,7 @@ write_claude_mcp() {
     else
         chmod 600 "$tmp"
         mv -- "$tmp" "$cfg"
+        note_change "updated Claude MCP servers"
         _success "Updated Claude MCP servers in ~/.claude.json"
     fi
 
@@ -817,5 +824,13 @@ generate_mcp_configs() {
         rm -f -- "$hash_file"
     else
         printf '%s' "$current_hash" > "$hash_file"
+    fi
+
+    # One reload covers both opencode.json writers: when the OpenCode
+    # install has not run yet in this process, run it first so its own write
+    # lands before the reload instead of triggering a second one.
+    if [[ "${_OPENCODE_RELOAD:-0}" == 1 ]]; then
+        run_once install_ai_opencode
+        reload_opencode_service
     fi
 }
