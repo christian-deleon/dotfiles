@@ -52,7 +52,12 @@ for agent_file in "$AI_DIR"/agents/*.md; do
 
     # Parse frontmatter fields
     name="$(echo "$frontmatter" | sed -n 's/^name:[[:space:]]*//p' | tr -d '"' | tr -d "'")"
-    description="$(echo "$frontmatter" | sed -n 's/^description:[[:space:]]*//p' | tr -d '"' | tr -d "'")"
+    description="$(echo "$frontmatter" | sed -n 's/^description:[[:space:]]*//p')"
+    # YAML quotes: strip a matching pair around the value only, so an
+    # apostrophe inside it survives.
+    case "$description" in
+        \"*\" | \'*\') description="${description:1:${#description}-2}" ;;
+    esac
     model="$(echo "$frontmatter" | sed -n 's/^model:[[:space:]]*//p' | tr -d '"' | tr -d "'")"
     tools_line="$(echo "$frontmatter" | sed -n 's/^tools:[[:space:]]*//p')"
     job="$(echo "$frontmatter" | sed -n 's/^job:[[:space:]]*//p' | tr -d '"' | tr -d "'")"
@@ -147,6 +152,8 @@ overlay="$(jq --argjson tpl "$tpl_json" '
 ' <<<"$overlay")"
 
 personal_clean="$(jq 'del(.agent, .command, .instructions, .plugins, .provider)' "$OC_CFG")"
+# opencode.json holds MCP secrets: never let it exist with wider permissions.
+umask 077
 jq -s '.[0] * .[1] * .[2]' \
     <(printf '%s\n' "$tpl_json") \
     <(printf '%s\n' "$overlay") \
