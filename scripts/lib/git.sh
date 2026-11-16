@@ -84,11 +84,13 @@ _submodule_checkout_branch() {
 
 # For a GitHub origin in repo $1: an SSH url becomes the HTTPS form for
 # fetching, and pushurl (when unset) the SSH form, so fetches need no SSH key
-# and pushes still use one. Sets _GIT_REMOTE_OWNER to the GitHub owner ("" for
-# other hosts).
+# and pushes still use one. An origin already on HTTPS gets an SSH pushurl
+# only when $2 is "ssh-push" (a host cloned over HTTPS may have no key). Sets
+# _GIT_REMOTE_OWNER to the GitHub owner ("" for other hosts) and
+# _GIT_REMOTE_SSH_PUSH to 1 when pushes go over SSH.
 git_split_remote() {
-    local dir="$1" key value url="" push="" path
-    _GIT_REMOTE_OWNER=""
+    local dir="$1" mode="${2:-}" key value url="" push="" path
+    _GIT_REMOTE_OWNER="" _GIT_REMOTE_SSH_PUSH=0
     while read -r key value; do
         case "$key" in
             remote.origin.url) url="$value" ;;
@@ -105,10 +107,12 @@ git_split_remote() {
     _GIT_REMOTE_OWNER="${path%%/*}"
     local label="${dir#"$DOTFILES_DIR"/}"
     [[ "$dir" != "$DOTFILES_DIR" ]] || label=dotfiles
-    if [[ -z "$push" ]]; then
-        git -C "$dir" config remote.origin.pushurl "git@github.com:$path.git"
+    if [[ -z "$push" && ( "$url" == git@* || "$mode" == ssh-push ) ]]; then
+        push="git@github.com:$path.git"
+        git -C "$dir" config remote.origin.pushurl "$push"
         note_change "push $label over SSH"
     fi
+    [[ "$push" != git@* ]] || _GIT_REMOTE_SSH_PUSH=1
     if [[ "$url" == git@* ]]; then
         git -C "$dir" config remote.origin.url "https://github.com/$path.git"
         note_change "fetch $label over HTTPS"
@@ -147,7 +151,8 @@ _gitmodules_load() {
 dotfiles_split_remotes() {
     [[ -d "$DOTFILES_DIR/.git" ]] || return 0
     git_split_remote "$DOTFILES_DIR"
-    local owner="$_GIT_REMOTE_OWNER"
+    local owner="$_GIT_REMOTE_OWNER" sub_mode=""
+    [[ "$_GIT_REMOTE_SSH_PUSH" -eq 0 ]] || sub_mode=ssh-push
     _gitmodules_load
 
     local key value i local_urls="" nl=$'\n' recurse=""
@@ -169,7 +174,7 @@ dotfiles_split_remotes() {
         esac
         [[ -n "$owner" && -z "${_SM_BRANCHES[i]}" && -e "$DOTFILES_DIR/${_SM_PATHS[i]}/.git" ]] || continue
         case "${_SM_URLS[i]}" in
-            "git@github.com:$owner/"* | "https://github.com/$owner/"*) git_split_remote "$DOTFILES_DIR/${_SM_PATHS[i]}" ;;
+            "git@github.com:$owner/"* | "https://github.com/$owner/"*) git_split_remote "$DOTFILES_DIR/${_SM_PATHS[i]}" "$sub_mode" ;;
         esac
     done
 }
