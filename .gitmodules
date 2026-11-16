@@ -27,15 +27,15 @@
 	ignore = all
 [submodule "omarchy/.config/omarchy/themes/iron-man"]
 	path = omarchy/.config/omarchy/themes/iron-man
-	url = git@github.com:christian-deleon/omarchy-ironman-theme.git
+	url = https://github.com/christian-deleon/omarchy-ironman-theme.git
 	ignore = all
 [submodule "omarchy/.config/omarchy/themes/robots"]
 	path = omarchy/.config/omarchy/themes/robots
-	url = git@github.com:christian-deleon/omarchy-robots-theme.git
+	url = https://github.com/christian-deleon/omarchy-robots-theme.git
 	ignore = all
 [submodule "omarchy/.config/omarchy/themes/spacex"]
 	path = omarchy/.config/omarchy/themes/spacex
-	url = git@github.com:christian-deleon/omarchy-spacex-theme.git
+	url = https://github.com/christian-deleon/omarchy-spacex-theme.git
 	ignore = all
 [submodule "agent-files"]
 	path = agent-files
