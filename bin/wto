@@ -2069,8 +2069,8 @@ close_pick() {
 }
 
 # Close the worktree this shell is in. The checks run here; the removal runs
-# in a detached tmux job, which kills this window last (with no other window,
-# that ends the tmux session).
+# in a detached tmux job, which kills this window last. With no other window, a
+# shell window in the project folder opens first so the session stays alive.
 close_here() {
     local roster=$1 path entry blockers own_window dest wid last root log self
     [[ -n ${TMUX:-} && -n ${TMUX_PANE:-} ]] || die "close --here: run it inside tmux"
@@ -2092,8 +2092,11 @@ close_here() {
         fi
         [[ -n $dest ]] || dest=$wid
     done < <(tmux list-windows -F '#{window_id} #{window_last_flag}')
-    [[ -z $dest ]] || tmux select-window -t "$dest"
     root=$(project_root)
+    if [[ -z $dest ]]; then
+        dest=$(tmux new-window -d -P -F '#{window_id}' -c "$root") || die "close --here: cannot open a window in $root"
+    fi
+    tmux select-window -t "$dest"
     log=$(state_dir)/close-${path##*/}.log
     self=$(realpath -- "${BASH_SOURCE[0]}")
     tmux run-shell -b "$(printf 'cd %q && WTO_CLOSE_WINDOW=%q %q close --detached %q %q' "$root" "$own_window" "$self" "$path" "$log")"
