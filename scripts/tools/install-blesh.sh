@@ -7,7 +7,7 @@
 # Uses the prebuilt nightly tarball so install is identical on Arch and
 # Ubuntu/WSL with no build toolchain (gawk/make) required. Pass --force to
 # re-download the latest nightly; once loaded, `ble-update` also self-updates.
-set -e
+set -eo pipefail
 
 DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
 BLESH="$DATA_DIR/blesh/ble.sh"

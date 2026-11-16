@@ -1,9 +1,9 @@
 #!/bin/bash
 # Install 1Password CLI (op) via official APT repo or binary
 # https://developer.1password.com/docs/cli/get-started/
-set -e
+set -eo pipefail
 
-if command -v op &>/dev/null; then
+if [[ "${1:-}" != --force ]] && command -v op &>/dev/null; then
     echo "1password-cli is already installed"
     exit 0
 fi
@@ -30,21 +30,29 @@ if command -v apt-get &>/dev/null; then
     # Step 4: Install
     sudo apt-get update && sudo apt-get install -y 1password-cli
 else
-    # Binary install fallback (non-APT systems without pacman)
-    ARCH="$(uname -m)"
-    case "$ARCH" in
-        x86_64)  ARCH="amd64" ;;
+    # Binary install fallback (non-APT systems without pacman). It stays in
+    # /usr/local/bin, where the desktop app integration expects op.
+    case "$(uname -m)" in
+        x86_64) ARCH="amd64" ;;
         aarch64) ARCH="arm64" ;;
+        *)
+            echo "Error: Unsupported architecture: $(uname -m)" >&2
+            exit 1
+            ;;
     esac
 
-    # Fetch the latest stable version from the release page
-    LATEST="$(curl -fsSL https://app-updates.agilebits.com/check/1/0/CLI2/en/0.0.0/N -o /dev/null -w '%{redirect_url}' | grep -oP 'v[\d.]+')" || true
-    if [[ -z "$LATEST" ]]; then
-        echo "Warning: Could not detect latest version, falling back to v2.32.1" >&2
-        LATEST="v2.32.1"
+    # The update endpoint answers {"version":"2.x.y",...} for the latest stable CLI.
+    check="$(curl -fsSL https://app-updates.agilebits.com/check/1/0/CLI2/en/0.0.0/N)"
+    VERSION="$(printf '%s\n' "$check" | sed -n 's/.*"version":"\([0-9][0-9.]*\)".*/\1/p')"
+    if [[ -z "$VERSION" ]]; then
+        echo "Error: could not determine the latest 1Password CLI version" >&2
+        exit 1
     fi
 
-    curl -fsSLo /tmp/op.zip "https://cache.agilebits.com/dist/1P/op2/pkg/${LATEST}/op_linux_${ARCH}_${LATEST}.zip"
-    sudo unzip -o /tmp/op.zip -d /usr/local/bin/
-    rm -f /tmp/op.zip
+    tmp="$(mktemp -d)"
+    trap 'rm -rf -- "$tmp"' EXIT
+    curl -fsSLo "$tmp/op.zip" "https://cache.agilebits.com/dist/1P/op2/pkg/v${VERSION}/op_linux_${ARCH}_v${VERSION}.zip"
+    unzip -q "$tmp/op.zip" -d "$tmp"
+    sudo install -m 755 "$tmp/op" /usr/local/bin/op
+    echo "1password-cli v${VERSION} installed"
 fi

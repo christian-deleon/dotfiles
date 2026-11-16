@@ -1,7 +1,7 @@
 #!/bin/bash
 # Configure Windows Terminal with Everforest theme, JetBrainsMono Nerd Font,
 # and WSL as the default profile. Only runs on WSL2.
-set -e
+set -eo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATE="$SCRIPT_DIR/../windows/windows-terminal-settings.json"
@@ -50,12 +50,12 @@ fi
 WSL_GUID=""
 WSL_NAME=""
 if [[ -f "$WT_SETTINGS" ]] && command -v jq &>/dev/null; then
-    WSL_GUID="$(jq -r '.profiles.list[] | select(.source == "Microsoft.WSL") | .guid' "$WT_SETTINGS" 2>/dev/null | head -1)"
-    WSL_NAME="$(jq -r '.profiles.list[] | select(.source == "Microsoft.WSL") | .name' "$WT_SETTINGS" 2>/dev/null | head -1)"
+    WSL_GUID="$(jq -r '.profiles.list[] | select(.source == "Microsoft.WSL") | .guid' "$WT_SETTINGS" 2>/dev/null | head -1)" || true
+    WSL_NAME="$(jq -r '.profiles.list[] | select(.source == "Microsoft.WSL") | .name' "$WT_SETTINGS" 2>/dev/null | head -1)" || true
 elif [[ -f "$WT_SETTINGS" ]]; then
     # Fallback: grep for the WSL GUID without jq
-    WSL_GUID="$(grep -A3 '"Microsoft.WSL"' "$WT_SETTINGS" | grep '"guid"' | head -1 | sed 's/.*"\({[^}]*}\)".*/\1/')"
-    WSL_NAME="$(grep -A3 '"Microsoft.WSL"' "$WT_SETTINGS" | grep '"name"' | head -1 | sed 's/.*"name": *"\([^"]*\)".*/\1/')"
+    WSL_GUID="$(grep -A3 '"Microsoft.WSL"' "$WT_SETTINGS" | grep '"guid"' | head -1 | sed 's/.*"\({[^}]*}\)".*/\1/')" || true
+    WSL_NAME="$(grep -A3 '"Microsoft.WSL"' "$WT_SETTINGS" | grep '"name"' | head -1 | sed 's/.*"name": *"\([^"]*\)".*/\1/')" || true
 fi
 
 if [[ -z "$WSL_GUID" ]]; then

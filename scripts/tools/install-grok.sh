@@ -1,9 +1,9 @@
 #!/bin/bash
 # Install Grok Build TUI via the official installer
 # https://x.ai/cli/install.sh
-set -e
+set -eo pipefail
 
-if command -v grok &>/dev/null; then
+if [[ "${1:-}" != --force ]] && command -v grok &>/dev/null; then
     echo "grok is already installed"
     exit 0
 fi
