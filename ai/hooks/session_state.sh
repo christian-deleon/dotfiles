@@ -20,9 +20,11 @@ fi
 
 # Grok fires Stop again at session end (reason channel_closed / shutdown);
 # SessionEnd records that as exited, so a late idle must not overwrite it.
+# StopCancelled's reason (user_interrupt, ...) still ends the turn.
 # A Grok subagent's turn end is not the session's.
 if [[ $state == idle && ( $payload == *'"reason"'* || $payload == *'"subagentType"'* ) ]]; then
-    skip=$(exec jq -r '(.subagentType // "") != "" or ((.reason // "end_turn") != "end_turn")' \
+    skip=$(exec jq -r '(.subagentType // "") != ""
+        or ((.hook_event_name // "Stop") == "Stop" and (.reason // "end_turn") != "end_turn")' \
         <<<"$payload" 2>/dev/null)
     [[ $skip == true ]] && exit 0
 fi
