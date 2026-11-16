@@ -93,7 +93,7 @@ ai_models_resolve() {
 }
 
 # First line of every agent file rendered below; marks it as ours to replace.
-readonly AI_RENDERED_MARK='# Rendered by the dotfiles installer from ai/agents/'
+AI_RENDERED_MARK='# Rendered by the dotfiles installer from ai/agents/'
 
 # $1 agent file. Prints its `job:` value, if any.
 agent_job() {
