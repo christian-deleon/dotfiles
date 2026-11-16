@@ -259,7 +259,7 @@ ensure_grok_trusted_folders() {
     local dest="$HOME/.grok/trusted_folders.toml"
     [[ -f "$managed" ]] || return 0
 
-    mkdir -p "$HOME/.grok"
+    [[ -d "$HOME/.grok" ]] || mkdir -p "$HOME/.grok"
     if [[ ! -f "$dest" ]]; then
         : >"$dest"
         chmod 600 "$dest" || true
@@ -275,12 +275,11 @@ ensure_grok_trusted_folders() {
         paths+=("$path")
     done <"$managed"
 
-    local added=0
-    for path in "${paths[@]}"; do
+    local added=0 content=""
+    IFS= read -r -d '' content < "$dest" || true
+    for path in ${paths[@]+"${paths[@]}"}; do
         header="[folders.\"${path}\"]"
-        if grep -Fq -- "$header" "$dest" 2>/dev/null; then
-            continue
-        fi
+        [[ "$content" == *"$header"* ]] && continue
         if [[ -s $dest ]]; then
             # Separate tables with a blank line; ensure trailing newline first.
             [[ -n $(tail -c1 "$dest" 2>/dev/null || true) ]] && printf '\n' >>"$dest"
@@ -291,12 +290,14 @@ ensure_grok_trusted_folders() {
             printf 'trusted = true\n'
             printf 'decided_at = %s\n' "$(date +%s)"
         } >>"$dest"
+        content+="$header"
         added=$((added + 1))
         _info "Trusted Grok folder: $path"
     done
 
     chmod 600 "$dest" 2>/dev/null || true
     if ((added > 0)); then
+        note_change "trusted $added Grok folders"
         _success "Merged $added Grok folder trust grant(s) into trusted_folders.toml"
     else
         _success "Grok folder trust grants already present"
@@ -321,30 +322,28 @@ ensure_grok_config() {
     local dest="$HOME/.grok/config.toml"
     local merger="$DOTFILES_DIR/ai/scripts/merge-grok-mcp.py"
     local base="$DOTFILES_DIR/grok/.grok/base.toml"
-    local overlay=""
+    local overlay="" out
+    local -a args=()
 
-    mkdir -p "$HOME/.grok"
+    [[ -d "$HOME/.grok" ]] || mkdir -p "$HOME/.grok"
     if [[ ! -f "$dest" && -f "$seed" ]]; then
         cp "$seed" "$dest"
         chmod 600 "$dest"
         _info "Seeded ~/.grok/config.toml from repo"
+        note_change "seeded ~/.grok/config.toml"
     fi
 
     if [[ ! -f "$merger" ]]; then
         return
     fi
 
-    if [[ -f "$base" ]]; then
-        python3 "$merger" "$dest" --overlay "$base" \
-            || _warn "Could not merge Grok base config"
-    else
-        python3 "$merger" "$dest" || _warn "Could not merge Grok Claude-compat flags"
-    fi
-
+    [[ -f "$base" ]] && args+=(--overlay "$base")
     overlay=$(grok_profile_overlay) || overlay=""
-    if [[ -n "$overlay" ]]; then
-        python3 "$merger" "$dest" --overlay "$overlay" \
-            || _warn "Could not merge Grok profile overlay"
+    [[ -n "$overlay" ]] && args+=(--overlay "$overlay")
+    if out="$(python3 "$merger" "$dest" ${args[@]+"${args[@]}"})"; then
+        [[ -z "$out" ]] || note_change "updated ~/.grok/config.toml"
+    else
+        _warn "Could not merge the Grok base config and profile overlay"
     fi
 }
 
@@ -570,15 +569,18 @@ write_grok_mcp() {
     local resolved="$1" written="$2"
     local cfg="$HOME/.grok/config.toml"
     local merger="$DOTFILES_DIR/ai/scripts/merge-grok-mcp.py"
-    local enabled_file
+    local enabled_file out
 
     mkdir -p "$HOME/.grok"
     enabled_file="$(mktemp)"
     jq -c 'keys' "$resolved" > "$enabled_file"
-    if python3 "$merger" "$cfg" --mcp "$resolved" --enabled "$enabled_file"; then
+    if out="$(python3 "$merger" "$cfg" --mcp "$resolved" --enabled "$enabled_file")"; then
         rm -f -- "$enabled_file"
         jq -r 'keys[]' "$resolved" > "$written"
-        _success "Updated Grok MCP servers in ~/.grok/config.toml"
+        if [[ -n "$out" ]]; then
+            note_change "updated Grok MCP servers"
+            _success "Updated Grok MCP servers in ~/.grok/config.toml"
+        fi
         return 0
     fi
     rm -f -- "$enabled_file"

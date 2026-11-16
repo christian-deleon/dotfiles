@@ -3,23 +3,28 @@
 # compat off. --mcp replaces every [mcp_servers.*] table with the given set and
 # takes those names out of [tools] disabled_mcp_servers. Optional --overlay
 # upserts a Grok-only settings overlay (model.* tables replace wholesale; other
-# keys upsert; MCP tables are ignored — profiles own MCP).
+# keys upsert; MCP tables are ignored — profiles own MCP). --overlay may be
+# repeated: each one gives the same result as its own run, in order, so a
+# later overlay wins.
 #
 # Usage:
 #   merge-grok-mcp.py <config.toml>
 #   merge-grok-mcp.py <config.toml> --mcp <resolved.json> --enabled <enabled.json>
-#   merge-grok-mcp.py <config.toml> --overlay <overlay.toml>
+#   merge-grok-mcp.py <config.toml> --overlay <base.toml> [--overlay <profile.toml>]
 #
 # Stdlib only. Splices [mcp_servers.*], [compat.claude], [folder_trust] and the
 # disabled_mcp_servers key so the rest of the live file (which Grok mutates)
-# is left byte-for-byte intact.
+# is left byte-for-byte intact. The file is read once and, only when the
+# result differs, replaced atomically (mode 0600); its path is then printed.
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 TABLE_RE = re.compile(r"^\[\[?([^]]+)\]\]?\s*(?:#.*)?$")
@@ -214,12 +219,44 @@ def _upsert_table(live_lines: list[str], overlay_lines: list[str]) -> list[str]:
     return out
 
 
+def read_config(config_path: Path) -> tuple[bytes, str]:
+    """Return the file's bytes and its text with universal newlines."""
+    raw = config_path.read_bytes() if config_path.exists() else b""
+    text = raw.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
+    return raw, text
+
+
+def write_config(config_path: Path, raw: bytes, text: str) -> bool:
+    """Atomically replace the file with text unless it already holds it."""
+    target = Path(os.path.realpath(config_path))
+    new = text.encode("utf-8")
+    if target.exists() and raw == new:
+        target.chmod(0o600)
+        return False
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.")
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(new)
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, target)
+    except BaseException:
+        os.unlink(tmp)
+        raise
+    return True
+
+
 def apply_overlay(config_path: Path, overlay_path: Path) -> None:
-    """Upsert overlay tables into live config.
+    """Upsert overlay tables into live config."""
+    raw, original = read_config(config_path)
+    write_config(config_path, raw, overlay_config(original, overlay_path))
+
+
+def overlay_config(original: str, overlay_path: Path) -> str:
+    """Return config text with overlay tables upserted.
 
     model.* and mcp_servers.<name> tables replace wholesale; other keys upsert.
     """
-    original = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
     overlay_text = overlay_path.read_text(encoding="utf-8")
     preamble, live_tables = parse_tables(original)
     _, overlay_tables = parse_tables(overlay_text)
@@ -272,9 +309,7 @@ def apply_overlay(config_path: Path, overlay_path: Path) -> None:
         if not body.endswith("\n"):
             body += "\n"
 
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    config_path.write_text(ensure_trailing_newline(body), encoding="utf-8")
-    config_path.chmod(0o600)
+    return ensure_trailing_newline(body)
 
 
 DISABLED_MCP_RE = re.compile(r"^disabled_mcp_servers\s*=")
@@ -309,7 +344,12 @@ def drop_from_disabled(lines: list[str], names: set[str]) -> list[str]:
 
 
 def merge(config_path: Path, mcp_path: Path | None, enabled_path: Path | None) -> None:
-    original = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
+    raw, original = read_config(config_path)
+    write_config(config_path, raw, merge_config(original, mcp_path, enabled_path))
+
+
+def merge_config(original: str, mcp_path: Path | None, enabled_path: Path | None) -> str:
+    """Return config text with compat flags forced and, given mcp_path, MCP replaced."""
     preamble, tables = parse_tables(original)
 
     enabled: set[str] = set()
@@ -338,9 +378,7 @@ def merge(config_path: Path, mcp_path: Path | None, enabled_path: Path | None) -
             extras.append(mcp_block)
 
     merged = body + "\n".join(ensure_trailing_newline(block) for block in extras)
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    config_path.write_text(ensure_trailing_newline(merged), encoding="utf-8")
-    config_path.chmod(0o600)
+    return ensure_trailing_newline(merged)
 
 
 def main() -> int:
@@ -348,7 +386,7 @@ def main() -> int:
     parser.add_argument("config")
     parser.add_argument("--mcp", default=None)
     parser.add_argument("--enabled", default=None)
-    parser.add_argument("--overlay", default=None)
+    parser.add_argument("--overlay", action="append", default=[])
     args = parser.parse_args()
 
     mcp = Path(args.mcp) if args.mcp else None
@@ -359,9 +397,15 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
-    merge(Path(args.config), mcp, enabled)
-    if args.overlay:
-        apply_overlay(Path(args.config), Path(args.overlay))
+    config = Path(args.config)
+    raw, text = read_config(config)
+    text = merge_config(text, mcp, enabled)
+    for i, overlay in enumerate(args.overlay):
+        if i:
+            text = merge_config(text, None, None)
+        text = overlay_config(text, Path(overlay))
+    if write_config(config, raw, text):
+        print(config)
     return 0
 
 
