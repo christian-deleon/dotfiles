@@ -759,7 +759,9 @@ generate_mcp_configs() {
 
     # Overrides apply to the template, so their $HOME / op:// values resolve
     # too; filtering first means unused servers' secrets are never fetched.
-    if ! jq --argjson enabled "$enabled_json" --argjson p "$profile_mcp" '
+    # Shell-style $HOME (JSON can't), e.g. flux-operator-mcp's KUBECONFIG, is
+    # expanded here, before injection, so a secret's own text is never edited.
+    if ! jq --argjson enabled "$enabled_json" --argjson p "$profile_mcp" --arg home "$HOME" '
         ($p.override // {}) as $ov
         | with_entries(select(.key as $k | $enabled | index($k)))
         | with_entries(
@@ -774,6 +776,7 @@ generate_mcp_configs() {
                 )
               else . end
           )
+        | walk(if type == "string" then gsub("\\$HOME"; $home) else . end)
     ' "$mcp_src" > "$work/selected.json"; then
         _warn "Could not apply the profile's MCP overrides — leaving MCP configs unchanged"
         return 0
@@ -796,13 +799,6 @@ generate_mcp_configs() {
     else
         _warn "1Password CLI not installed — MCP servers needing secrets will be skipped"
         drop_op_servers "$work/selected.json" "$work/resolved.json"
-    fi
-
-    # Expand shell-style $HOME (JSON can't), e.g. flux-operator-mcp's KUBECONFIG.
-    if jq --arg home "$HOME" \
-        'walk(if type == "string" then gsub("\\$HOME"; $home) else . end)' \
-        "$work/resolved.json" > "$work/expanded.json" 2>/dev/null; then
-        mv -- "$work/expanded.json" "$work/resolved.json"
     fi
 
     if ! jq -e 'type == "object"' "$work/resolved.json" >/dev/null 2>&1; then
