@@ -498,7 +498,7 @@ tw    # fzf picker over every window in every session
 
 ## Agent sessions
 
-One agent session per git worktree, each in its own tmux window with the `tav` layout. Worktrees live beside a bare repository (`<project>/.git`, set up by [`gcb`](#gcb-repo-url)); every new session gets its own folder with a generated two-word name (`brisk-otter`), and the window shows the branch checked out there. `wtc`, `wta`, `tav` and `tavk` are thin wrappers over [`wto`](#wto-command).
+One agent session per git worktree, each in its own tmux window with the `tav` layout. Worktrees live beside a bare repository (`<project>/.git`, set up by [`gcb`](#gcb-repo-url)); every new session gets its own folder with a generated two-word name (`brisk-otter`), and the window shows the branch checked out there. `wtc`, `wta`, `wtx`, `tav` and `tavk` are thin wrappers over [`wto`](#wto-command).
 
 ### `wtc [-p|--prompt <text>] [-n|--no-switch] [-j|--job <job>] [-m|--model <model>] [-e|--effort <level>] [branch [base]]`
 
@@ -534,6 +534,12 @@ wta brisk-otter -p "rebase onto main and rerun the tests"   # by folder, with a 
 
 ---
 
+### `wtx [-y] [branch|folder...]` \*
+
+Close sessions. In a session folder inside tmux, with no arguments, it runs `wto close --here`. Otherwise it passes its arguments to `wto close`: names close those worktrees, and none opens the fzf picker. See [`wto close`](#wto-command).
+
+---
+
 ### `wto <command>`
 
 An executable in `bin/` (linked to `~/.local/bin/wto` by the installer and `dot update`), so agents and scripts can call it from shells that never load `functions.d/`. Run it anywhere inside the project, including the project root. It reads `$AI_TOOL` / `$AI_TOOL_RESUME`, or `~/.localrc` when they are unset. Needs git 2.38 or newer. A `<name>` below is a branch or a worktree folder name.
@@ -546,7 +552,8 @@ An executable in `bin/` (linked to `~/.local/bin/wto` by the installer and `dot 
 | `wto open [-p text \| -f file] [--switch] [<name>]` | What `wta` runs. |
 | `wto open --all [--switch]` | Open a window for every worktree, continuing each conversation; skips ones that have a window. Used to restore a project after a reboot. |
 | `wto layout [--k9s] [-t tool] [-p text \| -f file \| prompt...]` | What [`tav`](#tav--t--tool-ai-cmd--f--prompt-file-path-prompt) and `tavk` run: lay out the calling pane. Refuses a pane an agent runs in. |
-| `wto close <name>` | Close a finished session from another window: kills its tmux windows, removes the worktree with git, deletes its branch (printing the old tip), and hands its claims on. Refuses unless the work is merged into the local or `origin` default branch (a squash merge on the forge counts); also refuses uncommitted changes, an operation in progress, a locked worktree, the calling worktree, the orchestrator's, and a detached folder with commits on no branch. |
+| `wto close [-y] [<name>...]` | Close finished sessions: kills their tmux windows, removes the worktree with git, deletes the branch (printing the old tip), and hands its claims on. With no name, an fzf picker (Tab marks several; refused worktrees are dimmed with the reason). Each target gets a report first (`ok` or the reasons), then one confirmation for a picked or multiple set (`-y` skips it). Refuses unless the work is merged into the local or `origin` default branch (a squash merge on the forge counts); also refuses uncommitted changes (untracked files count; the first ones are named), an operation in progress, a locked worktree, the orchestrator's, and a detached folder with commits on no branch. Run from another window. |
+| `wto close --here` | Close the session this shell is in. The checks run in the foreground and refuse with their reasons; then focus moves to another window and a detached tmux job removes the windows, worktree and branch, writes its result to `close-<folder>.log` in the project's state dir (`wto dir`) and shows it as a tmux message. Needs another window in the tmux session. |
 | `wto here` | Print the project's live orchestrator marker; exit 1 if none. |
 | `wto here --orchestrator` | Record the calling pane as the orchestrator; exits 3 if another live pane holds it. |
 | `wto here --clear [--force]` | Remove the marker. |
