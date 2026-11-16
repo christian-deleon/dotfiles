@@ -476,8 +476,7 @@ op_load_service_account() {
 # Usage: op_inject_multi <json-template> <output>
 #
 # macOS ships /bin/bash 3.2 — no associative arrays. Encode the vault→account
-# map as newline-separated "vault_id<TAB>account_url" rows (same pattern as
-# run_post_install's hook dedupe list).
+# map as newline-separated "vault_id<TAB>account_url" rows.
 op_inject_multi() {
     local tpl="$1"
     local out="$2"

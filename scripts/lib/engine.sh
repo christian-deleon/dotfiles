@@ -1,179 +1,191 @@
 # shellcheck shell=bash
 # Manifest-driven item installs and tombstones.
+#
+# install_items acts only on differences, in passes over the plan rows:
+#   1. presence: `command -v <install.command>`, or the install.check path
+#   2. one batched package-manager call for every missing package item
+#      (retried one by one if the batch fails), then install scripts
+#   3. configs in item order: stow links that are not already right, then
+#      handlers
+#   4. post_install hooks
+# Handlers and hooks go through run_once, so each runs once per process
+# however many items or callers name it.
 
-# ─── Package Installation ────────────────────────────────────────────────────
-
-# Install a single tool by item name. Uses manifest.install fields.
-install_tool() {
-    local item="$1"
-
-    # Allow callers to pass an alias (op, rg, nvim) — resolve to canonical.
-    local resolved
-    resolved="$(manifest_resolve_alias "$item")"
-    if [[ -z "$resolved" ]]; then
-        _error "Unknown item: $item"
-        _info "Run ${_BOLD}dot --help${_RESET} to see available items"
-        return 1
-    fi
-    item="$resolved"
-
-    # Must have an install block to be installable as a tool.
-    if [[ "$(manifest_kind "$item")" != bundle && "$(manifest_kind "$item")" != tool ]]; then
-        _warn "${_BOLD}$item${_RESET} has no binary install (config-only)"
-        return 1
-    fi
-
-    # Check if already installed using install.command (or item name as fallback).
-    local cmd_name
-    cmd_name="$(manifest_field "$item" .install.command)"
-    cmd_name="${cmd_name:-$item}"
-    if command -v "$cmd_name" &>/dev/null; then
-        _info "${_DIM}$item${_RESET} already installed — skipping"
-        return 0
-    fi
-
-    # macOS GUI apps often live only under /Applications (not on PATH).
-    # Alacritty is commonly installed from the GitHub .app, so brew would
-    # fail with "already an App at '/Applications/Alacritty.app'".
-    if [[ "$OSTYPE" == darwin* && "$item" == "alacritty" ]]; then
-        if [[ -x /Applications/Alacritty.app/Contents/MacOS/alacritty ]]; then
-            _info "${_DIM}$item${_RESET} already installed (Alacritty.app) — skipping"
-            return 0
-        fi
-    fi
-
-    local pkg_manager
-    pkg_manager="$(detect_pkg_manager)"
-
-    # Get per-OS package name (may be null).
-    local pkg_name
-    pkg_name="$(manifest_field "$item" ".install.$pkg_manager")"
-
-    # If no package name (null/empty), fall back to script.
-    if [[ -z "$pkg_name" || "$pkg_name" == "null" ]]; then
-        local script
-        script="$(manifest_field "$item" .install.script)"
-        local script_path="$DOTFILES_DIR/scripts/tools/$script"
-        if [[ -n "$script" && -f "$script_path" ]]; then
-            _info "Installing ${_BOLD}$item${_RESET} via script..."
-            bash "$script_path"
-            return $?
-        else
-            _warn "No install method for ${_BOLD}$item${_RESET} on this system ($pkg_manager)"
-            return 1
-        fi
-    fi
-
-    # Install via package manager.
-    _info "Installing ${_BOLD}$item${_RESET} via $pkg_manager..."
-    case "$pkg_manager" in
-        brew)
-            # Unquoted intentional: "--cask docker" must split into 2 args.
-            # shellcheck disable=SC2086
-            brew install $pkg_name
-            ;;
-        arch)
-            if command -v yay &>/dev/null; then
-                yay -S --noconfirm --needed "$pkg_name"
-            else
-                sudo pacman -S --noconfirm --needed "$pkg_name"
-            fi
-            ;;
-        apt)
-            sudo apt-get install -y "$pkg_name"
-            ;;
-        dnf)
-            sudo dnf install -y "$pkg_name"
-            ;;
-        *)
-            _error "Unknown package manager: $pkg_manager"
-            return 1
-            ;;
+# Run "$@" unless the same command line already ran in this process. Returns
+# its status the first time, 0 after.
+run_once() {
+    local key="$*" nl=$'\n'
+    case "$nl${_RUN_ONCE_DONE:-}" in
+        *"$nl$key$nl"*) return 0 ;;
     esac
+    _RUN_ONCE_DONE="${_RUN_ONCE_DONE:-}$key$nl"
+    "$@"
 }
 
-# Install multiple items (with gum spinner if available). Per-item failures
-# accumulate in `failed` but don't abort the rest.
+# install.check is "<root>:<relpath>": root is an xdg_root kind (xdg_config,
+# xdg_data, xdg_state, xdg_cache, home) or apps (/Applications, macOS app
+# bundles). An item counts as installed when its command is on PATH or that
+# path exists.
+_item_present() {
+    local cmd="$1" check="$2" root
+    command -v "$cmd" >/dev/null 2>&1 && return 0
+    [[ -n "$check" ]] || return 1
+    case "${check%%:*}" in
+        apps) root=/Applications ;;
+        xdg_config) root="${XDG_CONFIG_HOME:-$HOME/.config}" ;;
+        xdg_data) root="${XDG_DATA_HOME:-$HOME/.local/share}" ;;
+        xdg_state) root="${XDG_STATE_HOME:-$HOME/.local/state}" ;;
+        xdg_cache) root="${XDG_CACHE_HOME:-$HOME/.cache}" ;;
+        home) root="$HOME" ;;
+        *) return 1 ;;
+    esac
+    [[ -e "$root/${check#*:}" ]]
+}
+
+# Install manifest items by name (aliases allowed): binaries, configs, then
+# post_install hooks. With --tools-only, binaries only. One item failing does
+# not stop the rest; returns 1 if any failed, was unknown, or was refused.
+install_items() {
+    local tools_only=0
+    if [[ "${1:-}" == --tools-only ]]; then
+        tools_only=1
+        shift
+    fi
+    [[ $# -gt 0 ]] || return 0
+    data_load_manifest || return 1
+    _profile_json_load
+    [[ -n "${_PKG_MANAGER:-}" ]] || _PKG_MANAGER="$(detect_pkg_manager)"
+
+    local -a names=() has_inst=() cmds=() pkgs=() scripts=() checks=() ctypes=() cpkgs=() handlers=()
+    local -a hooks=() hook_items=() failed=()
+    local kind input name requires has_install cmd pkg script check ctype cpkg handler
+    local skipped="" nl=$'\n' rc=0
+    while IFS=$'\x1f' read -r kind input name requires has_install cmd pkg script check ctype cpkg handler _; do
+        case "$kind" in
+            unknown)
+                _error "Unknown item: $input"
+                _info "Run ${_BOLD}dot --help${_RESET} to see available items"
+                rc=1
+                ;;
+            item)
+                if ! requires_met "$requires"; then
+                    _warn "Skipping $name — requires not met on this host"
+                    skipped+="$name$nl"
+                    continue
+                fi
+                if ! ai_harness_check_allowed "$name"; then
+                    skipped+="$name$nl"
+                    rc=1
+                    continue
+                fi
+                names+=("$name") has_inst+=("$has_install") cmds+=("$cmd") pkgs+=("$pkg")
+                scripts+=("$script") checks+=("$check") ctypes+=("$ctype") cpkgs+=("$cpkg")
+                handlers+=("$handler")
+                ;;
+            post)
+                hooks+=("$input") hook_items+=("$name")
+                ;;
+        esac
+    done < <(data_plan_rows "$@")
+
+    local i n=${#names[@]}
+    local -a batch=() batch_items=() script_items=() script_paths=()
+    for ((i = 0; i < n; i++)); do
+        [[ "${has_inst[i]}" == 1 ]] || continue
+        _item_present "${cmds[i]}" "${checks[i]}" && continue
+        if [[ -n "${pkgs[i]}" ]]; then
+            batch+=("${pkgs[i]}")
+            batch_items+=("${names[i]}")
+        elif [[ -n "${scripts[i]}" && -f "$DOTFILES_DIR/scripts/tools/${scripts[i]}" ]]; then
+            script_items+=("${names[i]}")
+            script_paths+=("$DOTFILES_DIR/scripts/tools/${scripts[i]}")
+        else
+            _warn "No install method for ${_BOLD}${names[i]}${_RESET} on this system ($_PKG_MANAGER)"
+            failed+=("${names[i]}")
+        fi
+    done
+
+    if [[ ${#batch[@]} -gt 0 ]]; then
+        _info "Installing ${_BOLD}${batch_items[*]}${_RESET} via $_PKG_MANAGER..."
+        if pkg_install "${batch[@]}"; then
+            for name in "${batch_items[@]}"; do
+                note_change "installed $name"
+            done
+        else
+            _warn "Batch install failed — retrying one at a time"
+            for ((i = 0; i < ${#batch[@]}; i++)); do
+                if pkg_install "${batch[i]}"; then
+                    note_change "installed ${batch_items[i]}"
+                else
+                    _error "Failed to install ${batch_items[i]}"
+                    failed+=("${batch_items[i]}")
+                fi
+            done
+        fi
+    fi
+    for ((i = 0; i < ${#script_items[@]}; i++)); do
+        _info "Installing ${_BOLD}${script_items[i]}${_RESET} via script..."
+        if bash "${script_paths[i]}"; then
+            note_change "installed ${script_items[i]}"
+            _success "Installed ${_BOLD}${script_items[i]}${_RESET}"
+        else
+            _error "Failed to install ${script_items[i]}"
+            failed+=("${script_items[i]}")
+        fi
+    done
+
+    if ((tools_only)); then
+        if [[ ${#failed[@]} -gt 0 ]]; then
+            _warn "Failed to install: ${failed[*]}"
+            return 1
+        fi
+        return "$rc"
+    fi
+
+    for ((i = 0; i < n; i++)); do
+        case "${ctypes[i]}" in
+            stow)
+                install_stow_config "${names[i]}" "${cpkgs[i]}" || failed+=("${names[i]}")
+                ;;
+            handler)
+                if [[ -z "${handlers[i]}" ]]; then
+                    _error "${names[i]} has type:handler but no handler name"
+                    failed+=("${names[i]}")
+                elif ! declare -F "${handlers[i]}" >/dev/null; then
+                    _error "Handler function not defined: ${handlers[i]} (referenced by ${names[i]})"
+                    failed+=("${names[i]}")
+                elif ! run_once "${handlers[i]}"; then
+                    failed+=("${names[i]}")
+                fi
+                ;;
+            "") ;;
+            *) _warn "Unknown config type for ${names[i]}: ${ctypes[i]}" ;;
+        esac
+    done
+
+    local hook
+    for ((i = 0; i < ${#hooks[@]}; i++)); do
+        case "$nl$skipped" in *"$nl${hook_items[i]}$nl"*) continue ;; esac
+        hook="${hooks[i]}"
+        if ! declare -F "$hook" >/dev/null; then
+            _warn "Post-install hook not defined: $hook (referenced by ${hook_items[i]})"
+            continue
+        fi
+        case "$nl${_RUN_ONCE_DONE:-}" in *"$nl$hook$nl"*) continue ;; esac
+        _info "Post-install: $hook"
+        run_once "$hook" || _warn "Post-install hook failed: $hook"
+    done
+
+    if [[ ${#failed[@]} -gt 0 ]]; then
+        _warn "Failed: ${failed[*]}"
+        return 1
+    fi
+    return "$rc"
+}
+
+# Kept for handlers that install helper tools (neovim's lazygit/delta).
 install_tools() {
-    local items=("$@")
-    local failed=()
-
-    for item in "${items[@]}"; do
-        if [[ -t 1 ]] && command -v gum &>/dev/null; then
-            local output
-            if output=$(gum spin --spinner dot --title "Installing $item..." -- bash -c "source '$DOTFILES_DIR/scripts/lib.sh' && install_tool '$item'" 2>&1); then
-                _success "Installed ${_BOLD}$item${_RESET}"
-            else
-                failed+=("$item")
-                _error "Failed to install $item"
-                [[ -n "$output" ]] && printf '%s\n' "$output" >&2
-            fi
-        else
-            if ! install_tool "$item"; then
-                failed+=("$item")
-            else
-                _success "Installed ${_BOLD}$item${_RESET}"
-            fi
-        fi
-    done
-
-    if [[ ${#failed[@]} -gt 0 ]]; then
-        echo
-        _warn "Failed to install: ${failed[*]}"
-        return 1
-    fi
-}
-
-# Rebuild source-built items marked with `install.update: true`.
-# Each script must accept --force to bypass its install-time short-circuit.
-update_source_tools() {
-    data_load_manifest || return 0
-
-    local items=() item
-    while IFS= read -r item; do
-        [[ -n "$item" ]] && items+=("$item")
-    done < <(jq -r 'to_entries[] | select(.value.install.update == true) | .key' <<<"$_MANIFEST_JSON")
-
-    [[ ${#items[@]} -eq 0 ]] && return 0
-
-    _info "Rebuilding source-built items: ${items[*]}"
-    local failed=()
-    local item script script_path
-    for item in "${items[@]}"; do
-        script="$(manifest_field "$item" .install.script)"
-        if [[ -z "$script" ]]; then
-            _warn "$item has install.update: true but no script — skipping"
-            continue
-        fi
-        script_path="$DOTFILES_DIR/scripts/tools/$script"
-        if [[ ! -f "$script_path" ]]; then
-            _warn "Script not found for $item: $script_path — skipping"
-            continue
-        fi
-
-        if [[ -t 1 ]] && command -v gum &>/dev/null; then
-            local output
-            if output=$(gum spin --spinner dot --title "Rebuilding $item..." -- bash "$script_path" --force 2>&1); then
-                _success "Rebuilt ${_BOLD}$item${_RESET}"
-            else
-                failed+=("$item")
-                _error "Failed to rebuild $item"
-                [[ -n "$output" ]] && printf '%s\n' "$output" >&2
-            fi
-        else
-            if bash "$script_path" --force; then
-                _success "Rebuilt ${_BOLD}$item${_RESET}"
-            else
-                failed+=("$item")
-                _error "Failed to rebuild $item"
-            fi
-        fi
-    done
-
-    if [[ ${#failed[@]} -gt 0 ]]; then
-        _warn "Failed to rebuild: ${failed[*]}"
-        return 1
-    fi
+    install_items --tools-only "$@"
 }
 
 # ─── Tombstones (desired-state absences) ──────────────────────────────────────
@@ -254,14 +266,18 @@ apply_tombstones() {
     return 0
 }
 
-# ─── Item installer (manifest-driven) ────────────────────────────────────────
+# ─── Config installers ────────────────────────────────────────────────────────
 
-# Stow a manifest item's config directory. Uses config.package override if set.
+# Link a manifest item's config package into ~/.config: stow (through
+# omadot) when available, else a direct symlink. A no-op when the link is
+# already right, so stow and omadot are only set up when something is missing.
+#   install_stow_config <item> [package]   (package defaults to config.package)
 install_stow_config() {
-    local item="$1"
-    local pkg
-    pkg="$(manifest_field "$item" .config.package)"
-    pkg="${pkg:-$item}"
+    local item="$1" pkg="${2:-}"
+    if [[ -z "$pkg" ]]; then
+        pkg="$(manifest_field "$item" .config.package)"
+        pkg="${pkg:-$item}"
+    fi
 
     if [[ ! -d "$DOTFILES_DIR/$pkg" ]]; then
         _warn "Stow package not found: $pkg"
@@ -280,18 +296,11 @@ install_stow_config() {
             return 1
         fi
         src="${matches[0]}"
-        target="$HOME/.config/$(basename "$src")"
+        target="$HOME/.config/${src##*/}"
     fi
 
-    local expected target_resolved
-    expected="$(resolve_path "$src")"
-
-    if [[ -L "$target" ]]; then
-        target_resolved="$(resolve_path "$target" || true)"
-        if [[ -n "$target_resolved" && "$target_resolved" == "$expected" ]]; then
-            _info "$pkg already stowed"
-            return 0
-        fi
+    if [[ -L "$target" && "$target" -ef "$src" ]]; then
+        return 0
     fi
 
     if [[ -e "$target" && ! -L "$target" ]]; then
@@ -303,6 +312,8 @@ install_stow_config() {
         rm "$target"
     fi
 
+    ensure_stow
+    run_once ensure_omadot
     # A missing ~/.config would let stow fold all of ~/.config into this package.
     mkdir -p "$HOME/.config"
     if command -v stow &>/dev/null && command -v omadot &>/dev/null; then
@@ -312,100 +323,4 @@ install_stow_config() {
     fi
     note_change "stowed $pkg"
     _success "Stowed $pkg"
-}
-
-# Call the handler function named by an item's config.handler field.
-install_handler_config() {
-    local item="$1"
-    local handler
-    handler="$(manifest_field "$item" .config.handler)"
-    if [[ -z "$handler" ]]; then
-        _error "$item has type:handler but no handler name"
-        return 1
-    fi
-    if declare -F "$handler" >/dev/null; then
-        "$handler"
-    else
-        _error "Handler function not defined: $handler (referenced by $item)"
-        return 1
-    fi
-}
-
-# Install a manifest item by name. Resolves aliases, checks `requires:`,
-# installs the binary side (if any), then the config side (if any).
-# Per-tool failures don't propagate — the config side still runs.
-install_item() {
-    local input="$1"
-    local item
-    item="$(manifest_resolve_alias "$input")"
-    if [[ -z "$item" ]]; then
-        _error "Unknown item: $input"
-        return 1
-    fi
-
-    if ! manifest_requires_met "$item"; then
-        _warn "Skipping $item — requires not met on this host"
-        return 0
-    fi
-
-    ai_harness_check_allowed "$item" || return 1
-
-    # Binary install (if present)
-    if [[ "$(manifest_kind "$item")" == bundle || "$(manifest_kind "$item")" == tool ]]; then
-        install_tools "$item" || true
-    fi
-
-    # Config install (if present)
-    local config_type
-    config_type="$(manifest_field "$item" .config.type)"
-    case "$config_type" in
-        stow)    install_stow_config "$item" ;;
-        handler) install_handler_config "$item" ;;
-        "")      : ;;
-        *)       _warn "Unknown config type for $item: $config_type" ;;
-    esac
-}
-
-# Run all post_install hooks for the given items, deduped. Items must be
-# canonical names (caller resolves aliases first).
-# Uses a newline-separated list instead of `declare -A` so this works on
-# macOS /bin/bash 3.2 (no associative arrays).
-run_post_install() {
-    local items=("$@")
-    local seen_hooks=""
-    local item hook
-    for item in "${items[@]}"; do
-        # Resolve in case caller passed an alias.
-        local canon
-        canon="$(manifest_resolve_alias "$item")"
-        [[ -z "$canon" ]] && continue
-        while IFS= read -r hook; do
-            [[ -z "$hook" ]] && continue
-            case $'\n'"$seen_hooks" in
-                *$'\n'"$hook"$'\n'*) continue ;;
-            esac
-            seen_hooks+="${hook}"$'\n'
-            if declare -F "$hook" >/dev/null; then
-                _info "Post-install: $hook"
-                "$hook"
-            else
-                _warn "Post-install hook not defined: $hook (referenced by $canon)"
-            fi
-        done < <(manifest_post_install "$canon")
-    done
-}
-
-# Return 0 if at least one item in the list needs stow/omadot prerequisites.
-items_need_stow() {
-    local item
-    for item in "$@"; do
-        local canon kind cfg_type
-        canon="$(manifest_resolve_alias "$item")"
-        [[ -z "$canon" ]] && continue
-        kind="$(manifest_kind "$canon")"
-        [[ "$kind" == "config" || "$kind" == "bundle" ]] || continue
-        cfg_type="$(manifest_field "$canon" .config.type)"
-        [[ "$cfg_type" == "stow" ]] && return 0
-    done
-    return 1
 }
