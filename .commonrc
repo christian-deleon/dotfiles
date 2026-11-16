@@ -325,7 +325,7 @@ elif [[ -n "$ZSH_VERSION" ]]; then
 fi
 
 # Custom completions: written once in bash style, shared with zsh via
-# bashcompinit. Alias-name registrations (ta/tk/frk/ws/...) are effectively
+# bashcompinit. Alias-name registrations (ta/tk/frk/...) are effectively
 # bash-only; on zsh those complete via alias expansion + native completions.
 if [[ -d "$HOME/.dotfiles/completions.d" ]]; then
     for _f in "$HOME/.dotfiles/completions.d"/*.sh; do
