@@ -80,7 +80,7 @@ Full OS package update and cleanup for the current host. Detects the package man
 | Arch + pacman only | `sudo pacman -Syu --noconfirm` |
 | Debian/Ubuntu | `apt-get update && upgrade && autoremove && autoclean` |
 
-Not part of `dot update` — that command only refreshes this repo (pull, AI, source tools, profile). Use both when you want a full maintenance pass: `dot update && pkgup`.
+Not part of `dot update` — that command only refreshes this repo (pull, submodules, profile, AI configs). Use both when you want a full maintenance pass: `dot update && pkgup`.
 
 ```bash
 pkgup      # omarchy update on Omarchy; brew/yay/apt elsewhere
@@ -461,7 +461,7 @@ tav -f /tmp/handoff.md         # initial prompt from a file
 
 ### `tavk [-t|--tool <ai-cmd>] [-f|--prompt-file <path>] [prompt...]`
 
-Same as [`tav`](#tav--t--tool-ai-cmd-f--prompt-file-path-prompt) but with a 4th pane: bottom-right (30% tall, 70% wide) runs `k9s`. Takes the same `-t`/`--tool` / `-f`/`--prompt-file` flags and prompt arguments.
+Same as [`tav`](#tav--t--tool-ai-cmd--f--prompt-file-path-prompt) but with a 4th pane: bottom-right (30% tall, 70% wide) runs `k9s`. Takes the same `-t`/`--tool` / `-f`/`--prompt-file` flags and prompt arguments.
 
 ```bash
 tavk                            # 4-pane variant with k9s in the bottom-right
@@ -545,7 +545,7 @@ An executable in `bin/` (linked to `~/.local/bin/wto` by the installer and `dot 
 | `wto new …` | What `wtc` runs; stays put unless `--switch`. |
 | `wto open [-p text \| -f file] [--switch] [<name>]` | What `wta` runs. |
 | `wto open --all [--switch]` | Open a window for every worktree, continuing each conversation; skips ones that have a window. Used to restore a project after a reboot. |
-| `wto layout [--k9s] [-t tool] [-p text \| -f file \| prompt...]` | What [`tav`](#tav--t--tool-ai-cmd-f--prompt-file-path-prompt) and `tavk` run: lay out the calling pane. Refuses a pane an agent runs in. |
+| `wto layout [--k9s] [-t tool] [-p text \| -f file \| prompt...]` | What [`tav`](#tav--t--tool-ai-cmd--f--prompt-file-path-prompt) and `tavk` run: lay out the calling pane. Refuses a pane an agent runs in. |
 | `wto close <name>` | Close a finished session from another window: kills its tmux windows, removes the worktree with git, deletes its branch (printing the old tip), and hands its claims on. Refuses unless the work is merged into the local or `origin` default branch (a squash merge on the forge counts); also refuses uncommitted changes, an operation in progress, a locked worktree, the calling worktree, the orchestrator's, and a detached folder with commits on no branch. |
 | `wto here` | Print the project's live orchestrator marker; exit 1 if none. |
 | `wto here --orchestrator` | Record the calling pane as the orchestrator; exits 3 if another live pane holds it. |
