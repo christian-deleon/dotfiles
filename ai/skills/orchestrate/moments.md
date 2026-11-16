@@ -27,6 +27,6 @@ says so. A moment with no project text uses the default below.
 | `Deploy` | The skill or recipe sessions use to deploy and verify; named in your deploy advice |
 | `Models` | The default model and effort for spawned sessions, and any limits; without it, the `wtc` skill's table |
 | `Shared resources`, `gate` | The names to put in the announce message; `wto claim define` should match |
-| `Main-only skills` | Skills to run in a subagent from main, on the user's order |
+| `Main-only skills` | Skills to run in a subagent from the orchestrator, on the user's order |
 | `Work-producing skills` | Skills whose output feeds the dispatch step |
 | `Branch naming` | Branch names for spawned sessions |

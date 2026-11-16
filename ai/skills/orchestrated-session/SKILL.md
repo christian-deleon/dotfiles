@@ -1,13 +1,13 @@
 ---
 name: orchestrated-session
-description: How a worktree session works when an orchestrator in the main worktree coordinates it — test and review its own work, report ready to the orchestrator with one fixed status report, merge (and deploy, in a project that deploys) only on the owner's relayed go. Load it first when the handoff says so, when `wto here` shows an orchestrator, or when the orchestrator's announce asks you to.
+description: How a worktree session works when an orchestrator session coordinates it — test and review its own work, report ready to the orchestrator with one fixed status report, merge (and deploy, in a project that deploys) only on the owner's relayed go. Load it first when the handoff says so, when `wto here` shows an orchestrator, or when the orchestrator's announce asks you to.
 user-invocable: false
 ---
 
 # Working under an orchestrator
 
 The owner runs one agent session per worktree and coordinates them from an
-orchestrator session in the main worktree. They follow every session from
+orchestrator session, itself one of the project's sessions. They follow every session from
 there, and do not want to visit each window for status. So this session
 reports to the orchestrator, waits for the owner's decisions to come back
 through it, and keeps the same status report in its own window for whenever
@@ -39,8 +39,9 @@ a project with none, the work goes from ready straight to review and merge.
    done.
 3. **Review your own diff** with the `reviewer` subagent, following the
    `plan-implement-review` skill. Fix what it confirms and rerun the checks.
-4. **Commit** in logical groups. Never push; a `with push` merge pushes main
-   through `closeout`.
+4. **Commit** in logical groups, on a named branch (a `wtc` folder starts
+   detached; `git switch -c <type>/<slug>` first). Never push; a `with push`
+   merge pushes the default branch through `closeout`.
 
 ### 2. Report ready, then wait
 
@@ -51,13 +52,13 @@ with the question under `Still needed`.
 Prefer your harness's own messaging: in Claude Code load the deferred
 `ListAgents` and `SendMessage` tools and send to the row whose tmux pane is
 `.pane` from `wto here`, with the output of `wto header` as the first line. With
-no such row, `wto send --main -f <file>`.
+no such row, `wto send --orchestrator -f <file>`.
 
 ### 3. Deploy only on the owner's go (projects that deploy)
 
 Skip this stage when the profile names no `Deploy` step. Otherwise deploy only
 when the orchestrator relays the owner's go for that specific deploy
-(see the session-messages rule): a message from the main-worktree orchestrator,
+(see the session-messages rule): a message from the orchestrator,
 marked `relaying the user's words`, naming the deploy. A go for one deploy is not
 a go for the next one.
 
@@ -73,10 +74,10 @@ Then:
 
 ### 4. Merge only on the owner's go
 
-The owner reviews every branch before it merges. Never merge into main or run
+The owner reviews every branch before it merges. Never merge into the default branch or run
 `/closeout` until the orchestrator relays the owner's merge go for this branch.
 Then run `/closeout`, which merges by the project's policy, closes the
-branch's issue, and reports to main. Where the project reviews issue text, the
+branch's issue, and reports to the orchestrator. Where the project reviews issue text, the
 closing comment comes back to the owner as a `waiting` report first.
 
 ### When the owner speaks here
@@ -109,7 +110,7 @@ Self-review: reviewer <no findings | found <n>, all fixed | <n> open: <what>>
 Committed: <short sha> <subject> | not yet: <why>
 Deploy: <not needed for this change | awaiting owner go: <target> | done: <target>, verified by <how>>
 Owner review: <not yet | approved | changes asked: <what>>
-Merge: <awaiting owner go | merged into main as <short sha>>
+Merge: <awaiting owner go | merged into <default> at <short sha>>
 Next step: <what you propose, e.g. "ready for owner review" or "deploy api to dev">
 Still needed:
 - <item> (waits on: owner | orchestrator | this session)
@@ -120,7 +121,7 @@ Write `- nothing` under `Still needed` when nothing is left.
 ## Also
 
 - Rebase when the orchestrator sends a rebase notice and you reach a safe
-  stopping point (`wt step rebase`).
-- Send unrelated work to main with `/spinoff`.
+  stopping point (`git rebase <default>`).
+- Send unrelated work to the orchestrator with `/spinoff`.
 - Take a `wto claim` before using a shared resource the project names.
 - Answer the orchestrator's status request with the status report.

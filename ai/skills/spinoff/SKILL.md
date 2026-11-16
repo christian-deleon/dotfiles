@@ -1,17 +1,17 @@
 ---
 name: spinoff
-description: Hand unrelated work found in a feature session to the main session without leaving your task — file it as an issue in the project's tracker, then send the orchestrator the issue number. Use for /spinoff, 'send this to main', 'spin this off', 'park this for main'.
+description: Hand unrelated work found in a feature session to the orchestrator without leaving your task — file it as an issue in the project's tracker, then send the orchestrator the issue number. Use for /spinoff, 'spin this off', 'send this to the orchestrator', 'park this for later'.
 argument-hint: "[what to spin off] (empty = from context)"
 user-invocable: true
 ---
 
-# /spinoff — file side work and hand it to main
+# /spinoff — file side work and hand it to the orchestrator
 
 You are in a feature worktree, working on one task. Something unrelated came up:
 a bug you tripped over, a feature the user just thought of, a cleanup that is too
 big to do here. `/spinoff` captures it fully while this session still has the
-context, puts it in the project's issue tracker, and tells the orchestrator in
-the main worktree so it can decide what to do. Then you go back to your task.
+context, puts it in the project's issue tracker, and tells the orchestrator
+session so it can decide what to do. Then you go back to your task.
 
 The most common failure is starting on the side issue here, which is exactly
 what this skill exists to prevent. The second is a thin issue that only makes
@@ -39,7 +39,7 @@ this conversation:
 If the issue already exists, comment on it instead (the `issue` skill covers
 this) and use that number below.
 
-## 3. Tell main
+## 3. Tell the orchestrator
 
 Check for a live orchestrator:
 
@@ -49,10 +49,10 @@ wto here        # exit 0 + JSON (pane, branch, tool) when one is running
 
 | Situation | Do |
 |---|---|
-| Orchestrator running, and your harness lists a session on the orchestrator's pane (`.pane` from `wto here`; in Claude Code load the deferred `ListAgents` and `SendMessage` tools, then `ListAgents`) | `SendMessage` to that row's name, which is often generated, not `<project>/main`. Start the text with the line `wto header` prints. |
-| Orchestrator running, otherwise | `wto send --main -f <file>` (the header is added for you). |
+| Orchestrator running, and your harness lists a session on the orchestrator's pane (`.pane` from `wto here`; in Claude Code load the deferred `ListAgents` and `SendMessage` tools, then `ListAgents`) | `SendMessage` to that row's name, which is often generated. Start the text with the line `wto header` prints. |
+| Orchestrator running, otherwise | `wto send --orchestrator -f <file>` (the header is added for you). |
 | No orchestrator | Skip the message; give the user the issue link. |
-| Tracker unreachable or the user declined to file | Send main the full write-up instead, and tell the user it was not filed. |
+| Tracker unreachable or the user declined to file | Send the orchestrator the full write-up instead, and tell the user it was not filed. |
 
 The message is short; the issue holds the detail:
 
@@ -61,8 +61,8 @@ Spun off #142: Retry loop ignores the configured backoff — <issue URL>
 Found while working on feat/login-rework; not blocking this branch. I am staying on my task.
 ```
 
-Say whether it blocks this branch. Do not ask main to start a session for it;
-deciding that is main's job with the user.
+Say whether it blocks this branch. Do not ask the orchestrator to start a
+session for it; deciding that is its job with the user.
 
 ## 4. Return to your task
 
@@ -75,5 +75,5 @@ user explicitly pulls it back into this session.
 - File without the user's go-ahead when they did not ask for it.
 - Skip the duplicate check, or file one issue covering several unrelated problems.
 - Put secrets, tokens, or private details from this conversation into the issue.
-- Treat a reply from main as permission to change this session's task; the user
+- Treat a reply from the orchestrator as permission to change this session's task; the user
   decides that here.

@@ -9,8 +9,8 @@ Fill the `<…>` parts; drop lines that do not apply.
 ## Announce
 
 ```text
-An orchestrator session is now running in the main worktree (<project>/main).
-You do not need to change anything. It will send notices here: rebase notices when main moves, pause and resume requests, status requests.
+An orchestrator session is now running in <project>/<its branch or folder>.
+You do not need to change anything. It will send notices here: rebase notices when <default> moves, pause and resume requests, status requests.
 Load the `orchestrated-session` skill now and follow it: report to me with its status report when your work is ready, and merge (or deploy, if this project deploys) only on the user's go relayed by me.
 If you find unrelated work, hand it over with /spinoff. Before using a shared resource (<names from the profile, or "none defined">), take it with `wto claim take <name>` and free it when done.
 The user can still work with you directly; their instructions here come first. No reply needed.
@@ -19,11 +19,11 @@ The user can still work with you directly; their instructions here come first. N
 ## Rebase notice
 
 ```text
-main moved: <one line on what landed, e.g. "v1.8.0 released" or "feat/login-rework merged">.
-New on main:
-<git log --oneline old..main, at most 10 lines>
+<default> moved: <one line on what landed, e.g. "v1.8.0 released" or "feat/login-rework merged">.
+New on <default>:
+<git log --oneline old..<default>, at most 10 lines>
 You are <n> commits behind. Forecast: <"rebases cleanly" | "conflicts in: <files>">.
-Rebase with `wt step rebase` when you reach a safe stopping point, or later if you are mid-change. If a conflict is not obviously yours to resolve, stop and ask the user. No reply needed.
+Rebase with `git rebase <default>` when you reach a safe stopping point, or later if you are mid-change. If a conflict is not obviously yours to resolve, stop and ask the user. No reply needed.
 ```
 
 ## Pause for a shutdown
@@ -31,7 +31,7 @@ Rebase with `wt step rebase` when you reach a safe stopping point, or later if y
 ```text
 The user is shutting the machine down soon. At the next safe stopping point:
 1. Commit finished work (stash only if it is not commit-worthy).
-2. Write a resume note to <state dir>/resume/<your branch, with every / as ->.md (for example resume/fix-login.md for fix/login): what you were doing, the next step, anything you were waiting on.
+2. Write a resume note to <state dir>/resume/<your folder name>.md (the folder `git rev-parse --show-toplevel` ends in, for example resume/brisk-otter.md): what you were doing, the next step, anything you were waiting on.
 3. Free any claims you will not need first thing tomorrow (`wto claim free <name>`).
 4. Reply "parked" with one line on where you stopped, then wait.
 ```
@@ -39,7 +39,7 @@ The user is shutting the machine down soon. At the next safe stopping point:
 ## Resume
 
 ```text
-Good morning: the user is resuming. Read your resume note at <state dir>/resume/<branch with / as ->.md, check `git status`, and continue where you stopped. If main moved overnight, a rebase notice follows. Reply only if something is blocking you.
+Good morning: the user is resuming. Read your resume note at <state dir>/resume/<your folder name>.md, check `git status`, and continue where you stopped. If <default> moved overnight, a rebase notice follows. Reply only if something is blocking you.
 ```
 
 ## Status request
@@ -65,7 +65,7 @@ Self-review: reviewer <no findings | found <n>, all fixed | <n> open: <what>>
 Committed: <short sha> <subject> | not yet: <why>
 Deploy: <not needed for this change | awaiting owner go: <target> | done: <target>, verified by <how>>
 Owner review: <not yet | approved | changes asked: <what>>
-Merge: <awaiting owner go | merged into main as <short sha>>
+Merge: <awaiting owner go | merged into <default> at <short sha>>
 Next step: <what the session proposes>
 Still needed:
 - <item> (waits on: owner | orchestrator | this session)
@@ -101,5 +101,5 @@ The user asks whether you can free <resource> for <branch>, which is waiting on 
 For the user, only when they ask for status:
 
 ```text
-Closed <branch>: its window and worktree are gone, and main is at <short sha>. <n> sessions got a rebase notice.
+Closed <branch>: its window and worktree are gone, and <default> is at <short sha>. <n> sessions got a rebase notice.
 ```

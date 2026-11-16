@@ -13,8 +13,8 @@ typing into a shell, and getting a message to the agent in another window.
 The most common failure is typing into the wrong place: a pane that is running
 something other than you assumed (an agent waiting on a question takes your text
 as its answer; an agent that exited left a shell that runs your text as
-commands). The second is targeting by name: window names repeat and can contain
-dots, and session names match by prefix. The third is touching your own pane.
+commands). The second is targeting by name: window names follow the branch, repeat, and
+can contain dots, and session names match by prefix. The third is touching your own pane.
 
 Type into another pane only when the user asks for that pane, or a skill you are
 following says to. It acts in someone's live session.
@@ -25,7 +25,7 @@ following says to. It acts in someone's live session.
 |---|---|---|
 | Server | its socket | One per socket. `$TMUX` holds the socket path of the server you run in; `-L name` or `-S path` picks another. |
 | Session | `$3` | Named; `-t name` matches by prefix, so use `-t =name` for an exact match. |
-| Window | `@12` | Named after the branch with `/` → `-`. A name with a dot (`fix-1.2`) is misread as `window.pane`. |
+| Window | `@12` | Named after the live branch of its active pane (the folder when detached), so the name changes. A name with a dot (`fix-1.2`) is misread as `window.pane`. |
 | Pane | `%110` | Unique on its server, never reused while it runs. |
 
 Target panes and windows by id, never by `session:window` name. Ids come from
@@ -44,8 +44,8 @@ tmux list-panes -a -F '#{pane_id} #{session_name}:#{window_name} #{pane_current_
 - `@ai_tool`, `@ai_wt`, `@ai_state`: tags `tav` and `wto` set on agent panes.
   `@ai_state` is `starting`, `working`, `idle`, `blocked` (waiting on a
   question), or `exited`.
-- In a worktrunk project, `wto ls --json` joins this to the worktrees: each
-  entry's `session.pane` is that worktree's agent pane.
+- In a project with worktrees, `wto ls --json` joins this to them: each
+  entry's `session.pane` is that worktree's agent pane, `window_id` its window.
 - `#{alternate_on}` is 1 while a full-screen program (nvim, an agent TUI, less)
   owns the pane; typed text goes to that program, not a shell.
 
@@ -89,7 +89,7 @@ text becomes, and only the tools below check it:
 | Way | When |
 |---|---|
 | The harness's own messaging (Claude Code: load the deferred `ListAgents` and `SendMessage`) | The target is a session of the same harness. Pick the `ListAgents` row whose tmux pane matches; names are often generated. First line: `wto header` (or `wto header --relay` for the user's words). |
-| `wto send <branch> [-f file]`, `--main`, `--all` | Any harness, in a worktrunk project. Adds the header, pastes as one message, and refuses rather than risk it: exit 6 blocked on a question, 5 exited, 7 just launched (retry in about 15s), 4 no session. Never `--force` unless the user says so. OpenCode sessions get it through the OpenCode server, queued behind a running turn. |
+| `wto send <branch or folder> [-f file]`, `--orchestrator`, `--all` | Any harness, in a project with worktrees. Adds the header, pastes as one message, and refuses rather than risk it: exit 6 blocked on a question, 5 exited, 7 just launched (retry in about 15s), 4 no session. Never `--force` unless the user says so. OpenCode sessions get it through the OpenCode server, queued behind a running turn. |
 
 The receiving agent treats a headed message as another session's words, not the
 user's (the session-messages rule). To have an agent run something, send it the
