@@ -130,7 +130,7 @@ self_label() {
 state_dir() {
     local common
     common=$(common_dir)
-    mkdir -p -- "$common/orchestrate"
+    [[ -d $common/orchestrate ]] || mkdir -p -- "$common/orchestrate"
     printf '%s\n' "$common/orchestrate"
 }
 
@@ -240,102 +240,119 @@ integrated_reason() {
     printf 'trees\n'
 }
 
-git_operation() {
-    local gitdir
-    gitdir=$(git -C "$1" rev-parse --path-format=absolute --git-dir 2>/dev/null) || return 0
-    if [[ -d $gitdir/rebase-merge || -d $gitdir/rebase-apply ]]; then printf 'rebase\n'
-    elif [[ -f $gitdir/MERGE_HEAD ]]; then printf 'merge\n'
-    elif [[ -f $gitdir/CHERRY_PICK_HEAD ]]; then printf 'cherry-pick\n'
-    elif [[ -f $gitdir/REVERT_HEAD ]]; then printf 'revert\n'
-    elif [[ -f $gitdir/BISECT_LOG ]]; then printf 'bisect\n'
+# Physical path of directory $2 into variable $1, or $2 itself when it cannot
+# be entered: cd -P instead of a realpath process per worktree.
+resolve_dir() {
+    local _rd_start=$PWD
+    if cd -P -- "$2" 2>/dev/null; then
+        printf -v "$1" '%s' "$PWD"
+        cd -- "$_rd_start" || die "cannot return to $_rd_start"
+    else
+        printf -v "$1" '%s' "$2"
     fi
 }
 
-# One JSON object per worktree. Fast mode leaves out everything that needs a
-# status or merge check.
+# The git dir of worktree $2 into variable $1, read from its .git (a gitfile
+# in a linked worktree) so that no git process runs; git answers otherwise.
+git_dir_of() {
+    local _gd_line=""
+    if [[ -d $2/.git ]]; then
+        printf -v "$1" '%s' "$2/.git"
+    elif [[ -f $2/.git ]] && { IFS= read -r _gd_line <"$2/.git" || [[ -n $_gd_line ]]; } \
+        && [[ $_gd_line == 'gitdir: '?* ]]; then
+        _gd_line=${_gd_line#gitdir: }
+        [[ $_gd_line == /* ]] || _gd_line=$2/$_gd_line
+        printf -v "$1" '%s' "$_gd_line"
+    else
+        _gd_line=$(git -C "$2" rev-parse --path-format=absolute --git-dir 2>/dev/null) || return 1
+        printf -v "$1" '%s' "$_gd_line"
+    fi
+}
+
+# The operation stopped in git dir $2 (rebase, merge, ...) into variable $1.
+git_operation() {
+    local _op=""
+    if [[ -d $2/rebase-merge || -d $2/rebase-apply ]]; then _op=rebase
+    elif [[ -f $2/MERGE_HEAD ]]; then _op=merge
+    elif [[ -f $2/CHERRY_PICK_HEAD ]]; then _op=cherry-pick
+    elif [[ -f $2/REVERT_HEAD ]]; then _op=revert
+    elif [[ -f $2/BISECT_LOG ]]; then _op=bisect
+    fi
+    printf -v "$1" '%s' "$_op"
+}
+
+# One \x1f-separated row per worktree: path, head, branch, dirty, conflicted,
+# operation, ahead, behind, state, integrated, rebase conflicts, fresh. Fast
+# mode leaves out everything that needs a status or merge check.
 worktree_facts() {
-    local fast=$1 default=$2 path head branch real dirty conflicted op
-    local ahead behind state reason rconf fresh counts status log rc tree default_ref=""
+    local fast=$1 default=$2 path head branch real dirty conflicted op gitdir
+    local ahead behind state reason rconf fresh counts status log rc tree default_ref="" default_tree=""
+    # Porcelain XY codes of an unmerged path.
+    local unmerged=$'\n(DD|AU|UD|UA|DU|AA|UU) '
+    local work=$'\t(commit|rebase|merge|cherry-pick|am|revert)'
     [[ -n $default ]] && git show-ref --verify --quiet "refs/heads/$default" && default_ref=refs/heads/$default
     while IFS=$'\037' read -r path head branch _ _; do
-        real=$(realpath -e -- "$path" 2>/dev/null) || real=$path
+        resolve_dir real "$path"
         dirty=null conflicted=false op="" ahead=null behind=null state="" reason="" rconf=false fresh=null
         if ((!fast)) && [[ -d $real ]]; then
-            if status=$(GIT_OPTIONAL_LOCKS=0 git -C "$real" status --porcelain 2>/dev/null); then
+            # `exec`: bash forks twice for a redirected command in $(...).
+            if status=$(GIT_OPTIONAL_LOCKS=0 exec git -C "$real" status --porcelain 2>/dev/null); then
                 if [[ -n $status ]]; then dirty=true; else dirty=false; fi
+                [[ $'\n'$status =~ $unmerged ]] && conflicted=true
             fi
-            [[ -n $(git -C "$real" ls-files -u 2>/dev/null) ]] && conflicted=true
-            op=$(git_operation "$real")
+            git_dir_of gitdir "$real" || gitdir=""
+            [[ -n $gitdir ]] && git_operation op "$gitdir"
             if [[ -n $default_ref && -n $head ]] \
-                && counts=$(git rev-list --left-right --count "$default_ref...$head" 2>/dev/null); then
+                && counts=$(exec git rev-list --left-right --count "$default_ref...$head" 2>/dev/null); then
                 read -r behind ahead <<<"$counts"
                 if ((ahead == 0)); then
                     reason=ancestor
                     if ((behind == 0)); then state=empty; else state=integrated; fi
                 else
                     rc=0
-                    tree=$(git merge-tree --write-tree --no-messages "$default_ref" "$head" 2>/dev/null) || rc=$?
+                    tree=$(exec git merge-tree --write-tree --no-messages "$default_ref" "$head" 2>/dev/null) || rc=$?
                     if ((rc == 1)); then
                         rconf=true
-                    elif ((rc == 0)) && [[ ${tree%%$'\n'*} == "$(git rev-parse "$default_ref^{tree}")" ]]; then
-                        reason=trees
-                        state=integrated
+                    elif ((rc == 0)); then
+                        [[ -n $default_tree ]] || default_tree=$(git rev-parse "$default_ref^{tree}")
+                        if [[ ${tree%%$'\n'*} == "$default_tree" ]]; then
+                            reason=trees
+                            state=integrated
+                        fi
                     fi
                 fi
                 fresh=false
                 if ((ahead == 0)); then
-                    log=$(git -C "$real" reflog show --format=%gs HEAD 2>/dev/null) || log=""
-                    grep -Eq '^(commit|rebase|merge|cherry-pick|am|revert)' <<<"$log" || fresh=true
+                    # The reflog file's message field is what %gs prints.
+                    if [[ -n $gitdir && -f $gitdir/logs/HEAD ]]; then
+                        grep -Eq -e "$work" -- "$gitdir/logs/HEAD" || fresh=true
+                    else
+                        log=$(git -C "$real" reflog show --format=%gs HEAD 2>/dev/null) || log=""
+                        grep -Eq '^(commit|rebase|merge|cherry-pick|am|revert)' <<<"$log" || fresh=true
+                    fi
                 fi
             fi
         fi
-        jq -n -c --arg path "$real" --arg head "$head" --arg branch "$branch" \
-            --argjson dirty "$dirty" --argjson conflicted "$conflicted" --arg op "$op" \
-            --argjson ahead "$ahead" --argjson behind "$behind" --arg state "$state" \
-            --arg reason "$reason" --argjson rconf "$rconf" --argjson fresh "$fresh" \
-            --arg default "$default" '
-            def nul: if . == "" then null else . end;
-            {branch: ($branch | nul), name: ($path | split("/") | last), path: $path,
-             head: ($head | nul), detached: ($branch == ""), dirty: $dirty,
-             conflicted_files: $conflicted, ahead: $ahead, behind: $behind,
-             rebase_conflicts: $rconf, integrated: ($reason | nul), state: ($state | nul),
-             fresh: $fresh, operation: ($op | nul), default_branch: ($default | nul)}'
+        printf '%s\037%s\037%s\037%s\037%s\037%s\037%s\037%s\037%s\037%s\037%s\037%s\n' "$real" "$head" "$branch" \
+            "$dirty" "$conflicted" "$op" "$ahead" "$behind" "$state" "$reason" "$rconf" "$fresh"
     done < <(worktree_rows)
 }
 
-# Panes that run, or were tagged for, an agent session. Untagged panes (opened
-# before tav tagged them) are matched by a harness process under the pane.
-panes_json() {
-    local fmt pane_pids
-    if ! tmux info >/dev/null 2>&1; then
-        printf '[]\n'
-        return
-    fi
-    fmt='#{pane_id}'$'\t''#{pane_pid}'$'\t''#{session_name}:#{window_name}'$'\t''#{@ai_tool}'
-    fmt+=$'\t''#{@ai_wt}'$'\t''#{@ai_state}'$'\t''#{@ai_state_at}'$'\t''#{pane_current_path}'
-    fmt+=$'\t''#{@ai_session}'
-    pane_pids=$(tmux list-panes -a -F '#{pane_pid}' | paste -sd, -)
-    jq -n -c --rawfile panes <(tmux list-panes -a -F "$fmt") \
-        --rawfile procs <(harness_procs "$pane_pids") '
-        ($procs | split("\n") | map(select(length > 0) | split("\t"))
-            | map({key: .[0], value: {tool: .[1], args: .[2]}}) | from_entries) as $by_pid
-        | $panes | split("\n") | map(select(length > 0) | split("\t")
-            | {pane: .[0], pid: .[1], window: .[2], tag_tool: .[3], tag_wt: .[4],
-               state: .[5], state_at: .[6], cwd: .[7], oc_session: (.[8] // "")}
-            | . + {proc: $by_pid[.pid]})
-        | map(select(.tag_tool != "" or .proc != null))'
-}
+# Fields of `tmux list-panes -a` for the roster: one pass covers both the
+# agent panes and the windows tagged for a worktree. #{@ai_wt} resolves the
+# pane option first, then the window's.
+PANE_FMT='#{pane_id}'$'\t''#{pane_pid}'$'\t''#{session_name}:#{window_name}'$'\t''#{@ai_tool}'
+PANE_FMT+=$'\t''#{@ai_wt}'$'\t''#{@ai_state}'$'\t''#{@ai_state_at}'$'\t''#{pane_current_path}'
+PANE_FMT+=$'\t''#{@ai_session}'$'\t''#{window_id}'
+readonly PANE_FMT
 
 # {<worktree path>: <window id>} for windows with a pane tagged for a worktree.
-# #{@ai_wt} resolves the pane option first, then the window's.
 windows_json() {
-    if ! tmux info >/dev/null 2>&1; then
-        printf '{}\n'
-        return
-    fi
-    tmux list-panes -a -F '#{@ai_wt}'$'\t''#{window_id}' | jq -R -s -c '
+    local rows
+    rows=$(tmux list-panes -a -F '#{@ai_wt}'$'\t''#{window_id}' 2>/dev/null) || { printf '{}\n'; return; }
+    jq -R -s -c '
         split("\n") | map(select(length > 0) | split("\t") | select(.[0] != ""))
-        | reduce .[] as $r ({}; if has($r[0]) then . else . + {($r[0]): $r[1]} end)'
+        | reduce .[] as $r ({}; if has($r[0]) then . else . + {($r[0]): $r[1]} end)' <<<"$rows"
 }
 
 # "<pane pid>\t<harness>\t<args>" for each harness process under a pane.
@@ -359,42 +376,62 @@ harness_procs() {
         }'
 }
 
-# {<worktree path>: {model, effort}} from the ai-launch file that `wtc
-# --model/--effort` writes into each worktree's git dir.
-launch_json() {
-    local path saved model effort out=()
-    while IFS= read -r path; do
-        saved=$(launch_settings "$path") || continue
-        IFS='|' read -r model effort <<<"$saved"
-        out+=("$(jq -n -c --arg p "$path" --arg m "$model" --arg e "$effort" \
-            '{($p): {model: (if $m == "" then null else $m end), effort: (if $e == "" then null else $e end)}}')")
-    done < <(jq -r '.[].path' <<<"$1")
-    printf '%s\n' "${out[@]}" | jq -s -c 'add // {}'
-}
-
 # The roster; `roster_json fast` skips the git status and merge checks.
 roster_json() {
-    local fast=0 default facts panes windows launch now claims='{}' dir orch_pane=""
+    local fast=0 default facts pane_rows="" procs="" launch="" now claims='{}' dir orch_pane=""
+    local path saved model effort pids="" pane pid
     [[ ${1-} == fast ]] && fast=1
     # Explicit returns: callers use `|| ...`, which turns off set -e in here.
     default=$(default_branch) || default=""
-    facts=$(worktree_facts "$fast" "$default" | jq -s -c .) || return 1
-    panes=$(panes_json) || return 1
-    windows=$(windows_json) || return 1
-    launch=$(launch_json "$facts") || return 1
-    now=$(date +%s)
+    facts=$(worktree_facts "$fast" "$default") || return 1
+    # {model, effort} from the ai-launch file that `wtc --model/--effort`
+    # writes into each worktree's git dir.
+    while IFS=$'\037' read -r path _; do
+        if [[ -z $path ]] || ! launch_settings_into saved "$path"; then
+            continue
+        fi
+        IFS='|' read -r model effort <<<"$saved"
+        launch+=$path$'\037'$model$'\037'$effort$'\n'
+    done <<<"$facts"
+    if pane_rows=$(tmux list-panes -a -F "$PANE_FMT" 2>/dev/null); then
+        while IFS=$'\t' read -r pane pid _; do
+            pids+=${pids:+,}$pid
+        done <<<"$pane_rows"
+        procs=$(harness_procs "$pids") || return 1
+    else
+        pane_rows=""
+    fi
+    now=${EPOCHSECONDS:-$(date +%s)}
     dir=$(state_dir)
     [[ -s $dir/claims/state.json ]] && claims=$(<"$dir/claims/state.json")
-    marker_valid "$dir/orchestrator.json" && orch_pane=$(jq -r '.pane // ""' "$dir/orchestrator.json")
-    jq -n -c --argjson facts "$facts" --argjson panes "$panes" --argjson now "$now" \
-        --argjson claims "$claims" --argjson launch "$launch" --argjson windows "$windows" \
-        --arg orch "$orch_pane" '
+    marker_valid "$dir/orchestrator.json" && orch_pane=$MARKER_PANE
+    jq -R -s -c --rawfile panes <(printf '%s' "$pane_rows") --rawfile procs <(printf '%s' "$procs") \
+        --arg launch "$launch" --arg default "$default" --argjson now "$now" \
+        --argjson claims "$claims" --arg orch "$orch_pane" '
+        def nul: if . == "" then null else . end;
+        def rows: split("\n") | map(select(length > 0));
         def under($p): . == $p or startswith($p + "/");
         def auto($args):
             if $args == null then null
             else ($args | test("bypassPermissions|--dangerously-skip-permissions|--always-approve|--auto(\\s|$)"))
             end;
-        $facts | map(
+        ($procs | rows | map(split("\t") | {key: .[0], value: {tool: .[1], args: .[2]}}) | from_entries) as $by_pid
+        | ($panes | rows | map(split("\t")
+            | {pane: .[0], pid: .[1], window: .[2], tag_tool: .[3], tag_wt: .[4],
+               state: .[5], state_at: .[6], cwd: .[7], oc_session: (.[8] // ""), window_id: .[9]}
+            | . + {proc: $by_pid[.pid]})) as $all_panes
+        | ($all_panes | map(select(.tag_wt != ""))
+            | reduce .[] as $r ({}; if has($r.tag_wt) then . else . + {($r.tag_wt): $r.window_id} end)) as $windows
+        | ($all_panes | map(select(.tag_tool != "" or .proc != null))) as $panes
+        | ($launch | rows | map(split("\u001f") | {key: .[0], value: {model: (.[1] | nul), effort: (.[2] | nul)}})
+            | from_entries) as $launch
+        | rows | map(split("\u001f")
+            | {branch: (.[2] | nul), name: (.[0] | split("/") | last), path: .[0],
+               detached: (.[2] == ""), dirty: (.[3] | fromjson),
+               conflicted_files: (.[4] | fromjson), ahead: (.[6] | fromjson), behind: (.[7] | fromjson),
+               rebase_conflicts: (.[10] | fromjson), integrated: (.[9] | nul), state: (.[8] | nul),
+               fresh: (.[11] | fromjson), operation: (.[5] | nul), default_branch: ($default | nul)})
+        | map(
             .path as $path
             # A live harness beats a pane left over from an earlier one, and the
             # orchestrator pane beats other agent panes.
@@ -403,7 +440,7 @@ roster_json() {
                | sort_by([(if .proc != null and .state != "exited" then 0 else 1 end),
                           (if .pane == $orch then 0 else 1 end)])
                | first) as $pane
-            | del(.head) + {
+            | . + {
               claims: [($claims.holders // {}) | to_entries[] | select(.value.wt == $path) | .key],
               unacked_grants: [($claims.holders // {}) | to_entries[]
                   | select(.value.wt == $path and .value.granted_at != null and .value.acked_at == null) | .key],
@@ -422,7 +459,7 @@ roster_json() {
                   opencode_session: (if $pane.oc_session != "" then $pane.oc_session else null end),
                   tagged: ($pane.tag_tool != "")
               } end)
-            })'
+            })' <<<"$facts"
 }
 
 # The one roster entry a branch, folder name or path names.
@@ -511,18 +548,21 @@ cmd_ls() {
         <<<"$roster" >&2
 }
 
+# True when the marker names a live pane on this tmux server whose agent has
+# not exited. Sets MARKER_PANE, MARKER_WINDOW and MARKER_PATH from it.
+MARKER_PANE="" MARKER_WINDOW="" MARKER_PATH=""
 marker_valid() {
-    local marker=$1 pane tmux_pid live_pid live_pane state
+    local marker=$1 fields tmux_pid live
+    MARKER_PANE="" MARKER_WINDOW="" MARKER_PATH=""
     [[ -f $marker ]] || return 1
-    pane=$(jq -r '.pane // empty' "$marker" 2>/dev/null) || return 1
-    tmux_pid=$(jq -r '.tmux_pid // empty' "$marker" 2>/dev/null) || return 1
-    [[ -n $pane && -n $tmux_pid ]] || return 1
-    live_pid=$(tmux display-message -p '#{pid}' 2>/dev/null) || return 1
-    [[ $live_pid == "$tmux_pid" ]] || return 1
-    live_pane=$(tmux display-message -p -t "$pane" '#{pane_id}' 2>/dev/null) || return 1
-    [[ $live_pane == "$pane" ]] || return 1
-    state=$(tmux show-options -pqv -t "$pane" @ai_state 2>/dev/null) || state=""
-    [[ $state != exited ]]
+    fields=$(jq -r '[.pane, .tmux_pid, .window, .path] | map(. // "" | tostring) | join("\u001f")' \
+        "$marker" 2>/dev/null) || return 1
+    IFS=$'\037' read -r MARKER_PANE tmux_pid MARKER_WINDOW MARKER_PATH <<<"$fields"
+    [[ -n $MARKER_PANE && -n $tmux_pid ]] || return 1
+    live=$(tmux display-message -p -t "$MARKER_PANE" '#{pid}'$'\037''#{pane_id}'$'\037''#{@ai_state}' 2>/dev/null) \
+        || return 1
+    [[ $live == "$tmux_pid"$'\037'"$MARKER_PANE"$'\037'* ]] || return 1
+    [[ ${live##*$'\037'} != exited ]]
 }
 
 cmd_here() {
@@ -548,8 +588,8 @@ cmd_here() {
         write)
             [[ -n ${TMUX_PANE-} ]] || die "here: not inside tmux (TMUX_PANE unset)"
             top=$(self_wt)
-            if marker_valid "$marker" && [[ $(jq -r .pane "$marker") != "$TMUX_PANE" ]]; then
-                printf 'wto: an orchestrator is already running in %s\n' "$(jq -r .window "$marker")" >&2
+            if marker_valid "$marker" && [[ $MARKER_PANE != "$TMUX_PANE" ]]; then
+                printf 'wto: an orchestrator is already running in %s\n' "$MARKER_WINDOW" >&2
                 return 3
             fi
             jq -n \
@@ -567,8 +607,8 @@ cmd_here() {
             ;;
         clear)
             [[ -f $marker ]] || return 0
-            if ((!force)) && marker_valid "$marker" && [[ $(jq -r .pane "$marker") != "${TMUX_PANE-}" ]]; then
-                die "here: the live orchestrator is another pane ($(jq -r .window "$marker")); use --force"
+            if ((!force)) && marker_valid "$marker" && [[ $MARKER_PANE != "${TMUX_PANE-}" ]]; then
+                die "here: the live orchestrator is another pane ($MARKER_WINDOW); use --force"
             fi
             rm -f -- "$marker"
             ;;
@@ -580,7 +620,7 @@ caller_header() {
     common=$(common_dir)
     project=$(basename "$(dirname "$common")")
     marker=$common/orchestrate/orchestrator.json
-    if [[ -n ${TMUX_PANE-} ]] && marker_valid "$marker" && [[ $(jq -r .pane "$marker") == "$TMUX_PANE" ]]; then
+    if [[ -n ${TMUX_PANE-} ]] && marker_valid "$marker" && [[ $MARKER_PANE == "$TMUX_PANE" ]]; then
         role=orchestrator
     fi
     ((relay)) && kind="relaying the user's words"
@@ -602,17 +642,17 @@ cmd_header() {
 
 # Deliver one message to one roster entry. Returns the documented exit code.
 deliver() {
-    local entry=$1 body_file=$2 force=$3 label pane tool state age running oc_session path buf
-    label=$(jq -r '.branch // .name' <<<"$entry")
-    if [[ $(jq -r '.session == null' <<<"$entry") == true ]]; then
+    local entry=$1 body_file=$2 force=$3 label has_session pane tool state age running oc_session path buf
+    # \x1f, not a tab: read collapses runs of whitespace separators, which
+    # would shift every field after an empty one.
+    IFS=$'\x1f' read -r label has_session pane tool state age running oc_session path < <(jq -r '[(.branch // .name),
+        (.session != null), .session.pane, .session.tool, .session.state, (.session.state_age // -1),
+        .session.running, (.session.opencode_session // ""), .path]
+        | map(tostring) | join("\u001f")' <<<"$entry")
+    if [[ $has_session != true ]]; then
         printf '%s: no session\n' "$label"
         return 4
     fi
-    # \x1f, not a tab: read collapses runs of whitespace separators, which
-    # would shift every field after an empty one.
-    IFS=$'\x1f' read -r pane tool state age running oc_session path < <(jq -r '[.session.pane, .session.tool,
-        .session.state, (.session.state_age // -1), .session.running, (.session.opencode_session // ""), .path]
-        | map(tostring) | join("\u001f")' <<<"$entry")
     if [[ $pane == "${TMUX_PANE-}" ]]; then
         printf '%s: is this session, skipped\n' "$label"
         return 4
@@ -686,7 +726,7 @@ cmd_send() {
         --orchestrator)
             marker=$(state_dir)/orchestrator.json
             marker_valid "$marker" || die "send: no orchestrator is running (wto here)"
-            orch_path=$(jq -r '.path // empty' "$marker")
+            orch_path=$MARKER_PATH
             mapfile -t entries < <(jq -c --arg p "$orch_path" '.[] | select(.path == $p)' <<<"$roster")
             ;;
         --all) mapfile -t entries < <(jq -c --arg self "$(self_top)" \
@@ -774,12 +814,13 @@ registry_check() {
 # worktree created a moment ago keeps its claim. A failed or empty listing
 # would read as "every worktree is gone", so it fails instead.
 existing_wts() {
-    local rows="" path exist
+    local rows="" path real exist
     local -a paths=()
     rows=$(worktree_rows) || rows=""
     while IFS=$'\037' read -r path _; do
         [[ -n $path ]] || continue
-        paths+=("$(realpath -e -- "$path" 2>/dev/null || printf '%s' "$path")")
+        resolve_dir real "$path"
+        paths+=("$real")
     done <<<"$rows"
     exist=$(jq -n -c '$ARGS.positional' --args "${paths[@]}")
     if [[ $(jq -r 'length > 0' <<<"$exist" 2>/dev/null) != true ]]; then
@@ -1059,6 +1100,7 @@ profile_path() {
         [[ -f ${target%/*}/profile.md ]] && { printf '%s\n' "${target%/*}/profile.md"; return 0; }
     fi
     common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || return 1
+    wto_home
     overlay=$WTO_HOME/agent-files/projects/$(basename "$(dirname "$(realpath -- "$common")")")/profile.md
     [[ -f $overlay ]] && { printf '%s\n' "$overlay"; return 0; }
     return 1
@@ -1099,8 +1141,14 @@ cmd_profile() {
 # wtc, wta, tav and tavk in functions.d are thin wrappers over new, open and
 # layout, so agents and people run the same code.
 
-WTO_HOME=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)
-readonly WTO_HOME
+# The dotfiles checkout this script lives in; set on first use by wto_home.
+WTO_HOME=""
+wto_home() {
+    [[ -z $WTO_HOME ]] || return 0
+    WTO_HOME=$(readlink -f -- "${BASH_SOURCE[0]}")
+    WTO_HOME=${WTO_HOME%/*}
+    WTO_HOME=${WTO_HOME%/*}
+}
 # Holds a new window until its agent pane is respawned; an interactive shell
 # here would probe the terminal and leak replies into the agent's input.
 readonly PLACEHOLDER='sleep 600'
@@ -1156,21 +1204,29 @@ auto_tool() {
 # git worktree remove deletes them.
 launch_file() {
     local gitdir
-    gitdir=$(git -C "$1" rev-parse --path-format=absolute --git-dir 2>/dev/null) || return 1
+    git_dir_of gitdir "$1" || return 1
     printf '%s/ai-launch\n' "$gitdir"
 }
 
-launch_settings() {
-    local file key value model="" effort=""
-    file=$(launch_file "$1") || return 1
-    [[ -f $file ]] || return 1
-    while IFS='=' read -r key value; do
-        case $key in
-            model) model=$value ;;
-            effort) effort=$value ;;
+# The saved settings of worktree $2 as model|effort into variable $1; fails
+# when there are none.
+launch_settings_into() {
+    local _ls_gitdir _ls_key _ls_value _ls_model="" _ls_effort=""
+    git_dir_of _ls_gitdir "$2" || return 1
+    [[ -f $_ls_gitdir/ai-launch ]] || return 1
+    while IFS='=' read -r _ls_key _ls_value; do
+        case $_ls_key in
+            model) _ls_model=$_ls_value ;;
+            effort) _ls_effort=$_ls_value ;;
         esac
-    done <"$file"
-    printf '%s|%s\n' "$model" "$effort"
+    done <"$_ls_gitdir/ai-launch"
+    printf -v "$1" '%s|%s' "$_ls_model" "$_ls_effort"
+}
+
+launch_settings() {
+    local saved
+    launch_settings_into saved "$1" || return 1
+    printf '%s\n' "$saved"
 }
 
 # An empty value keeps the saved one.
@@ -1502,6 +1558,7 @@ respawn_agent() {
             mark_exited="; tmux set-option -p -t $pane @ai_state exited \; set-option -p -t $pane @ai_state_at \$(date +%s) 2>/dev/null"
             ;;
     esac
+    wto_home
     if [[ $bin == grok && -x $WTO_HOME/bin/tty-filter-da ]]; then
         launch="$WTO_HOME/bin/tty-filter-da $launch"
     fi
@@ -1863,7 +1920,7 @@ cmd_close() {
     [[ -d $path ]] || die "close: $path is gone; git worktree prune clears its entry"
     [[ $(self_top) != "$path" ]] || die "close: run it from another worktree, not the one being closed"
     marker=$(state_dir)/orchestrator.json
-    if marker_valid "$marker" && [[ $(jq -r '.path // ""' "$marker") == "$path" ]]; then
+    if marker_valid "$marker" && [[ $MARKER_PATH == "$path" ]]; then
         die "close: $label is the orchestrator's worktree"
     fi
     while IFS=$'\037' read -r tag _ _ wid _; do
