@@ -239,7 +239,7 @@ update_dotfiles() {
         if [[ -d "$themes_dir" ]]; then
             local initialized_themes=()
             for theme_dir in "$themes_dir"/*/; do
-                [[ -d "$theme_dir/.git" ]] || continue
+                [[ -e "$theme_dir/.git" ]] || continue
                 local name
                 name="$(basename "$theme_dir")"
                 initialized_themes+=("omarchy/.config/omarchy/themes/$name")
