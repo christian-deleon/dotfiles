@@ -31,7 +31,7 @@ EOF
     echo "Options:"
     echo "  help                  - Browse all functions and aliases interactively (fzf)"
     echo "  edit                  - Open the dotfiles directory in your editor"
-    echo "  update                - Pull, AI refresh, tombstones, source tools, reconcile profile"
+    echo "  update                - Pull, submodules, tombstones, install missing items, AI refresh"
     echo "  install               - Interactive: pick a profile or items manually"
     echo "  install <name>...     - Install one or more items by name (binary + config for bundles)"
     echo "  profile <subcommand>  - Manage active profile (list/show/use)"
