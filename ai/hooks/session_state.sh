@@ -6,7 +6,15 @@
 # events. Always exits 0 so a tmux hiccup never blocks the agent.
 
 state=${1:-}
-payload=$(cat 2>/dev/null || true)
+
+# Only idle needs the payload. PostToolUse runs this on every tool call with
+# the whole tool output, so drain the rest unread; exiting without reading
+# can leave the harness writing into a closed pipe.
+if [[ $state == idle ]]; then
+    payload=$(exec cat 2>/dev/null)
+else
+    cat >/dev/null 2>&1
+fi
 
 [[ -n ${TMUX_PANE-} && -n $state ]] || exit 0
 
@@ -14,11 +22,11 @@ payload=$(cat 2>/dev/null || true)
 # SessionEnd records that as exited, so a late idle must not overwrite it.
 # A Grok subagent's turn end is not the session's.
 if [[ $state == idle && ( $payload == *'"reason"'* || $payload == *'"subagentType"'* ) ]]; then
-    skip=$(jq -r '(.subagentType // "") != "" or ((.reason // "end_turn") != "end_turn")' \
-        <<<"$payload" 2>/dev/null || true)
+    skip=$(exec jq -r '(.subagentType // "") != "" or ((.reason // "end_turn") != "end_turn")' \
+        <<<"$payload" 2>/dev/null)
     [[ $skip == true ]] && exit 0
 fi
 
 tmux set-option -p -t "$TMUX_PANE" @ai_state "$state" \; \
-    set-option -p -t "$TMUX_PANE" @ai_state_at "$(date +%s)" >/dev/null 2>&1 || true
+    set-option -p -t "$TMUX_PANE" @ai_state_at "${EPOCHSECONDS:-$(date +%s)}" >/dev/null 2>&1
 exit 0
