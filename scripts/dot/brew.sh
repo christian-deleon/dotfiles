@@ -2,6 +2,16 @@
 # ─── Homebrew helpers ────────────────────────────────────────────────────────
 # Sourced by dot.sh. Requires DOTFILES_DIR and lib.sh helpers.
 
+# Brewfile names under brew/, one per line.
+brew_list_profiles() {
+    local f
+    for f in "${DOTFILES_DIR}/brew"/*Brewfile*; do
+        [[ -e "$f" ]] && printf '%s\n' "${f##*/}"
+    done
+    return 0
+}
+
+
 brew_install() {
     echo
     _info "Installing Homebrew..."
@@ -16,7 +26,7 @@ brew_bundle() {
         echo
         _info "Please specify a Brewfile profile."
         echo
-        ls "${DOTFILES_DIR}/brew" | grep Brewfile
+        brew_list_profiles
         return 1
     fi
 
@@ -33,7 +43,7 @@ brew_save() {
         echo
         _info "Please specify a Brewfile profile."
         echo
-        ls "${DOTFILES_DIR}/brew" | grep Brewfile
+        brew_list_profiles
         return 1
     fi
 
