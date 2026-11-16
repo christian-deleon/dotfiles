@@ -58,7 +58,7 @@ user approves.
 - **Merging:** protected branches, required reviews, a merge-request skill or
   documented review process. Any of these means `Merge to main: review-required`.
 - **Project skills** (`.agents/skills/`, `.claude/skills/`, `.opencode/`,
-  `.grok/`): which must run from main (releases, anything that pushes main),
+  `.grok/`): which must run from the orchestrator (releases, anything that pushes main),
   which produce lists of work (triage, audits), which open merge requests.
 - **Shared resources:** what two worktrees could collide on: deploy targets and
   dev clusters, databases, fixed ports, emulators, external accounts. Look at
@@ -128,7 +128,7 @@ Then any project-side additions, each with a one-line reason:
 
 - Changes to the project's own skills: a deploy skill that takes and frees its
   claims, a triage skill that files findings with `/issue` so `/backlog` and the
-  orchestrator can dispatch them, a main-only skill noting it runs from main.
+  orchestrator can dispatch them, a main-only skill noting it runs from the orchestrator.
 - A short "before claiming done" checks line in `AGENTS.md`, if it has none.
 - Unless the kind is `work`, the label rows from [labels.md](labels.md): keep,
   rename, create, and deletions to tick.

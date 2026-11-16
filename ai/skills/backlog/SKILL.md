@@ -54,7 +54,7 @@ Rank by, in order: the profile's priority signal; priority or severity labels;
 bugs over features over chores; a near milestone; recent activity. Keep a
 shortlist of about twice the free session slots, at most ten.
 
-Free slots are the profile's session cap (default 5) minus the live non-main
+Free slots are the profile's session cap (default 5) minus the live
 sessions in `wto ls`.
 
 ## 4. Read the shortlist in a subagent

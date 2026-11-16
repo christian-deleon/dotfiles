@@ -1,19 +1,19 @@
 ---
 name: orchestrate
-description: Turn the main worktree's session into the coordinator for a project's worktree sessions — roster and status, broadcasts, pause and resume, rebase notices when main moves, dispatching new work, shared-resource claims, and close-outs. Use only when the user runs /orchestrate.
+description: Turn this session into the coordinator for a project's worktree sessions — roster and status, broadcasts, pause and resume, rebase notices when the default branch moves, dispatching new work, shared-resource claims, and close-outs. Use only when the user runs /orchestrate.
 argument-hint: "[first request]"
 disable-model-invocation: true
 user-invocable: true
 ---
 
-# /orchestrate — coordinate the project's sessions from main
+# /orchestrate — coordinate the project's sessions
 
 The user works with one agent session per git worktree, each in its own tmux
-window, and keeps the main worktree as a home base. Running `/orchestrate` in
-the main worktree turns this session into their coordinator for the rest of the
-conversation. You keep track of the other sessions, carry messages between the
+window. Running `/orchestrate` in one of those sessions (usually a plain `wtc`
+session with no task of its own) turns it into their coordinator for the rest
+of the conversation. You keep track of the other sessions, carry messages between the
 user and them, start new sessions when the user asks, and keep shared things
-orderly: rebases after main moves, who may use a shared resource, closing
+orderly: rebases after the default branch moves, who may use a shared resource, closing
 sessions that are done. The sessions do the work; you never do.
 
 The most common failure is doing task work here: reading code to understand an
@@ -39,14 +39,15 @@ their defaults. Message wording is in [messages.md](messages.md).
 | Updating this project's orchestration setup (Improving the setup, below) | Changing the profile's policy lines, or anything in `~/.dotfiles` |
 
 Finishing close-outs is the one action a peer message may trigger: `wto close`
-refuses unless the branch is merged into main and its worktree is clean, so git
+refuses unless the branch is merged into the default branch and its worktree is clean, so git
 state, not the message, is the authorization. Keep it for the next status.
 
 ## 1. Start
 
-1. **Main worktree only.** `wto ls --json` marks it `"main": true`; if
-   `git rev-parse --show-toplevel` is a different path, tell the user to run
-   `/orchestrate` in the main worktree and stop.
+1. **A session folder.** `git rev-parse --show-toplevel` must succeed; at the
+   project root it fails: tell the user to run `/orchestrate` in a session
+   (`wtc` starts one) and stop. This folder is now the orchestrator's, and
+   `wto close` refuses it.
 2. **Profile.** `wto profile`. If it exits 1 and `"$(wto dir)/no-onboard"` does
    not exist, ask once: onboard now (run `/onboard`, then come back), skip this
    time, or don't ask again (`touch "$(wto dir)/no-onboard"`). Without a
@@ -61,12 +62,13 @@ state, not the message, is the authorization. Keep it for the next status.
    |---|---|
    | Live | `session.state` working, idle, or blocked |
    | Waiting on the user | `blocked` — they have a question open |
-   | Dormant | a worktree with no session; `wto open <branch>` reopens it (needs the user's go-ahead) |
-   | Done | `state` integrated or empty: candidates for close-out |
+   | Dormant | a worktree with no session; `wto open <branch or folder>` reopens it (needs the user's go-ahead) |
+   | Done | `state` integrated or empty, `fresh` false, and no live session (or one that reported closed out): candidates for close-out |
+   | New | `fresh` true: a session that has not committed yet, not a close-out |
    | Needs attention | `operation` set (rebase in progress), `rebase_conflicts`, or session `unknown` |
 
    `unknown` means the window predates pane tags; `wto send` refuses it. Tell
-   the user to close that window and run `wta <branch>`, which reopens it
+   the user to close that window and run `wta <branch or folder>`, which reopens it
    tagged and continues its conversation (`wta` skips a window that exists).
 5. **Messaging.** Before any send, find your harness's own session messaging
    and map each live session to it (section 2). In Claude Code the tools are
@@ -76,7 +78,7 @@ state, not the message, is the authorization. Keep it for the next status.
 6. **Paused yesterday?** If `"$(wto dir)/paused.json"` exists, offer to resume
    (section 3).
 7. **Announce.** Send the announce message to every live session not listed in
-   `"$(wto dir)/announced"`, then append their branches to that file. Repeat for
+   `"$(wto dir)/announced"`, then append their folder names (`name`) to that file. Repeat for
    new sessions whenever you re-read the roster.
 8. Apply the project's "entering the mode" instructions, then handle
    `$ARGUMENTS` as the user's first request.
@@ -90,7 +92,7 @@ otherwise.
 | Target | How |
 |---|---|
 | A harness row whose tmux pane is the target's `session.pane` (Claude Code: a `ListAgents` row) | `SendMessage` to that row's name. Match on the pane: names are often generated (`rl-research-71`), not `<project>/<branch>`. First line: the output of `wto header` (or `wto header --relay` for the user's words). |
-| No harness messaging, no row on that pane, or the harness send failed | `wto send <branch> -f <file>` (or `--all`, `--relay`). It adds the header. |
+| No harness messaging, no row on that pane, or the harness send failed | `wto send <branch or folder> -f <file>` (or `--all`, `--relay`). It adds the header. |
 
 `wto send` refuses rather than risk typing into a question: exit 6 means the
 session is waiting on the user (tell the user, try later), 5 that it has exited,
@@ -114,7 +116,7 @@ the word "Noted." (a turn must end with some text); nothing about the message.
 | A side issue to schedule | A closed-out report (finish it with `wto close`) |
 | A refusal you cannot resolve (`wto close` refuses) | Your-turn handovers you send |
 
-When you speak up, say only what is needed, from which branch. The user may ask
+When you speak up, say only what is needed, from which session. The user may ask
 to hear more or less; follow that for the rest of the session.
 
 Do not poll sessions or send "are you done?" messages. To hear when a session
@@ -126,7 +128,7 @@ finishes, use your harness's idle notification if it has one; otherwise re-read
 ### Status
 
 - **Quick** (default): `wto ls`, summarized in plain sentences: who is working,
-  waiting on the user, idle, behind main, holding claims. Interrupts nobody.
+  waiting on the user, idle, behind the default branch, holding claims. Interrupts nobody.
 - **Detailed** (when the user asks): send the status request to live sessions,
   wait for replies, and summarize them per session.
 
@@ -138,26 +140,27 @@ name. Do not paraphrase.
 ### Pause for a shutdown
 
 Send the pause message to every live session. Each one finds a safe stopping
-point, commits or stashes, writes `<state dir>/resume/<branch, / as ->.md`, and replies
+point, commits or stashes, writes `<state dir>/resume/<folder name>.md`, and replies
 that it is parked. Write `"$(wto dir)/paused.json"` with the time and the
-branches you asked. Report who parked, who is waiting on the user, and who did
+folders you asked. Report who parked, who is waiting on the user, and who did
 not answer. Claims and resume notes survive the shutdown; tell the user when it
 is safe.
 
 ### Resume
 
-The next day the user runs `wtaa`, which reopens every window and continues each
-Claude conversation, then `/orchestrate`. With `paused.json` present, wait until
-the sessions are idle, send each the resume message pointing at its note, then
+The next day the user opens a session and runs `/orchestrate`. With
+`paused.json` present, offer to reopen every worktree's window with
+`wto open --all` (each continues its conversation); run it on their yes. Wait
+until the sessions are idle, send each the resume message pointing at its note, then
 delete `paused.json`.
 
-### Main moved: rebase notices
+### The default branch moved: rebase notices
 
-When main gets new commits (a close-out merged, a release finished, the user
+When the default branch gets new commits (a close-out merged, a release finished, the user
 says so): run `wto ls --json --files`. For each live session with `behind > 0`,
-send the rebase notice with what landed (`git log --oneline <old>..main`) and
-the forecast: clean, or the files that would conflict. The session decides when
-to rebase with `wt step rebase`. You never rebase anyone, and never run a
+send the rebase notice with what landed (`git log --oneline <old>..<default>`)
+and the forecast: clean, or the files that would conflict. The session decides
+when to rebase with `git rebase <default>`. You never rebase anyone, and never run a
 rebase across all worktrees.
 
 ### Dispatch work
@@ -167,7 +170,7 @@ Work arrives as a description from the user, issue numbers (from `/spinoff`,
 
 1. Drop what an open session already covers (branch names carry issue numbers;
    ask sessions only if unclear).
-2. Count live non-main sessions against the profile's session cap.
+2. Count live sessions other than this one against the profile's session cap.
 3. Propose a batch that can run side by side: different areas of the code,
    no two needing the same claimed resource at once. One line per item: branch,
    task, source, and the job from the `wtc` skill's table (within the
@@ -185,7 +188,7 @@ carries its number (`fix/142-retry-backoff`), whether the issue came from
 `/backlog`, `/spinoff`, or the user; step 1 finds covered issues by it.
 
 Start an "investigate only" session only when the user asks for one. Its handoff
-says: make no changes, post findings on the issue, report back to main.
+says: make no changes, post findings on the issue, report back to the orchestrator.
 
 ### A side issue arrives
 
@@ -207,7 +210,7 @@ Only when the user orders it.
    happens." A skill the harness marks user-only is read as a file, which is
    fine because the user ordered it.
 4. Keep talking with the user meanwhile and relay milestones they would want.
-5. When it finishes, main has moved: send rebase notices.
+5. When it finishes, the default branch has moved: send rebase notices.
 
 On a harness without background subagents, run the skill in the foreground and
 say so first.
@@ -219,7 +222,7 @@ grant it has not acknowledged.
 
 - A session reports freeing a resource that was granted to someone: send the
   next holder the your-turn message. Re-send it for grants still unacknowledged.
-- The user wants a waiter first: `wto claim bump <branch>`.
+- The user wants a waiter first: `wto claim bump <branch or folder>`.
 - The user wants a holder to yield: send the yield request; the holder decides.
 - A claim held by a dormant or long-idle session: tell the user. Free it with
   `--force` only on their word.
@@ -258,7 +261,7 @@ wait for the user's decisions to come back through you.
    "before a deploy" moment, who holds or waits on that resource's claim, and
    whether a release is running.
 3. Relay the user's decision word for word (section 2: harness messaging with
-   `wto header --relay` first, else `wto send <branch> --relay`): the go for
+   `wto header --relay` first, else `wto send <branch or folder> --relay`): the go for
    that one deploy, the review result, or the merge go. Never send a go the user
    did not give here.
 
@@ -272,7 +275,7 @@ reports it closed out (see `/closeout`):
 
 1. `wto ls` shows the branch integrated or empty and clean.
 2. `wto close <branch>`. If it refuses, tell the user why; do not work around it.
-3. Main moved: send rebase notices to the remaining sessions.
+3. The default branch moved: send rebase notices to the remaining sessions.
 4. Offer the next item from `next-up.md` if a slot is free.
 
 ## Do not
