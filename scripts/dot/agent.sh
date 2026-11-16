@@ -11,14 +11,25 @@ AGENT_PROJECTS_DIR="$AGENT_FILES_DIR/projects"
 AGENT_ENV_DIR="$AGENT_FILES_DIR/env"
 
 
-# Initialize the agent-files submodule if not already present
+# Initialize the agent-files submodule if not already present. With "batch"
+# (implicit calls such as `wto new`), git and ssh fail instead of prompting,
+# so a locked key or missing credential can never hang the caller.
 agent_ensure_submodule() {
     if [[ -e "$AGENT_FILES_DIR/.git" ]]; then
         return 0
     fi
 
     _info "Initializing agent-files submodule..."
-    if ! git -C "$DOTFILES_DIR" submodule update --init agent-files 2>&1; then
+    local rc=0
+    if [[ "${1:-}" == batch ]]; then
+        local ssh_cmd="${GIT_SSH_COMMAND:-}"
+        [[ -n "$ssh_cmd" ]] || ssh_cmd="$(git -C "$DOTFILES_DIR" config --get core.sshCommand)" || ssh_cmd=ssh
+        GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="$ssh_cmd -o BatchMode=yes -o ConnectTimeout=10" \
+            git -C "$DOTFILES_DIR" submodule update --init agent-files </dev/null 2>&1 || rc=$?
+    else
+        git -C "$DOTFILES_DIR" submodule update --init agent-files 2>&1 || rc=$?
+    fi
+    if ((rc != 0)); then
         _error "Could not initialize agent-files submodule"
         _info "Requires SSH access to ${_BOLD}git@github.com:christian-deleon/agent-files.git${_RESET}"
         return 1
@@ -58,11 +69,31 @@ agent_project_root() {
 # All current worktree paths, skipping the bare repository's own entry.
 agent_worktree_paths() {
     git worktree list --porcelain 2>/dev/null | awk '
-        $1 == "worktree" { path=$2 }
-        $1 == "bare"     { path="" }
-        $0 == ""         { if (path != "") print path; path="" }
-        END              { if (path != "") print path }
+        /^worktree / { path=substr($0, 10) }
+        $1 == "bare" { path="" }
+        $0 == ""     { if (path != "") print path; path="" }
+        END          { if (path != "") print path }
     '
+}
+
+# Fill AGENT_WORKTREES with agent_worktree_paths.
+agent_load_worktrees() {
+    AGENT_WORKTREES=()
+    local wt
+    while IFS= read -r wt; do
+        if [[ -n "$wt" ]]; then
+            AGENT_WORKTREES+=("$wt")
+        fi
+    done < <(agent_worktree_paths)
+}
+
+# Print $1 without the dot-agent-files sentinel block.
+agent_strip_exclude_block() {
+    awk -v begin="$AGENT_FILES_BEGIN" -v end="$AGENT_FILES_END" '
+        $0 == begin { skip=1; next }
+        $0 == end   { skip=0; next }
+        !skip       { print }
+    ' "$1"
 }
 
 # Replace (or append) the dot-agent-files sentinel block in .git/info/exclude.
@@ -77,11 +108,7 @@ agent_write_exclude() {
 
     local tmpfile
     tmpfile="$(mktemp)"
-    awk -v begin="$AGENT_FILES_BEGIN" -v end="$AGENT_FILES_END" '
-        $0 == begin { skip=1; next }
-        $0 == end   { skip=0; next }
-        !skip       { print }
-    ' "$exclude_file" > "$tmpfile"
+    agent_strip_exclude_block "$exclude_file" > "$tmpfile"
 
     {
         cat "$tmpfile"
@@ -102,12 +129,9 @@ agent_clear_exclude() {
 
     local tmpfile
     tmpfile="$(mktemp)"
-    awk -v begin="$AGENT_FILES_BEGIN" -v end="$AGENT_FILES_END" '
-        $0 == begin { skip=1; next }
-        $0 == end   { skip=0; next }
-        !skip       { print }
-    ' "$exclude_file" > "$tmpfile"
-    mv "$tmpfile" "$exclude_file"
+    agent_strip_exclude_block "$exclude_file" > "$tmpfile"
+    cat "$tmpfile" > "$exclude_file"
+    rm -f "$tmpfile"
 }
 
 # Return 0 if the symlink at $1 is one we manage (points into agent-files,
@@ -211,12 +235,18 @@ agent_env_all_targets() {
 agent_env_is_legacy_hop() {
     local file="$1" raw t
     [[ -L "$file" ]] || return 1
+    if [[ -z "${AGENT_ENV_ALL_TARGETS+set}" ]]; then
+        AGENT_ENV_ALL_TARGETS=()
+        while IFS= read -r t; do
+            AGENT_ENV_ALL_TARGETS+=("$t")
+        done < <(agent_env_all_targets)
+    fi
     raw="$(readlink "$file")"
-    while IFS= read -r t; do
+    for t in "${AGENT_ENV_ALL_TARGETS[@]}"; do
         if [[ "$t" != "$file" && "$raw" == "$t" ]]; then
             return 0
         fi
-    done < <(agent_env_all_targets)
+    done
     return 1
 }
 
@@ -345,18 +375,23 @@ agent_env_link_skills() {
     local name="$1"
     local src_dir="$AGENT_ENV_DIR/$name/skills"
     local skill dir dest linked
-    local -a names=()
+    local -a names=() dirs=()
     _profile_json_load
 
     agent_env_unlink_skills >/dev/null
     [[ -d "$src_dir" ]] || return 0
 
+    while IFS= read -r dir; do
+        dirs+=("$dir")
+    done < <(agent_env_skill_dirs)
+    ((${#dirs[@]} > 0)) || return 0
+
     for skill in "$src_dir"/*/; do
         [[ -f "${skill}SKILL.md" ]] || continue
         skill="${skill%/}"
         linked=0
-        while IFS= read -r dir; do
-            dest="$dir/$(basename "$skill")"
+        for dir in "${dirs[@]}"; do
+            dest="$dir/${skill##*/}"
             if [[ -e "$dest" || -L "$dest" ]]; then
                 _warn "Skill already exists, skipping: $dest"
                 continue
@@ -364,8 +399,8 @@ agent_env_link_skills() {
             mkdir -p "$dir"
             ln -s "$skill" "$dest"
             linked=1
-        done < <(agent_env_skill_dirs)
-        ((linked)) && names+=("$(basename "$skill")")
+        done
+        ((linked)) && names+=("${skill##*/}")
     done
 
     if ((${#names[@]} > 0)); then
@@ -575,7 +610,7 @@ agent_env_list() {
         found=1
     done < <(agent_list_envs)
     if [[ "$found" -eq 0 ]]; then
-        printf "  ${_DIM}(none — run %s to create one)${_RESET}\n" "${_BOLD}dot agent env link <name>${_RESET}"
+        printf "  ${_DIM}(none — run %b to create one)${_RESET}\n" "${_BOLD}dot agent env link <name>${_RESET}"
     fi
     echo
 }
@@ -720,7 +755,7 @@ agent_link() {
         if "$explicit"; then
             agent_ensure_submodule || return 1
         else
-            agent_ensure_submodule 2>/dev/null || true
+            agent_ensure_submodule batch 2>/dev/null || true
         fi
     fi
 
@@ -790,12 +825,10 @@ agent_link() {
     fi
 
     # 4. Iterate all worktrees and create symlinks.
-    local -a worktrees=()
-    while IFS= read -r wt; do
-        [[ -n "$wt" ]] && worktrees+=("$wt")
-    done < <(agent_worktree_paths)
+    local -a AGENT_WORKTREES
+    agent_load_worktrees
 
-    if [[ ${#worktrees[@]} -eq 0 ]]; then
+    if [[ ${#AGENT_WORKTREES[@]} -eq 0 ]]; then
         _error "No worktrees found"
         return 1
     fi
@@ -805,7 +838,7 @@ agent_link() {
     # that already commit their own file. Leftover CLAUDE.md hops we used to
     # manage are removed after the AGENTS.md link is in place.
     local wt
-    for wt in "${worktrees[@]}"; do
+    for wt in "${AGENT_WORKTREES[@]}"; do
         if [[ "$explicit" == false ]]; then
             if ! agent_check_safe "$wt" "AGENTS.md" true; then
                 _info "agent-files: ${_BOLD}$wt/AGENTS.md${_RESET} already exists (tracked or unmanaged) — skipping"
@@ -816,7 +849,7 @@ agent_link() {
         fi
     done
 
-    for wt in "${worktrees[@]}"; do
+    for wt in "${AGENT_WORKTREES[@]}"; do
         ln -snf "$src_agents" "$wt/AGENTS.md"
         if agent_is_managed_link "$wt/CLAUDE.md"; then
             rm "$wt/CLAUDE.md"
@@ -826,8 +859,8 @@ agent_link() {
     agent_write_exclude
 
     echo
-    _success "Linked ${_BOLD}$name${_RESET} in ${#worktrees[@]} worktree(s):"
-    for wt in "${worktrees[@]}"; do
+    _success "Linked ${_BOLD}$name${_RESET} in ${#AGENT_WORKTREES[@]} worktree(s):"
+    for wt in "${AGENT_WORKTREES[@]}"; do
         printf "  ${_DIM}%s${_RESET}\n" "$wt"
     done
     _success "Updated .git/info/exclude (shared across worktrees)"
@@ -836,13 +869,11 @@ agent_link() {
 agent_unlink() {
     agent_require_git_repo || return 1
 
-    local -a worktrees=()
-    while IFS= read -r wt; do
-        [[ -n "$wt" ]] && worktrees+=("$wt")
-    done < <(agent_worktree_paths)
+    local -a AGENT_WORKTREES
+    agent_load_worktrees
 
     local removed=0 wt file
-    for wt in "${worktrees[@]}"; do
+    for wt in "${AGENT_WORKTREES[@]}"; do
         for file in CLAUDE.md AGENTS.md; do
             if agent_is_managed_link "$wt/$file"; then
                 rm "$wt/$file"
@@ -886,16 +917,14 @@ agent_status() {
     local project_root
     project_root="$(agent_project_root 2>/dev/null)" || project_root="(unknown)"
 
-    local -a worktrees=()
-    while IFS= read -r wt; do
-        [[ -n "$wt" ]] && worktrees+=("$wt")
-    done < <(agent_worktree_paths)
+    local -a AGENT_WORKTREES
+    agent_load_worktrees
 
     echo
-    _info "Agent files for ${_BOLD}$project_root${_RESET} (${#worktrees[@]} worktree(s)):"
+    _info "Agent files for ${_BOLD}$project_root${_RESET} (${#AGENT_WORKTREES[@]} worktree(s)):"
 
     local wt file path raw
-    for wt in "${worktrees[@]}"; do
+    for wt in "${AGENT_WORKTREES[@]}"; do
         echo
         printf "  ${_BOLD}%s${_RESET}\n" "$wt"
         for file in AGENTS.md CLAUDE.md; do
@@ -942,12 +971,12 @@ agent_help() {
     echo "Manage agent files (AGENTS.md) sourced from the private agent-files"
     echo "submodule. Two scopes are supported:"
     echo
-    echo "  ${_BOLD}Per-project${_RESET}  — symlinks into a project's worktrees for projects"
+    printf '%b\n' "  ${_BOLD}Per-project${_RESET}  — symlinks into a project's worktrees for projects"
     echo "                where agent files can't be committed and .gitignore"
     echo "                can't be modified. Excluded via .git/info/exclude."
     echo "                Source: agent-files/projects/<project>/AGENTS.md"
     echo
-    echo "  ${_BOLD}Per-env${_RESET}      — symlink into each enabled AI harness's user"
+    printf '%b\n' "  ${_BOLD}Per-env${_RESET}      — symlink into each enabled AI harness's user"
     echo "                instructions file. Use for environment-scoped"
     echo "                context (locked-down VM, corp proxy, etc.)."
     echo "                Source: agent-files/env/<name>/AGENTS.md"
@@ -972,7 +1001,7 @@ agent_help() {
     echo "  status        Show what's linked across all worktrees."
     echo "  update        Pull the latest agent-files from the remote."
     echo "  env <sub>     Manage per-env global agent files. Run"
-    echo "                ${_BOLD}dot agent env help${_RESET} for usage."
+    printf '%b\n' "                ${_BOLD}dot agent env help${_RESET} for usage."
     echo "  help          Show this message."
 }
 
