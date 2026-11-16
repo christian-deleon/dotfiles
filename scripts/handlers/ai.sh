@@ -550,24 +550,26 @@ mcp_warn_unknown() {
 
 # True when every name this harness was last given is still in its config.
 mcp_written_ok() {
-    local h="$1" written="$2" name
+    local h="$1" written="$2" name cfg="" nl=$'\n'
     [[ -f "$written" ]] || return 1
-    while IFS= read -r name; do
-        [[ -n "$name" ]] || continue
-        case "$h" in
-            grok)
-                grep -Fqx -- "[mcp_servers.$name]" "$HOME/.grok/config.toml" 2>/dev/null || return 1
-                ;;
-            opencode)
-                jq -e --arg n "$name" '.mcp.servers[$n] != null' \
-                    "$HOME/.config/opencode/opencode.json" >/dev/null 2>&1 || return 1
-                ;;
-            claude)
-                jq -e --arg n "$name" '.mcpServers[$n] != null' \
-                    "$HOME/.claude.json" >/dev/null 2>&1 || return 1
-                ;;
-        esac
-    done < "$written"
+    case "$h" in
+        grok)
+            [[ -f "$HOME/.grok/config.toml" ]] || return 1
+            IFS= read -r -d '' cfg < "$HOME/.grok/config.toml" || true
+            while IFS= read -r name; do
+                [[ -n "$name" ]] || continue
+                [[ "$nl$cfg$nl" == *"${nl}[mcp_servers.$name]$nl"* ]] || return 1
+            done < "$written"
+            ;;
+        opencode | claude)
+            cfg="$HOME/.claude.json"
+            [[ "$h" == opencode ]] && cfg="$HOME/.config/opencode/opencode.json"
+            jq -e --rawfile names "$written" --arg h "$h" '
+                (if $h == "opencode" then .mcp.servers else .mcpServers end) as $s
+                | all($names | split("\n")[] | select(. != ""); . as $n | $s[$n] != null)
+            ' "$cfg" >/dev/null 2>&1
+            ;;
+    esac
 }
 
 write_grok_mcp() {
