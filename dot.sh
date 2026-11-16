@@ -296,7 +296,7 @@ update_dotfiles() {
 # Install items.
 # With args: dispatch each through install.sh's install_item (manifest-driven).
 #   Bundle items install binary + config. Unknown names error out (no fallback
-#   needed — manifest_resolve_alias handles op/rg/nvim/wt via install.command).
+#   needed — manifest_resolve_alias handles op/rg/nvim via install.command).
 # Without args: runs the interactive installer (profile picker).
 run_install() {
     if [[ $# -gt 0 ]]; then

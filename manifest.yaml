@@ -363,14 +363,6 @@ windows-terminal:
     handler: install_windows_terminal_config
   requires: [wsl]
 
-worktrunk:
-  description: Git worktree manager for parallel AI agent workflows
-  install:
-    script: install-worktrunk.sh
-    command: wt
-  config:
-    type: stow
-
 yq:
   description: YAML processor
   install:

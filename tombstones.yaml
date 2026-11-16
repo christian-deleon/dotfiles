@@ -49,3 +49,7 @@ voxtype:
   requires: [linux]
   xdg_config: [voxtype]
   xdg_data: [voxtype]
+
+worktrunk:
+  description: Retired worktrunk — wto runs sessions on plain git worktrees
+  xdg_config: [worktrunk]

@@ -270,7 +270,7 @@ manifest_label() {
 install_tool() {
     local item="$1"
 
-    # Allow callers to pass an alias (op, rg, nvim, wt) — resolve to canonical.
+    # Allow callers to pass an alias (op, rg, nvim) — resolve to canonical.
     local resolved
     resolved="$(manifest_resolve_alias "$item")"
     if [[ -z "$resolved" ]]; then

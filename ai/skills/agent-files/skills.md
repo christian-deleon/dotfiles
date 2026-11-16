@@ -61,7 +61,7 @@ Anti-patterns that bloat descriptions:
 - Listing every user phrase variant. Pick the 3–4 most distinctive ones.
 - Restating the full opinionated stack. That belongs in the body.
 
-Look at `~/.dotfiles/ai/skills/bash/SKILL.md` or `~/.dotfiles/ai/skills/worktrunk/SKILL.md` for tight examples.
+Look at `~/.dotfiles/ai/skills/bash/SKILL.md` for tight examples.
 
 ### What NOT to put in frontmatter
 
