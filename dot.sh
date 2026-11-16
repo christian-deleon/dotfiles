@@ -4,7 +4,7 @@ set -e
 
 DOTFILES_DIR="$HOME/.dotfiles"
 
-# Source package management library
+# shellcheck disable=SC1091
 source "$DOTFILES_DIR/scripts/lib.sh"
 
 # Source split-out command modules
@@ -136,9 +136,6 @@ reconcile_profile() {
         return 0
     fi
 
-    # Source install.sh so we can call install_item / items_need_stow / etc.
-    source "$DOTFILES_DIR/install.sh" 2>/dev/null
-
     if ! profile_is_compatible "$active"; then
         _warn "Active profile '$active' is not compatible with this host — skipping reconciliation"
         return 0
@@ -257,20 +254,16 @@ update_dotfiles() {
 
         # Refresh each enabled harness from ai/ after the pull (idempotent)
         if [[ -d "$DOTFILES_DIR/ai" ]]; then
-            source "$DOTFILES_DIR/install.sh"
             _profile_json_load
             local harness
             while IFS= read -r harness; do
                 "install_ai_$harness" 2>/dev/null || _warn "Failed to install $harness config"
             done < <(ai_enabled_harnesses)
         fi
-        declare -F link_dot_bins >/dev/null && link_dot_bins
+        link_dot_bins
 
         # Reconcile stale symlinks left by dropped stow packages
-        source "$DOTFILES_DIR/install.sh" 2>/dev/null
-        if declare -F clean_stale_dotfile_symlinks &>/dev/null; then
-            clean_stale_dotfile_symlinks
-        fi
+        clean_stale_dotfile_symlinks
     fi
 
     # Desired-state absences: remove residue from retired tools (tombstones.yaml).
@@ -285,26 +278,19 @@ update_dotfiles() {
 
     # After reconcile, so a harness the profile just added has its dirs.
     agent_env_refresh || true
-    if declare -F install_ai_tool_default >/dev/null; then
-        install_ai_tool_default || true
-    fi
+    install_ai_tool_default || true
 
     _success "Dotfiles updated"
 }
 
 
 # Install items.
-# With args: dispatch each through install.sh's install_item (manifest-driven).
+# With args: dispatch each through install_item (manifest-driven).
 #   Bundle items install binary + config. Unknown names error out (no fallback
 #   needed — manifest_resolve_alias handles op/rg/nvim via install.command).
 # Without args: runs the interactive installer (profile picker).
 run_install() {
     if [[ $# -gt 0 ]]; then
-        if ! source "$DOTFILES_DIR/install.sh" 2>/dev/null; then
-            _error "Failed to source install.sh"
-            return 1
-        fi
-
         ensure_yq || return 1
 
         local rc=0 name canon
@@ -335,8 +321,6 @@ run_install() {
     if ! ensure_clean_dotfiles; then
         return 1
     fi
-    source "$DOTFILES_DIR/install.sh"
-
     ensure_yq
 
     local choice
@@ -355,10 +339,6 @@ manage_profile() {
     local subcmd="${1:-list}"
     shift || true
 
-    if ! source "$DOTFILES_DIR/install.sh" 2>/dev/null; then
-        _error "Failed to source install.sh"
-        return 1
-    fi
     ensure_yq || return 1
 
     case "$subcmd" in
@@ -443,11 +423,9 @@ case "$1" in
         ;;
     ai-tool)
         shift
-        source "$DOTFILES_DIR/install.sh" 2>/dev/null
         install_ai_tool "$@"
         ;;
     mcp-regen)
-        source "$DOTFILES_DIR/install.sh"
         FORCE_MCP_REGEN=true generate_mcp_configs
         ;;
     agent)

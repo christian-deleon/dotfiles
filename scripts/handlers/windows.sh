@@ -1,6 +1,6 @@
 #!/bin/bash
 # Windows / WSL config handlers — referenced from manifest.yaml.
-# Sourced by install.sh.
+# Sourced by scripts/lib.sh.
 
 # Configure Windows Terminal (settings.json) from inside WSL. The actual work
 # is in scripts/tools/install-windows-terminal.sh. Gated by `requires: [wsl]`.
