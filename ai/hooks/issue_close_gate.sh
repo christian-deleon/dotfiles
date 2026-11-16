@@ -29,15 +29,16 @@ branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || exit 0
 [[ ${branch##*/} =~ ^([0-9]+)(-|$) ]] || exit 0
 issue=${BASH_REMATCH[1]}
 
-# wt's own states cannot tell a merged branch from a fresh one (both sit at or
-# behind main); only a "commit" entry in the branch reflog shows it did work.
+# A merged branch and a fresh one both sit at or behind the default branch;
+# only a "commit" entry in the branch reflog shows it did work.
 git reflog show --format=%gs "refs/heads/$branch" 2>/dev/null | grep -q '^commit' || exit 0
 
 default=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null) \
     && default=${default#origin/}
 if [[ -z $default ]]; then
-    default=$(git worktree list --porcelain 2>/dev/null \
-        | awk '/^$/ { exit } $1 == "branch" { sub("^refs/heads/", "", $2); print $2 }')
+    # A bare project's HEAD names the branch it was cloned on.
+    default=$(git --git-dir="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" \
+        symbolic-ref --quiet --short HEAD 2>/dev/null)
 fi
 [[ -n $default && $default != "$branch" ]] || exit 0
 git merge-base --is-ancestor HEAD "refs/heads/$default" 2>/dev/null || exit 0
