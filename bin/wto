@@ -1630,11 +1630,23 @@ layout() {
     respawn_agent "$pane" "$dir" "$launch" "$pf"
 }
 
+# True when the caller's window is a lone shell at the project root, the only
+# window of its session: a new window beside it would leave an idle shell.
+caller_window_free() {
+    local root=$1 path
+    [[ -n ${TMUX:-} && -n ${TMUX_PANE:-} ]] || return 1
+    path=$(tmux display-message -p -t "$TMUX_PANE" '#{pane_current_path}' 2>/dev/null) || return 1
+    [[ $(realpath -- "$path" 2>/dev/null) == "$root" ]] || return 1
+    [[ $(tmux display-message -p -t "$TMUX_PANE" '#{window_panes} #{session_windows}') == "1 1" ]] || return 1
+    ! pane_runs_agent "$TMUX_PANE"
+}
+
 # Create one worktree's window and start its layout, unless it has one. Prints
 # what it did and leaves the window id in WTO_WINDOW. The prompt file is
-# consumed either way.
+# consumed either way. With here=1 the layout takes over the caller's window,
+# which ends this process.
 ensure_window() {
-    local wt_path=$1 pf=$2 branch label session tool x y pane wid
+    local wt_path=$1 pf=$2 here=${3:-0} branch label session tool x y pane wid
     branch=$(git -C "$wt_path" symbolic-ref -q --short HEAD 2>/dev/null) || branch=""
     label=${branch:-${wt_path##*/}}
     session=$(session_for "$wt_path")
@@ -1645,6 +1657,14 @@ ensure_window() {
         return 0
     fi
     tool=$(window_tool "$wt_path")
+    if ((here)); then
+        pane=$TMUX_PANE
+        tmux set-option -w -t "$pane" @ai_wt "$wt_path" \; \
+            set-option -wu -t "$pane" automatic-rename 2>/dev/null || true
+        printf '  here    %s:%s  (%s)\n' "$session" "$label" "$tool"
+        layout "$pane" "$wt_path" "$tool" "$pf" ""
+        exit 0
+    fi
     read -r x y < <(target_geometry)
     if ! tmux has-session -t "=$session" 2>/dev/null; then
         pane=$(tmux new-session -d -s "$session" -c "$wt_path" -x "$x" -y "$y" \
@@ -1767,7 +1787,7 @@ add_worktree() {
 
 cmd_new() {
     local branch="" base="" text="" file="" model="" effort="" job="" switch=0 pf wt_path
-    local job_model job_effort settings root default start other
+    local job_model job_effort settings root default start other here=0
     local name_re='^[A-Za-z0-9._:@/-]+(\[[A-Za-z0-9]+\])?$'
     while (($#)); do
         case $1 in
@@ -1804,6 +1824,7 @@ cmd_new() {
     fi
     is_bare_project || die "new: needs a bare project (<project>/.git, worktrees beside it); this repository has its own checkout"
     root=$(project_root)
+    ((switch)) && caller_window_free "$root" && here=1
 
     fetch_origin
     default=$(default_branch) || die "new: cannot tell the default branch (git remote set-head origin --auto)"
@@ -1816,7 +1837,7 @@ cmd_new() {
         [[ -n $base ]] && warn "$branch already exists; ignoring base $base"
         printf 'wto: %s is checked out in %s; opening that\n' "$branch" "$other" >&2
         pf=$(prompt_arg "$text" "$file")
-        ensure_window "$other" "$pf"
+        ensure_window "$other" "$pf" "$here"
         goto_or_report "$other" "$switch"
         return
     fi
@@ -1840,7 +1861,7 @@ cmd_new() {
             || warn "dot agent link failed in $wt_path; the session starts without the project's agent files"
     fi
     pf=$(prompt_arg "$text" "$file")
-    ensure_window "$wt_path" "$pf"
+    ensure_window "$wt_path" "$pf" "$here"
     goto_or_report "$wt_path" "$switch"
 }
 
