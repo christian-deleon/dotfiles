@@ -405,9 +405,16 @@ install_ai_opencode() {
     fi
 
     if [[ -x "$ai_dir/scripts/generate-opencode-config.sh" ]]; then
-        local table=""
+        local table="" out
         ai_models_resolve && table="$AI_MODELS_TABLE"
-        "$ai_dir/scripts/generate-opencode-config.sh" "$ai_dir" "$oc_dir" "$table"
+        if out="$("$ai_dir/scripts/generate-opencode-config.sh" "$ai_dir" "$oc_dir" "$table")"; then
+            if [[ -n "$out" ]]; then
+                note_change "updated ~/.config/opencode/opencode.json"
+                _OPENCODE_RELOAD=1
+            fi
+        else
+            _warn "Could not generate opencode.json"
+        fi
     fi
     reload_opencode_service
 
@@ -415,8 +422,11 @@ install_ai_opencode() {
 }
 
 # The background `opencode serve --service` outlives config rewrites; without
-# a reload every TUI keeps the old provider/model catalog.
+# a reload every TUI keeps the old provider/model catalog. Reloads only when a
+# writer set _OPENCODE_RELOAD since the last reload.
 reload_opencode_service() {
+    [[ "${_OPENCODE_RELOAD:-0}" == 1 ]] || return 0
+    _OPENCODE_RELOAD=0
     command -v opencode >/dev/null 2>&1 || return 0
     opencode service status >/dev/null 2>&1 || return 0
     opencode reload >/dev/null 2>&1 || _warn "Could not reload OpenCode service; run: opencode service restart"
@@ -614,6 +624,7 @@ write_opencode_mcp() {
     chmod 600 "$tmp"
     mv -- "$tmp" "$oc_cfg"
     jq -r 'keys[]' "$resolved" > "$written"
+    _OPENCODE_RELOAD=1
     reload_opencode_service
     _success "Updated OpenCode MCP servers in opencode.json"
 }
