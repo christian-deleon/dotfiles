@@ -15,6 +15,15 @@ No ask is needed.
   merge, tag, open pull requests, force push, or rebase/amend commits that
   are already pushed — unless the user explicitly asks for that action.
 
+## Name the branch before the first commit
+
+A session folder from `wtc` starts on a detached HEAD. In a linked worktree on
+a detached HEAD with no rebase or bisect running, offer a branch name once,
+when the work becomes clear, and run `git switch -c <type>/<slug>` in place
+before the first commit. Follow the project profile's branch naming and put
+an issue number right after the type (`fix/142-retry-backoff`). Never rename
+a branch that is already pushed.
+
 ## Review-first environments
 
 If environment or project instructions say commits need the user's review,
