@@ -125,6 +125,8 @@ if [[ -n "$BASH_VERSION" ]]; then
     # `history -r` reload is needed — one would double-load. Keeps the last
     # occurrence of each command (trailing space ignored, timestamp preserved),
     # drops HISTIGNORE matches, and only rewrites when the result differs.
+    # Siblings keep appending with `history -a`, so the rewrite is abandoned
+    # when the file grew after it was read. A symlinked HISTFILE keeps its link.
     _hist_cmd_ignored() {
         local cmd=$1
         [[ -n ${HISTIGNORE-} ]] || return 1
@@ -139,9 +141,13 @@ if [[ -n "$BASH_VERSION" ]]; then
         return 1
     }
     _hist_dedup_file() {
-        local f="${1:-${HISTFILE:-$HOME/.bash_history}}" tmp filtered
+        local f="${1:-${HISTFILE:-$HOME/.bash_history}}" tmp filtered size
         local pend= have=0 line
         [[ -s "$f" ]] || return 0
+        if [[ -L "$f" ]]; then
+            f="$(readlink -f -- "$f")" && [[ -s "$f" ]] || return 0
+        fi
+        size="$(wc -c <"$f")" || return 0
         tmp="$(mktemp "${f}.XXXXXX")" || return 0
         if ! awk '
                 /^#[0-9]+$/ { pend=$0; have=1; next }
@@ -190,7 +196,9 @@ if [[ -n "$BASH_VERSION" ]]; then
         rm -f "$tmp"
         if [[ -s "$filtered" ]] && ! cmp -s "$filtered" "$f"; then
             chmod --reference="$f" "$filtered" 2>/dev/null
-            mv -f "$filtered" "$f"
+            if (($(wc -c <"$f") != size)) || ! mv -f "$filtered" "$f"; then
+                rm -f "$filtered"
+            fi
         else
             rm -f "$filtered"
         fi
