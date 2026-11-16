@@ -39,7 +39,7 @@ Full walkthrough in [manifest.md](manifest.md). Short version:
 
 1. Add an entry to `manifest.yaml` with `description`, optional `install:` block, optional `config:` block, optional `requires:` predicates.
 2. For `config.type: stow`: create the stow package at `<item>/.config/<item>/`. For `config.type: handler`: add the function to the appropriate file in `scripts/handlers/`.
-3. If a binary install script is needed, drop it at `scripts/tools/install-<item>.sh` and reference via `install.script`.
+3. For hosts with no package, prefer an `install.release` entry (GitHub-style release binary). Write `scripts/tools/install-<item>.sh` and reference it via `install.script` only for a custom installer. See [manifest.md](manifest.md#installrelease).
 4. Test: `dot install <item>`.
 5. Update `README.md` tool list if appropriate.
 
