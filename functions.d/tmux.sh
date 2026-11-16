@@ -11,6 +11,29 @@ function tavk() {
     command wto layout --k9s "$@"
 }
 
+# Start an agent session in a new worktree window
+function wtc() {
+    # Usage: wtc [-p <prompt>] [-n|--no-switch] [-j <job>] [-m <model>] [-e <effort>] [branch [base]]
+    # Jumps to the new window unless -n. The work happens in `wto new`.
+    local switch=--switch
+    local -a args=()
+    while (($#)); do
+        case $1 in
+            -n|--no-switch) switch="" ;;
+            -p|--prompt|-f|--prompt-file|-j|--job|-m|--model|-e|--effort) args+=("$1" "${2-}"); shift ;;
+            *) args+=("$1") ;;
+        esac
+        (($#)) && shift
+    done
+    command wto new ${switch:+"$switch"} "${args[@]}"
+}
+
+# Go back to a session by branch or folder (fzf if none)
+function wta() {
+    # Usage: wta [-p <prompt>] [branch|folder]. The work happens in `wto open`.
+    command wto open --switch "$@"
+}
+
 # Tmux session picker (switch/kill/rename via keybinds)
 function ts() {
     if ! command -v tmux &>/dev/null; then

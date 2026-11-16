@@ -71,8 +71,11 @@ function _comp_tmux_sessions() {
     tmux list-sessions -F '#S' 2>/dev/null
 }
 
-# internal: worktree branch names (worktrunk)
-function _comp_wt_branches() {
-    wt list --format json 2>/dev/null | jq -r \
-        '(if type == "array" then . else (.items // []) end)[]? | .branch // empty' 2>/dev/null
+# internal: branch and folder names of this project's worktrees
+function _comp_worktree_names() {
+    git worktree list --porcelain 2>/dev/null | awk '
+        /^worktree / { n = split(substr($0, 10), p, "/"); name = p[n] }
+        /^branch / { sub(/^branch refs\/heads\//, ""); print }
+        /^bare$/ { name = "" }
+        /^$/ { if (name != "") print name; name = "" }'
 }

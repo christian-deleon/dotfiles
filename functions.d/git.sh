@@ -117,7 +117,7 @@ function gcb() {
     local repo_url="$1"
     local repo_name="$(basename "$repo_url" .git)"
 
-    # Clone bare into <repo>/.git (worktrunk convention)
+    # Bare repo in <repo>/.git; wto puts the worktrees beside it
     git clone --bare "$repo_url" "${repo_name}/.git" || return 1
 
     # Configure remote to fetch all branches (bare repos need this)
@@ -125,6 +125,7 @@ function gcb() {
 
     # Fetch all branches to have latest refs
     git -C "${repo_name}/.git" fetch origin
+    git -C "${repo_name}/.git" remote set-head origin --auto >/dev/null
 
     echo "Bare repo cloned to: ${repo_name}/"
     cd "$repo_name" || return 1
