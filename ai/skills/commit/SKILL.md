@@ -267,7 +267,7 @@ If a commit fails due to a git pre-commit hook (linting, formatting, etc.):
 - **Honor `--no-verify`** — when the user opts out, skip verification without arguing; note the skip once in the summary
 - **Split by default** — multiple logical changes = multiple commits. Always. No exceptions.
 - **Never bundle unrelated changes** — a commit touching auth AND docs AND deps is a red flag; split it
-- **Never push** unless the user explicitly asks
+- **Never push** unless the user explicitly asks or the project profile says `Publish work: auto`
 - **Never amend** commits you did not create in the current session
 - **Never force push** — warn the user if they request it
 - **Never create empty commits** — if there are no changes, say so

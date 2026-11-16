@@ -14,6 +14,9 @@ No ask is needed.
 - **Never publish or rewrite shared history on your own.** Do not push,
   merge, tag, open pull requests, force push, or rebase/amend commits that
   are already pushed — unless the user explicitly asks for that action.
+- **One onboarded exception.** When the project profile (`wto profile`) says
+  `Publish work: auto`, push your own work branch and open its merge request
+  without asking. With `ask`, no such line, or no profile, ask first.
 
 ## Correcting your own commit
 
