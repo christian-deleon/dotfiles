@@ -250,6 +250,30 @@ install_ai_agents() {
 
 # ─── Grok ─────────────────────────────────────────────────────────────────────
 
+# grok's bash completion is ~360 KB; sourcing it costs every new shell. Cache it
+# where bash-completion loads it on the first <Tab> for grok instead.
+ensure_grok_completion() {
+    command -v grok &>/dev/null || return 0
+    local dest="${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions/grok"
+    local tmp
+    mkdir -p "${dest%/*}" || return 0
+    tmp="$(mktemp "${dest%/*}/.grok.XXXXXX")" || return 0
+    if ! grok completions bash >"$tmp" 2>/dev/null || [[ ! -s "$tmp" ]]; then
+        rm -f -- "$tmp"
+        _warn "Could not generate grok bash completion"
+        return 0
+    fi
+    if cmp -s "$tmp" "$dest"; then
+        rm -f -- "$tmp"
+        return 0
+    fi
+    if chmod 644 "$tmp" && mv -f -- "$tmp" "$dest"; then
+        note_change "updated grok bash completion"
+    else
+        rm -f -- "$tmp"
+    fi
+}
+
 # Merge baseline grants from grok/.grok/trusted_folders.toml into the live
 # store at ~/.grok/trusted_folders.toml. Never symlink/replace that file —
 # Grok mutates it at runtime for per-path decisions. $HOME and ~ in managed
@@ -366,6 +390,7 @@ install_ai_grok() {
 
     ensure_grok_config
     ensure_grok_trusted_folders
+    ensure_grok_completion
 
     _success "Installed Grok Build config"
 }

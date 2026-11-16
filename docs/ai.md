@@ -65,6 +65,7 @@ Do not add a project `CLAUDE.md`. Claude Code reads a repo `AGENTS.md` on its ow
 | `grok/.grok/base.toml` | merged into the live config on every install |
 | `grok/.grok/overlays/<profile>.toml` | Grok-only settings merged after the base (e.g. `wsl-work` GovCloud Bedrock models); profile wins on conflict. MCP tables here are ignored — MCP comes from the profile. |
 | `grok/.grok/trusted_folders.toml` | merged into live `~/.grok/trusted_folders.toml` |
+| `grok completions bash` output | `$XDG_DATA_HOME/bash-completion/completions/grok`, loaded on the first <kbd>Tab</kbd> instead of on every shell start |
 
 `[compat.claude]` is forced off: the Claude installer fills `~/.claude` from the same sources, so Grok scanning it would load everything twice. `[folder_trust] enabled = false` is forced the same way (and `GROK_FOLDER_TRUST=0` in `.commonrc`) so Grok does not block on the per-directory trust modal. Each git worktree is a separate workspace; parent grants do not cover `wtc` windows. `gra` / `tav` also pass `--trust`.
 
