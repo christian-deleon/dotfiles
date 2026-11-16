@@ -95,11 +95,6 @@ docker:
     apt: docker.io
     brew: --cask docker
 
-fastfetch:
-  description: System info display
-  config:
-    type: stow
-
 fd:
   description: Fast find alternative
   install:
