@@ -1,102 +1,230 @@
 # shellcheck shell=bash
 # Manifest, profile and AI harness data; 1Password access.
+#
+# YAML is read once per file and process into JSON globals; every lookup
+# after that is jq (1.6 features only) or plain bash:
+#   _MANIFEST_JSON    manifest.yaml
+#   _TOMBSTONES_JSON  tombstones.yaml
+#   _MODELS_JSON      ai/models.yaml
+#   _PROFILE_JSON     the active profile ({} without one), keyed by
+#                     _PROFILE_JSON_KEY; _PROFILE_ITEMS and
+#                     _PROFILE_EXTRAS are its items / core_extras as
+#                     newline-framed lists, _PROFILE_AI_DEFAULT its ai.default
+# Load them with data_load (or one data_load_* part) in the calling shell,
+# never inside $(…), or the cache is lost with the subshell.
+
+# ─── YAML loading ─────────────────────────────────────────────────────────────
+
+# Print a YAML file as compact JSON ({} for an empty file). `yq -j` works on
+# both yq flavors on PATH as `yq` — Python yq passes it to jq as
+# --join-output, mikefarah's Go yq reads it as --tojson — so the common case
+# needs no flavor probe. The per-flavor form is the fallback and shows the
+# parse error.
+_yq_json() {
+    ensure_yq >&2 || return 1
+    ensure_jq >&2 || return 1
+    local out
+    if ! out="$(yq -j . "$1" 2>/dev/null)"; then
+        if [[ -z "${_YQ_FLAVOR:-}" ]]; then
+            if yq --version 2>&1 | grep -q mikefarah; then
+                _YQ_FLAVOR=go
+            else
+                _YQ_FLAVOR=python
+            fi
+        fi
+        if [[ "$_YQ_FLAVOR" == go ]]; then
+            out="$(yq -o=json -I=0 '.' "$1")" || return 1
+        else
+            out="$(yq -c '.' "$1")" || return 1
+        fi
+    fi
+    jq -c 'if . == null then {} else . end' <<<"${out:-null}"
+}
+
+data_load_manifest() {
+    [[ -n "${_MANIFEST_JSON:-}" ]] && return 0
+    _MANIFEST_JSON="$(_yq_json "$MANIFEST_FILE")" || {
+        _MANIFEST_JSON=""
+        _error "Could not read $MANIFEST_FILE"
+        return 1
+    }
+}
+
+data_load_tombstones() {
+    [[ -n "${_TOMBSTONES_JSON:-}" ]] && return 0
+    _TOMBSTONES_JSON='{}'
+    [[ -f "$TOMBSTONES_FILE" ]] || return 0
+    _TOMBSTONES_JSON="$(_yq_json "$TOMBSTONES_FILE")" || {
+        _TOMBSTONES_JSON='{}'
+        _warn "Could not read $TOMBSTONES_FILE — skipping tombstones"
+    }
+}
+
+# Fails when ai/models.yaml is missing or malformed; callers then render
+# agents without a model.
+data_load_models() {
+    [[ -n "${_MODELS_JSON:-}" ]] && return 0
+    local src="$DOTFILES_DIR/ai/models.yaml"
+    [[ -f "$src" ]] || return 1
+    _MODELS_JSON="$(_yq_json "$src")" || {
+        _MODELS_JSON=""
+        _warn "Could not parse ai/models.yaml"
+        return 1
+    }
+}
+
+data_load() {
+    data_load_manifest || return 1
+    data_load_tombstones
+    data_load_models || true
+    _profile_json_load
+}
+
+# ─── Plan rows ────────────────────────────────────────────────────────────────
+#
+# One jq program turns the manifest (stdin), the tombstones and a list of
+# names into rows the engine reads with IFS=$'\x1f'. Fields are joined by
+# 0x1F and end with a "$" sentinel, so empty fields survive `read` on bash
+# 3.2 (tabs are IFS whitespace and would collapse). Rows, in input order:
+#   item    input name canonical requires has_install command pkg script check cfg_type cfg_package handler
+#   unknown input
+#   post    hook item          (each item's post_install, first-seen order)
+#   tomb    id requires description kind path-name
+# requires is comma-joined; pkg is the install.<pkg-manager> value.
+_DATA_PLAN_JQ='
+def row: map(tostring) + ["$"] | join("\u001f");
+def csv: (. // []) | map(tostring) | join(",");
+. as $m
+| ($ARGS.positional | map(. as $n
+    | if ($m | has($n)) then {input: $n, name: $n}
+      else ([$m | to_entries[]
+             | select((.value.install.command // "") == $n or (.value.config.package // "") == $n)
+             | .key][0]) as $k
+        | {input: $n, name: $k}
+      end)) as $wanted
+| (reduce $wanted[] as $w ([]; if $w.name == null or any(.[]; .name == $w.name) then . + [$w | select(.name == null)] else . + [$w] end)) as $plan
+| ($plan[]
+    | if .name == null then ["unknown", .input] | row
+      else .input as $in | .name as $n | $m[$n] as $v
+        | ["item", $in, $n, ($v.requires | csv),
+           (if $v.install != null then 1 else 0 end),
+           ($v.install.command // $n), ($v.install[$pm] // ""), ($v.install.script // ""),
+           ($v.install.check // ""), ($v.config.type // ""),
+           ($v.config.package // $n), ($v.config.handler // "")] | row
+      end),
+  ([$plan[] | select(.name != null) | .name as $n | ($m[$n].post_install // [])[] | [., $n]]
+    | reduce .[] as $p ([]; if any(.[]; .[0] == $p[0] and .[1] == $p[1]) then . else . + [$p] end)
+    | .[] | ["post"] + . | row),
+  ($tomb | keys[] as $id | $tomb[$id] as $t
+    | ("xdg_config", "xdg_data", "xdg_state", "xdg_cache", "home") as $kind
+    | ($t[$kind] // [])[]
+    | ["tomb", $id, ($t.requires | csv), ($t.description // $id), $kind, .] | row)
+'
+
+# Print plan rows for the given item names (aliases allowed). With
+# --tombstones first, also the tombstone rows.
+data_plan_rows() {
+    local tomb='{}'
+    if [[ "${1:-}" == --tombstones ]]; then
+        shift
+        data_load_tombstones
+        tomb="$_TOMBSTONES_JSON"
+    fi
+    data_load_manifest || return 1
+    jq -r --arg pm "$(detect_pkg_manager)" --argjson tomb "$tomb" "$_DATA_PLAN_JQ" \
+        --args "$@" <<<"$_MANIFEST_JSON"
+}
 
 # ─── Manifest accessors ───────────────────────────────────────────────────────
-#
-# All readers assume yq is on PATH. Callers must call `ensure_yq` first (or
-# rely on install.sh/dot.sh having done so).
-#
-# Field naming convention: top-level item key, dotted yq path for nested
-# fields (e.g. `.install.arch`, `.config.handler`).
 
-# Read a field from the manifest. Returns "null" (yq's default) when absent.
-#   manifest_field <item> <yq-path>
+# Read a field from the manifest; empty when absent.
+#   manifest_field <item> <jq-path>
 # Example: manifest_field docker .install.arch
 manifest_field() {
-    local item="$1"
-    local path="$2"
-    yq ".\"$item\"$path // \"\"" "$MANIFEST_FILE" 2>/dev/null
+    data_load_manifest || return 1
+    jq -r --arg i "$1" ".[\$i]$2 // \"\"" <<<"$_MANIFEST_JSON"
 }
 
 # Return 0 if the item exists as a top-level key in the manifest.
 manifest_has() {
-    local item="$1"
-    yq -e ".\"$item\"" "$MANIFEST_FILE" &>/dev/null
+    data_load_manifest || return 1
+    jq -e --arg i "$1" 'has($i)' <<<"$_MANIFEST_JSON" >/dev/null
 }
 
 # List every item key in the manifest, alphabetically.
 manifest_list_all() {
-    yq -r 'keys | .[]' "$MANIFEST_FILE" | sort
+    data_load_manifest || return 1
+    jq -r 'keys[]' <<<"$_MANIFEST_JSON"
 }
 
 # Resolve a name (item key, install.command alias, or config.package alias)
 # to its canonical item key. Prints the resolved name; empty if not found.
 manifest_resolve_alias() {
-    local input="$1"
-    if manifest_has "$input"; then
-        echo "$input"
-        return 0
-    fi
-    yq -r --arg n "$input" '
-        to_entries
-        | map(select((.value.install.command // "") == $n or (.value.config.package // "") == $n))
-        | .[0].key // ""
-    ' "$MANIFEST_FILE"
+    data_load_manifest || return 1
+    jq -r --arg n "$1" '
+        if has($n) then $n
+        else [to_entries[]
+              | select((.value.install.command // "") == $n or (.value.config.package // "") == $n)
+              | .key][0] // ""
+        end
+    ' <<<"$_MANIFEST_JSON"
 }
 
 # Return "tool" / "config" / "bundle" for the given canonical item key.
 manifest_kind() {
-    local item="$1"
-    local has_install has_config
-    has_install="$(yq -r ".\"$item\".install != null" "$MANIFEST_FILE")"
-    has_config="$(yq -r ".\"$item\".config != null" "$MANIFEST_FILE")"
-    if [[ "$has_install" == "true" && "$has_config" == "true" ]]; then
-        echo "bundle"
-    elif [[ "$has_install" == "true" ]]; then
-        echo "tool"
-    elif [[ "$has_config" == "true" ]]; then
-        echo "config"
-    else
-        echo "unknown"
-    fi
+    data_load_manifest || return 1
+    jq -r --arg i "$1" '.[$i] as $v
+        | if $v.install != null and $v.config != null then "bundle"
+          elif $v.install != null then "tool"
+          elif $v.config != null then "config"
+          else "unknown" end' <<<"$_MANIFEST_JSON"
 }
 
 # Return the post_install hook function names for an item, one per line.
 manifest_post_install() {
-    local item="$1"
-    yq -r ".\"$item\".post_install[]?" "$MANIFEST_FILE" 2>/dev/null
+    data_load_manifest || return 1
+    jq -r --arg i "$1" '(.[$i].post_install // [])[]' <<<"$_MANIFEST_JSON"
 }
 
-# Return 0 if every predicate in the item's `requires:` list passes on this
-# host. Predicate names map to host_has_<name> functions in predicates.sh.
-manifest_requires_met() {
-    local item="$1"
-    local preds
-    preds="$(yq -r ".\"$item\".requires[]?" "$MANIFEST_FILE" 2>/dev/null)"
-    [[ -z "$preds" ]] && return 0  # No requires = eligible everywhere
-
-    local pred
-    while IFS= read -r pred; do
+# Return 0 if every predicate in a comma-separated `requires:` list passes on
+# this host. Predicate names map to host_has_<name> functions in predicates.sh.
+requires_met() {
+    local preds="$1," pred
+    while [[ -n "$preds" ]]; do
+        pred="${preds%%,*}"
+        preds="${preds#*,}"
         [[ -z "$pred" ]] && continue
-        if ! host_has "$pred"; then
-            return 1
-        fi
-    done <<< "$preds"
+        host_has "$pred" || return 1
+    done
     return 0
 }
 
-# Display label for the picker: "<name> — <description>".
-# Bundles get " (+ config)" suffix so the picker is self-describing.
+manifest_requires_met() {
+    data_load_manifest || return 1
+    requires_met "$(jq -r --arg i "$1" '(.[$i].requires // []) | join(",")' <<<"$_MANIFEST_JSON")"
+}
+
+# Every item as "name<0x1F>requires<0x1F>label<0x1F>$" rows, alphabetically.
+# The label is "<name> — <description>"; bundles get " (+ config)" so the
+# picker is self-describing.
+manifest_label_rows() {
+    data_load_manifest || return 1
+    jq -r 'to_entries | sort_by(.key)[]
+        | [.key, ((.value.requires // []) | join(",")),
+           "\(.key) — \(.value.description // "")"
+           + (if .value.install != null and .value.config != null then " (+ config)" else "" end),
+           "$"]
+        | join("\u001f")' <<<"$_MANIFEST_JSON"
+}
+
 manifest_label() {
-    local item="$1"
-    local desc kind
-    desc="$(yq -r ".\"$item\".description // \"\"" "$MANIFEST_FILE")"
-    kind="$(manifest_kind "$item")"
-    if [[ "$kind" == "bundle" ]]; then
-        echo "$item — $desc (+ config)"
-    else
-        echo "$item — $desc"
-    fi
+    local name label
+    while IFS=$'\x1f' read -r name _ label _; do
+        if [[ "$name" == "$1" ]]; then
+            printf '%s\n' "$label"
+            return 0
+        fi
+    done < <(manifest_label_rows)
 }
 
 # ─── Profiles ─────────────────────────────────────────────────────────────────
@@ -125,25 +253,20 @@ active_profile_file() {
     printf '%s\n' "$file"
 }
 
-# Print a YAML file as compact JSON. Python yq (a jq wrapper) and mikefarah's
-# Go yq both ship as `yq` but take different flags.
-_yq_json() {
-    if [[ -z "${_YQ_FLAVOR:-}" ]]; then
-        if yq --version 2>&1 | grep -q mikefarah; then
-            _YQ_FLAVOR=go
-        else
-            _YQ_FLAVOR=python
-        fi
-    fi
-    if [[ "$_YQ_FLAVOR" == go ]]; then
-        yq -o=json -I=0 '.' "$1"
+# Print a profile's JSON by name: the loaded active profile when it is that
+# one, else a fresh read. Empty output and status 1 when it does not exist.
+profile_json() {
+    local file="$DOTFILES_DIR/profiles/$1.yaml"
+    [[ -f "$file" ]] || return 1
+    if [[ "$file" == "${_PROFILE_JSON_KEY:-}" ]]; then
+        printf '%s\n' "$_PROFILE_JSON"
     else
-        yq -c '.' "$1"
+        _yq_json "$file"
     fi
 }
 
-# Load the active profile into $_PROFILE_JSON ({} without one). Cached per
-# profile file; call it directly, not in $(…), or the cache is lost.
+# Load the active profile into the _PROFILE_* globals. Cached per profile
+# file; call it directly, not in $(…), or the cache is lost.
 _profile_json_load() {
     local file
     file="$(active_profile_file)" || file=""
@@ -152,13 +275,64 @@ _profile_json_load() {
     fi
     _PROFILE_JSON_KEY="$file"
     _PROFILE_JSON='{}'
+    _PROFILE_ITEMS=$'\n'
+    _PROFILE_EXTRAS=$'\n'
+    _PROFILE_AI_DEFAULT=""
     [[ -n "$file" ]] || return 0
     _PROFILE_JSON="$(_yq_json "$file")" || _PROFILE_JSON='{}'
+
+    local kind value
+    while IFS=$'\x1f' read -r kind value _; do
+        case "$kind" in
+            item) _PROFILE_ITEMS+="$value"$'\n' ;;
+            extra) _PROFILE_EXTRAS+="$value"$'\n' ;;
+            default) _PROFILE_AI_DEFAULT="$value" ;;
+        esac
+    done < <(jq -r '
+        ((.items // [])[] | ["item", .]),
+        ((.core_extras // [])[] | ["extra", .]),
+        (.ai.default // empty | ["default", .])
+        | map(tostring) + ["$"] | join("\u001f")' <<<"$_PROFILE_JSON")
+}
+
+# "<requires csv><0x1F><description><0x1F>$" for profile $1; status 1 when
+# it does not exist.
+profile_meta() {
+    local json
+    json="$(profile_json "$1")" || return 1
+    jq -r '[((.requires // []) | map(tostring) | join(",")), (.description // "" | tostring), "$"]
+        | join("\u001f")' <<<"$json"
+}
+
+# Print the active profile's items or core_extras, one per line.
+profile_list() {
+    _profile_json_load
+    local list line
+    case "$1" in
+        items) list="$_PROFILE_ITEMS" ;;
+        extras) list="$_PROFILE_EXTRAS" ;;
+        *) return 1 ;;
+    esac
+    while IFS= read -r line; do
+        [[ -n "$line" ]] && printf '%s\n' "$line"
+    done <<<"$list"
+    return 0
+}
+
+profile_has_extra() {
+    _profile_json_load
+    case "$_PROFILE_EXTRAS" in
+        *$'\n'"$1"$'\n'*) return 0 ;;
+    esac
+    return 1
 }
 
 profile_lists_item() {
     _profile_json_load
-    jq -e --arg i "$1" '(.items // []) | index($i) != null' <<<"$_PROFILE_JSON" >/dev/null
+    case "$_PROFILE_ITEMS" in
+        *$'\n'"$1"$'\n'*) return 0 ;;
+    esac
+    return 1
 }
 
 profile_mcp_json() {
@@ -168,7 +342,7 @@ profile_mcp_json() {
 
 profile_ai_default() {
     _profile_json_load
-    jq -r '.ai.default // ""' <<<"$_PROFILE_JSON"
+    printf '%s\n' "$_PROFILE_AI_DEFAULT"
 }
 
 profile_models_json() {

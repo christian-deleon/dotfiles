@@ -145,8 +145,8 @@ reconcile_profile() {
 
     local items=() i
     while IFS= read -r i; do
-        [[ -n "$i" ]] && items+=("$i")
-    done < <(yq -r '.items[]?' "$file")
+        items+=("$i")
+    done < <(profile_list items)
 
     [[ ${#items[@]} -eq 0 ]] && { _info "Profile has no items"; return 0; }
 
@@ -170,6 +170,8 @@ update_dotfiles() {
     _info "Updating dotfiles..."
 
     phase_start preflight
+    ensure_yq || return 1
+    ensure_jq || return 1
     if ! ensure_clean_dotfiles; then
         return 1
     fi
@@ -262,8 +264,8 @@ update_dotfiles() {
 
         # Refresh each enabled harness from ai/ after the pull (idempotent)
         phase_start ai
+        data_load || return 1
         if [[ -d "$DOTFILES_DIR/ai" ]]; then
-            _profile_json_load
             local harness
             while IFS= read -r harness; do
                 "install_ai_$harness" 2>/dev/null || _warn "Failed to install $harness config"
@@ -279,6 +281,7 @@ update_dotfiles() {
     # Desired-state absences: remove residue from retired tools (tombstones.yaml).
     # Runs even when the git pull block was skipped; idempotent no-op if clean.
     phase_start tombstones
+    data_load || return 1
     apply_tombstones || true
 
     # Rebuild source-built tools
@@ -307,6 +310,7 @@ update_dotfiles() {
 run_install() {
     if [[ $# -gt 0 ]]; then
         ensure_yq || return 1
+        data_load_manifest || return 1
 
         local rc=0 name canon
         local names=()
@@ -360,11 +364,12 @@ manage_profile() {
         list)
             local active
             active="$(read_active_profile)"
-            local p desc marker
+            local p requires desc marker
             while IFS= read -r p; do
-                desc="$(yq -r '.description // ""' "$DOTFILES_DIR/profiles/$p.yaml")"
+                requires="" desc=""
+                IFS=$'\x1f' read -r requires desc _ < <(profile_meta "$p") || true
                 marker=""
-                profile_is_compatible "$p" && marker+=" ✓"
+                requires_met "$requires" && marker+=" ✓"
                 [[ "$p" == "$active" ]] && marker+=" ★"
                 printf "  %-25s — %s%s\n" "$p" "$desc" "$marker"
             done < <(list_profiles)

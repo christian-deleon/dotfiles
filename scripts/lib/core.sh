@@ -505,20 +505,9 @@ list_profiles() {
 
 # Check whether all of a profile's `requires:` predicates pass on this host.
 profile_is_compatible() {
-    local name="$1"
-    local file="$DOTFILES_DIR/profiles/$name.yaml"
-    [[ -f "$file" ]] || return 1
-    local preds
-    preds="$(yq -r '.requires[]?' "$file" 2>/dev/null)"
-    [[ -z "$preds" ]] && return 0  # No requires = compatible everywhere
-    local pred
-    while IFS= read -r pred; do
-        [[ -z "$pred" ]] && continue
-        if ! host_has "$pred"; then
-            return 1
-        fi
-    done <<< "$preds"
-    return 0
+    local requires desc
+    IFS=$'\x1f' read -r requires desc _ < <(profile_meta "$1") || return 1
+    requires_met "$requires"
 }
 
 # Show the profile + "Manual selection" picker. Prints the chosen profile name
@@ -531,11 +520,11 @@ select_profile() {
     ensure_yq >&2 || return 1
     ensure_gum >&2 || return 1
 
-    local compat=() labels=() p desc
+    local compat=() labels=() p requires desc
     while IFS= read -r p; do
-        if profile_is_compatible "$p"; then
+        IFS=$'\x1f' read -r requires desc _ < <(profile_meta "$p") || continue
+        if requires_met "$requires"; then
             compat+=("$p")
-            desc="$(yq -r '.description // ""' "$DOTFILES_DIR/profiles/$p.yaml")"
             if [[ -n "$desc" ]]; then
                 labels+=("$p — $desc")
             else
@@ -593,14 +582,13 @@ install_from_profile() {
     fi
 
     _info "Installing profile: ${_BOLD}$name${_RESET}"
-    # Profile lookups (harness gating, ai.default, mcp) read the YAML with jq.
-    ensure_jq
+    _profile_json_load
 
     # Core extras from profile
     local extras=() e
     while IFS= read -r e; do
-        [[ -n "$e" ]] && extras+=("$e")
-    done < <(yq -r '.core_extras[]?' "$file")
+        extras+=("$e")
+    done < <(profile_list extras)
 
     if [[ ${#extras[@]} -gt 0 ]]; then
         echo
@@ -615,8 +603,8 @@ install_from_profile() {
     # Items from profile
     local items=() i
     while IFS= read -r i; do
-        [[ -n "$i" ]] && items+=("$i")
-    done < <(yq -r '.items[]?' "$file")
+        items+=("$i")
+    done < <(profile_list items)
 
     if [[ ${#items[@]} -gt 0 ]]; then
         if items_need_stow "${items[@]}"; then
@@ -641,21 +629,22 @@ install_from_profile() {
 # Manual-mode installer: core extras picker + item picker (no profile state).
 install_manual() {
     ensure_gum || return 1
-    ensure_yq || return 1
+    ensure_jq || return 1
+    data_load_manifest || return 1
 
     run_core_extras_picker
 
     # Item picker — show only items whose requires are met on this host.
-    local items=() labels=() item
-    while IFS= read -r item; do
+    local items=() labels=() item requires label
+    while IFS=$'\x1f' read -r item requires label _; do
         if ai_is_harness "$item" && ! ai_harness_allowed "$item"; then
             continue
         fi
-        if manifest_requires_met "$item"; then
+        if requires_met "$requires"; then
             items+=("$item")
-            labels+=("$(manifest_label "$item")")
+            labels+=("$label")
         fi
-    done < <(manifest_list_all)
+    done < <(manifest_label_rows)
 
     [[ ${#items[@]} -eq 0 ]] && return 0
 
