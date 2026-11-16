@@ -279,7 +279,7 @@ ensure_omadot() {
 
 # Resolve op:// references across multiple 1Password accounts. A service
 # account has no account list and reads every ref directly.
-# Usage: op_inject_multi <template> <output>
+# Usage: op_inject_multi <json-template> <output>
 #
 # macOS ships /bin/bash 3.2 — no associative arrays. Encode the vault→account
 # map as newline-separated "vault_id<TAB>account_url" rows (same pattern as
@@ -287,14 +287,12 @@ ensure_omadot() {
 op_inject_multi() {
     local tpl="$1"
     local out="$2"
-    local content
-    content="$(cat "$tpl")"
 
     local vault_ids
     vault_ids="$(grep -oE 'op://[^/]+' "$tpl" | sed 's|op://||' | sort -u)"
 
     if [[ -z "$vault_ids" ]]; then
-        printf '%s\n' "$content" > "$out"
+        cp -- "$tpl" "$out"
         return 0
     fi
 
@@ -328,6 +326,11 @@ op_inject_multi() {
         done < <(printf '%s\n' "$op_check" | tail -n +2)
     fi
 
+    # Secrets go into a {ref: secret} map built by jq from stdin, never argv
+    # (other users can read argv), and are substituted inside JSON strings
+    # as literal text, so &, \ and " in a secret survive.
+    local map
+    map="$(mktemp)"
     local failed=0
     local ref vault_id account secret map_line map_vid
     local -a account_args
@@ -364,11 +367,24 @@ EOF
             continue
         }
 
-        content="${content//$ref/$secret}"
+        printf '%s' "$secret" | jq -Rsc --arg r "$ref" '{($r): .}' >> "$map"
     done < <(grep -oE 'op://[^"]+' "$tpl" | sort -u)
 
-    printf '%s\n' "$content" > "$out"
-    chmod 600 "$out"
+    local tmp
+    tmp="$(mktemp "$out.XXXXXX")"
+    chmod 600 "$tmp"
+    if ! jq --slurpfile m "$map" '
+        (reduce $m[] as $o ({}; . + $o) | to_entries | sort_by(-(.key | length))) as $subs
+        | walk(if type == "string"
+            then reduce $subs[] as $s (.; split($s.key) | join($s.value))
+            else . end)
+        ' "$tpl" > "$tmp"; then
+        error "Could not substitute 1Password secrets into $tpl"
+        rm -f -- "$tmp" "$map"
+        return 1
+    fi
+    rm -f -- "$map"
+    mv -- "$tmp" "$out"
     [[ "$failed" -eq 0 ]]
 }
 
