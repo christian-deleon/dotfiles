@@ -34,6 +34,16 @@ function wta() {
     command wto open --switch "$@"
 }
 
+# Close the session you are in, or pick sessions to close
+function wtx() {
+    # Usage: wtx [-y] [branch|folder...]. In a session folder with no args, closes it.
+    if (($# == 0)) && [[ -n ${TMUX-} ]] && git rev-parse --show-toplevel &>/dev/null; then
+        command wto close --here
+    else
+        command wto close "$@"
+    fi
+}
+
 # Tmux session picker (switch/kill/rename via keybinds)
 function ts() {
     if ! command -v tmux &>/dev/null; then

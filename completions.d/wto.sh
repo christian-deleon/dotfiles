@@ -5,6 +5,7 @@ function _comp_wta() {
     _comp_reply "$(_comp_worktree_names)"
 }
 complete -F _comp_wta wta
+complete -F _comp_wta wtx
 
 # internal: complete wto subcommands
 function _comp_wto() {
