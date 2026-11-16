@@ -35,7 +35,10 @@ bat:
     arch: bat
     apt: bat
     brew: bat
-    script: install-bat.sh
+    release:
+      repo: sharkdp/bat
+      asset: bat-{tag}-{arch}.tar.gz
+      arch: {x86_64: x86_64-unknown-linux-musl, aarch64: aarch64-unknown-linux-musl}
 
 blesh:
   description: Bash autosuggestions + syntax highlighting (ble.sh)
@@ -81,14 +84,19 @@ cloc:
   install:
     arch: cloc
     brew: cloc
-    script: install-cloc.sh
+    release:
+      repo: AlDanial/cloc
+      asset: cloc-{version}.pl
 
 delta:
   description: Syntax-highlighting pager for git diffs
   install:
     arch: git-delta
     brew: git-delta
-    script: install-delta.sh
+    release:
+      repo: dandavison/delta
+      asset: delta-{version}-{arch}.tar.gz
+      arch: {x86_64: x86_64-unknown-linux-musl, aarch64: aarch64-unknown-linux-gnu}
 
 docker:
   description: Container platform
@@ -103,7 +111,10 @@ fd:
     arch: fd
     apt: fd-find
     brew: fd
-    script: install-fd.sh
+    release:
+      repo: sharkdp/fd
+      asset: fd-{tag}-{arch}.tar.gz
+      arch: {x86_64: x86_64-unknown-linux-musl, aarch64: aarch64-unknown-linux-musl}
 
 flux:
   description: GitOps toolkit
@@ -116,8 +127,12 @@ flux-operator-mcp:
   description: Flux MCP server (AI-assisted GitOps for Flux clusters)
   install:
     brew: controlplaneio-fluxcd/tap/flux-operator-mcp
-    script: install-flux-operator-mcp.sh
     command: flux-operator-mcp
+    release:
+      repo: controlplaneio-fluxcd/flux-operator
+      asset: flux-operator-mcp_{version}_{os}_{arch}.tar.gz
+      sums: flux-operator_{version}_checksums.txt
+      arch: {x86_64: amd64, aarch64: arm64}
 
 fzf:
   description: Fuzzy finder
@@ -125,31 +140,54 @@ fzf:
     arch: fzf
     apt: fzf
     brew: fzf
-    script: install-fzf.sh
+    release:
+      repo: junegunn/fzf
+      asset: fzf-{version}-{os}_{arch}.tar.gz
+      sums: fzf_{version}_checksums.txt
+      arch: {x86_64: amd64, aarch64: arm64}
 
 gh:
   description: GitHub CLI
   install:
     arch: github-cli
     brew: gh
-    script: install-gh.sh
+    release:
+      repo: cli/cli
+      asset: gh_{version}_{os}_{arch}.tar.gz
+      sums: gh_{version}_checksums.txt
+      arch: {x86_64: amd64, aarch64: arm64}
 
 gitea-mcp:
   description: Gitea MCP server (personal Gitea over Netbird)
   install:
-    script: install-gitea-mcp.sh
+    release:
+      latest: https://gitea.com/gitea/gitea-mcp/releases/latest
+      url: https://gitea.com/gitea/gitea-mcp/releases/download/{tag}/gitea-mcp_{os}_{arch}.tar.gz
+      sums: gitea-mcp_{version}_checksums.txt
+      os: {linux: Linux, darwin: Darwin}
+      arch: {x86_64: x86_64, aarch64: arm64}
 
 glab:
   description: GitLab CLI
   install:
     arch: glab
     brew: glab
-    script: install-glab.sh
+    release:
+      latest: https://gitlab.com/gitlab-org/cli/-/releases/permalink/latest
+      url: https://gitlab.com/gitlab-org/cli/-/releases/{tag}/downloads/glab_{version}_{os}_{arch}.tar.gz
+      sums: checksums.txt
+      arch: {x86_64: amd64, aarch64: arm64}
 
 granted:
   description: AWS SSO profile switcher with shell env export
   install:
-    script: install-granted.sh
+    brew: fwdcloudsec/granted/granted
+    release:
+      repo: fwdcloudsec/granted
+      asset: granted_{version}_{os}_{arch}.tar.gz
+      sums: checksums.txt
+      bin: [granted, assume, assumego]
+      arch: {x86_64: x86_64, aarch64: arm64}
 
 grok:
   description: Grok Build TUI + skills, agents, rules, hooks from ai/
@@ -194,14 +232,23 @@ just:
   install:
     arch: just
     brew: just
-    script: install-just.sh
+    release:
+      repo: casey/just
+      asset: just-{version}-{arch}.tar.gz
+      sums: SHA256SUMS
+      arch: {x86_64: x86_64-unknown-linux-musl, aarch64: aarch64-unknown-linux-musl}
 
 k9s:
   description: Kubernetes cluster manager TUI
   install:
     arch: k9s
     brew: derailed/k9s/k9s
-    script: install-k9s.sh
+    release:
+      repo: derailed/k9s
+      asset: k9s_{os}_{arch}.tar.gz
+      sums: checksums.sha256
+      os: {linux: Linux}
+      arch: {x86_64: amd64, aarch64: arm64}
   config:
     type: stow
 
@@ -210,14 +257,22 @@ kubectl:
   install:
     arch: kubectl
     brew: kubectl
-    script: install-kubectl.sh
+    release:
+      latest: https://dl.k8s.io/release/stable.txt
+      url: https://dl.k8s.io/release/{tag}/bin/{os}/{arch}/kubectl
+      sums: '{asset}.sha256'
+      arch: {x86_64: amd64, aarch64: arm64}
 
 lazygit:
   description: Terminal UI for git
   install:
     arch: lazygit
     brew: lazygit
-    script: install-lazygit.sh
+    release:
+      repo: jesseduffield/lazygit
+      asset: lazygit_{version}_{os}_{arch}.tar.gz
+      sums: checksums.txt
+      arch: {x86_64: x86_64, aarch64: arm64}
   config:
     type: stow
 
@@ -286,7 +341,11 @@ ripgrep:
     arch: ripgrep
     apt: ripgrep
     brew: ripgrep
-    script: install-ripgrep.sh
+    release:
+      repo: BurntSushi/ripgrep
+      asset: ripgrep-{version}-{arch}.tar.gz
+      sums: '{asset}.sha256'
+      arch: {x86_64: x86_64-unknown-linux-musl, aarch64: aarch64-unknown-linux-musl}
     command: rg
 
 sccache:
@@ -301,14 +360,22 @@ skaffold:
   install:
     arch: skaffold
     brew: skaffold
-    script: install-skaffold.sh
+    release:
+      repo: GoogleContainerTools/skaffold
+      asset: skaffold-{os}-{arch}
+      sums: '{asset}.sha256'
+      arch: {x86_64: amd64, aarch64: arm64}
 
 starship:
   description: Cross-shell prompt
   install:
     arch: starship
     brew: starship
-    script: install-starship.sh
+    release:
+      repo: starship/starship
+      asset: starship-{arch}.tar.gz
+      sums: '{asset}.sha256'
+      arch: {x86_64: x86_64-unknown-linux-musl, aarch64: aarch64-unknown-linux-musl}
   config:
     type: stow
 
@@ -317,7 +384,11 @@ tea:
   install:
     arch: tea
     brew: tea
-    script: install-tea.sh
+    release:
+      latest: https://gitea.com/gitea/tea/releases/latest
+      url: https://dl.gitea.com/tea/{version}/tea-{version}-{os}-{arch}
+      sums: '{asset}.sha256'
+      arch: {x86_64: amd64, aarch64: arm64}
   config:
     type: handler
     handler: install_tea_login
@@ -327,7 +398,11 @@ terraform:
   install:
     arch: terraform
     brew: terraform
-    script: install-terraform.sh
+    release:
+      repo: hashicorp/terraform
+      url: https://releases.hashicorp.com/terraform/{version}/terraform_{version}_{os}_{arch}.zip
+      sums: terraform_{version}_SHA256SUMS
+      arch: {x86_64: amd64, aarch64: arm64}
 
 tmux:
   description: Terminal multiplexer
@@ -351,7 +426,12 @@ uv:
   install:
     arch: uv
     brew: uv
-    script: install-uv.sh
+    release:
+      repo: astral-sh/uv
+      asset: uv-{arch}.tar.gz
+      sums: '{asset}.sha256'
+      bin: [uv, uvx]
+      arch: {x86_64: x86_64-unknown-linux-musl, aarch64: aarch64-unknown-linux-musl}
 
 windows-terminal:
   description: Windows Terminal theme + font config (WSL only)
@@ -360,9 +440,10 @@ windows-terminal:
     handler: install_windows_terminal_config
   requires: [wsl]
 
+# On Linux, ensure_yq (scripts/lib/pkg.sh) installs Go yq from its release
+# before this file can be read, so the item needs no release entry.
 yq:
   description: YAML processor
   install:
     arch: yq
     brew: yq
-    script: install-yq.sh
