@@ -18,7 +18,8 @@ No ask is needed.
 ## Detached HEAD
 
 On a detached HEAD in a `wtc` folder, name the branch before the first
-commit; see `detached-session-folders.md`.
+commit, following `detached-session-folders.md` — including its `New work:`
+line. Do not invent a branch name or commit while still detached.
 
 ## Review-first environments
 
