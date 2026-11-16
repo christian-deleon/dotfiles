@@ -265,8 +265,14 @@ fi
 
 # Key bindings + completion (Ctrl-R fuzzy history, Ctrl-T files, Alt-C cd).
 # bash only here — zsh loads `fzf --zsh` from .zshrc after this file is sourced.
+# Omarchy's bash init already sourced the system key bindings; loading them
+# again costs ~45 ms under ble.sh, so add only the matching completion script.
 if [[ -n "$BASH_VERSION" ]] && command -v fzf &>/dev/null; then
-    eval "$(fzf --bash)"
+    if declare -F __fzf_history__ >/dev/null && [[ -r /usr/share/fzf/completion.bash ]]; then
+        source /usr/share/fzf/completion.bash
+    else
+        eval "$(fzf --bash)"
+    fi
 fi
 
 # ─── Tool completions (shell-aware) ──────────────────────────────────────────
@@ -274,16 +280,35 @@ fi
 # Vendor completions differ per shell. Our custom completions (completions.d/)
 # are written once in bash style and shared with zsh via bashcompinit below.
 if [[ -n "$BASH_VERSION" ]]; then
+    # `<cmd> completion bash` costs 30-40 ms per shell. Source the copy the
+    # system ships, else a cached copy regenerated when the binary is newer.
+    # Sourced eagerly so it works without bash-completion and `k` can reuse it.
+    _dot_comp_source() {
+        local cmd=$1 f d bin= dirs
+        for f in {/usr,/usr/local}/share/bash-completion/completions/"$cmd"; do
+            [[ -r $f ]] && { source "$f"; return; }
+        done
+        IFS=: read -ra dirs <<<"$PATH"
+        for d in "${dirs[@]}"; do
+            [[ -f $d/$cmd && -x $d/$cmd ]] && { bin=$d/$cmd; break; }
+        done
+        f="${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions/$cmd"
+        if [[ ! -s $f || $bin -nt $f ]]; then
+            [[ -d ${f%/*} ]] || command mkdir -p "${f%/*}"
+            if "$cmd" completion bash >"$f.tmp" 2>/dev/null && [[ -s $f.tmp ]]; then
+                mv -f "$f.tmp" "$f"
+            else
+                rm -f "$f.tmp"
+            fi
+        fi
+        [[ -r $f ]] && source "$f"
+    }
     if command -v kubectl &>/dev/null; then
-        source <(kubectl completion bash)
+        _dot_comp_source kubectl
         complete -o default -F __start_kubectl k
     fi
-    if command -v skaffold &>/dev/null; then
-        source <(skaffold completion bash)
-    fi
-    if command -v just &>/dev/null && [[ -f "$HOME/.just_completion_bash" ]]; then
-        source "$HOME/.just_completion_bash"
-    fi
+    command -v skaffold &>/dev/null && _dot_comp_source skaffold
+    unset -f _dot_comp_source
 elif [[ -n "$ZSH_VERSION" ]]; then
     if command -v kubectl &>/dev/null; then
         source <(kubectl completion zsh)   # `k` inherits via alias expansion
