@@ -17,7 +17,7 @@
 #     wrapped function's fzf fallback still covers interactive picking.
 #   - Slow enumerations (AWS SSM instance IDs, EKS cluster names) are NOT
 #     completed on purpose — fzf already handles those.
-#   - Alias names (ta/tk/frk/ws/...) only complete under bash. On zsh the alias
+#   - Alias names (ta/tk/frk/...) only complete under bash. On zsh the alias
 #     expands first and the underlying tool's native completion takes over, so
 #     we deliberately do NOT `setopt complete_aliases` (it would also break the
 #     `k` -> kubectl completion inheritance).
