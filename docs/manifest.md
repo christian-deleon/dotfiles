@@ -72,7 +72,6 @@ Handlers live in `scripts/handlers/*.sh`, organized by domain:
 | `dot install op` | `1password-cli` (via `install.command: op`) |
 | `dot install rg` | `ripgrep` (via `install.command: rg`) |
 | `dot install nvim` | `neovim` (via `config.package: nvim`) |
-| `dot install wt` | `worktrunk` (via `install.command: wt`) |
 
 Resolution is implemented by `manifest_resolve_alias` in `scripts/lib.sh`. No separate alias table to maintain.
 

@@ -43,11 +43,11 @@ A leftover managed `CLAUDE.md → AGENTS.md` hop in the worktree is removed. Unt
 
 **Tracked-file refusal** — `agent_check_safe` will not overwrite a tracked `AGENTS.md`. If a project commits its own agent file, this tool isn't for that project — implicit calls silent-skip; explicit calls error.
 
-**Project name resolution** — `[name]` defaults to the basename of the *project root* (parent of the common git dir), so it works correctly inside a worktrunk worktree where the cwd basename is the branch name.
+**Project name resolution** — `[name]` defaults to the basename of the *project root* (parent of the common git dir), so it works inside a session folder whose basename is a generated name or a branch.
 
-**Worktrunk integration** — the user config (`worktrunk/.config/worktrunk/config.toml`) defines `[post-start] agent-files = "dot agent link"` so every newly created worktree is set up automatically. It also ships `[step.copy-ignored] exclude = ["AGENTS.md", "CLAUDE.md"]` so a leftover hop is never dereferenced into a frozen file.
+**New sessions** — `wto new` (behind `wtc`) runs `dot agent link` in every folder it creates, before the agent starts, and warns if the link fails.
 
-**Worktree removal** — no cleanup needed. Symlinks live inside the worktree dir, so `wt remove` / `git worktree remove` takes them with the directory.
+**Worktree removal** — no cleanup needed. Symlinks live inside the worktree dir, so `wto close` / `git worktree remove` takes them with the directory.
 
 ## Per-env — `dot agent env link`
 

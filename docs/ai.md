@@ -31,7 +31,7 @@ Harnesses are manifest items (`claude`, `grok`, `opencode`). With an active prof
 | omarchy-personal, wsl-personal, macos-personal | claude, grok, opencode | claude |
 | wsl-work | grok, opencode (Claude Code is not allowed there) | opencode |
 
-`ai.default` is written to `~/.localrc` as `AI_TOOL` / `AI_TOOL_RESUME` / `AI_TOOL_PIPE` (used by `tav`, `wta`, `wtc`, and commit-message generation) only when `~/.localrc` has no `AI_TOOL` yet. `dot ai-tool [INT] [PIPE]` overrides it; its picker lists only enabled harnesses. With `AI_TOOL_PIPE` unset, commit-message generation auto-detects claude > opencode > grok.
+`ai.default` is written to `~/.localrc` as `AI_TOOL` / `AI_TOOL_RESUME` (used by `tav`, `wtc` and `wta`) only when `~/.localrc` has no `AI_TOOL` yet. `dot ai-tool [TOOL]` overrides it; its picker lists only enabled harnesses.
 
 ## Per harness
 
@@ -117,17 +117,17 @@ The planner, implementer and reviewer agents carry the plan, implement and revie
 
 ## Orchestrating worktree sessions
 
-One agent session per worktree, each in its own tmux window (`wtc`, `wta`, `wtaa`), with the main worktree as home base. These pieces let the main session coordinate the others:
+One agent session per worktree, each in its own tmux window (`wtc` starts one, `wta` goes back to one). There is no home-base worktree: whichever session runs `/orchestrate` (normally a plain `wtc` session) coordinates the others with these pieces:
 
 | Piece | Role |
 |---|---|
 | `bin/wto` | Roster (`ls`), messages with an origin header (`send`, `header`), shared-resource claims (`claim`), closing merged sessions (`close`), the orchestrator marker (`here`). See [functions.md](functions.md#wto-command). |
 | `ai/hooks/session_state.sh` | Records working / idle / blocked / exited on the AI pane, so `wto send` never types into a question or a dead pane. |
-| `ai/hooks/issue_close_gate.sh` | Stop gate (Claude Code and Grok): once an issue branch (`fix/142-…`) has its commits in main, the session cannot end a turn while issue #142 is still open on the tracker. Lets the stop through when the tracker can't be reached, or while the closing comment waits on the owner. OpenCode has no hooks, so there it is the `/closeout` step alone. |
+| `ai/hooks/issue_close_gate.sh` | Stop gate (Claude Code and Grok): once an issue branch (`fix/142-…`) has its commits in the default branch, the session cannot end a turn while issue #142 is still open on the tracker. Lets the stop through when the tracker can't be reached, or while the closing comment waits on the owner. OpenCode has no hooks, so there it is the `/closeout` step alone. |
 | `ai/rules/common/session-messages.md` | How every session tells a peer message from the user. |
-| `/orchestrate` | Run in the main worktree: status, broadcasts, pause and resume, rebase notices, dispatching work (with a model and effort per session), claims, close-outs. Never does task work. Fixes the project's own orchestration setup when it proves wrong; suggests changes to the skills and tools instead of making them. |
-| `/spinoff` | Run in a feature session: file unrelated work as an issue and hand the number to main. |
-| `/closeout` | Run in a feature session when done: merge (if the project allows), close the branch's issue with a short comment, free claims, ask main to close the window. |
+| `/orchestrate` | Run in any session to make it the orchestrator: status, broadcasts, pause and resume, rebase notices, dispatching work (with a model and effort per session), claims, close-outs. Never does task work. Fixes the project's own orchestration setup when it proves wrong; suggests changes to the skills and tools instead of making them. |
+| `/spinoff` | Run in a feature session: file unrelated work as an issue and hand the number to the orchestrator. |
+| `/closeout` | Run in a feature session when done: merge (if the project allows), close the branch's issue with a short comment, free claims, ask the orchestrator to close the window and worktree (`wto close`). |
 | `/backlog` | Run in the orchestrator: pick a capped batch of issues that can run side by side. |
 | `/onboard` | Run once per project: write its project profile. |
 | `orchestrated-session` | Loaded by a feature session when an orchestrator runs: test, check and review its own work, report with one fixed status report, and deploy or merge only on the owner's go relayed by the orchestrator. Not a slash command. |

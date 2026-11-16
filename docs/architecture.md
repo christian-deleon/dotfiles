@@ -182,7 +182,7 @@ Shared AI agent configuration owned by this dotfiles repo at `~/.dotfiles/ai/`. 
 
 **`dot update`:** inside the pull block runs `install_ai_<h>` for each enabled harness; after `reconcile_profile` runs `agent_env_refresh` (re-links the current env's targets and skills, drops legacy hops) and `install_ai_tool_default`.
 
-**Default harness:** profile `ai.default` picks the harness for `tav`/`wta`/`wtc` and commit messages. The `ai-tool` core extra and `dot update` write `AI_TOOL` / `AI_TOOL_RESUME` / `AI_TOOL_PIPE` into `~/.localrc` from it only when `~/.localrc` has no `AI_TOOL`. `dot ai-tool [INT] [PIPE]` overrides; its picker lists only enabled harnesses.
+**Default harness:** profile `ai.default` picks the harness for `tav`/`wtc`/`wta`. The `ai-tool` core extra and `dot update` write `AI_TOOL` / `AI_TOOL_RESUME` into `~/.localrc` from it only when `~/.localrc` has no `AI_TOOL`. `dot ai-tool [TOOL]` overrides; its picker lists only enabled harnesses.
 
 **Idempotency:** `clean_ai_symlinks()` runs before every install, removing any symlinks in the target directory that point into `~/.dotfiles/ai/` (or legacy `ecc/`).
 

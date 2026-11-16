@@ -11,7 +11,7 @@
 #
 #   nested   project/<branch>                 -> project
 #   sibling  ../<branch> (main: project)      -> project
-#   bare     project/.git|.bare + project/wt  -> project
+#   bare     project/.git + project/<folder>  -> project
 #
 # In a bare-repo layout the project root itself has no work tree, so
 # `--show-toplevel` fails there; we anchor on the project dir in that case so it

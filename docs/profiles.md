@@ -49,7 +49,7 @@ Profile-authoritative list of installer core extras to run. Replaces the pre-sel
 | `git-config`       | Symlink `.gitconfig`, prompt for name/email/signing |
 | `ssh-config`       | Generate `~/.ssh/config` with the OS-appropriate 1Password IdentityAgent |
 | `zsh-config`       | Install Oh My Zsh + Powerlevel10k + plugins, symlink `.zshrc` |
-| `ai-tool`          | Write `AI_TOOL` / `AI_TOOL_RESUME` / `AI_TOOL_PIPE` into `~/.localrc` from `ai.default` (only if `~/.localrc` has no `AI_TOOL`) |
+| `ai-tool`          | Write `AI_TOOL` / `AI_TOOL_RESUME` into `~/.localrc` from `ai.default` (only if `~/.localrc` has no `AI_TOOL`) |
 | `omarchy-themes`   | Pick Omarchy theme submodules to install |
 | `default-terminal` | Set Alacritty as Omarchy's default terminal |
 
@@ -65,7 +65,7 @@ The AI harness items (`claude`, `grok`, `opencode`) also gate which harnesses ge
 
 ### `ai:`
 
-`default` — the harness `tav` / `wta` / `wtc` and commit-message generation use. Must be one of the profile's harness items. The `ai-tool` core extra and `dot update` write it into `~/.localrc` only when `~/.localrc` has no `AI_TOOL`; `dot ai-tool` overrides. Personal profiles use `claude`; `wsl-work` uses `opencode`.
+`default` — the harness `tav` / `wtc` / `wta` launch. Must be one of the profile's harness items. The `ai-tool` core extra and `dot update` write it into `~/.localrc` only when `~/.localrc` has no `AI_TOOL`; `dot ai-tool` overrides. Personal profiles use `claude`; `wsl-work` uses `opencode`.
 
 ### `mcp:`
 
