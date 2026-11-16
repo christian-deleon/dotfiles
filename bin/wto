@@ -985,6 +985,7 @@ claims_status() {
 
 cmd_claim() {
     local sub=${1:-status} wt label live note="" all=0 force=0 json=0 timeout=60 deadline rc
+    local st waiting seen next_pass
     (($#)) && shift
     local -a names=()
     while (($#)); do
@@ -1048,25 +1049,40 @@ cmd_claim() {
             return 1
             ;;
         wait)
-            if [[ $(claims_read | jq -r --arg wt "$wt" 'any(.queue[]?; .wt == $wt)') != true ]]; then
+            st=$(claims_read)
+            waiting=$(jq -r --arg wt "$wt" '(.queue // []) | to_entries[] | select(.value.wt == $wt)
+                | "waiting #\(.key + 1) for \(.value.res | join(","))"' <<<"$st")
+            if [[ -z $waiting ]]; then
                 printf 'not waiting for anything\n'
                 return 1
             fi
-            claims_read | jq -r --arg wt "$wt" '.queue | to_entries[] | select(.value.wt == $wt)
-                | "waiting #\(.key + 1) for \(.value.res | join(","))"'
+            printf '%s\n' "$waiting"
             deadline=$((SECONDS + timeout))
+            seen="" next_pass=0
             while ((SECONDS < deadline)); do
-                # Hand over on our own behalf too: a waiter with no agent
-                # session is skipped by everyone else's grant pass.
-                if live=$(live_wts "$wt" 2>/dev/null); then
-                    with_lock claim_gc_locked "$live" >/dev/null 2>&1 || true
-                fi
-                if [[ $(claims_read | jq -r --arg wt "$wt" 'any(.queue[]?; .wt == $wt)') != true ]]; then
+                if [[ $(jq -r --arg wt "$wt" 'any(.queue[]?; .wt == $wt)' <<<"$st") != true ]]; then
                     with_lock claim_ack_locked "$wt" 2>/dev/null || true
                     printf 'granted\n'
                     return 0
                 fi
+                # Hand over on our own behalf too: a waiter with no agent
+                # session is skipped by everyone else's grant pass. take,
+                # free, bump and gc run that pass themselves, so repeat it
+                # only when the ledger changed, or now and then for sessions
+                # that ended or worktrees that were removed meanwhile.
+                if [[ $st != "$seen" ]] || ((SECONDS >= next_pass)); then
+                    if live=$(live_wts "$wt" 2>/dev/null); then
+                        with_lock claim_gc_locked "$live" >/dev/null 2>&1 || true
+                    fi
+                    seen=$(claims_read)
+                    next_pass=$((SECONDS + 20))
+                    if [[ $seen != "$st" ]]; then
+                        st=$seen
+                        continue
+                    fi
+                fi
                 sleep 2
+                st=$(claims_read)
             done
             printf 'still waiting\n'
             return 2
