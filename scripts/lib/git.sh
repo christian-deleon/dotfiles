@@ -269,6 +269,9 @@ dotfiles_update_submodules() {
                         fetched+=("$i")
                     else
                         _warn "Could not fetch ${priv[i]} (is the 1Password SSH agent unlocked?)"
+                        # The rest would each ask the agent again without a shared connection.
+                        [[ ${#priv[@]} -eq 1 ]] || _warn "Skipping ${priv[*]:1} too"
+                        break
                     fi
                 else
                     GIT_SSH_COMMAND="$ssh_cmd" GIT_TERMINAL_PROMPT=0 \
@@ -308,8 +311,12 @@ dotfiles_update_submodules() {
             _warn "Could not check out $branch in $path"
             continue
         fi
-        if ! git -C "$dir" merge --ff-only -q "origin/$branch"; then
-            _warn "$path has commits that are not on origin/$branch; left as is"
+        if ! git -C "$dir" merge --ff-only -q "origin/$branch" 2>/dev/null; then
+            if [[ -n "$(git -C "$dir" status --porcelain --untracked-files=no 2>/dev/null)" ]]; then
+                _warn "$path has local changes that origin/$branch also changes; left as is"
+            else
+                _warn "$path has commits that are not on origin/$branch; left as is"
+            fi
             continue
         fi
         # Parent gitlink can be ahead of origin/<branch> when someone committed
