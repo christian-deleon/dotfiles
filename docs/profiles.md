@@ -57,11 +57,11 @@ Profiles include only what makes sense for their environment. Example: a `macos-
 
 ### `items:`
 
-List of manifest.yaml top-level keys. The installer iterates them in order, invoking `install_item` on each. Items whose `requires:` aren't met on the host are silently skipped (so it's safe to include host-conditional items in a multi-platform profile, even though the typical pattern is one profile per host context).
+List of manifest.yaml top-level keys, passed together to `install_items`, which installs only what is missing (one package-manager call for all missing packages) and links configs in list order. Items whose `requires:` aren't met on the host are skipped with a warning (so it's safe to include host-conditional items in a multi-platform profile, even though the typical pattern is one profile per host context).
 
 Aliases (e.g. `nvim` for `neovim`, `op` for `1password-cli`) are accepted but canonical names are preferred for clarity.
 
-The AI harness items (`claude`, `grok`, `opencode`) also gate which harnesses get configured: only listed ones receive skills, agents, rules, MCP, and `dot agent env` links. With an active profile, `dot install <harness>`, `install_item`, and the manual picker refuse a harness the profile doesn't list. The personal profiles and `dev-server` list all three; `wsl-work` lists `grok` and `opencode`.
+The AI harness items (`claude`, `grok`, `opencode`) also gate which harnesses get configured: only listed ones receive skills, agents, rules, MCP, and `dot agent env` links. With an active profile, `dot install <harness>`, `install_items`, and the manual picker refuse a harness the profile doesn't list. The personal profiles and `dev-server` list all three; `wsl-work` lists `grok` and `opencode`.
 
 ### `ai:`
 
@@ -121,15 +121,15 @@ To force a specific profile on a machine without re-running the installer, set `
 
 ## Drift handling (`dot update`)
 
-When a profile is active, `dot update` reconciles missing items: it iterates the profile's `items:` list and calls `install_item` on each. Grok always upserts `grok/.grok/base.toml` into live `~/.grok/config.toml`, then upserts `grok/.grok/overlays/<profile>.toml` when that overlay exists (Grok-only settings, e.g. `wsl-work` pins org Bedrock; personal profiles have none). The overlay wins on conflict. MCP comes from the profile's `mcp:` block, not the overlay. Idempotent — already-installed items are no-ops; new items get installed. **Removed profile items are not uninstalled by reconcile** (add-only), so package-manager packages stay until you remove them yourself.
+When a profile is active, `dot update` reconciles missing items: it passes the profile's `items:` list to `install_items`. Grok always upserts `grok/.grok/base.toml` into live `~/.grok/config.toml`, then upserts `grok/.grok/overlays/<profile>.toml` when that overlay exists (Grok-only settings, e.g. `wsl-work` pins org Bedrock; personal profiles have none). The overlay wins on conflict. MCP comes from the profile's `mcp:` block, not the overlay. Idempotent — already-installed items and correct links are no-ops; new items get installed. Binaries are not upgraded: an item whose command is on `PATH` counts as installed. **Removed profile items are not uninstalled by reconcile** (add-only), so package-manager packages stay until you remove them yourself.
 
 Residue from **retired** tools (paths we used to create) is handled separately by **tombstones** — `apply_tombstones` runs on every `dot update` and removes paths listed in `tombstones.yaml` if they still exist. See [tombstones.md](tombstones.md).
 
-If no profile is active (e.g. you used Manual mode), `dot update` skips item reconciliation entirely — it still pulls dotfiles, refreshes AI, applies tombstones, and rebuilds source tools.
+If no profile is active (e.g. you used Manual mode), `dot update` skips item reconciliation entirely — it still pulls dotfiles, updates submodules, applies tombstones, and refreshes AI configs.
 
 ## Unattended install
 
-`./install.sh --profile <name>` runs the core config and then that profile with no picker, for provisioning tools such as Ansible. Re-running it is safe: installed tools are skipped, links are re-checked, and `.active-profile` is rewritten. It exits non-zero if the profile is unknown or its `requires:` fail.
+`./install.sh --profile <name>` runs the core config and then that profile with no picker, for provisioning tools such as Ansible. With no terminal it never prompts. Re-running it is safe: installed tools are skipped, links that are already right are left alone, and `.active-profile` is rewritten. It exits non-zero if the profile is unknown, its `requires:` fail, or any item failed ("Dotfiles setup finished with failures").
 
 With no terminal, the `git-config` extra only links `~/.gitconfig` and leaves `~/.gitconfig.local` as it is, so the provisioner writes that file first. A profile without the `ssh-config` extra skips the `.ssh` submodule.
 
@@ -153,6 +153,6 @@ dot profile use <name>            # switch active profile + reconcile
 
 - Manifest schema: [docs/manifest.md](manifest.md)
 - Predicate definitions: `scripts/predicates.sh`
-- Profile installer: `install.sh:install_from_profile`
-- Profile picker: `install.sh:select_profile`
+- Profile installer: `scripts/lib/core.sh:install_from_profile`
+- Profile picker: `scripts/lib/core.sh:select_profile`
 - Drift reconciliation: `dot.sh:reconcile_profile`

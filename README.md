@@ -4,7 +4,7 @@ Personal dotfiles for macOS, Linux (including [Omarchy](https://omarchy.org/) an
 
 ## Install
 
-Clone over HTTPS first — on a fresh machine the 1Password SSH agent isn't set up yet, so SSH cloning would fail:
+Clone over HTTPS. On a fresh machine the 1Password SSH agent isn't set up yet, so an SSH clone would fail, and there is no need to switch later: `dot update` keeps fetching over HTTPS and sets an SSH push URL, so only pushes need the SSH key.
 
 ```bash
 git clone https://github.com/christian-deleon/dotfiles.git ~/.dotfiles
@@ -14,18 +14,12 @@ cd ~/.dotfiles
 
 For provisioning tools with no terminal, `./install.sh --profile <name>` installs that profile without the picker. It is safe to run again; see [docs/profiles.md](docs/profiles.md#unattended-install).
 
-After install (1Password + SSH agent now configured), switch the remote to SSH:
-
-```bash
-git -C ~/.dotfiles remote set-url origin git@github.com:christian-deleon/dotfiles.git
-```
-
 Only the bare minimum runs unconditionally — shell config and the `dot` CLI. Then you pick:
 
 - **A profile** — a curated, hand-authored set of tools + configs for a specific machine context (`omarchy-personal`, `wsl-personal`, `wsl-work`, `macos-personal`, `dev-server`, …). Only profiles whose `requires:` predicates pass on the host appear in the picker.
 - **Manual selection** — ad-hoc picker of core extras + individual items from `manifest.yaml`. Use this on a brand-new machine type, then author a profile when you're ready to reproduce it elsewhere.
 
-The picker auto-suggests the first compatible profile based on host detection (Hyprland present → omarchy, Darwin → macos, microsoft in `/proc/version` → wsl). On `dot update`, the active profile is reconciled (missing items get installed; profile reconcile is add-only). Residue from *retired* tools is cleaned via [`tombstones.yaml`](tombstones.yaml) — see [docs/tombstones.md](docs/tombstones.md).
+On `dot update`, the active profile is reconciled (missing items get installed; profile reconcile is add-only). Residue from *retired* tools is cleaned via [`tombstones.yaml`](tombstones.yaml) — see [docs/tombstones.md](docs/tombstones.md).
 
 If `op` (1Password CLI) is missing, MCP servers that need secrets are skipped automatically; the keyless ones still install.
 
@@ -35,7 +29,7 @@ On a headless host without the 1Password app, put a service account token in `~/
 
 ```bash
 dot edit                       # Open dotfiles in $EDITOR
-dot update                     # Pull, AI refresh, tombstones, source tools, reconcile profile
+dot update                     # Pull, update submodules, clean up, reconcile profile, refresh AI
 dot install                    # Interactive: pick a profile or items manually
 dot install <name>...          # Install one or more items directly (binary + config for bundles)
 dot profile list               # Show profiles with compatibility / active markers
@@ -79,8 +73,6 @@ After Ubuntu-26.04 is installed, launch the Ubuntu app from the Start menu, fini
 ```bash
 git clone https://github.com/christian-deleon/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles && ./install.sh
-# After install, switch to SSH:
-git -C ~/.dotfiles remote set-url origin git@github.com:christian-deleon/dotfiles.git
 ```
 
 ## App Configs
@@ -108,7 +100,7 @@ omadot put <package>     # replace original with symlink to dotfiles
 git add <package> manifest.yaml profiles/ && git commit
 ```
 
-Stale `~/.config/<pkg>` symlinks from packages that have since been dropped are cleaned automatically on every `./install.sh`, `dot install`, and `dot update`. Non-stow residue (script installs, XDG data/cache, home files) is declared in `tombstones.yaml` and removed by the same entry points.
+Stale `~/.config/<pkg>` symlinks from packages that have since been dropped are cleaned automatically on every `./install.sh` and `dot update`. Non-stow residue (script installs, XDG data/cache, home files) is declared in `tombstones.yaml` and removed by the same entry points.
 
 ## AI Config
 

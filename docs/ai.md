@@ -24,7 +24,7 @@ Authoring details live in the **`agent-files` skill** at `ai/skills/agent-files/
 
 ## Which harnesses a machine gets
 
-Harnesses are manifest items (`claude`, `grok`, `opencode`). With an active profile, the profile's `items:` decide: only listed harnesses are configured, refreshed on `dot update`, and fed MCP, and `dot install <harness>` refuses one the profile leaves out. Without a profile, whatever is installed is configured. The registry (`AI_HARNESSES`, `ai_harness_enabled`) lives in `scripts/lib.sh`.
+Harnesses are manifest items (`claude`, `grok`, `opencode`). With an active profile, the profile's `items:` decide: only listed harnesses are configured, refreshed on `dot update`, and fed MCP, and `dot install <harness>` refuses one the profile leaves out. Without a profile, whatever is installed is configured. The registry (`AI_HARNESSES`, `ai_harness_enabled`) lives in `scripts/lib/data.sh`.
 
 | Profile | Harnesses | `ai.default` |
 |---|---|---|
@@ -97,7 +97,7 @@ On Omarchy the binary comes from its `~/.local/bin/opencode` mise wrapper. 2.0 i
 
 Claude models on `amazon-bedrock` declare explicit `low`…`max` variants that send `thinking: {type: adaptive}` plus `output_config.effort` through `additionalModelRequestFields`. The ARN models are not in OpenCode's catalog, so only the declared variants exist. Grok variants use `reasoningConfig` instead; Claude rejects that shape.
 
-`dot update` / `dot install opencode` regenerates the live file. The 2.0 background service cannot watch `~/.config/opencode` because it is a stow symlink, so the installer runs `opencode reload` after regenerating.
+`dot update` / `dot install opencode` regenerates the live file, writing it only when it changes (mode 600 from the start). The 2.0 background service cannot watch `~/.config/opencode` because it is a stow symlink, so the installer runs `opencode reload` when the file changed, at most once per run.
 
 ## Models per job
 
@@ -107,7 +107,7 @@ Claude models on `amazon-bedrock` declare explicit `low`…`max` variants that s
 - `wto new -j <job>` starts a session on the job's model for the harness in `$AI_TOOL`; `-m` / `-e` override it. OpenCode takes no per-session model.
 - Skills name jobs (`wtc` picks one per task).
 
-A profile's `models:` block replaces single job + harness entries for that machine (`wsl-work` puts every job on GovCloud Grok 4.7). The installer writes the merged table to `~/.local/state/dotfiles/ai-models.json`, which `wto` reads. After editing either file, run `dot update`: rendered agents do not follow edits to `ai/agents/` until then.
+A profile's `models:` block replaces single job + harness entries for that machine (`wsl-work` puts every job on GovCloud Grok 4.7). The installer writes the merged table to `~/.local/state/dotfiles/ai-models.json`, which `wto` reads. After editing either file, run `dot update`: rendered agents do not follow edits to `ai/agents/` until then. A rendered agent is rewritten only when its content changes, and kept as it is when `ai/models.yaml` cannot be read.
 
 The planner, implementer and reviewer agents carry the plan, implement and review jobs; the `plan-implement-review` skill runs them. The monitor agent carries the monitor job: any session hands it a wait on a job, deploy, or CI run, and it paces its checks to the time left.
 
@@ -122,8 +122,8 @@ One agent session per worktree, each in its own tmux window (`wtc` starts one, `
 | Piece | Role |
 |---|---|
 | `bin/wto` | Roster (`ls`), messages with an origin header (`send`, `header`), shared-resource claims (`claim`), closing merged sessions (`close`), the orchestrator marker (`here`). See [functions.md](functions.md#wto-command). |
-| `ai/hooks/session_state.sh` | Records working / idle / blocked / exited on the AI pane, so `wto send` never types into a question or a dead pane. |
-| `ai/hooks/issue_close_gate.sh` | Stop gate (Claude Code and Grok): once an issue branch (`fix/142-…`) has its commits in the default branch, the session cannot end a turn while issue #142 is still open on the tracker. Lets the stop through when the tracker can't be reached, or while the closing comment waits on the owner. OpenCode has no hooks, so there it is the `/closeout` step alone. |
+| `ai/hooks/session_state.sh` | Records working / idle / blocked / exited on the AI pane, so `wto send` never types into a question or a dead pane. A turn that ends on an API error (`StopFailure`) or, in Grok, a user interrupt (`StopCancelled`) counts as idle. |
+| `ai/hooks/issue_close_gate.sh` | Stop gate (Claude Code and Grok): once an issue branch (`fix/142-…`) has its commits in the default branch, the session cannot end a turn while issue #142 is still open on the tracker. Lets the stop through when the tracker can't be reached, or while the closing comment waits on the owner. Once the issue reads closed it writes `<git-common-dir>/orchestrate/issue-close/<branch>.closed` and stops asking; the tracker CLI that worked is cached per host under `$XDG_CACHE_HOME/dotfiles/issue-tracker/`. OpenCode has no hooks, so there it is the `/closeout` step alone. |
 | `ai/rules/common/session-messages.md` | How every session tells a peer message from the user. |
 | `/orchestrate` | Run in any session to make it the orchestrator: status, broadcasts, pause and resume, rebase notices, dispatching work (with a model and effort per session), claims, close-outs. Never does task work. Fixes the project's own orchestration setup when it proves wrong; suggests changes to the skills and tools instead of making them. |
 | `/spinoff` | Run in a feature session: file unrelated work as an issue and hand the number to the orchestrator. |

@@ -111,31 +111,36 @@ Do not commit stock templates, hook samples, `current/`, or `*omarchy-upgrade*` 
 - Use `omadot get` for a brand-new config that doesn't exist in `~/.config/` yet
 - Use `omadot put --all`
 
-## Modifying `install.sh`
+## Modifying `install.sh`, `dot.sh` and `scripts/lib/`
 
-1. **Interactive only** — no profiles or flags as CLI args. Homebrew auto-installs on macOS.
-2. **Core config**: `run_core_config()` always runs — only shell config + dot CLI. Don't add anything here that depends on external services or could fail on a restricted machine.
-3. **Core extras**: `get_core_extra_label()` / `install_core_extra()` define the items. Profiles list them via their `core_extras:` field; manual mode shows `run_core_extras_picker()` with host-appropriate defaults pre-selected. Adding a new extra: a new case branch in both functions + a one-line mention in `list_all_core_extras()`.
-4. **Items**: declared in `manifest.yaml` (see [manifest.md](manifest.md)). `install_item` dispatches based on `config.type` (stow → `install_stow_config`, handler → `install_handler_config`). `run_post_install` runs the deduped union of `post_install:` hooks across selected items.
-5. **Profile flow**: `select_profile` → `install_from_profile <name>` → writes `~/.dotfiles/.active-profile`. Manual flow: `install_manual` → no profile state written.
-6. **Handlers** live in `scripts/handlers/*.sh` and are sourced automatically at install.sh startup. Handler functions are referenced from manifest by name; the dispatcher uses `declare -F` to verify existence before invocation.
-7. **Prerequisites**: `ensure_homebrew()`, `ensure_yq()`, `ensure_stow()`, `ensure_omadot()`, `ensure_jq()`, `ensure_gum()` auto-install if missing.
-8. **Idempotency**: All modules must be safe to re-run. Use `ln -snf` for symlinks, check before stowing, skip if already done. AI handlers use `clean_ai_symlinks()` to remove stale links before re-linking.
-9. **1Password**: `op_inject_multi()` handles multi-account secret resolution. `generate_mcp_configs` resolves only the servers the profile's `mcp:` block enables; when `op` is missing or fails, its local `drop_op_servers` jq filter strips enabled entries still containing `op://` rather than writing unresolved placeholders. The same set is written to every enabled harness: Grok's live `config.toml`, OpenCode's `opencode.json`, Claude's `~/.claude.json`.
-10. **Sourceable**: `main()` is guarded with `BASH_SOURCE` check so `dot.sh` can source `install.sh` for its functions.
-11. OS-specific paths must use `$OSTYPE` detection (or a `host_has` predicate).
-12. Never replace `~/.bashrc` — only inject source line.
-13. SSH config is generated (not symlinked) with OS-appropriate `IdentityAgent`. Only generated if `ssh-config` is in the active profile's `core_extras:` (or the manual picker selection).
-14. Test with `bash -n install.sh` and `./install.sh --help`.
+`install.sh` is only the bootstrap; shared code lives in the modules behind `scripts/lib.sh` (layout in [architecture.md](architecture.md#library--scriptslibsh)). Put new shared functions in the matching `scripts/lib/<module>.sh`, not in `install.sh` or `dot.sh`.
 
-## Modifying `dot.sh`
+1. **bash 3.2, jq 1.6.** `install.sh`, `dot.sh`, `scripts/lib*`, the handlers and `scripts/dot/*` run under macOS `/bin/bash`: no `mapfile`, `declare -A`, `local -n`, `${x,,}`, `[[ -v`, `wait -n`.
+2. **Definitions only.** Library modules and handlers define functions and globals; sourcing them must not do work.
+3. **Logging**: `_info`, `_success`, `_warn`, `_error` from `scripts/lib/log.sh`. Record each change made on disk with `note_change "<what>"` so the `dot update` summary lists it.
+4. **Prompts** only behind `_interactive` (stdin and stdout are a terminal). `./install.sh --profile <name>` must complete with no terminal attached. Homebrew auto-installs on macOS.
+5. **Core config**: `run_core_config()` in `install.sh` always runs — link cleanup, tombstones, shell config, dot CLI. Don't add anything here that depends on external services or could fail on a restricted machine.
+6. **Core extras**: one row each in the `_CORE_EXTRAS` table in `scripts/lib/core.sh` (`name|installer|preselect|description`). Profiles list them via `core_extras:`; manual mode shows `run_core_extras_picker()` with the rows whose `preselect` predicates pass already selected.
+7. **Items**: declared in `manifest.yaml` (see [manifest.md](manifest.md)). `install_items` in `scripts/lib/engine.sh` installs whatever is missing, links stow configs (`install_stow_config`), runs handlers, then the deduplicated `post_install:` hooks.
+8. **Profile flow**: `select_profile` → `install_from_profile <name>` → writes `~/.dotfiles/.active-profile`. Manual flow: `install_manual` → no profile state written. Both live in `scripts/lib/core.sh`.
+9. **Handlers** live in `scripts/handlers/*.sh` and are sourced by `scripts/lib.sh`. Handler functions are referenced from manifest by name; the engine checks them with `declare -F` before calling.
+10. **Prerequisites**: `ensure_homebrew()`, `ensure_yq()`, `ensure_jq()`, `ensure_stow()`, `ensure_omadot()`, `ensure_gum()` in `scripts/lib/pkg.sh` install what is missing. Stow and omadot are set up only when a link is actually missing.
+11. **Idempotency**: All modules must be safe to re-run and should change nothing when nothing is missing. Leave a link that is already right alone (`link_file`, `ensure_link`), check before stowing, skip if already done. Wrap a handler or hook that several items name in `run_once`.
+12. **1Password**: `op_inject_multi()` (`scripts/lib/data.sh`) handles multi-account secret resolution. `generate_mcp_configs` resolves only the servers the profile's `mcp:` block enables; when `op` is missing or fails, its local `drop_op_servers` jq filter strips enabled entries still containing `op://` rather than writing unresolved placeholders. The same set is written to every enabled harness: Grok's live `config.toml`, OpenCode's `opencode.json`, Claude's `~/.claude.json`.
+13. OS-specific paths must use `$OSTYPE` detection (or a `host_has` predicate).
+14. Never replace `~/.bashrc` — only inject source line.
+15. SSH config is generated (not symlinked) with OS-appropriate `IdentityAgent`. Only generated if `ssh-config` is in the active profile's `core_extras:` (or the manual picker selection).
+16. Test with `bash -n` on every changed file and `./install.sh --help`.
 
-1. Sources `scripts/lib.sh` for manifest accessors and predicates.
-2. `dot install` (no args) sources `install.sh` and calls `select_profile` then `install_from_profile`/`install_manual` — same flow as `./install.sh`.
-3. `dot install <name> [<name>...]` calls `install_item` for each — manifest-driven, resolves aliases like `op` → `1password-cli`, `nvim` → `neovim`.
+### `dot.sh`
+
+1. Sources `scripts/lib.sh`, then `scripts/dot/{agent,brew,help,theme}.sh` for those subcommands.
+2. `dot install` (no args) calls `select_profile` then `install_from_profile`/`install_manual` — same flow as `./install.sh`, without core config.
+3. `dot install <name> [<name>...]` calls `install_items` — manifest-driven, resolves aliases like `op` → `1password-cli`, `nvim` → `neovim`. `dot install <harness>` refuses a harness the active profile doesn't list.
 4. `dot profile {list,show,use}` — `manage_profile` dispatcher. State lives in `~/.dotfiles/.active-profile`; `read_active_profile` prefers the `$DOTFILES_PROFILE` env override (set in `.localrc` to force).
-5. `dot update` pulls dotfiles, runs `install_ai_<h>` for each enabled harness, applies `tombstones.yaml` absences, runs `update_source_tools`, calls `reconcile_profile` (add-only: install missing items), then `agent_env_refresh` and `install_ai_tool_default`. `dot install <harness>` refuses a harness the active profile doesn't list. Path residue from retired tools is cleaned via tombstones — see [tombstones.md](tombstones.md). OS package upgrades are the shell function `pkgup`, not part of `dot` (`omarchy update` on Omarchy; brew/yay/apt elsewhere).
-6. Keep brew commands as-is (macOS only).
+5. `dot update` — phases in [architecture.md](architecture.md#dot-update). Path residue from retired tools is cleaned via tombstones — see [tombstones.md](tombstones.md). OS package upgrades are the shell function `pkgup`, not part of `dot` (`omarchy update` on Omarchy; brew/yay/apt elsewhere).
+6. `dot help` and `scripts/check-descriptions.sh` parse `functions.d/` and `.aliases` with the same `scripts/descriptions.awk`.
+7. Keep brew commands as-is (macOS only).
 
 ## Modifying `.commonrc`
 
