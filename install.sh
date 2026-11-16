@@ -606,18 +606,28 @@ install_git_submodules() {
         warn "Some submodules failed — continuing"
     fi
 
-    local submodule_path
-    for submodule_path in .ssh; do
-        local full_path="$DOTFILES_DIR/$submodule_path"
-        if [[ -f "$full_path/.git" ]] && git -C "$full_path" diff-index --quiet HEAD -- 2>/dev/null; then
-            continue
-        fi
-        if [[ -f "$full_path/.git" ]]; then
-            info "Restoring $submodule_path working tree..."
-            git -C "$full_path" reset HEAD -- . 2>/dev/null
-            git -C "$full_path" checkout -- . 2>/dev/null
-        fi
-    done
+    _submodule_restore_deleted .ssh
+}
+
+# Check out files missing from a submodule's working tree. Edits and staged
+# changes are the user's: they are reported, never reset.
+_submodule_restore_deleted() {
+    local full_path="$DOTFILES_DIR/$1"
+    [[ -e "$full_path/.git" ]] || return 0
+
+    local f
+    local -a deleted=()
+    while IFS= read -r -d '' f; do
+        deleted+=("$f")
+    done < <(git -C "$full_path" ls-files -d -z 2>/dev/null)
+    if [[ ${#deleted[@]} -gt 0 ]]; then
+        info "Restoring ${#deleted[@]} deleted file(s) in $1..."
+        git -C "$full_path" checkout -- "${deleted[@]}" || warn "Could not restore deleted files in $1"
+    fi
+
+    if [[ -n "$(git -C "$full_path" status --porcelain --untracked-files=no 2>/dev/null)" ]]; then
+        warn "$1 has local changes; left as is (see: git -C $full_path status)"
+    fi
 }
 
 list_theme_submodules() {
