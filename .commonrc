@@ -4,9 +4,16 @@
 
 # ─── PATH ─────────────────────────────────────────────────────────────────────
 
-export PATH="$HOME/.local/bin:$PATH"
-[[ -d "$HOME/.cargo/bin" ]] && export PATH="$PATH:$HOME/.cargo/bin"
-export PATH="$PATH:$HOME/.lmstudio/bin"
+# Nested shells and tmux panes inherit PATH, so never add an entry twice.
+# ~/.local/bin must stay first even when the host already appended it.
+_p=":$PATH:"
+while [[ $_p == *":$HOME/.local/bin:"* ]]; do _p=${_p/":$HOME/.local/bin:"/:}; done
+_p=${_p#:}; _p=${_p%:}
+export PATH="$HOME/.local/bin${_p:+:$_p}"
+for _p in "$HOME/.cargo/bin" "$HOME/.lmstudio/bin"; do
+    [[ -d $_p && ":$PATH:" != *":$_p:"* ]] && export PATH="$PATH:$_p"
+done
+unset _p
 
 # ─── SSH agent forwarding (stable symlink for tmux) ─────────────────────────
 # When connected via SSH with agent forwarding, each connection creates a new
