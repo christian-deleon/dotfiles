@@ -1521,7 +1521,8 @@ done
     [[ -n $pf ]] && read_prompt="WTO_PROMPT=\$(cat -- $(printf '%q' "$pf")); rm -f -- $(printf '%q' "$pf"); "
     inner=". \"\$HOME/.localrc\" 2>/dev/null || true; ${drain}${read_prompt}${launch}"
     outer="bash --noprofile --norc -c $(printf '%q' "$inner")${mark_exited}; exec $(printf '%q' "${SHELL:-bash}") -i"
-    schedule_da_scrub "$pane"
+    # The scrub sends C-u, which would wipe text typed into any other prompt.
+    [[ $bin == grok ]] && schedule_da_scrub "$pane"
     tmux respawn-pane -k -t "$pane" -c "$dir" "$outer"
 }
 
