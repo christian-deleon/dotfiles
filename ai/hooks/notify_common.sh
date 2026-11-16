@@ -11,33 +11,59 @@
 # here because they leak across shells if you launched one agent from
 # another's session.
 notify::collect_context() {
-    local payload cwd dir pid toplevel tmux_session=""
+    local payload out cwd dir head pid stat comm toplevel gitdir tmux_session=""
 
-    payload="$(cat 2>/dev/null || printf '{}')"
-    cwd="$(jq -r '.cwd // ""' <<<"$payload" 2>/dev/null)"
-    hook_reason="$(jq -r '.reason // ""' <<<"$payload" 2>/dev/null)"
+    # `exec` in each substitution: bash forks twice for a redirected command.
+    payload="$(exec cat 2>/dev/null)"
+    out="$(exec jq -r '(.reason // "" | tostring | gsub("\n"; " ")), (.cwd // "")' <<<"$payload" 2>/dev/null)"
+    hook_reason="${out%%$'\n'*}"
+    cwd=""
+    [[ $out == *$'\n'* ]] && cwd="${out#*$'\n'}"
     # Worktree folders have generated names; the branch says what the
     # session is about. Detached, fall back to the worktree root's name.
-    if [[ -n "$cwd" ]] && toplevel="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)"; then
-        dir="$(git -C "$cwd" symbolic-ref -q --short HEAD 2>/dev/null || basename "$toplevel")"
+    # HEAD is read from the git dir so an unborn branch still names itself.
+    if [[ -n "$cwd" ]] \
+        && out="$(exec git -C "$cwd" rev-parse --show-toplevel --absolute-git-dir 2>/dev/null)"; then
+        toplevel="${out%%$'\n'*}"
+        gitdir="${out#*$'\n'}"
+        head=""
+        read -r head 2>/dev/null <"$gitdir/HEAD"
+        if [[ $head == 'ref: refs/heads/'* ]]; then
+            dir="${head#ref: refs/heads/}"
+        else
+            dir="${toplevel##*/}"
+        fi
     else
-        dir="$(basename "${cwd:-?}" 2>/dev/null || printf '?')"
+        dir="${cwd%/}"
+        dir="${dir##*/}"
+        [[ -n "$dir" ]] || dir="?"
     fi
 
     tool="Agent"
     pid="$PPID"
     for _ in 1 2 3 4 5 6 7 8 9 10; do
         [[ -z "$pid" || "$pid" == "1" ]] && break
-        case "$(ps -p "$pid" -o comm= 2>/dev/null | tr -d '[:space:]')" in
+        if [[ -r /proc/$pid/stat ]]; then
+            # pid (comm) state ppid ...; comm may hold spaces or parens.
+            read -r stat 2>/dev/null </proc/"$pid"/stat || break
+            comm="${stat#*(}"
+            comm="${comm%)*}"
+            stat="${stat##*) }"
+            stat="${stat#* }"
+            pid="${stat%% *}"
+        else
+            read -r pid comm < <(ps -p "$pid" -o ppid=,comm= 2>/dev/null) || break
+            comm="${comm##*/}"
+        fi
+        case "$comm" in
             grok)     tool="Grok";     break ;;
             opencode|opencode.exe) tool="OpenCode"; break ;;
             claude)   tool="Claude";   break ;;
         esac
-        pid="$(ps -p "$pid" -o ppid= 2>/dev/null | tr -d '[:space:]')"
     done
 
     [[ -n "${TMUX_PANE-}" ]] \
-        && tmux_session="$(tmux display-message -p -t "$TMUX_PANE" '#S' 2>/dev/null)"
+        && tmux_session="$(exec tmux display-message -p -t "$TMUX_PANE" '#S' 2>/dev/null)"
 
     if [[ -n "$tmux_session" ]]; then
         project="$tmux_session"
