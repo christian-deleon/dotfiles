@@ -110,6 +110,11 @@ main() {
             ;;
     esac
 
+    if [[ -z "$profile" ]] && ! _interactive; then
+        _error "No terminal for the profile picker — pass --profile <name>"
+        exit 1
+    fi
+
     if [[ "$OSTYPE" == darwin* ]]; then
         ensure_homebrew
     fi
@@ -124,10 +129,6 @@ main() {
     run_core_config
 
     local choice="$profile"
-    if [[ -z "$choice" ]] && ! _interactive; then
-        _error "No terminal for the profile picker — pass --profile <name>"
-        exit 1
-    fi
     if [[ -z "$choice" ]]; then
         choice="$(select_profile)" || { _warn "No selection made — exiting"; exit 1; }
     fi
