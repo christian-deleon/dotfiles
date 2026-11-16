@@ -17,36 +17,46 @@ allow_with_note() {
     exit 0
 }
 
-skip=$(jq -r '(.stop_hook_active // .stopHookActive // false)
-    or ((.subagentType // "") != "")
-    or ((.reason // "end_turn") != "end_turn")' <<<"$payload" 2>/dev/null)
-[[ $skip == false ]] || exit 0
-
-cwd=$(jq -r '.cwd // empty' <<<"$payload" 2>/dev/null)
+out=$(jq -r 'if (.stop_hook_active // .stopHookActive // false)
+        or ((.subagentType // "") != "")
+        or ((.reason // "end_turn") != "end_turn")
+    then "skip" else "go", (.cwd // "") end' <<<"$payload" 2>/dev/null)
+[[ $out == go* ]] || exit 0
+cwd=${out#go}
+cwd=${cwd#$'\n'}
 cd -- "${cwd:-$PWD}" 2>/dev/null || exit 0
 
 branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || exit 0
 [[ ${branch##*/} =~ ^([0-9]+)(-|$) ]] || exit 0
 issue=${BASH_REMATCH[1]}
 
+# Same directory `wto dir` prints. A saved draft means the owner is reviewing
+# the closing comment, so the session may wait. The closed stamp keeps a
+# merged branch from asking the tracker again on every later turn.
+common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || exit 0
+close_dir="$common/orchestrate/issue-close"
+draft="$close_dir/${branch//\//-}.md"
+stamp="$close_dir/${branch//\//-}.closed"
+[[ -e $stamp ]] && exit 0
+
 # A merged branch and a fresh one both sit at or behind the default branch;
 # only a "commit" entry in the branch reflog shows it did work.
-git reflog show --format=%gs "refs/heads/$branch" 2>/dev/null | grep -q '^commit' || exit 0
+reflog="$common/logs/refs/heads/$branch"
+if [[ -f $reflog ]]; then
+    grep -q $'\tcommit' -- "$reflog" || exit 0
+else
+    git reflog show --format=%gs "refs/heads/$branch" 2>/dev/null | grep -q '^commit' || exit 0
+fi
 
 default=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null) \
     && default=${default#origin/}
 if [[ -z $default ]]; then
     # A bare project's HEAD names the branch it was cloned on.
-    default=$(git --git-dir="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" \
-        symbolic-ref --quiet --short HEAD 2>/dev/null)
+    default=$(git --git-dir="$common" symbolic-ref --quiet --short HEAD 2>/dev/null)
 fi
 [[ -n $default && $default != "$branch" ]] || exit 0
 git merge-base --is-ancestor HEAD "refs/heads/$default" 2>/dev/null || exit 0
 
-# Same directory `wto dir` prints. A saved draft means the owner is reviewing
-# the closing comment, so the session may wait.
-common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || exit 0
-draft="$common/orchestrate/issue-close/${branch//\//-}.md"
 [[ -f $draft ]] && exit 0
 
 url=$(git remote get-url origin 2>/dev/null) \
@@ -69,26 +79,49 @@ host=${host%%:*}
 repo=${repo%.git}
 repo=${repo%/}
 
+# Which CLI reads this host's tracker, remembered per host after a good read
+# so later turns skip the probing; a failed read forgets it.
+tracker_cache="${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles/issue-tracker/$host"
+gh_hosts="${GH_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/gh}/hosts.yml"
 state=''
 tool=''
-if [[ $host == github.com ]] || { command -v gh >/dev/null && gh auth status --hostname "$host" >/dev/null 2>&1; }; then
-    tool=gh
-    state=$(timeout 10 gh issue view "$issue" -R "$host/$repo" --json state -q .state 2>/dev/null)
-elif command -v tea >/dev/null \
-    && login=$(tea logins list --output json 2>/dev/null | jq -r --arg h "$host" '
-        [.[] | select((.url | sub("^[a-z]+://"; "") | sub("[:/].*$"; "")) == $h or .ssh_host == $h)][0].name // empty') \
-    && [[ -n $login ]]; then
-    tool=tea
-    state=$(timeout 10 tea issues "$issue" --login "$login" --repo "$repo" --comments=false --output json 2>/dev/null \
-        | jq -r '.state // empty' 2>/dev/null)
-elif [[ $host == gitlab.com ]] || { command -v glab >/dev/null && glab auth status --hostname "$host" >/dev/null 2>&1; }; then
-    tool=glab
-    state=$(timeout 10 glab issue view "$issue" -R "$url" --output json 2>/dev/null | jq -r '.state // empty' 2>/dev/null)
+login=''
+read -r tool login 2>/dev/null <"$tracker_cache"
+if [[ -z $tool ]]; then
+    # gh's hosts.yml names every host it has a login for; `gh auth status`
+    # would validate the token over the network instead.
+    if [[ $host == github.com ]] || { command -v gh >/dev/null && grep -qxF -- "$host:" "$gh_hosts" 2>/dev/null; }; then
+        tool=gh
+    elif command -v tea >/dev/null \
+        && login=$(tea logins list --output json 2>/dev/null | jq -r --arg h "$host" '
+            [.[] | select((.url | sub("^[a-z]+://"; "") | sub("[:/].*$"; "")) == $h or .ssh_host == $h)][0].name // empty') \
+        && [[ -n $login ]]; then
+        tool=tea
+    elif [[ $host == gitlab.com ]] || { command -v glab >/dev/null && glab auth status --hostname "$host" >/dev/null 2>&1; }; then
+        tool=glab
+    fi
 fi
+case $tool in
+    gh) state=$(timeout 10 gh issue view "$issue" -R "$host/$repo" --json state -q .state 2>/dev/null) ;;
+    tea)
+        state=$(timeout 10 tea issues "$issue" --login "$login" --repo "$repo" --comments=false --output json 2>/dev/null \
+            | jq -r '.state // empty' 2>/dev/null)
+        ;;
+    glab) state=$(timeout 10 glab issue view "$issue" -R "$url" --output json 2>/dev/null | jq -r '.state // empty' 2>/dev/null) ;;
+esac
 state=${state,,}
+if [[ -n $state ]]; then
+    mkdir -p -- "${tracker_cache%/*}" 2>/dev/null \
+        && printf '%s %s\n' "$tool" "$login" >"$tracker_cache" 2>/dev/null
+else
+    rm -f -- "$tracker_cache" 2>/dev/null
+fi
 
 case $state in
-    closed) exit 0 ;;
+    closed)
+        mkdir -p -- "$close_dir" 2>/dev/null && : >"$stamp" 2>/dev/null
+        exit 0
+        ;;
     open | opened) ;;
     *)
         if [[ -z $tool ]]; then
