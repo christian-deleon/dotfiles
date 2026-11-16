@@ -440,6 +440,8 @@ reload_opencode_service() {
 # entry behind; hooks from other tools are kept. Notification skips idle_prompt:
 # it repeats the Stop toast ~60s after a turn. PreToolUse on AskUserQuestion
 # marks the session blocked so `wto send` does not type into the question.
+# StopFailure replaces Stop when a turn ends on an API error, so it marks the
+# session idle too.
 # Empty attribution strings keep Claude out of commit trailers and PR bodies;
 # sessionUrl drops the Claude-Session trailer from cloud sessions.
 ensure_claude_settings() {
@@ -467,6 +469,7 @@ ensure_claude_settings() {
           ["PreToolUse", group("AskUserQuestion"; [cmd("session_state.sh blocked")])],
           ["PostToolUse", group(""; [cmd("session_state.sh working")])],
           ["Stop", group(""; [cmd("stop_notify.sh"), cmd("session_state.sh idle"), cmd("issue_close_gate.sh")])],
+          ["StopFailure", group(""; [cmd("session_state.sh idle")])],
           ["Notification", group("permission_prompt|elicitation_dialog";
             [cmd("notification_notify.sh"), cmd("session_state.sh blocked")])],
           ["SessionEnd", group(""; [cmd("session_state.sh exited")])]
