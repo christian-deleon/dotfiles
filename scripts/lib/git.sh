@@ -322,7 +322,11 @@ dotfiles_update_submodules() {
         while IFS= read -r line; do
             case "$before" in
                 *"${line:1}"*) ;;
-                *) line="${line:1}"; line="${line#* }"; note_change "updated ${line%% *}" ;;
+                *)
+                    line="${line:1}"
+                    line="${line#* }"
+                    note_change "updated ${line%% *}"
+                    ;;
             esac
         done <<<"$after"
     fi
