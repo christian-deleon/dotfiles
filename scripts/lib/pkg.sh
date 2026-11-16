@@ -82,7 +82,12 @@ ensure_homebrew() {
     fi
 }
 
+# Go yq on Linux comes from its release before manifest.yaml can be read, so
+# its release spec lives here instead of in the manifest.
+_YQ_RELEASE='{"repo":"mikefarah/yq","asset":"yq_{os}_{arch}","bin":"yq","arch":{"x86_64":"amd64","aarch64":"arm64"}}'
+
 ensure_yq() {
+    [[ "$OSTYPE" == darwin* ]] || release_path_add
     if command -v yq &>/dev/null; then
         return 0
     fi
@@ -93,12 +98,8 @@ ensure_yq() {
     if [[ "$OSTYPE" == darwin* ]]; then
         _info "Installing yq via Homebrew..."
         pkg_install yq || true
-    elif [[ -f "$DOTFILES_DIR/scripts/tools/install-yq.sh" ]]; then
-        _info "Installing yq via install-yq.sh..."
-        bash "$DOTFILES_DIR/scripts/tools/install-yq.sh"
     else
-        _error "Cannot bootstrap yq — no install method available"
-        return 1
+        release_install_spec yq "$_YQ_RELEASE" || true
     fi
 
     if ! command -v yq &>/dev/null; then
