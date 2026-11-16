@@ -17,6 +17,11 @@ function sk() {
         return 1
     fi
 
+    if ! command -v jq &>/dev/null; then
+        echo "Error: jq is not installed"
+        return 1
+    fi
+
     # Discover every Skaffold Config reachable from cwd by content match
     # (`apiVersion: skaffold/`) so we catch configs that aren't literally
     # named skaffold.yaml (e.g. modules under infra/skaffold/*.yaml).
@@ -41,14 +46,21 @@ function sk() {
         return 1
     fi
 
+    # Python yq (a jq wrapper) and mikefarah's Go yq take different flags, so
+    # convert each config to JSON (one line per document) and query with jq.
+    local -a to_json=(yq -c '.')
+    if yq --version 2>&1 | grep -q mikefarah; then
+        to_json=(yq -o=json -I=0 '.')
+    fi
+
     # One row per (config, profile) pair, with "(no profile)" as the
     # default per-config row.
     local list cfg
     list=$(
         for cfg in "${configs[@]}"; do
             printf '%s :: (no profile)\n' "$cfg"
-            yq ea '.profiles[]?.name // ""' "$cfg" 2>/dev/null \
-                | grep -v '^$' \
+            "${to_json[@]}" "$cfg" 2>/dev/null \
+                | jq -r '.profiles[]?.name // empty | select(. != "")' 2>/dev/null \
                 | sort -u \
                 | while IFS= read -r prof; do
                       printf '%s :: %s\n' "$cfg" "$prof"
