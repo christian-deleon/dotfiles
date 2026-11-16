@@ -9,6 +9,7 @@ DOTFILES_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 FUNCTIONS_DIR="$DOTFILES_DIR/functions.d"
 COMPLETIONS_DIR="$DOTFILES_DIR/completions.d"
 ALIASES_FILE="$DOTFILES_DIR/.aliases"
+PARSER="$DOTFILES_DIR/scripts/descriptions.awk"
 
 MAX_LEN=60
 errors=0
@@ -24,6 +25,14 @@ ok() {
     printf '  \033[32m ok \033[0m  %s\n' "$1"
 }
 
+# Fields after the record kind, split by hand: `read` with a tab IFS would
+# merge an empty description into the next field.
+fields() {
+    rec=${1#*$'\t'}
+    name=${rec%%$'\t'*}
+    rec=${rec#*$'\t'}
+}
+
 # ── check functions.d/*.sh and completions.d/*.sh ────────────────────────────
 
 for fn_file in "$FUNCTIONS_DIR"/*.sh "$COMPLETIONS_DIR"/*.sh; do
@@ -33,61 +42,25 @@ for fn_file in "$FUNCTIONS_DIR"/*.sh "$COMPLETIONS_DIR"/*.sh; do
     echo "$(basename "$(dirname "$fn_file")")/$(basename "$fn_file")"
     echo "──────────────────────────────────────────────────"
 
-    prev_comment=""
-    prev_line_was_comment=false
-
+    # Records: check <name> <multi> <desc>, the comment run right above it.
     while IFS= read -r line; do
-        # Skip the `# Category: X` header — it's metadata, not a description
-        if [[ "$line" =~ ^#[[:space:]]*Category: ]]; then
-            prev_comment=""
-            prev_line_was_comment=false
-            continue
+        [[ "$line" == check$'\t'* ]] || continue
+        fields "$line"
+        multi=${rec%%$'\t'*}
+        desc=${rec#*$'\t'}
+
+        if [[ "$multi" == 0 && "$desc" == internal:* ]]; then
+            : # skip internal helpers
+        elif [[ "$multi" == 1 ]]; then
+            fail "$name — multiline description"
+        elif [[ -z "$desc" ]]; then
+            fail "$name — missing description"
+        elif (( ${#desc} > MAX_LEN )); then
+            fail "$name — description too long (${#desc} chars > $MAX_LEN): $desc"
+        else
+            ok "$name — $desc"
         fi
-
-        if [[ "$line" =~ ^#[[:space:]]*(.+) ]]; then
-            desc="${BASH_REMATCH[1]}"
-
-            if [[ "$prev_line_was_comment" == true ]]; then
-                # Second (or more) consecutive comment line before a function — multiline description
-                # We'll flag it when we hit the function declaration
-                prev_comment="MULTILINE"
-            else
-                prev_comment="$desc"
-            fi
-            prev_line_was_comment=true
-            continue
-        fi
-
-        if [[ "$line" =~ ^function[[:space:]]+([a-zA-Z_][a-zA-Z0-9_-]*)\(\) ]]; then
-            name="${BASH_REMATCH[1]}"
-
-            if [[ "$prev_comment" == internal:* ]]; then
-                : # skip internal helpers
-            elif [[ "$prev_comment" == "MULTILINE" ]]; then
-                fail "$name — multiline description"
-            elif [[ -z "$prev_comment" ]]; then
-                fail "$name — missing description"
-            elif (( ${#prev_comment} > MAX_LEN )); then
-                fail "$name — description too long (${#prev_comment} chars > $MAX_LEN): $prev_comment"
-            else
-                ok "$name — $prev_comment"
-            fi
-
-            prev_comment=""
-            prev_line_was_comment=false
-            continue
-        fi
-
-        # Any non-comment, non-function line resets comment state
-        if [[ ! "$line" =~ ^[[:space:]]*$ ]]; then
-            prev_comment=""
-            prev_line_was_comment=false
-        elif [[ -z "$line" ]]; then
-            prev_comment=""
-            prev_line_was_comment=false
-        fi
-
-    done < "$fn_file"
+    done < <(awk -f "$PARSER" kind=fn "$fn_file")
 done
 
 # ── check .aliases ────────────────────────────────────────────────────────────
@@ -98,23 +71,18 @@ echo "────────────────────────�
 
 # Each alias must carry an inline description: `alias foo='bar'  # Description`
 while IFS= read -r line; do
-    if [[ "$line" =~ ^alias[[:space:]]+([^=]+)=(.+)$ ]]; then
-        name="${BASH_REMATCH[1]}"
-        rest="${BASH_REMATCH[2]}"
-        desc=""
-        if [[ "$rest" =~ ^(.+)[[:space:]]+#[[:space:]]+(.+)$ ]]; then
-            desc="${BASH_REMATCH[2]}"
-        fi
+    [[ "$line" == alias$'\t'* ]] || continue
+    fields "$line"
+    desc=${rec%%$'\t'*}
 
-        if [[ -z "$desc" ]]; then
-            fail "$name — missing inline description"
-        elif (( ${#desc} > MAX_LEN )); then
-            fail "$name — description too long (${#desc} chars > $MAX_LEN): $desc"
-        else
-            ok "$name — $desc"
-        fi
+    if [[ -z "$desc" ]]; then
+        fail "$name — missing inline description"
+    elif (( ${#desc} > MAX_LEN )); then
+        fail "$name — description too long (${#desc} chars > $MAX_LEN): $desc"
+    else
+        ok "$name — $desc"
     fi
-done < "$ALIASES_FILE"
+done < <(awk -f "$PARSER" kind=alias "$ALIASES_FILE")
 
 # ── summary ───────────────────────────────────────────────────────────────────
 
