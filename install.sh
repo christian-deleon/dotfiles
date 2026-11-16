@@ -77,15 +77,17 @@ Profiles (profiles/*.yaml — only host-compatible ones are picker-visible):
 EOF
     local p desc
     while IFS= read -r p; do
-        desc="$(yq -r '.description // ""' "$DOTFILES_DIR/profiles/$p.yaml" 2>/dev/null)"
+        desc=""
+        IFS=$'\x1f' read -r _ desc _ < <(profile_meta "$p" 2>/dev/null) || true
         printf '  %s — %s\n' "$p" "$desc"
     done < <(list_profiles 2>/dev/null)
     echo
     echo "Items (manifest.yaml — '(+ config)' = bundle, installs binary + config):"
-    local item
-    while IFS= read -r item; do
-        printf '  %s\n' "$(manifest_label "$item")"
-    done < <(manifest_list_all 2>/dev/null)
+    data_load_manifest 2>/dev/null || return 0
+    local label
+    while IFS=$'\x1f' read -r _ _ label _; do
+        printf '  %s\n' "$label"
+    done < <(manifest_label_rows)
 }
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
@@ -113,6 +115,8 @@ main() {
     fi
 
     ensure_yq
+    ensure_jq
+    data_load
 
     echo
     printf '%b\n' "${_BOLD}Dotfiles Installer${_RESET}"

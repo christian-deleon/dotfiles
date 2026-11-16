@@ -65,14 +65,20 @@ ai_models_file() {
     printf '%s\n' "${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles/ai-models.json"
 }
 
-# Write the merged table and print its path. Fails (writing nothing) when
-# ai/models.yaml or the profile block is malformed.
+# Write the merged table and set AI_MODELS_TABLE to its path, once per
+# active profile. Call it directly, not in $(…), so the result is kept. Fails
+# (writing nothing) when ai/models.yaml or the profile block is malformed.
 ai_models_resolve() {
-    local src="$DOTFILES_DIR/ai/models.yaml" out base profile merged
+    local out base profile merged
+    _profile_json_load
+    if [[ -n "${AI_MODELS_TABLE:-}" && "${_AI_MODELS_KEY:-}" == "$_PROFILE_JSON_KEY" ]]; then
+        return 0
+    fi
+    AI_MODELS_TABLE=""
     out="$(ai_models_file)"
-    [[ -f "$src" ]] || return 1
     ensure_jq || return 1
-    base="$(_yq_json "$src")" || { _warn "Could not parse ai/models.yaml"; return 1; }
+    data_load_models || return 1
+    base="$_MODELS_JSON"
     profile="$(profile_models_json)" || profile='{}'
     if ! merged="$(jq -cne --argjson b "$base" --argjson p "$profile" '
         def table: type == "object" and all(.[]; type == "object" and all(.[];
@@ -89,7 +95,8 @@ ai_models_resolve() {
     if [[ ! -f "$out" ]] || [[ "$(<"$out")" != "$merged" ]]; then
         printf '%s\n' "$merged" > "$out"
     fi
-    printf '%s\n' "$out"
+    AI_MODELS_TABLE="$out"
+    _AI_MODELS_KEY="$_PROFILE_JSON_KEY"
 }
 
 # First line of every agent file rendered below; marks it as ours to replace.
@@ -150,7 +157,8 @@ install_ai_agents() {
             continue
         fi
         if [[ -z "$table" ]]; then
-            table="$(ai_models_resolve)" || { _warn "Skipping job agents for $h"; return 0; }
+            ai_models_resolve || { _warn "Skipping job agents for $h"; return 0; }
+            table="$AI_MODELS_TABLE"
         fi
         tmp="$(mktemp "$dest/.$name.XXXXXX")"
         render_agent "$f" "$h" "$table" > "$tmp" && chmod 644 "$tmp" && mv -- "$tmp" "$dest/$name"
@@ -314,8 +322,8 @@ install_ai_opencode() {
     fi
 
     if [[ -x "$ai_dir/scripts/generate-opencode-config.sh" ]]; then
-        local table
-        table="$(ai_models_resolve)" || table=""
+        local table=""
+        ai_models_resolve && table="$AI_MODELS_TABLE"
         "$ai_dir/scripts/generate-opencode-config.sh" "$ai_dir" "$oc_dir" "$table"
     fi
     reload_opencode_service

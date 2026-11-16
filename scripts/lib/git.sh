@@ -100,9 +100,8 @@ ensure_ssh_auth_sock() {
 install_git_submodules() {
     ensure_ssh_auth_sock
 
-    local want_ssh=1 profile_file
-    if profile_file="$(active_profile_file)" &&
-        ! yq -e '.core_extras // [] | contains(["ssh-config"])' "$profile_file" &>/dev/null; then
+    local want_ssh=1
+    if active_profile_file >/dev/null && ! profile_has_extra ssh-config; then
         want_ssh=0
     fi
 

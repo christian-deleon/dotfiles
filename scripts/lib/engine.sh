@@ -18,14 +18,15 @@ install_tool() {
     item="$resolved"
 
     # Must have an install block to be installable as a tool.
-    if [[ "$(yq -r ".\"$item\".install != null" "$MANIFEST_FILE")" != "true" ]]; then
+    if [[ "$(manifest_kind "$item")" != bundle && "$(manifest_kind "$item")" != tool ]]; then
         _warn "${_BOLD}$item${_RESET} has no binary install (config-only)"
         return 1
     fi
 
     # Check if already installed using install.command (or item name as fallback).
     local cmd_name
-    cmd_name="$(yq -r ".\"$item\".install.command // \"$item\"" "$MANIFEST_FILE")"
+    cmd_name="$(manifest_field "$item" .install.command)"
+    cmd_name="${cmd_name:-$item}"
     if command -v "$cmd_name" &>/dev/null; then
         _info "${_DIM}$item${_RESET} already installed — skipping"
         return 0
@@ -46,12 +47,12 @@ install_tool() {
 
     # Get per-OS package name (may be null).
     local pkg_name
-    pkg_name="$(yq -r ".\"$item\".install.$pkg_manager // \"\"" "$MANIFEST_FILE")"
+    pkg_name="$(manifest_field "$item" ".install.$pkg_manager")"
 
     # If no package name (null/empty), fall back to script.
     if [[ -z "$pkg_name" || "$pkg_name" == "null" ]]; then
         local script
-        script="$(yq -r ".\"$item\".install.script // \"\"" "$MANIFEST_FILE")"
+        script="$(manifest_field "$item" .install.script)"
         local script_path="$DOTFILES_DIR/scripts/tools/$script"
         if [[ -n "$script" && -f "$script_path" ]]; then
             _info "Installing ${_BOLD}$item${_RESET} via script..."
@@ -126,14 +127,12 @@ install_tools() {
 # Rebuild source-built items marked with `install.update: true`.
 # Each script must accept --force to bypass its install-time short-circuit.
 update_source_tools() {
-    ensure_yq || return 0
+    data_load_manifest || return 0
 
-    local items=()
+    local items=() item
     while IFS= read -r item; do
-        local flag
-        flag="$(yq -r ".\"$item\".install.update // false" "$MANIFEST_FILE")"
-        [[ "$flag" == "true" ]] && items+=("$item")
-    done < <(manifest_list_all)
+        [[ -n "$item" ]] && items+=("$item")
+    done < <(jq -r 'to_entries[] | select(.value.install.update == true) | .key' <<<"$_MANIFEST_JSON")
 
     [[ ${#items[@]} -eq 0 ]] && return 0
 
@@ -141,7 +140,7 @@ update_source_tools() {
     local failed=()
     local item script script_path
     for item in "${items[@]}"; do
-        script="$(yq -r ".\"$item\".install.script // \"\"" "$MANIFEST_FILE")"
+        script="$(manifest_field "$item" .install.script)"
         if [[ -z "$script" ]]; then
             _warn "$item has install.update: true but no script — skipping"
             continue
@@ -194,92 +193,62 @@ _tombstone_valid_name() {
     return 0
 }
 
-# Return 0 if the tombstone entry's requires: are met (or absent).
-# Usage: tombstone_requires_met <id>
-tombstone_requires_met() {
-    local id=$1
-    local preds pred
-    preds="$(yq -r ".\"$id\".requires[]?" "$TOMBSTONES_FILE" 2>/dev/null)"
-    [[ -z "$preds" ]] && return 0
-
-    while IFS= read -r pred; do
-        [[ -z "$pred" ]] && continue
-        if ! host_has "$pred"; then
-            return 1
-        fi
-    done <<< "$preds"
-    return 0
-}
-
 # Remove one path if it exists. Prints a line when something is deleted.
 # Usage: _tombstone_remove_path <absolute-path>
-# Returns 0 always; sets _tombstone_removed=1 when a removal happened.
 _tombstone_remove_path() {
     local path=$1
     [[ -e "$path" || -L "$path" ]] || return 0
     rm -rf -- "$path"
     _info "Removed retired path: $path"
     note_change "removed retired $path"
-    _tombstone_removed=1
 }
 
 # Apply all tombstones: delete declared residue if still present.
 # Idempotent; no-ops when the file is missing or nothing is left.
 apply_tombstones() {
     [[ -f "$TOMBSTONES_FILE" ]] || return 0
-    ensure_yq || return 0
+    data_load_manifest || return 0
+    data_load_tombstones
 
-    local ids=() id
-    while IFS= read -r id; do
-        [[ -n "$id" && "$id" != "null" ]] && ids+=("$id")
-    done < <(yq -r 'keys | .[]' "$TOMBSTONES_FILE" 2>/dev/null)
+    local kind_row id requires desc kind name root target
+    local removed=0 announced="" skipped=""
+    local nl=$'\n'
+    while IFS=$'\x1f' read -r kind_row id requires desc kind name _; do
+        [[ "$kind_row" == tomb ]] || continue
+        case "$nl$skipped" in *"$nl$id$nl"*) continue ;; esac
+        if ! requires_met "$requires"; then
+            skipped+="$id$nl"
+            continue
+        fi
+        root="$(xdg_root "$kind")" || continue
+        [[ -n "$root" ]] || continue
+        if ! _tombstone_valid_name "$name"; then
+            _warn "tombstone '$id': skipping unsafe path name '$name'"
+            continue
+        fi
+        target="$root/$name"
+        # Belt-and-suspenders: target must stay under root.
+        case "$target" in
+            "$root"/*) ;;
+            *)
+                _warn "tombstone '$id': refusing path outside root: $target"
+                continue
+                ;;
+        esac
+        [[ -e "$target" || -L "$target" ]] || continue
 
-    [[ ${#ids[@]} -eq 0 ]] && return 0
+        if [[ "$removed" -eq 0 ]]; then
+            _info "Applying tombstones..."
+        fi
+        if [[ "$announced" != "$id" ]]; then
+            _info "Tombstone ${_BOLD}$id${_RESET}: $desc"
+            announced="$id"
+        fi
+        _tombstone_remove_path "$target"
+        removed=1
+    done < <(data_plan_rows --tombstones)
 
-    local _tombstone_removed=0
-    local kind name root target desc announced
-    local -a kinds=(xdg_config xdg_data xdg_state xdg_cache home)
-
-    for id in "${ids[@]}"; do
-        tombstone_requires_met "$id" || continue
-
-        desc="$(yq -r ".\"$id\".description // \"$id\"" "$TOMBSTONES_FILE" 2>/dev/null)"
-        announced=0
-
-        for kind in "${kinds[@]}"; do
-            root="$(xdg_root "$kind")" || continue
-            [[ -n "$root" ]] || continue
-
-            while IFS= read -r name; do
-                [[ -z "$name" || "$name" == "null" ]] && continue
-                if ! _tombstone_valid_name "$name"; then
-                    _warn "tombstone '$id': skipping unsafe path name '$name'"
-                    continue
-                fi
-                target="$root/$name"
-                # Belt-and-suspenders: target must stay under root.
-                case "$target" in
-                    "$root"/*) ;;
-                    *)
-                        _warn "tombstone '$id': refusing path outside root: $target"
-                        continue
-                        ;;
-                esac
-                [[ -e "$target" || -L "$target" ]] || continue
-
-                if [[ "$_tombstone_removed" -eq 0 ]]; then
-                    _info "Applying tombstones..."
-                fi
-                if [[ "$announced" -eq 0 ]]; then
-                    _info "Tombstone ${_BOLD}$id${_RESET}: $desc"
-                    announced=1
-                fi
-                _tombstone_remove_path "$target"
-            done < <(yq -r ".\"$id\".\"$kind\"[]?" "$TOMBSTONES_FILE" 2>/dev/null)
-        done
-    done
-
-    if [[ "$_tombstone_removed" -eq 1 ]]; then
+    if [[ "$removed" -eq 1 ]]; then
         _success "Tombstone cleanup complete"
     fi
     return 0
@@ -291,7 +260,8 @@ apply_tombstones() {
 install_stow_config() {
     local item="$1"
     local pkg
-    pkg="$(yq -r ".\"$item\".config.package // \"$item\"" "$MANIFEST_FILE")"
+    pkg="$(manifest_field "$item" .config.package)"
+    pkg="${pkg:-$item}"
 
     if [[ ! -d "$DOTFILES_DIR/$pkg" ]]; then
         _warn "Stow package not found: $pkg"
@@ -348,7 +318,7 @@ install_stow_config() {
 install_handler_config() {
     local item="$1"
     local handler
-    handler="$(yq -r ".\"$item\".config.handler // \"\"" "$MANIFEST_FILE")"
+    handler="$(manifest_field "$item" .config.handler)"
     if [[ -z "$handler" ]]; then
         _error "$item has type:handler but no handler name"
         return 1
@@ -381,13 +351,13 @@ install_item() {
     ai_harness_check_allowed "$item" || return 1
 
     # Binary install (if present)
-    if [[ "$(yq -r ".\"$item\".install != null" "$MANIFEST_FILE")" == "true" ]]; then
+    if [[ "$(manifest_kind "$item")" == bundle || "$(manifest_kind "$item")" == tool ]]; then
         install_tools "$item" || true
     fi
 
     # Config install (if present)
     local config_type
-    config_type="$(yq -r ".\"$item\".config.type // \"\"" "$MANIFEST_FILE")"
+    config_type="$(manifest_field "$item" .config.type)"
     case "$config_type" in
         stow)    install_stow_config "$item" ;;
         handler) install_handler_config "$item" ;;
@@ -434,7 +404,7 @@ items_need_stow() {
         [[ -z "$canon" ]] && continue
         kind="$(manifest_kind "$canon")"
         [[ "$kind" == "config" || "$kind" == "bundle" ]] || continue
-        cfg_type="$(yq -r ".\"$canon\".config.type // \"\"" "$MANIFEST_FILE")"
+        cfg_type="$(manifest_field "$canon" .config.type)"
         [[ "$cfg_type" == "stow" ]] && return 0
     done
     return 1
