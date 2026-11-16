@@ -27,7 +27,6 @@ items:
   - cloc
   - delta
   - docker
-  - fastfetch
   - fd
   - flux
   - flux-operator-mcp
