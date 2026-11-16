@@ -750,15 +750,15 @@ EOF
 }
 
 ai_harness_label() {
-    local name alias resume pipe
+    local name alias resume
     case "$1" in
         claude) name="Claude Code" ;;
         grok) name="Grok" ;;
         opencode) name="OpenCode" ;;
         *) return 1 ;;
     esac
-    IFS=$'\t' read -r alias resume pipe < <(ai_harness_cli "$1")
-    printf '%s — %s, resume: %s, headless: %s\n' "$name" "$alias" "$resume" "$pipe"
+    IFS=$'\t' read -r alias resume < <(ai_harness_cli "$1")
+    printf '%s — %s, resume: %s\n' "$name" "$alias" "$resume"
 }
 
 # gum picker over the enabled harnesses, profile default first. Prints the
@@ -793,9 +793,10 @@ ai_pick_harness() {
     return 1
 }
 
-# Replace the AI_TOOL / AI_TOOL_RESUME / AI_TOOL_PIPE block in ~/.localrc.
+# Replace the AI_TOOL / AI_TOOL_RESUME block in ~/.localrc. Also drops the
+# AI_TOOL_PIPE line older versions wrote.
 write_ai_tool_localrc() {
-    local ai_tool="$1" ai_resume="$2" ai_pipe="$3"
+    local ai_tool="$1" ai_resume="$2"
     local localrc="$HOME/.localrc"
 
     if [[ -f "$localrc" ]] && grep -qE '^export AI_TOOL(_RESUME|_PIPE)?=' "$localrc" 2>/dev/null; then
@@ -816,23 +817,21 @@ write_ai_tool_localrc() {
 
     {
         [[ -s "$localrc" ]] && echo ""
-        echo "# AI CLI tool (AI_TOOL/AI_TOOL_RESUME: tav, wta · AI_TOOL_PIPE: wt commit-gen)"
+        echo "# AI CLI tool (tav, wtc, wta)"
         echo "export AI_TOOL=\"$ai_tool\""
         echo "export AI_TOOL_RESUME=\"$ai_resume\""
-        echo "export AI_TOOL_PIPE=\"$ai_pipe\""
     } >> "$localrc"
 
-    success "Set AI_TOOL=$ai_tool, AI_TOOL_RESUME=\"$ai_resume\", AI_TOOL_PIPE=$ai_pipe in ${DIM}~/.localrc${RESET}"
+    success "Set AI_TOOL=$ai_tool, AI_TOOL_RESUME=\"$ai_resume\" in ${DIM}~/.localrc${RESET}"
     info "Reload current shell: ${BOLD}source ~/.localrc${RESET}  (or open a new shell)"
 }
 
-# `dot ai-tool [INT] [PIPE]`: pick the interactive (tav, wta) and headless
-# (commit-gen) harness. Only harnesses the profile allows are offered.
+# `dot ai-tool [TOOL]`: pick the harness tav, wtc and wta launch. Only
+# harnesses the profile allows are offered.
 install_ai_tool() {
     local localrc="$HOME/.localrc"
     local interactive_arg="${1:-}"
-    local pipe_arg="${2:-}"
-    local tool_h pipe_h ai_tool ai_resume ai_pipe
+    local tool_h ai_tool ai_resume
 
     if [[ -n "$interactive_arg" ]]; then
         if ! tool_h="$(ai_harness_normalize "$interactive_arg")"; then
@@ -855,36 +854,18 @@ install_ai_tool() {
         fi
 
         if ! command -v gum &>/dev/null; then
-            warn "gum not available — pass tool names directly: dot ai-tool {cl|gra|oc} {claude|grok|opencode}"
+            warn "gum not available — pass the tool name directly: dot ai-tool {cl|gra|oc}"
             return 0
         fi
 
-        if ! tool_h="$(ai_pick_harness "Select your preferred interactive AI CLI (used by tav, wta):")"; then
+        if ! tool_h="$(ai_pick_harness "Select your preferred AI CLI (used by tav, wtc, wta):")"; then
             info "No selection — leaving AI_TOOL unchanged"
             return 0
         fi
     fi
 
-    if [[ -n "$pipe_arg" ]]; then
-        if ! pipe_h="$(ai_harness_normalize "$pipe_arg")"; then
-            error "Unknown pipe tool: $pipe_arg (choose: claude, grok, opencode)"
-            return 1
-        fi
-        if ! ai_harness_allowed "$pipe_h"; then
-            error "$pipe_h is not in profiles/$(read_active_profile).yaml"
-            return 1
-        fi
-    elif [[ -n "$interactive_arg" ]] || ! command -v gum &>/dev/null; then
-        pipe_h="$tool_h"
-        info "Pipe tool defaulted to ${BOLD}$pipe_h${RESET} (matches interactive). Pass arg2 to override."
-    elif ! pipe_h="$(ai_pick_harness "Select your preferred headless AI CLI (used for commit-message generation):")"; then
-        info "No selection — defaulting pipe tool to interactive choice"
-        pipe_h="$tool_h"
-    fi
-
-    IFS=$'\t' read -r ai_tool ai_resume _ <<<"$(ai_harness_cli "$tool_h")"
-    IFS=$'\t' read -r _ _ ai_pipe <<<"$(ai_harness_cli "$pipe_h")"
-    write_ai_tool_localrc "$ai_tool" "$ai_resume" "$ai_pipe"
+    IFS=$'\t' read -r ai_tool ai_resume <<<"$(ai_harness_cli "$tool_h")"
+    write_ai_tool_localrc "$ai_tool" "$ai_resume"
 }
 
 # Write the profile's ai.default when ~/.localrc has no AI_TOOL yet. With

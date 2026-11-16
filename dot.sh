@@ -35,7 +35,7 @@ EOF
     echo "  install               - Interactive: pick a profile or items manually"
     echo "  install <name>...     - Install one or more items by name (binary + config for bundles)"
     echo "  profile <subcommand>  - Manage active profile (list/show/use)"
-    echo "  ai-tool [INT] [PIPE]  - Set AI CLIs (interactive picker, or args: INT={gra|oc|cl} PIPE={grok|opencode|claude})"
+    echo "  ai-tool [TOOL]        - Set the AI CLI tav/wtc/wta launch (picker, or TOOL={gra|oc|cl})"
     echo "  mcp-regen             - Force regenerate MCP configs (re-injects 1Password secrets)"
     echo "  agent <subcommand>    - Manage per-project & per-env AGENTS.md"
     echo "  theme <subcommand>    - Manage Omarchy theme submodules (add/update/list)"

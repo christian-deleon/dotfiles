@@ -653,7 +653,7 @@ ai_is_harness() {
     return 1
 }
 
-# Map the short names used by AI_TOOL / AI_TOOL_PIPE to a harness id.
+# Map the short names used by AI_TOOL to a harness id.
 ai_harness_normalize() {
     case "$1" in
         cl | claude) echo claude ;;
@@ -688,12 +688,12 @@ ai_harness_instructions() {
     esac
 }
 
-# Interactive alias, resume command, headless CLI — tab-separated.
+# Interactive alias and resume command, tab-separated.
 ai_harness_cli() {
     case "$1" in
-        claude) printf 'cl\tcl -c\tclaude\n' ;;
-        grok) printf 'gra\tgra -c\tgrok\n' ;;
-        opencode) printf 'oc\toc -c\topencode\n' ;;
+        claude) printf 'cl\tcl -c\n' ;;
+        grok) printf 'gra\tgra -c\n' ;;
+        opencode) printf 'oc\toc -c\n' ;;
         *) return 1 ;;
     esac
 }
