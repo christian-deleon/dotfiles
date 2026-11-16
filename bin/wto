@@ -2008,12 +2008,11 @@ close_apply() {
         wid=$(jq -r '.session.pane // empty' <<<"$entry")
         [[ -n $wid ]] && windows+=("$(tmux display-message -p -t "$wid" '#{window_id}' 2>/dev/null || true)")
     fi
-    [[ -z ${WTO_CLOSE_WINDOW-} ]] || windows+=("$WTO_CLOSE_WINDOW")
     for wid in ${windows[@]+"${windows[@]}"}; do
         [[ -n $wid && $wid == "$own_window" ]] && die "close: this window belongs to $label; run it from another window (wtx closes the one you are in)"
     done
     for wid in $(printf '%s\n' ${windows[@]+"${windows[@]}"} | sort -u); do
-        [[ -n $wid ]] && tmux kill-window -t "$wid" 2>/dev/null
+        [[ -n $wid && $wid != "${WTO_CLOSE_WINDOW-}" ]] && tmux kill-window -t "$wid" 2>/dev/null
     done
 
     since=$(date +%s)
@@ -2070,7 +2069,8 @@ close_pick() {
 }
 
 # Close the worktree this shell is in. The checks run here; the removal runs
-# in a detached tmux job so it survives the window going away.
+# in a detached tmux job, which kills this window last (with no other window,
+# that ends the tmux session).
 close_here() {
     local roster=$1 path entry blockers own_window dest wid last root log self
     [[ -n ${TMUX:-} && -n ${TMUX_PANE:-} ]] || die "close --here: run it inside tmux"
@@ -2092,8 +2092,7 @@ close_here() {
         fi
         [[ -n $dest ]] || dest=$wid
     done < <(tmux list-windows -F '#{window_id} #{window_last_flag}')
-    [[ -n $dest ]] || die "close --here: this is the only window in the tmux session; open another first"
-    tmux select-window -t "$dest"
+    [[ -z $dest ]] || tmux select-window -t "$dest"
     root=$(project_root)
     log=$(state_dir)/close-${path##*/}.log
     self=$(realpath -- "${BASH_SOURCE[0]}")
@@ -2117,6 +2116,7 @@ close_detached() {
         msg=${out##*$'\n'}
         printf '%s\n' "$out" >"$log"
         tmux display-message "wto: $msg" 2>/dev/null || true
+        [[ -z ${WTO_CLOSE_WINDOW-} ]] || tmux kill-window -t "$WTO_CLOSE_WINDOW" 2>/dev/null || true
     else
         printf '%s\n' "$out" >"$log"
         tmux display-message "wto: close of ${path##*/} failed; see $log" 2>/dev/null || true
