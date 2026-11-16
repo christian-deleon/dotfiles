@@ -80,6 +80,9 @@ One batch of questions, each with your best guess as the first option:
 - Limits on the jobs spawned sessions get (for example "never the small
   job"), or none to use the `wtc` skill's table.
 - Which shared resources need claims, and whether to gate them.
+- How a new effort should start: issue and branch, a local branch only, or only
+  on request. Guess `branch` for a personal project, `on request` for work and
+  public ones.
 - How the project's main-only and work-producing skills should hook in, when it
   is not obvious.
 
@@ -98,6 +101,7 @@ The profile block:
 - Shared resources: <names>; gate: <entry point | none>
 - Main-only skills: <names>; work-producing skills: <names>
 - Branch naming: <pattern>
+- New work: issue and branch | branch | on request
 - Deploy: <the skill or recipe that deploys and verifies | none>
 - Onboarded: <date>, dotfiles <short sha of ~/.dotfiles HEAD>
 
@@ -108,6 +112,10 @@ The profile block:
 - When a side issue arrives: <…>
 ```
 
+`New work:` is how a session in a detached `wtc` folder starts a new effort once
+it is clear (the `detached-session-folders` rule): `issue and branch` files the
+issue, then creates the branch; `branch` creates just a local branch; `on
+request` only offers. Both of the first two act without asking.
 `Issue drafts: direct` only for a personal project that is not public. `with
 push` makes the merge go cover a fast-forward push of main and deleting the
 pushed work branch. `agents:` names the label and account through which an
