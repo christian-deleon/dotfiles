@@ -63,7 +63,6 @@ cargo-sweep:
   description: Daily size cap on the shared Athenis Rust build dir (systemd timer)
   install:
     arch: cargo-sweep
-    command: cargo-sweep
   config:
     type: handler
     handler: install_cargo_sweep_timer
@@ -125,7 +124,6 @@ flux-operator-mcp:
   description: Flux MCP server (AI-assisted GitOps for Flux clusters)
   install:
     brew: controlplaneio-fluxcd/tap/flux-operator-mcp
-    command: flux-operator-mcp
     release:
       repo: controlplaneio-fluxcd/flux-operator
       asset: flux-operator-mcp_{version}_{os}_{arch}.tar.gz
@@ -351,7 +349,6 @@ sccache:
   install:
     arch: sccache
     brew: sccache
-    command: sccache
 
 skaffold:
   description: Kubernetes dev workflow
