@@ -124,14 +124,24 @@ main() {
     run_core_config
 
     local choice="$profile"
+    if [[ -z "$choice" ]] && ! _interactive; then
+        _error "No terminal for the profile picker — pass --profile <name>"
+        exit 1
+    fi
     if [[ -z "$choice" ]]; then
         choice="$(select_profile)" || { _warn "No selection made — exiting"; exit 1; }
     fi
 
+    local rc=0
     if [[ "$choice" == "manual" ]]; then
-        install_manual
+        install_manual || rc=$?
     else
-        install_from_profile "$choice"
+        install_from_profile "$choice" || rc=$?
+    fi
+    if [[ $rc -ne 0 ]]; then
+        echo
+        _warn "Dotfiles setup finished with failures (see above)"
+        exit "$rc"
     fi
 
     echo
