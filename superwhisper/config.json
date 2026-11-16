@@ -2,6 +2,9 @@
   "general": {
     "language": "en"
   },
+  "audio": {
+    "defaultPlaybackBehavior": "muffle"
+  },
   "shortcuts": {
     "toggle": "Ctrl+Alt+Space",
     "hold": "none",
