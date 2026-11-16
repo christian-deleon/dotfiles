@@ -1209,14 +1209,15 @@ tool_command() {
     printf '%s%s\n' "$first" "$rest"
 }
 
-# Worktree windows launch without permission prompts, or an unattended pane
-# would block: oc has no --auto, and cl asks before every tool.
+# Every launch from wto (tav layouts and worktree windows) skips permission
+# prompts; the plain aliases stay as they are for hand-typed runs.
 auto_tool() {
     local first=${1%% *} rest=""
     [[ $1 == *' '* ]] && rest=" ${1#* }"
     case $first in
         oc | opencode) first=oca ;;
         cl | claude) first=cca ;;
+        gr | grok) first=gra ;;
     esac
     printf '%s%s\n' "$first" "$rest"
 }
@@ -1289,7 +1290,7 @@ session_name() {
 # "$WTO_PROMPT", which the pane's launcher reads from the prompt file.
 build_launch() {
     local tool=$1 dir=$2 with_prompt=$3 expanded bin name saved model="" effort=""
-    expanded=$(tool_command "$tool")
+    expanded=$(tool_command "$(auto_tool "$tool")")
     bin=${expanded%% *}
     bin=${bin##*/}
     # Each worktree is a new Grok workspace; without --trust the TUI blocks on

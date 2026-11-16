@@ -524,7 +524,7 @@ wtc -n -j implement -f /tmp/handoff.md fix/retry   # agent-style spawn, focus st
 
 ### `wta [-p|--prompt <text>] [branch|folder]` \*
 
-Go back to a session: open its window, or switch to it if it is open. Takes a branch or a folder name; with none, the only worktree, or an fzf picker showing branch and folder. The target tmux session is the one you are in when your pane sits inside the project, else one named after the project. A reopened session continues its conversation: Grok is pinned with `-r <session-id>` (the last session with real messages, not an empty one), Claude Code resumes with `-c` when it has a transcript for that folder, OpenCode starts fresh. Claude Code and OpenCode launch as `cca` / `oca` so the pane never stops on permission prompts. `wta` is a wrapper over `wto open --switch`.
+Go back to a session: open its window, or switch to it if it is open. Takes a branch or a folder name; with none, the only worktree, or an fzf picker showing branch and folder. The target tmux session is the one you are in when your pane sits inside the project, else one named after the project. A reopened session continues its conversation: Grok is pinned with `-r <session-id>` (the last session with real messages, not an empty one), Claude Code resumes with `-c` when it has a transcript for that folder, OpenCode starts fresh. `wta`, `wtc`, `tav` and `tavk` launch every harness without permission prompts (`cca`, `gra`, `oca`); the plain `cl`, `gr`, `oc` aliases still prompt when you type them. `wta` is a wrapper over `wto open --switch`.
 
 ```bash
 wta                          # picker (or the only worktree)
