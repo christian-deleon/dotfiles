@@ -469,6 +469,39 @@ op_load_service_account() {
     export OP_SERVICE_ACCOUNT_TOKEN
 }
 
+# Check once per process that 1Password can serve secrets: a service account
+# token that op accepts, or a reachable desktop app. Prints why not on the
+# first failure. Sets _OP_SERVICE (1 for a service account) and
+# _OP_ACCOUNTS (`op account list` output, desktop app only).
+op_ready() {
+    if [[ -n "${_OP_READY:-}" ]]; then
+        [[ "$_OP_READY" == yes ]]
+        return
+    fi
+    _OP_READY=no _OP_SERVICE=0 _OP_ACCOUNTS=""
+    if ! command -v op &>/dev/null; then
+        _warn "1Password CLI not installed"
+        return 1
+    fi
+    if op_load_service_account; then
+        if ! op user get --me &>/dev/null; then
+            _error "1Password rejected the service account token in $OP_SERVICE_ACCOUNT_TOKEN_FILE"
+            return 1
+        fi
+        _OP_SERVICE=1
+    elif ! _OP_ACCOUNTS="$(op account list 2>&1)"; then
+        _error "1Password CLI cannot connect to the desktop app"
+        case "$_OP_ACCOUNTS" in
+            *"cannot connect to 1Password app"*)
+                _info "Fix: 1Password app > Settings > Developer > Enable 'Connect with 1Password CLI'"
+                ;;
+        esac
+        _OP_ACCOUNTS=""
+        return 1
+    fi
+    _OP_READY=yes
+}
+
 # ─── 1Password multi-account injection ───────────────────────────────────────
 
 # Resolve op:// references across multiple 1Password accounts. A service
@@ -489,20 +522,13 @@ op_inject_multi() {
         return 0
     fi
 
-    local service_account=0
-    op_load_service_account && service_account=1
+    op_ready || return 1
+    local service_account="$_OP_SERVICE"
 
     # vault_id → account URL map (bash 3.2-safe)
     local vault_account_map=""
     if ((!service_account)); then
-        local op_check
-        if ! op_check="$(op account list 2>&1)"; then
-            _error "1Password CLI cannot connect to desktop app"
-            if echo "$op_check" | grep -q "cannot connect to 1Password app"; then
-                _error "Make sure 1Password desktop app is running and CLI integration is enabled"
-            fi
-            return 1
-        fi
+        local op_check="$_OP_ACCOUNTS"
 
         local acct acct_url vault_line vid
         while IFS= read -r acct; do

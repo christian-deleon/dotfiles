@@ -1,16 +1,12 @@
 # shellcheck shell=bash
 # ─── Omarchy theme submodules ────────────────────────────────────────────────
-# Sourced by dot.sh. Requires DOTFILES_DIR, lib.sh helpers, and check_1password.
+# Sourced by dot.sh. Requires DOTFILES_DIR and lib.sh helpers.
 
 THEMES_DIR="omarchy/.config/omarchy/themes"
 
 
 # Update installed Omarchy theme submodules (doesn't init new ones)
 theme_update() {
-    if ! check_1password; then
-        return 1
-    fi
-
     echo
     _info "Updating installed Omarchy themes..."
 
@@ -36,7 +32,7 @@ theme_update() {
         return 0
     fi
 
-    if ! git -C "$DOTFILES_DIR" submodule update --remote "${initialized_themes[@]}" 2>&1; then
+    if ! GIT_TERMINAL_PROMPT=0 git -C "$DOTFILES_DIR" submodule update --remote --jobs 4 -- "${initialized_themes[@]}" 2>&1; then
         _error "Could not update theme submodules"
         return 1
     fi
@@ -97,12 +93,15 @@ theme_list() {
         return 1
     fi
 
+    local urls key value name url
+    urls="$(git -C "$DOTFILES_DIR" config --file .gitmodules --get-regexp '^submodule\..*\.url$' 2>/dev/null)" || urls=""
     for theme_dir in "$themes_path"/*/; do
         [[ -d "$theme_dir" ]] || continue
-        local name
         name="$(basename "$theme_dir")"
-        local url
-        url="$(git -C "$DOTFILES_DIR" config --file .gitmodules "submodule.$THEMES_DIR/$name.url" 2>/dev/null)" || url="(unknown)"
+        url="(unknown)"
+        while read -r key value; do
+            [[ "$key" == "submodule.$THEMES_DIR/$name.url" ]] && { url="$value"; break; }
+        done <<<"$urls"
         printf "  ${_BOLD}%-16s${_RESET} %s\n" "$name" "$url"
     done
     echo

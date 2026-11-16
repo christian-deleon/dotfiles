@@ -90,38 +90,6 @@ ensure_clean_dotfiles() {
 }
 
 
-# Check if 1Password CLI can connect to desktop app
-check_1password() {
-    if ! command -v op &>/dev/null; then
-        return 0
-    fi
-
-    if op_load_service_account; then
-        op user get --me &>/dev/null && return 0
-        _error "1Password rejected the service account token in $OP_SERVICE_ACCOUNT_TOKEN_FILE"
-        return 1
-    fi
-
-    local op_check
-    if ! op_check="$(op account list 2>&1)"; then
-        echo
-        _error "1Password CLI cannot connect to desktop app"
-        if echo "$op_check" | grep -q "cannot connect to 1Password app"; then
-            _error "Make sure 1Password desktop app is running and CLI integration is enabled"
-            echo
-            _info "Fix: 1Password app > Settings > Developer > Enable 'Connect with 1Password CLI'"
-        fi
-        echo
-        _error "Cannot proceed — 1Password is required for:"
-        echo "  • Git authentication (SSH via 1Password)"
-        echo "  • Git commit signing"
-        echo "  • Secret injection (MCP configs)"
-        echo
-        return 1
-    fi
-    return 0
-}
-
 # Reconcile the active profile during `dot update`: install any items present
 # in the profile but missing on this host. Add-only — removed items stay.
 # Idempotent; safe when no profile is active.
@@ -157,8 +125,9 @@ reconcile_profile() {
     fi
 }
 
-# Pull dotfiles, refresh AI, rebuild source tools, reconcile active profile.
-# OS package upgrades live in the shell function `pkgup`, not here.
+# Pull dotfiles, update submodules, clean residue, reconcile the active
+# profile, refresh AI harness configs. OS package upgrades live in the shell
+# function `pkgup`, not here.
 update_dotfiles() {
     echo
     _info "Updating dotfiles..."
@@ -170,22 +139,16 @@ update_dotfiles() {
         return 1
     fi
 
-    if ! check_1password; then
-        return 1
-    fi
-
     if [[ -d "$DOTFILES_DIR/.git" ]]; then
         if [[ -z ${DOT_UPDATE_PULLED:-} ]]; then
             phase_start pull
-            _dotfiles_push_submodules_on_demand
+            git_split_remote "$DOTFILES_DIR"
 
             local before
             before=$(git -C "$DOTFILES_DIR" rev-parse HEAD)
             _info "Pulling latest dotfiles..."
-            if ! git -C "$DOTFILES_DIR" pull --rebase --autostash 2>&1; then
+            if ! dotfiles_pull; then
                 _error "Could not pull dotfiles"
-                echo
-                _info "This may be due to SSH authentication failure (requires 1Password)"
                 return 1
             fi
             # bash keeps running the dot.sh it started with, so after a pull that
@@ -201,72 +164,20 @@ update_dotfiles() {
             fi
         fi
 
+        # After the pull, so URL changes it brought in .gitmodules are synced.
         phase_start submodules
-        # Update critical submodules — only those already initialized.
-        # Branch-tracking submodules (we commit into these) are pulled via
-        # _submodule_pull_branch so they stay on their branch instead of
-        # being checked out in detached HEAD.
-        if [[ -e "$DOTFILES_DIR/.ssh/.git" ]]; then
-            _info "Updating .ssh submodule..."
-            if ! _submodule_pull_branch .ssh; then
-                _error "Could not update .ssh"
-                echo
-                _info "This may be due to SSH authentication failure (requires 1Password)"
-                return 1
-            fi
-        fi
-
-        # tpm has no `branch =` in .gitmodules — it's pinned and advanced
-        # via `submodule update --remote`; detached HEAD is fine there.
-        if [[ -e "$DOTFILES_DIR/.tmux/plugins/tpm/.git" ]]; then
-            _info "Updating tpm submodule..."
-            if ! git -C "$DOTFILES_DIR" submodule update --remote .tmux/plugins/tpm 2>&1; then
-                _warn "tpm failed to update"
-            fi
-        fi
-
-        # Update agent-files submodule if initialized
-        if [[ -e "$DOTFILES_DIR/agent-files/.git" ]]; then
-            _info "Updating agent-files submodule..."
-            if _submodule_pull_branch agent-files; then
-                _success "agent-files updated"
-            else
-                _error "Could not update agent-files"
-            fi
-        fi
-
-        # Update any initialized theme submodules
-        local themes_dir="$DOTFILES_DIR/omarchy/.config/omarchy/themes"
-        if [[ -d "$themes_dir" ]]; then
-            local initialized_themes=()
-            for theme_dir in "$themes_dir"/*/; do
-                [[ -e "$theme_dir/.git" ]] || continue
-                local name
-                name="$(basename "$theme_dir")"
-                initialized_themes+=("omarchy/.config/omarchy/themes/$name")
-            done
-
-            if [[ ${#initialized_themes[@]} -gt 0 ]]; then
-                _info "Updating ${#initialized_themes[@]} initialized theme(s)..."
-                if git -C "$DOTFILES_DIR" submodule update --remote "${initialized_themes[@]}" 2>&1; then
-                    _success "Updated ${#initialized_themes[@]} theme(s)"
-                else
-                    _warn "Some themes failed to update"
-                fi
-            fi
-        fi
-
-        phase_start hygiene
-        link_dot_bins
-
-        # Reconcile stale symlinks left by dropped stow packages
-        clean_stale_dotfile_symlinks
+        dotfiles_split_remotes
+        dotfiles_update_submodules
     fi
 
-    # Desired-state absences: remove residue from retired tools (tombstones.yaml).
-    # Runs even when the git pull block was skipped; idempotent no-op if clean.
-    phase_start tombstones
+    phase_start hygiene
     data_load || return 1
+    if [[ -d "$DOTFILES_DIR/.git" ]]; then
+        link_dot_bins
+        clean_stale_dotfile_symlinks
+    fi
+    # Desired-state absences: remove residue from retired tools (tombstones.yaml).
+    phase_start tombstones
     apply_tombstones || true
 
     # Reconcile active profile (add missing items)
