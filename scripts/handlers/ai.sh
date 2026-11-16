@@ -9,50 +9,62 @@
 # Grok, OpenCode and Claude Code are peers: each adapter translates straight
 # from ai/ into its own tree and never reads another harness's files.
 
-# Symlink each child of $1 into $2, after dropping stale links into ai/.
-# Skips .gitkeep, Claude's reserved skills/synced dir, and real files.
-link_ai_entries() {
-    local src_dir="$1"
-    local dest_dir="$2"
-    local item name dest_item
-
-    [[ -d "$src_dir" ]] || return 0
-    mkdir -p "$dest_dir"
-    clean_ai_symlinks "$dest_dir"
-
-    for item in "$src_dir"/*; do
-        [[ -e "$item" ]] || continue
-        name="$(basename "$item")"
-        [[ "$name" == "synced" || "$name" == ".gitkeep" ]] && continue
-        dest_item="$dest_dir/$name"
-        if [[ -e "$dest_item" && ! -L "$dest_item" ]]; then
-            _warn "Path already exists, skipping: $dest_item"
+# Make directory $1 link <basename> -> path for each path in _AI_LINK_SRCS,
+# then drop every other link into ai/. Links that are already right are kept,
+# so running sessions never see an entry vanish. A real file in the way is
+# left alone with warning $2. When two sources share a basename the last wins.
+_ai_sync_links() {
+    local dest="$1" collision="$2" src name d i made=0 keep="" nl=$'\n'
+    [[ -d "$dest" ]] || mkdir -p "$dest"
+    for ((i = ${#_AI_LINK_SRCS[@]} - 1; i >= 0; i--)); do
+        src="${_AI_LINK_SRCS[i]}"
+        name="${src##*/}"
+        case "$nl$keep" in *"$nl$name$nl"*) continue ;; esac
+        d="$dest/$name"
+        if [[ -L "$d" ]]; then
+            if [[ "$d" -ef "$src" ]]; then
+                keep+="$name$nl"
+                continue
+            fi
+        elif [[ -e "$d" ]]; then
+            _warn "$collision: $d"
             continue
         fi
-        ln -snf "$item" "$dest_item"
+        ln -snf "$src" "$d"
+        keep+="$name$nl"
+        made=$((made + 1))
     done
+    clean_ai_symlinks "$dest" "$keep"
+    ((made == 0)) || note_change "linked $made in ~/${dest#"$HOME"/}"
+}
+
+# Symlink each child of $1 into $2. Skips .gitkeep and Claude's reserved
+# skills/synced dir.
+link_ai_entries() {
+    local src_dir="$1" dest_dir="$2" item name
+    local -a _AI_LINK_SRCS=()
+
+    [[ -d "$src_dir" ]] || return 0
+    for item in "$src_dir"/*; do
+        [[ -e "$item" ]] || continue
+        name="${item##*/}"
+        [[ "$name" == "synced" || "$name" == ".gitkeep" ]] && continue
+        _AI_LINK_SRCS+=("$item")
+    done
+    _ai_sync_links "$dest_dir" "Path already exists, skipping"
 }
 
 # Flatten ai/rules/**/*.md into $2/<basename>.md — Grok and Claude scan one
 # level of their rules dir, not nested category dirs.
 link_ai_rules_flat() {
-    local src="$1"
-    local dest="$2"
+    local src="$1" dest="$2" f
+    local -a _AI_LINK_SRCS=()
+
     [[ -d "$src" ]] || return 0
-
-    mkdir -p "$dest"
-    clean_ai_symlinks "$dest"
-
-    local f base dest_file
     while IFS= read -r -d '' f; do
-        base="$(basename "$f")"
-        dest_file="$dest/$base"
-        if [[ -e "$dest_file" && ! -L "$dest_file" ]]; then
-            _warn "Rule name collision, skipping: $dest_file"
-            continue
-        fi
-        ln -snf "$f" "$dest_file"
+        _AI_LINK_SRCS+=("$f")
     done < <(find "$src" -name '*.md' -type f -print0 | sort -z)
+    _ai_sync_links "$dest" "Rule name collision, skipping"
 }
 
 # ─── Models per job ───────────────────────────────────────────────────────────
