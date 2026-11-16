@@ -4,7 +4,7 @@
 # Populate context globals from hook stdin + surrounding env:
 #   tool      invoking agent: Claude / Grok / OpenCode / Agent (default)
 #   project   tmux session name in tmux, else basename of payload .cwd
-#   worktree  cwd basename when in tmux AND it differs from session; else empty
+#   worktree  branch (else worktree folder) when in tmux AND it differs from session; else empty
 #   hook_reason  Stop reason (Grok only; empty under Claude)
 #
 # Walks the process tree to find the agent — env vars are unreliable
@@ -16,10 +16,10 @@ notify::collect_context() {
     payload="$(cat 2>/dev/null || printf '{}')"
     cwd="$(jq -r '.cwd // ""' <<<"$payload" 2>/dev/null)"
     hook_reason="$(jq -r '.reason // ""' <<<"$payload" 2>/dev/null)"
-    # Prefer the git worktree root so the basename reflects the worktree
-    # (e.g. branch-named wt dir) rather than a deeper subdirectory.
+    # Worktree folders have generated names; the branch says what the
+    # session is about. Detached, fall back to the worktree root's name.
     if [[ -n "$cwd" ]] && toplevel="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)"; then
-        dir="$(basename "$toplevel")"
+        dir="$(git -C "$cwd" symbolic-ref -q --short HEAD 2>/dev/null || basename "$toplevel")"
     else
         dir="$(basename "${cwd:-?}" 2>/dev/null || printf '?')"
     fi
