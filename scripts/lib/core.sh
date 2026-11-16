@@ -575,6 +575,7 @@ install_from_profile() {
         return 1
     fi
     local -x DOTFILES_PROFILE="$name" DOTFILES_PROFILE_FROM_STATE=""
+    _profile_json_load
 
     if ! profile_is_compatible "$name"; then
         _error "Profile '$name' requirements not met on this host"
@@ -582,7 +583,6 @@ install_from_profile() {
     fi
 
     _info "Installing profile: ${_BOLD}$name${_RESET}"
-    _profile_json_load
 
     # Core extras from profile
     local extras=() e
@@ -606,24 +606,17 @@ install_from_profile() {
         items+=("$i")
     done < <(profile_list items)
 
+    local rc=0
     if [[ ${#items[@]} -gt 0 ]]; then
-        if items_need_stow "${items[@]}"; then
-            ensure_stow
-            ensure_omadot
-        fi
-
         echo
         _info "Installing ${#items[@]} items..."
-        local item
-        for item in "${items[@]}"; do
-            install_item "$item"
-        done
-
-        run_post_install "${items[@]}"
+        install_items "${items[@]}" || rc=1
     fi
 
+    # Recorded even when an item failed, so dot update keeps reconciling it.
     echo "$name" > "$PROFILE_STATE_FILE"
     _success "Profile '$name' active — recorded in ${_DIM}.active-profile${_RESET}"
+    return "$rc"
 }
 
 # Manual-mode installer: core extras picker + item picker (no profile state).
@@ -662,15 +655,6 @@ install_manual() {
         selected+=("${label%% —*}")
     done <<< "$chosen"
 
-    if items_need_stow "${selected[@]}"; then
-        ensure_stow
-        ensure_omadot
-    fi
-
     echo
-    for item in "${selected[@]}"; do
-        install_item "$item"
-    done
-
-    run_post_install "${selected[@]}"
+    install_items "${selected[@]}"
 }

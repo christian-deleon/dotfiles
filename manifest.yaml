@@ -24,6 +24,7 @@ alacritty:
     arch: alacritty
     apt: alacritty
     brew: --cask alacritty
+    check: apps:Alacritty.app/Contents/MacOS/alacritty
   config:
     type: stow
   post_install: [alacritty_setup]
@@ -40,6 +41,7 @@ blesh:
   description: Bash autosuggestions + syntax highlighting (ble.sh)
   install:
     script: install-blesh.sh
+    check: xdg_data:blesh/ble.sh
   config:
     type: stow
   requires: [linux]

@@ -150,17 +150,11 @@ reconcile_profile() {
 
     [[ ${#items[@]} -eq 0 ]] && { _info "Profile has no items"; return 0; }
 
-    if items_need_stow "${items[@]}"; then
-        ensure_stow
-        ensure_omadot
+    if install_items "${items[@]}"; then
+        _success "Profile reconciliation complete"
+    else
+        _warn "Profile reconciliation finished with failures"
     fi
-
-    for i in "${items[@]}"; do
-        install_item "$i"
-    done
-
-    run_post_install "${items[@]}"
-    _success "Profile reconciliation complete"
 }
 
 # Pull dotfiles, refresh AI, rebuild source tools, reconcile active profile.
@@ -262,15 +256,6 @@ update_dotfiles() {
             fi
         fi
 
-        # Refresh each enabled harness from ai/ after the pull (idempotent)
-        phase_start ai
-        data_load || return 1
-        if [[ -d "$DOTFILES_DIR/ai" ]]; then
-            local harness
-            while IFS= read -r harness; do
-                "install_ai_$harness" 2>/dev/null || _warn "Failed to install $harness config"
-            done < <(ai_enabled_harnesses)
-        fi
         phase_start hygiene
         link_dot_bins
 
@@ -284,13 +269,19 @@ update_dotfiles() {
     data_load || return 1
     apply_tombstones || true
 
-    # Rebuild source-built tools
-    phase_start source-tools
-    update_source_tools || true
-
     # Reconcile active profile (add missing items)
     phase_start reconcile
     reconcile_profile || true
+
+    # Refresh every enabled harness from ai/; the ones reconcile already
+    # installed are skipped by run_once.
+    phase_start ai
+    if [[ -d "$DOTFILES_DIR/ai" ]]; then
+        local harness
+        while IFS= read -r harness; do
+            run_once "install_ai_$harness" || _warn "Failed to install $harness config"
+        done < <(ai_enabled_harnesses)
+    fi
 
     # After reconcile, so a harness the profile just added has its dirs.
     phase_start agents
@@ -303,7 +294,7 @@ update_dotfiles() {
 
 
 # Install items.
-# With args: dispatch each through install_item (manifest-driven).
+# With args: install_items (manifest-driven).
 #   Bundle items install binary + config. Unknown names error out (no fallback
 #   needed — manifest_resolve_alias handles op/rg/nvim via install.command).
 # Without args: runs the interactive installer (profile picker).
@@ -311,30 +302,8 @@ run_install() {
     if [[ $# -gt 0 ]]; then
         ensure_yq || return 1
         data_load_manifest || return 1
-
-        local rc=0 name canon
-        local names=()
-        for name in "$@"; do
-            canon="$(manifest_resolve_alias "$name")"
-            if [[ -n "$canon" ]] && ! ai_harness_check_allowed "$canon"; then
-                rc=1
-                continue
-            fi
-            names+=("$name")
-        done
-        [[ ${#names[@]} -eq 0 ]] && return $rc
-
-        if items_need_stow "${names[@]}"; then
-            ensure_stow
-            ensure_omadot
-        fi
-
-        for name in "${names[@]}"; do
-            install_item "$name" || rc=$?
-        done
-
-        run_post_install "${names[@]}"
-        return $rc
+        install_items "$@"
+        return
     fi
 
     if ! ensure_clean_dotfiles; then
