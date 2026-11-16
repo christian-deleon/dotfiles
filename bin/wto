@@ -43,8 +43,13 @@ Usage: wto <command> [args]
   claim status [--json]        holders and the queue
   claim bump <name>            move that session's waiting requests to the front
   claim gc                     drop claims of removed worktrees, then hand over
-  close <name>                 close a finished session: kill its window, remove its
-                               worktree, delete its branch
+  close [-y] [<name>...]       close finished sessions: kill the window, remove the
+                               worktree, delete the branch. No name: an fzf picker
+                               (Tab marks several); a report and one confirmation
+                               come first
+  close --here                 close the session this shell is in; the checks run now,
+                               the removal runs from a detached job (result in the
+                               project's state dir, close-<folder>.log)
 
   new [-j job] [-m model] [-e effort] [-p text | -f file] [--switch] [<branch> [base]]
                                open a session in a new codename folder (stays put unless
@@ -1923,44 +1928,76 @@ cmd_layout() {
 
 # ── close ─────────────────────────────────────────────────────────────────────
 
-cmd_close() {
-    local name=${1:-} roster entry path branch label head default reason="" target marker
-    local status locked=0 since live common tag wid own_window="" deleted=""
+# Why the worktree in roster entry $1 cannot be closed, one reason per line;
+# no output means it can. Reads only.
+close_blockers() {
+    local entry=$1 path branch default head status line n shown=0 files="" target
+    local tag wid integrated=0 marker count
+    path=$(jq -r .path <<<"$entry")
+    branch=$(jq -r '.branch // ""' <<<"$entry")
+    if [[ ! -d $path ]]; then
+        printf '%s is gone; git worktree prune clears its entry\n' "$path"
+        return 0
+    fi
+    marker=$(state_dir)/orchestrator.json
+    if marker_valid "$marker" && [[ $MARKER_PATH == "$path" ]]; then
+        printf "this is the orchestrator's worktree\n"
+    fi
+    while IFS=$'\037' read -r tag _ _ wid _; do
+        if [[ $tag == "$path" && $wid == 1 ]]; then
+            printf 'worktree is locked (git worktree unlock)\n'
+        fi
+    done < <(worktree_rows)
+    if ! status=$(git -C "$path" status --porcelain); then
+        printf 'cannot read the git status\n'
+        return 0
+    fi
+    if [[ -n $status ]]; then
+        n=0
+        while IFS= read -r line; do
+            n=$((n + 1))
+            if ((shown < 3)); then
+                files+="${files:+, }${line:3}"
+                shown=$((shown + 1))
+            fi
+        done <<<"$status"
+        if ((n > shown)); then
+            files+=", ..."
+        fi
+        printf 'uncommitted changes: %s file(s) (%s)\n' "$n" "$files"
+    fi
+    if [[ $(jq -r '.operation // ""' <<<"$entry") != "" ]]; then
+        printf 'in the middle of a %s\n' "$(jq -r .operation <<<"$entry")"
+    fi
+    if ! default=$(default_branch); then
+        printf 'cannot tell the default branch\n'
+        return 0
+    fi
+    head=$(git -C "$path" rev-parse HEAD)
+    for target in "refs/heads/$default" "refs/remotes/origin/$default"; do
+        if integrated_reason "$head" "$target" >/dev/null; then
+            integrated=1
+            break
+        fi
+    done
+    if ((!integrated)); then
+        count=$(git rev-list --count "$head" --not "refs/heads/$default" 2>/dev/null) || count="?"
+        printf 'not merged into %s or origin/%s (%s commit(s) ahead)\n' "$default" "$default" "$count"
+    elif [[ -z $branch && -n $(git rev-list -n 1 "$head" --not --branches --remotes) ]]; then
+        printf 'commits on no branch; name one (git switch -c <branch>) first\n'
+    fi
+}
+
+# Close the worktree in roster entry $1: its windows, the worktree, the branch,
+# and its claims. Dies on the first failure.
+close_apply() {
+    local entry=$1 path branch label default own_window="" tag wid since common live deleted=""
     local -a windows=()
-    [[ -n $name && $name != -* ]] || die "close: name the branch or folder to close"
-    roster=$(roster_json)
-    entry=$(resolve_entry "$roster" "$name" close)
     path=$(jq -r .path <<<"$entry")
     branch=$(jq -r '.branch // ""' <<<"$entry")
     label=${branch:-${path##*/}}
-    [[ -d $path ]] || die "close: $path is gone; git worktree prune clears its entry"
-    [[ $(self_top) != "$path" ]] || die "close: run it from another worktree, not the one being closed"
-    marker=$(state_dir)/orchestrator.json
-    if marker_valid "$marker" && [[ $MARKER_PATH == "$path" ]]; then
-        die "close: $label is the orchestrator's worktree"
-    fi
-    while IFS=$'\037' read -r tag _ _ wid _; do
-        [[ $(realpath -e -- "$tag" 2>/dev/null || printf '%s' "$tag") == "$path" && $wid == 1 ]] && locked=1
-    done < <(worktree_rows)
-    ((!locked)) || die "close: $label's worktree is locked (git worktree unlock)"
-    status=$(git -C "$path" status --porcelain) || die "close: cannot read the status of $path"
-    [[ -z $status ]] || die "close: $label has uncommitted changes"
-    [[ $(jq -r '.operation // ""' <<<"$entry") == "" ]] \
-        || die "close: $label is in the middle of a $(jq -r .operation <<<"$entry")"
-
     default=$(default_branch) || die "close: cannot tell the default branch"
-    head=$(git -C "$path" rev-parse HEAD)
-    for target in "refs/heads/$default" "refs/remotes/origin/$default"; do
-        if reason=$(integrated_reason "$head" "$target"); then
-            break
-        fi
-        reason=""
-    done
-    [[ -n $reason ]] || die "close: $label is not merged into $default or origin/$default"
-    if [[ -z $branch && -n $(git rev-list -n 1 "$head" --not --branches --remotes) ]]; then
-        die "close: $label has commits on no branch; name one there (git switch -c <branch>) first"
-    fi
-
+    [[ $(self_top) != "$path" ]] || die "close: run it from another worktree, not the one being closed (wtx closes the one you are in)"
     if [[ -n ${TMUX_PANE-} ]]; then
         own_window=$(tmux display-message -p -t "$TMUX_PANE" '#{window_id}' 2>/dev/null) || own_window=""
     fi
@@ -1971,10 +2008,11 @@ cmd_close() {
         wid=$(jq -r '.session.pane // empty' <<<"$entry")
         [[ -n $wid ]] && windows+=("$(tmux display-message -p -t "$wid" '#{window_id}' 2>/dev/null || true)")
     fi
-    for wid in "${windows[@]}"; do
-        [[ -n $wid && $wid == "$own_window" ]] && die "close: this window belongs to $label; run it from another window"
+    [[ -z ${WTO_CLOSE_WINDOW-} ]] || windows+=("$WTO_CLOSE_WINDOW")
+    for wid in ${windows[@]+"${windows[@]}"}; do
+        [[ -n $wid && $wid == "$own_window" ]] && die "close: this window belongs to $label; run it from another window (wtx closes the one you are in)"
     done
-    for wid in $(printf '%s\n' "${windows[@]}" | sort -u); do
+    for wid in $(printf '%s\n' ${windows[@]+"${windows[@]}"} | sort -u); do
         [[ -n $wid ]] && tmux kill-window -t "$wid" 2>/dev/null
     done
 
@@ -1995,6 +2033,167 @@ cmd_close() {
         | group_by(.value.wt)[]
         | "granted \(map(.key) | join(",")) to \($L[.[0].value.wt] // .[0].value.branch) — tell that session it is its turn"'
     printf 'closed %s%s\n' "$label" "$deleted"
+}
+
+# fzf over every worktree: Tab marks several, refused ones are dimmed with
+# their reason. Prints the chosen paths.
+close_pick() {
+    local roster=$1 self row entry path branch name state reason dim off
+    local rows=""
+    if [[ ! -t 0 || ! -t 2 ]] || ! command -v fzf >/dev/null 2>&1; then
+        die "close: name the branch or folder (a picker needs a terminal and fzf)"
+    fi
+    self=$(self_top)
+    dim=$'\033[2m' off=$'\033[0m'
+    while IFS= read -r entry; do
+        path=$(jq -r .path <<<"$entry")
+        branch=$(jq -r '.branch // "(no branch)"' <<<"$entry")
+        name=${path##*/}
+        state=$(jq -r '.session.state // "no session"' <<<"$entry")
+        reason=$(close_blockers "$entry")
+        if [[ $path == "$self" ]]; then
+            reason="you are in it; wtx closes it"
+        fi
+        reason=${reason//$'\n'/; }
+        if [[ -n $reason ]]; then
+            row="${dim}${branch}"$'\t'"${name}"$'\t'"${state}"$'\t'"refused: ${reason}${off}"$'\t'"${path}"
+        else
+            row="${branch}"$'\t'"${name}"$'\t'"${state}"$'\t'"can close"$'\t'"${path}"
+        fi
+        rows+=$row$'\n'
+    done < <(jq -c 'sort_by([(.branch // "~"), .name]) | .[]' <<<"$roster")
+    printf '%s' "$rows" \
+        | fzf --multi --ansi --prompt="Close: " --header="Tab marks several, Enter closes them" \
+            --height=60% --reverse --delimiter=$'\t' --with-nth=1,2,3,4 \
+            --preview='git -C {5} status -sb; echo; git -C {5} log --oneline -8' \
+        | cut -f5 || true
+}
+
+# Close the worktree this shell is in. The checks run here; the removal runs
+# in a detached tmux job so it survives the window going away.
+close_here() {
+    local roster=$1 path entry blockers own_window dest wid last root log self
+    [[ -n ${TMUX:-} && -n ${TMUX_PANE:-} ]] || die "close --here: run it inside tmux"
+    path=$(self_wt)
+    entry=$(resolve_entry "$roster" "$path" close)
+    blockers=$(close_blockers "$entry")
+    if [[ -n $blockers ]]; then
+        printf 'wto: cannot close %s:\n' "${path##*/}" >&2
+        printf '  %s\n' "${blockers//$'\n'/$'\n'  }" >&2
+        exit 1
+    fi
+    own_window=$(tmux display-message -p -t "$TMUX_PANE" '#{window_id}') || die "close --here: cannot read this window"
+    dest="" last=""
+    while IFS=' ' read -r wid last; do
+        [[ $wid == "$own_window" ]] && continue
+        if [[ $last == 1 ]]; then
+            dest=$wid
+            break
+        fi
+        [[ -n $dest ]] || dest=$wid
+    done < <(tmux list-windows -F '#{window_id} #{window_last_flag}')
+    [[ -n $dest ]] || die "close --here: this is the only window in the tmux session; open another first"
+    tmux select-window -t "$dest"
+    root=$(project_root)
+    log=$(state_dir)/close-${path##*/}.log
+    self=$(realpath -- "${BASH_SOURCE[0]}")
+    tmux run-shell -b "$(printf 'cd %q && WTO_CLOSE_WINDOW=%q %q close --detached %q %q' "$root" "$own_window" "$self" "$path" "$log")"
+    printf 'closing %s in a moment; result in %s\n' "${path##*/}" "$log"
+}
+
+# The detached half of --here: runs from the project root after the window
+# is no longer the one in front.
+close_detached() {
+    local roster=$1 path=$2 log=$3 entry blockers out msg
+    entry=$(resolve_entry "$roster" "$path" close) || exit 1
+    blockers=$(close_blockers "$entry")
+    if [[ -n $blockers ]]; then
+        out="cannot close ${path##*/}: ${blockers//$'\n'/; }"
+        printf '%s\n' "$out" >"$log"
+        tmux display-message "wto: $out" 2>/dev/null || true
+        exit 1
+    fi
+    if out=$(close_apply "$entry" 2>&1); then
+        msg=${out##*$'\n'}
+        printf '%s\n' "$out" >"$log"
+        tmux display-message "wto: $msg" 2>/dev/null || true
+    else
+        printf '%s\n' "$out" >"$log"
+        tmux display-message "wto: close of ${path##*/} failed; see $log" 2>/dev/null || true
+        exit 1
+    fi
+}
+
+cmd_close() {
+    local yes=0 here=0 detached="" log="" roster entry path picked=0 failed=0 ans
+    local -a names=() targets=() ok=()
+    local blockers label notes
+    while (($#)); do
+        case $1 in
+            -y | --yes) yes=1 ;;
+            --here) here=1 ;;
+            --detached)
+                (($# >= 3)) || die "close: --detached needs a path and a log file"
+                detached=$2 log=$3
+                shift 2
+                ;;
+            -h | --help) usage; return ;;
+            -*) die "close: unknown option '$1'" ;;
+            *) names+=("$1") ;;
+        esac
+        shift
+    done
+    if [[ -n $detached ]]; then
+        sleep 2
+        close_detached "$(roster_json)" "$detached" "$log"
+        return
+    fi
+    roster=$(roster_json)
+    if ((here)); then
+        ((${#names[@]} == 0)) || die "close: --here takes no name"
+        close_here "$roster"
+        return
+    fi
+    if ((${#names[@]} == 0)); then
+        picked=1
+        while IFS= read -r path; do
+            [[ -n $path ]] && targets+=("$path")
+        done < <(close_pick "$roster")
+        ((${#targets[@]} > 0)) || return 0
+    else
+        for path in "${names[@]}"; do
+            targets+=("$(resolve_entry "$roster" "$path" close | jq -r .path)")
+        done
+    fi
+
+    for path in "${targets[@]}"; do
+        entry=$(jq -c --arg p "$path" '[.[] | select(.path == $p)][0]' <<<"$roster")
+        label=$(jq -r --arg d "${path##*/}" '.branch // $d' <<<"$entry")
+        blockers=$(close_blockers "$entry")
+        notes=""
+        [[ $(jq -r '.session.state // ""' <<<"$entry") == working ]] && notes=" (its session is working)"
+        if [[ -n $blockers ]]; then
+            printf '%s: refused\n' "$label" >&2
+            printf '  %s\n' "${blockers//$'\n'/$'\n'  }" >&2
+        else
+            printf '%s: ok%s\n' "$label" "$notes"
+            ok+=("$entry")
+        fi
+    done
+    if ((${#ok[@]} == 0)); then
+        exit 1
+    fi
+    if ((picked || ${#targets[@]} > 1)) && ((!yes)); then
+        [[ -t 0 ]] || die "close: several worktrees need -y when there is no terminal"
+        read -r -p "Close ${#ok[@]} worktree(s)? [y/N] " ans
+        [[ $ans == [yY]* ]] || { printf 'nothing closed\n'; return 0; }
+    fi
+    for entry in "${ok[@]}"; do
+        if ! (close_apply "$entry"); then
+            failed=1
+        fi
+    done
+    ((${#ok[@]} == ${#targets[@]} && !failed)) || exit 1
 }
 
 main() {
