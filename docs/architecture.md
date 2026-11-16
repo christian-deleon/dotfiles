@@ -70,6 +70,7 @@ App configs in `~/.config/` are managed via [GNU Stow](https://www.gnu.org/softw
 - `grok` — Grok Build config from `ai/` + `grok/.grok/` (`install_ai_grok`); MCP is merged into live `~/.grok/config.toml`
 - `claude` — Claude Code config from `ai/` (`install_ai_claude`); skills/agents/rules symlink into `~/.claude/`; hooks merge into `settings.json`; MCP merges into `~/.claude.json`
 - `cargo` — links `cargo/.cargo/config.toml` into `~/.cargo/config.toml` (`install_cargo_config`)
+- `cargo-sweep` — links `cargo-sweep/systemd/*` into `~/.config/systemd/user` and enables `cargo-sweep-athenis.timer`, a daily `cargo sweep --maxsize 150GB` of the shared Athenis build dir (`install_cargo_sweep_timer`). Size cap, not `--time`: cargo-sweep ages files by atime, which any recursive read resets
 - `windows-terminal` — WSL-side script wrapper (`install_windows_terminal_config`)
 - `hypr` / `omarchy` — copy personal overlays into Omarchy-owned real directories (`install_hypr_config`, `install_omarchy_config` in `scripts/handlers/desktop.sh`)
 

@@ -1,0 +1,23 @@
+[Unit]
+Description=Cap the shared Athenis Rust build directory
+Documentation=https://github.com/holmgr/cargo-sweep
+
+[Service]
+Type=oneshot
+Environment=PATH=%h/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+# Any worktree works: `cargo metadata` there resolves the shared target-dir set
+# in ~/Projects/athenis/.cargo/config.toml.
+WorkingDirectory=%h/Projects/athenis/main/platform
+# Size cap, not --time. cargo-sweep ages artifacts by access time, and any
+# recursive read of the build dir (search, indexer, a cargo run) resets every
+# atime at once, after which --time finds nothing to delete. --maxsize still
+# works then: it removes the oldest-accessed artifacts until the dir fits.
+#
+# Sweeping mid-build can delete a fingerprint while its crate is recompiling,
+# which kills the build ("invoked.timestamp: No such file"). Wait up to ~30 min
+# for rustc/cargo to go quiet, then sweep; if a build is still running, skip
+# and let the next run retry. Matching by process name (-x) keeps the wrapper's
+# own command line from matching itself.
+ExecStart=/bin/sh -c 'for i in $$(seq 1 90); do if pgrep -x rustc >/dev/null || pgrep -x cargo >/dev/null; then sleep 20; else exec /usr/bin/cargo sweep --maxsize 150GB; fi; done; echo "athenis sweep: build still active after 30min, skipping this run" >&2; exit 0'
+Nice=19
+IOSchedulingClass=idle
