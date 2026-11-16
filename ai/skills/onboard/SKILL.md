@@ -83,6 +83,8 @@ One batch of questions, each with your best guess as the first option:
 - How a new effort should start: issue and branch, a local branch only, or only
   on request. Guess `branch` for a personal project, `on request` for work and
   public ones.
+- Whether sessions may push their work branch and open a merge request without
+  asking. Guess `ask`.
 - How the project's main-only and work-producing skills should hook in, when it
   is not obvious.
 
@@ -102,6 +104,7 @@ The profile block:
 - Main-only skills: <names>; work-producing skills: <names>
 - Branch naming: <pattern>
 - New work: issue and branch | branch | on request
+- Publish work: ask | auto
 - Deploy: <the skill or recipe that deploys and verifies | none>
 - Onboarded: <date>, dotfiles <short sha of ~/.dotfiles HEAD>
 
@@ -116,6 +119,9 @@ The profile block:
 it is clear (the `detached-session-folders` rule): `issue and branch` files the
 issue, then creates the branch; `branch` creates just a local branch; `on
 request` only offers. Both of the first two act without asking.
+`Publish work: auto` lets sessions push their work branch and open its merge
+request without asking (the `auto-commit` rule); `ask` keeps both behind the
+user's go.
 `Issue drafts: direct` only for a personal project that is not public. `with
 push` makes the merge go cover a fast-forward push of main and deleting the
 pushed work branch. `agents:` names the label and account through which an

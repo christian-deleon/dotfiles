@@ -11,7 +11,8 @@ Applies only where the `gitea` MCP server or `tea` is installed.
   tell the user to reconnect Netbird. Do not retry in a loop, switch tools, or
   go looking for another route.
 - **The token is the user's own account**, so Gitea's `main` branch protection
-  does not stop agents. Work on a branch, push it, and open a pull request.
+  does not stop agents. Work on a branch. Pushing it and opening a pull request
+  follow `auto-commit.md`: only when the user asks or the profile allows it.
   Never push to or merge into `main`, except where the project profile's
   `Merge to main:` line says `with push` and the owner gave the merge go.
   A `direct` close-out's local `git push . HEAD:main` updates only the local

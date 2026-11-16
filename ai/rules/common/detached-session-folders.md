@@ -29,6 +29,6 @@ whatever the line says.
 
 - Name it by the profile's `Branch naming`, with the issue number right after
   the type when there is one (`fix/142-retry-backoff`).
-- `git switch -c <name>` in place, then carry on with the session. Do not
-  push or set an upstream.
+- `git switch -c <name>` in place, then carry on with the session. The branch
+  stays local: push or set an upstream only as `auto-commit.md` allows.
 - Never rename a branch that is already pushed.

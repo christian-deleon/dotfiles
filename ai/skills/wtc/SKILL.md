@@ -100,8 +100,9 @@ Each child gets a self-contained prompt with **no** access to this conversation:
 - Merged commits already on the base branch that the child must not redo: <sha and subject>. Do not re-implement that work.
 
 ## Do not
-- Do not push, merge, or open a merge request unless the owner asks or the
-  own-work line below covers it. Commit as you go in logical groups.
+- Do not push, merge, or open a merge request unless the owner asks, the
+  profile says `Publish work: auto`, or the own-work line below covers it.
+  Commit as you go in logical groups.
 
 ## Coordination
 - <only when the profile's `Issues:` line has an `own work:` part> This is the

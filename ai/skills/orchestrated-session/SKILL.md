@@ -41,8 +41,9 @@ a project with none, the work goes from ready straight to review and merge.
    `plan-implement-review` skill. Fix what it confirms and rerun the checks.
 4. **Commit** in logical groups, on a named branch. A `wtc` folder starts
    detached: name the branch first following the `detached-session-folders`
-   rule (profile `New work:` and `Branch naming`). Never push; a `with push`
-   merge pushes the default branch through `closeout`.
+   rule (profile `New work:` and `Branch naming`). Push the work branch only
+   when the profile says `Publish work: auto`; a `with push` merge pushes the
+   default branch through `closeout`.
 
 ### 2. Report ready, then wait
 
