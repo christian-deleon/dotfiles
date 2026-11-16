@@ -1,6 +1,6 @@
 #!/bin/bash
 # Alacritty post-install handler — referenced from manifest.yaml.
-# Sourced by install.sh. Uses helpers: info, warn, success.
+# Sourced by scripts/lib.sh. Uses helpers: _info, _success, _warn.
 
 # alacritty.toml imports ~/.local/state/omarchy/current/theme/alacritty.toml.
 # On Omarchy that file is written by `omarchy theme set`. Never rewrite it.
@@ -19,7 +19,7 @@ alacritty_theme_shim() {
 
     mkdir -p "$theme_dir"
     ln -snf "$empty_shim" "$theme_file"
-    info "Linked alacritty empty-theme shim (no Omarchy theme present)"
+    _info "Linked alacritty empty-theme shim (no Omarchy theme present)"
 }
 
 # JetBrainsMono Nerd Font is assumed on Omarchy/Linux and installed by
@@ -36,22 +36,22 @@ alacritty_ensure_nerd_font() {
         /Library/Fonts/JetBrainsMonoNerdFont* \
         /Library/Fonts/JetBrainsMonoNLNerdFont*; do
         if [[ -e "$f" ]]; then
-            info "JetBrainsMono Nerd Font already installed"
+            _info "JetBrainsMono Nerd Font already installed"
             return 0
         fi
     done
 
     if ! command -v brew &>/dev/null; then
-        warn "Homebrew missing — install font-jetbrains-mono-nerd-font manually"
+        _warn "Homebrew missing — install font-jetbrains-mono-nerd-font manually"
         return 0
     fi
 
     if brew list --cask font-jetbrains-mono-nerd-font &>/dev/null; then
-        info "JetBrainsMono Nerd Font already installed (Homebrew)"
+        _info "JetBrainsMono Nerd Font already installed (Homebrew)"
         return 0
     fi
 
-    info "Installing JetBrainsMono Nerd Font..."
+    _info "Installing JetBrainsMono Nerd Font..."
     # brew may exit non-zero on cleanup/tap-trust warnings even when the
     # cask installed successfully — verify by font files, not exit code.
     brew install --cask font-jetbrains-mono-nerd-font || true
@@ -59,11 +59,11 @@ alacritty_ensure_nerd_font() {
         "$HOME/Library/Fonts"/JetBrainsMonoNerdFont* \
         /Library/Fonts/JetBrainsMonoNerdFont*; do
         if [[ -e "$f" ]]; then
-            success "Installed font-jetbrains-mono-nerd-font"
+            _success "Installed font-jetbrains-mono-nerd-font"
             return 0
         fi
     done
-    warn "Failed to install font-jetbrains-mono-nerd-font"
+    _warn "Failed to install font-jetbrains-mono-nerd-font"
     return 1
 }
 
@@ -79,11 +79,11 @@ alacritty_os_config() {
         src="$pkg_dir/os.linux.toml"
     fi
     if [[ ! -f "$src" ]]; then
-        warn "Missing OS alacritty overlay: $src"
+        _warn "Missing OS alacritty overlay: $src"
         return 1
     fi
     ln -snf "$(basename "$src")" "$target"
-    info "Linked alacritty os.toml → $(basename "$src")"
+    _info "Linked alacritty os.toml → $(basename "$src")"
 }
 
 # Full alacritty post-install: theme import path, OS overlay, macOS font.

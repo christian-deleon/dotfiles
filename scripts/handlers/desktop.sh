@@ -1,6 +1,6 @@
 #!/bin/bash
 # Hyprland / Omarchy overlay handlers — referenced from manifest.yaml.
-# Sourced by install.sh and by the post-update hook. No set -e here.
+# Sourced by scripts/lib.sh and by the post-update hook. No set -e here.
 #
 # ~/.config/hypr and ~/.config/omarchy stay real directories Omarchy owns.
 # This repo only copies personal overlays into them (never directory-stows).
@@ -74,7 +74,7 @@ desktop_ensure_real_dir() {
         case "$target" in
             "$(desktop_dotfiles_dir)"/*) ;;
             *)
-                _desktop_log warn "Refusing to replace $dest (symlink to ${target:-unknown})"
+                _desktop_log _warn "Refusing to replace $dest (symlink to ${target:-unknown})"
                 return 1
                 ;;
         esac
@@ -82,7 +82,7 @@ desktop_ensure_real_dir() {
         desktop_seed_stock_tree "$tmp" "$rel"
         rm -f -- "$dest"
         mv -- "$tmp" "$dest"
-        _desktop_log info "Replaced stow symlink $dest with a real directory"
+        _desktop_log _info "Replaced stow symlink $dest with a real directory"
         return 0
     fi
 
@@ -179,7 +179,7 @@ apply_hypr_overlays() {
         chmod +x -- "$dest/$(basename "$src")"
     done
 
-    _desktop_log success "Applied Hyprland overlays"
+    _desktop_log _success "Applied Hyprland overlays"
 }
 
 apply_omarchy_overlays() {
@@ -223,7 +223,7 @@ apply_omarchy_overlays() {
 
     desktop_apply_shell_overlay "$dest" "$repo/omarchy/shell.overlay.json"
     desktop_ensure_dropbox_widget "$dest"
-    _desktop_log success "Applied Omarchy overlays"
+    _desktop_log _success "Applied Omarchy overlays"
 }
 
 install_hypr_config() {
