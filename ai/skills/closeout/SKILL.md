@@ -28,7 +28,8 @@ Stop and tell the user at the first one that fails:
 
 1. **On a work branch.** `git symbolic-ref -q --short HEAD` must name a branch
    other than the default (`wto default`). On a detached HEAD, name the branch
-   first as the auto-commit rule says (`git switch -c <type>/<slug>`).
+   first following the `detached-session-folders` rule (profile `New work:` and
+   `Branch naming`; file the issue first when that line says so).
 2. **No operation in progress.** No rebase, merge, or cherry-pick (`git status`).
 3. **Everything committed.** If uncommitted changes belong to this task, commit
    them following the `commit` skill. If they are unrelated or you cannot tell,

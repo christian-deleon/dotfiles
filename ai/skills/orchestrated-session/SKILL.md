@@ -39,8 +39,9 @@ a project with none, the work goes from ready straight to review and merge.
    done.
 3. **Review your own diff** with the `reviewer` subagent, following the
    `plan-implement-review` skill. Fix what it confirms and rerun the checks.
-4. **Commit** in logical groups, on a named branch (a `wtc` folder starts
-   detached; `git switch -c <type>/<slug>` first). Never push; a `with push`
+4. **Commit** in logical groups, on a named branch. A `wtc` folder starts
+   detached: name the branch first following the `detached-session-folders`
+   rule (profile `New work:` and `Branch naming`). Never push; a `with push`
    merge pushes the default branch through `closeout`.
 
 ### 2. Report ready, then wait
