@@ -20,10 +20,10 @@ theme_update() {
         return 1
     fi
 
-    # Get only initialized theme submodules (those with .git directory)
+    # Initialized submodules have a .git gitfile, not a directory
     local initialized_themes=()
     for theme_dir in "$themes_path"/*/; do
-        [[ -d "$theme_dir/.git" ]] || continue
+        [[ -e "$theme_dir/.git" ]] || continue
         local name
         name="$(basename "$theme_dir")"
         initialized_themes+=("$THEMES_DIR/$name")
