@@ -34,6 +34,11 @@ function wta() {
     command wto open --switch "$@"
 }
 
+# Open a window for every session in the project
+function wtaa() {
+    command wto open --all --switch "$@"
+}
+
 # Close the session you are in, or pick sessions to close
 function wtx() {
     # Usage: wtx [-y] [branch|folder...]. In a session folder with no args, closes it.
