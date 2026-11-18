@@ -502,7 +502,7 @@ One agent session per git worktree, each in its own tmux window with the `tav` l
 
 ### `wtc [-p|--prompt <text>] [-n|--no-switch] [-j|--job <job>] [-m|--model <model>] [-e|--effort <level>] [branch [base]]`
 
-Start a session. `wto new` fetches `origin` (20-second limit; set `WTO_NO_FETCH=1` to skip), fast-forwards the local default branch to `origin`'s, makes a new codename folder, links the project's agent files there (`dot agent link`), and opens its window. **By default it then jumps to that window.**
+Start a session. `wto new` fetches `origin` (20-second limit; set `WTO_NO_FETCH=1` to skip), fast-forwards the local default branch to `origin`'s (a local branch that has diverged from `origin` is left alone with a warning, and the session starts from `origin`'s), makes a new codename folder, links the project's agent files there (`dot agent link`), and opens its window. **By default it then jumps to that window.**
 
 - **No branch:** the folder starts on a detached HEAD at the latest default branch. Talk to the agent; once the work is clear it names the branch in place (`git switch -c fix/142-retry-backoff`) before its first commit, and the window label follows. The folder name never changes.
 - **A branch:** a new one is created from `base` (default: the latest default branch) without upstream tracking; an existing local branch is fast-forwarded to `origin` if it is strictly behind; a branch only on `origin` gets a tracking branch. A branch that is already checked out in a folder just opens that folder's window.

@@ -171,7 +171,9 @@ fetch_origin() {
 
 # Keep the local default branch at or ahead of origin's: closeout fast-forwards
 # only the local ref, and rebases, merge checks and the issue gate read it.
-# Prints the ref new sessions start from.
+# Prints the ref new sessions start from: never one behind origin. A diverged
+# local branch is left for the owner to sort out, since resetting it would drop
+# its unpushed commits.
 sync_default() {
     local d=$1 local_ref=refs/heads/$1 origin_ref=refs/remotes/origin/$1 l o
     o=$(git rev-parse -q --verify "$origin_ref^{commit}" 2>/dev/null) || o=""
@@ -191,7 +193,9 @@ sync_default() {
         return 0
     fi
     if [[ $l != "$o" ]] && ! git merge-base --is-ancestor "$o" "$l"; then
-        warn "$d and origin/$d have diverged; starting from the local $d"
+        warn "$d has $(git rev-list --count "$origin_ref..$local_ref") commit(s) not on origin/$d and is behind it; left as is, starting from origin/$d"
+        printf '%s\n' "$origin_ref"
+        return 0
     fi
     printf '%s\n' "$local_ref"
 }
