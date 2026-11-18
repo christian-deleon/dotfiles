@@ -534,6 +534,12 @@ wta brisk-otter -p "rebase onto main and rerun the tests"   # by folder, with a 
 
 ---
 
+### `wtaa`
+
+Open a window for every worktree in the project, continuing each conversation the same way `wta` does, and switch to the first. Worktrees that already have a window are left alone. Use it to restore a project after a reboot. `wtaa` is a wrapper over `wto open --all --switch`.
+
+---
+
 ### `wtx [-y] [branch|folder...]` \*
 
 Close sessions. In a session folder inside tmux, with no arguments, it runs `wto close --here`. Otherwise it passes its arguments to `wto close`: names close those worktrees, and none opens the fzf picker. See [`wto close`](#wto-command).
