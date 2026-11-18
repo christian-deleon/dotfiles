@@ -13,6 +13,10 @@ chromium-agent
 chromium-agent https://start.1password.com
 ```
 
+### `dot [args...]`
+
+Runs the `dot` script, then after `dot update` re-sources `~/.aliases`, `~/.functions` and `completions.d/` in the current shell, so commands the update added work right away. It keeps `dot`'s exit status. Environment, prompt and history settings in `.commonrc` still need a new shell, and commands the update removed stay defined until then.
+
 ### `mkd <directory>`
 
 Create a new directory and immediately cd into it.

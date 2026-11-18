@@ -1,5 +1,21 @@
 # Category: General
 
+# Run dot; reload aliases and functions after dot update
+function dot() {
+    # Only the definition files: re-sourcing .commonrc in a live shell would
+    # reload ble.sh and stack another `history -a` onto PROMPT_COMMAND.
+    local rc=0 _f
+    command dot "$@" || rc=$?
+    if [[ ${1-} == update ]]; then
+        [[ -f $HOME/.aliases ]] && source "$HOME/.aliases"
+        [[ -f $HOME/.functions ]] && source "$HOME/.functions"
+        for _f in "$HOME/.dotfiles/completions.d"/*.sh; do
+            [[ -r $_f ]] && source "$_f"
+        done
+    fi
+    return "$rc"
+}
+
 # Create a new directory and enter it
 function mkd() {
     mkdir -p "$@" && cd "$@"
