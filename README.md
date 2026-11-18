@@ -48,6 +48,8 @@ dot brew bundle <profile>      # macOS: install Homebrew packages (home/work)
 dot brew save <profile>        # macOS: save current Homebrew packages
 ```
 
+In an interactive shell, `dot update` also reloads your aliases, functions and completions, so new ones work without opening a new terminal. Changes to the environment, prompt or history settings still need a new shell.
+
 ### Agent files (`dot agent`)
 
 Two scopes of overlay agent files, sourced from the private `agent-files` submodule (synced across machines via private GitHub). Content is committed automatically inside the submodule; push to the remote is always manual. Once the pointer is bumped, `git push` in `~/.dotfiles` pushes the submodule commits first, so other machines never get a pointer to a commit GitHub doesn't have.
