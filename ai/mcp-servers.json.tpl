@@ -84,5 +84,10 @@
     },
     "description": "Web scraping and crawling",
     "default": true
+  },
+  "atlassian": {
+    "command": "uvx",
+    "args": ["mcp-atlassian==0.24.6"],
+    "description": "Jira and Confluence, Cloud or Data Center (sooperset/mcp-atlassian). Site URLs and tokens come from the linked env's mcp.json, not from this roster."
   }
 }

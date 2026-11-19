@@ -157,7 +157,7 @@ Without a profile (or a profile without `mcp:`), the roster entries marked `"def
 
 A server switched on in a harness's own UI is reset on the next regen. Regen is skipped while the roster, the profile's `mcp:` block, and the harness list are unchanged and every harness still has what it was last given; `dot mcp-regen` forces it. Unresolved `op://` refs are dropped when `op` is missing.
 
-The `gitea` entry reads host and token from one 1Password item and is for the personal Netbird-only Gitea; see `ai/rules/common/gitea.md`. `tea` logs in from the same item (`install_tea_login`, `dot install tea`). `wsl-work` runs the local `kubernetes-mcp-server` binary because npm/`npx` is blocked there.
+The `gitea` entry reads host and token from one 1Password item and is for the personal Netbird-only Gitea; see `ai/rules/common/gitea.md`. `tea` logs in from the same item (`install_tea_login`, `dot install tea`). `wsl-work` runs the local `kubernetes-mcp-server` binary because npm/`npx` is blocked there. `atlassian` is the community `mcp-atlassian` server (Data Center and Cloud); `wsl-work` enables it, and the linked env's `mcp.json` supplies the site URLs and token commands. See [dot-agent.md](dot-agent.md).
 
 ## Adding Content
 
