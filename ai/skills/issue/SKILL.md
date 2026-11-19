@@ -58,8 +58,6 @@ tell the user, don't retry).
   one `type/` and the `area/` it belongs to. Never create labels.
 - **Assignee:** only when the project profile's `Issues:` line says who takes
   an issue of this kind (for example the owner's own work, assigned to them).
-  An issue for the owner's own work never gets the label the profile reserves
-  for agents.
 
 | Tool | Labels |
 |---|---|
