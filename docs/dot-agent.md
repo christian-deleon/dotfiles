@@ -12,6 +12,7 @@ agent-files/
   projects/<project-name>/AGENTS.md   # per-project (symlinked into project worktrees)
   env/<env-name>/AGENTS.md            # per-env global (symlinked into each enabled harness)
   env/<env-name>/skills/<skill>/      # per-env skills (symlinked into the skill dirs)
+  env/<env-name>/mcp.json             # per-env MCP overlay (merged onto the roster)
 ```
 
 Commits inside the submodule are made automatically with a generated message; **push is always manual** (`cd ~/.dotfiles/agent-files && git push`) so remote sync stays an explicit decision. Once you bump the pointer, `git push` in `~/.dotfiles` pushes the submodule commits first (`push.recurseSubmodules=on-demand`, set repo-locally by the installer and `dot update`). If the parent still reaches origin ahead of the submodule (e.g. pushed from a machine without that setting), `dot update` elsewhere warns "recorded commit … is not on origin/main" instead of silently missing the new skill or overlay.
@@ -72,5 +73,7 @@ Only enabled harnesses (`ai_harness_enabled`, see [architecture.md](architecture
 `dot agent env status` lists every harness's target, marking ones whose harness is not enabled ("harness not enabled") and leftover hops ("legacy hop").
 
 Use env skills for workflows that only make sense on one machine (e.g. a GitLab MR skill on the work box). Author them like any skill — see the `agent-files` skill — but keep them in the private submodule, not `ai/skills/`.
+
+`env/<name>/mcp.json` is optional and is not symlinked. When this env is the one linked into a harness, `generate_mcp_configs` deep-merges it onto `ai/mcp-servers.json.tpl` before the profile's `mcp:` block is applied (`env` and `headers` merge key by key; only servers the roster already defines are kept). Use it for hosts, credential commands, and anything else that must not be in the public repo. Tokens stay in `~/.localrc`; point a `*_COMMAND` at them instead of pasting the secret into `mcp.json`.
 
 **The symlinks themselves are the state.** No `.localrc` flag, no marker file — `dot agent env status` resolves the symlinks to report which env is active. To opt out: `dot agent env unlink`.
