@@ -15,28 +15,24 @@ Use standard file tools for all vault operations:
 - **Grep** — search note content (e.g. find tags, wikilinks, topics)
 - **Bash `mkdir -p`** — create subdirectories
 
-## Vault Structure (PARA)
+## Vault structure
 
-- `Projects/` — active work with a defined end
-- `Areas/` — ongoing responsibilities (career, health, finance, etc.)
-- `Resources/` — reference/knowledge material
-- `Journal/` — dated notes only (`YYYY-MM-DD.md`)
-- `Attachments/` — binary files only
+Read `README.md` in the vault before filing a note. The top-level folders are `Journal/`, `Projects/`, `Career/`, `Tech/`, `Business/`, `Family/`, `Health/`, `Home/`, `Finances/`, `Hobbies/`, `Wisdom/`, and `Attachments/`.
 
-**Always use topic-specific subdirectories.** Never place notes directly in a top-level PARA folder. Every note must go into the most specific subdirectory that matches its topic. (`Journal/` is exempt — dated notes go directly there.)
+A folder earns a place when that subject already has about four notes. A single note sits in the parent folder. Do not make a directory for one note.
 
-- **Discover existing structure first** — use Glob (`**/*.md`) or Bash `ls` to see what subdirectories already exist before creating new ones
-- **Match existing structure** — if `Resources/Computer Science/` already exists, a note about Python goes there, not in `Resources/` directly
-- **Create subdirectories when warranted** — if no matching subdirectory exists for a clearly distinct topic, use `mkdir -p` to create one
-- **Be specific** — `Resources/LLM/` not `Resources/`; `Projects/MyApp/` not `Projects/`; `Areas/Career/` not `Areas/`
+- **Discover existing structure first** — list the vault before creating a folder
+- **Match an existing folder** — a Linux note goes in `Tech/Linux/` because that folder exists. A note whose subject has no folder sits in the parent (`Tech/Some AWS Note.md`)
+- **Create a subfolder only past the size line** — about four notes on one subject, then `mkdir -p`
 
 **WRONG:**
 ```
-Write(filePath=".../Resources/Python Decorators.md")
+Write(filePath=".../Tech/AWS/AWS SSM SSH Proxy.md")  # one note does not get a folder
 ```
 **CORRECT:**
 ```
-Write(filePath=".../Resources/Computer Science/Python Decorators.md")
+Write(filePath=".../Tech/AWS SSM SSH Proxy.md")
+Write(filePath=".../Tech/Linux/Install Python on Linux.md")  # Linux/ already exists
 ```
 
 ## Workflow
@@ -44,7 +40,7 @@ Write(filePath=".../Resources/Computer Science/Python Decorators.md")
 **Creating a note:**
 1. Glob/Grep — check if a note on this topic already exists; if so, Edit instead of creating a duplicate
 2. Grep frontmatter across the vault — discover existing tags before assigning any (e.g. search `^  - computer-science` in `**/*.md`)
-3. Glob or Bash `ls` — confirm the target subdirectory exists; `mkdir -p` if not
+3. List the vault — confirm the target folder exists. Create a subfolder only when that subject already has about four notes
 4. Write — create the note with frontmatter, content, and wikilinks
 5. Edit related notes and MOCs to add `[[wikilinks]]` back to the new note
 
@@ -75,20 +71,11 @@ Content. Link to related concepts using [[Wikilinks]] on first mention.
 
 **No H1 heading in the note body.** Obsidian's "Inline Title" feature (Settings → Appearance → Show inline title) renders the filename as an H1 at the top of every note automatically. Adding `# Note Title` inside the file duplicates this and creates two sources of truth that can drift out of sync when files are renamed.
 
-## Directory Boundaries
+## Directory boundaries
 
-Each PARA directory has a distinct purpose. Do not mix them.
+File by subject. `Projects/` is for work being built. Reusable reference goes in the subject folder (`Tech/`, `Business/`, and the others), written so a later project can use it. The note does not need to point back at the project. A project links to it with `[[wikilinks]]`.
 
-| Directory | Purpose | Examples |
-|-----------|---------|---------|
-| `Projects/` | Active work tied to a specific deliverable — decisions, competitive analysis, project-specific findings, implementation notes | Vendor comparison notes, system architecture decisions, integration notes |
-| `Resources/` | Generalized reference knowledge reusable across any project — concepts, technologies, landscapes, methodologies | Technology landscape overviews, design patterns, algorithm theory |
-| `Areas/` | Ongoing responsibilities with no end date | Career, health, finances |
-| `Journal/` | Fleeting notes, brain dumps, dated entries | `2026-02-19.md` |
-
-**Research always goes in `Resources/`, written as a standalone reference with no project-specific framing.** Any project that needs it links to it via `[[wikilinks]]`. The research note itself does not reference back to any project.
-
-**The test:** "Would this note be useful outside the context of this project?" If yes → `Resources/`. If no → `Projects/`.
+**The test:** "Would this note be useful outside this project?" If yes, put it in the subject folder. If no, put it in that project.
 
 ## Key Rules
 
@@ -98,6 +85,6 @@ Each PARA directory has a distinct purpose. Do not mix them.
 - Tags: 2–4 per note, lowercase-hyphenated, reuse existing vault tags, frontmatter only (no inline `#hashtags`)
 - **Search existing tags before assigning any** — grep the vault for tags already in use and reuse them; only introduce a new tag if no existing one fits
 - **Tags must match content** — every tag must be directly supported by the note's actual content; do not add aspirational or loosely related tags
-- Fleeting/rough → `Journal/`; lasting reference → PARA directories
-- **Never place notes directly in a top-level PARA folder** — always use a topic-specific subdirectory (e.g., `Resources/LLM/`, not `Resources/`). `Journal/` is exempt.
+- Dated notes go in `Journal/` (`YYYY-MM-DD.md`). A note you cannot place also waits in `Journal/`
+- A single note sits in its subject folder. Add a subfolder only when that subject has about four notes
 - If unsure where a note belongs, ask the user
