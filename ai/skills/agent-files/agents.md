@@ -204,7 +204,7 @@ output a short markdown report with file:line refs.
 2. Body edits are live in Grok and Claude for symlinked agents; a `job:` agent and OpenCode pick them up on `dot update`, which also links new agents everywhere.
 3. Verify with `grok inspect` / Claude `/agents`.
 
-The JSON regeneration is non-destructive for personal keys (`mcp`, etc.). `generate-opencode-config.sh` rewrites `.agent`, `.command`, `.instructions`, `.plugin`, and `.provider` from `ai/agents` + `opencode.json.tpl`. Personal Bedrock account IDs stay as `{env:BEDROCK_AWS_ACCOUNT_ID}`; work GovCloud uses `WORK_BEDROCK_API_KEY` (or `/connect` `amazon-bedrock-gov`), not the personal `/connect` token.
+The JSON regeneration is non-destructive for personal keys (`mcp`, etc.). `generate-opencode-config.sh` rewrites `.agent`, `.command`, `.instructions`, `.plugin`, `.provider`, and `.providers` from `ai/agents` + `opencode.json.tpl`. Personal Bedrock account IDs stay as `{env:BEDROCK_AWS_ACCOUNT_ID}`; work GovCloud uses `WORK_BEDROCK_API_KEY` (or `/connect` `amazon-bedrock-gov`) on the Responses adapter, not the personal `/connect` token.
 
 ## Common mistakes
 

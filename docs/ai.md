@@ -74,7 +74,7 @@ Do not add a project `CLAUDE.md`. Claude Code reads a repo `AGENTS.md` on its ow
 Picking `opencode` stows the OpenCode package, then `install_ai_opencode()` (skipped until `~/.config/opencode` is stowed):
 
 1. `ai/skills/<name>/` → `~/.config/opencode/skills/<name>` (per-directory symlinks in the stowed package's gitignored `skills/`)
-2. `generate-opencode-config.sh` writes `agent` (from `ai/agents/*.md`, with each job agent's model and variant) and `instructions` (paths of `ai/rules/**/*.md`) into `opencode.json`, and re-applies `.provider` and `.plugins` from `opencode.json.tpl`
+2. `generate-opencode-config.sh` writes `agent` (from `ai/agents/*.md`, with each job agent's model and variant) and `instructions` (paths of `ai/rules/**/*.md`) into `opencode.json`, and re-applies `.provider`, `.providers`, and `.plugins` from `opencode.json.tpl`
 
 OpenCode also reads `~/.claude/skills` natively. Same-named skills resolve by precedence to the same files, so the overlap is harmless.
 
@@ -93,10 +93,10 @@ On Omarchy the binary comes from its `~/.local/bin/opencode` mise wrapper. 2.0 i
 | Provider | Models | Auth | Notes |
 |---|---|---|---|
 | `amazon-bedrock` | `deleon-*` | OpenCode `/connect` amazon-bedrock (sets `AWS_BEARER_TOKEN_BEDROCK`) | Commercial `us-east-1`. ARNs use `{env:BEDROCK_AWS_ACCOUNT_ID}` from `~/.localrc`. Omitted when that var is unset. |
-| `amazon-bedrock-gov` | `work-*` | `WORK_BEDROCK_API_KEY` or `GROK_BEDROCK_API_KEY`, or `/connect` → Other → `amazon-bedrock-gov` | GovCloud OpenAI-compat endpoint. **Not** the native Bedrock SDK — a single `AWS_BEARER_TOKEN_BEDROCK` would send the personal key to GovCloud. |
+| `amazon-bedrock-gov` | `work-*` | `WORK_BEDROCK_API_KEY` or `GROK_BEDROCK_API_KEY`, or `/connect` → Other → `amazon-bedrock-gov` | GovCloud OpenAI endpoint, Responses adapter (`@opencode/ai/providers/openai-compatible/responses`). Chat Completions does not return Grok reasoning text. **Not** the native Bedrock SDK — a single `AWS_BEARER_TOKEN_BEDROCK` would send the personal key to GovCloud. |
 | `genai-mil` | `gemini-*` (copied from the GenAI.mil model catalog) | `GENAI_MIL_API_KEY` in `~/.localrc` on the work machine, or `/connect` → Other → `genai-mil` | OpenAI-compat endpoint `https://api.genai.mil/v1`. |
 
-Claude models on `amazon-bedrock` declare explicit `low`…`max` variants that send `thinking: {type: adaptive}` plus `output_config.effort` through `additionalModelRequestFields`. The ARN models are not in OpenCode's catalog, so only the declared variants exist. Grok variants use `reasoningConfig` instead; Claude rejects that shape.
+Claude models on `amazon-bedrock` declare explicit `low`…`max` variants that send `thinking: {type: adaptive}` plus `output_config.effort` through `additionalModelRequestFields`. The ARN models are not in OpenCode's catalog, so only the declared variants exist. Personal Grok variants use `reasoningConfig` instead; Claude rejects that shape. Work Grok variants send `reasoningEffort`, `reasoningSummary`, and `include: ["reasoning.encrypted_content"]` on the Responses adapter.
 
 `dot update` / `dot install opencode` regenerates the live file, writing it only when it changes (mode 600 from the start). The 2.0 background service cannot watch `~/.config/opencode` because it is a stow symlink, so the installer runs `opencode reload` when the file changed, at most once per run.
 

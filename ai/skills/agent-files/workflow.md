@@ -25,7 +25,7 @@ Hard rule: source of truth is the dotfiles repo. Never edit the live targets:
 | `~/.grok/config.toml` work Bedrock model | `~/.dotfiles/grok/.grok/overlays/<profile>.toml` then `dot update` |
 | `~/.config/opencode/skills/<name>/SKILL.md` | same `ai/skills/` source (per-skill symlink) |
 | `~/.config/opencode/opencode.json` (`agent.*` / `instructions`) | the `ai/` source, then `dot update` |
-| `~/.config/opencode/opencode.json` `.provider` | `opencode/.config/opencode/opencode.json.tpl` (`BEDROCK_AWS_ACCOUNT_ID` for personal ARNs; `WORK_BEDROCK_API_KEY` or `/connect amazon-bedrock-gov` for work) |
+| `~/.config/opencode/opencode.json` `.provider` and `.providers` | `opencode/.config/opencode/opencode.json.tpl` (`BEDROCK_AWS_ACCOUNT_ID` for personal ARNs; `WORK_BEDROCK_API_KEY` or `/connect amazon-bedrock-gov` for work, Responses adapter) |
 | `~/.claude/skills/`, `agents/`, `rules/`, `settings.json` hooks | the `ai/` source (hooks: `ensure_claude_settings`), then `dot update` |
 
 When the session is running outside `~/.dotfiles/`, `cd` there first or use absolute paths.
@@ -82,7 +82,7 @@ Handlers in `~/.dotfiles/scripts/handlers/ai.sh` (each is a no-op for a harness 
 | Handler | Does |
 |---|---|
 | `install_ai_grok` | Links `ai/{skills,agents,hooks}` → `~/.grok/`; flattens `ai/rules/**` → `~/.grok/rules/`; seeds live `config.toml` if missing; merges `grok/.grok/base.toml` and any Grok-only profile overlay; forces `[compat.claude]` off; merges trusted folders; links `pager.toml` |
-| `install_ai_opencode` | Per-skill links in `~/.config/opencode/skills/`; generates JSON agents + instructions + `.provider` from the tpl. Skips until `~/.config/opencode` is stowed |
+| `install_ai_opencode` | Per-skill links in `~/.config/opencode/skills/`; generates JSON agents + instructions + `.provider` / `.providers` from the tpl. Skips until `~/.config/opencode` is stowed |
 | `install_ai_claude` | Per-skill and agent symlinks, flattened rules, `ai/hooks` registrations + blank attribution merged into `settings.json` |
 | `generate_mcp_configs` | Picks servers from the profile `mcp:` block, resolves 1Password refs for those only; writes Grok `[mcp_servers.*]`, OpenCode `mcp.servers`, Claude `mcpServers` |
 

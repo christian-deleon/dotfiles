@@ -214,7 +214,7 @@ Shared AI agent configuration owned by this dotfiles repo at `~/.dotfiles/ai/`. 
 
 **What `install_ai_opencode()` does** (skips until `~/.config/opencode` is stowed; never creates it):
 - Links each `ai/skills/<name>` into `~/.config/opencode/skills/` (a real dir inside the stowed, gitignored package dir). OpenCode also reads `~/.claude/skills`; duplicates resolve by precedence to the same files.
-- Runs `ai/scripts/generate-opencode-config.sh`, which builds agents (from `ai/agents/*.md`) and `instructions` (paths of `ai/rules/**/*.md`) into `opencode.json` in one jq pass and re-applies `.provider` from `opencode.json.tpl`. The file is written only when it changes, mode 600 from the start (it holds MCP secrets).
+- Runs `ai/scripts/generate-opencode-config.sh`, which builds agents (from `ai/agents/*.md`) and `instructions` (paths of `ai/rules/**/*.md`) into `opencode.json` in one jq pass and re-applies `.provider` and `.providers` from `opencode.json.tpl`. The file is written only when it changes, mode 600 from the start (it holds MCP secrets).
 - Reloads the background OpenCode service only when `opencode.json` changed, at most once per run (the MCP writer shares the same reload)
 
 **What `install_ai_claude()` does:**
