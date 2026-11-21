@@ -56,7 +56,10 @@ models:
     opencode: { model: amazon-bedrock-gov/work-grok-4.7, effort: low }
 
 mcp:
-  enable: [context7, firecrawl, kubernetes]
+  # atlassian site URLs and tokens are not in this file. The linked env's
+  # mcp.json (private agent-files) fills them in. Without that file the
+  # server starts with no site.
+  enable: [atlassian, context7, firecrawl, kubernetes]
   override:
     # Ubuntu npm 9.2.0 wedges `npx @latest` (ENOTEMPTY leftover rename).
     kubernetes:

@@ -72,7 +72,7 @@ The AI harness items (`claude`, `grok`, `opencode`) also gate which harnesses ge
 The only source of which MCP servers run. Without a profile or without this block, the roster's `"default": true` servers (context7, firecrawl) are used.
 
 - `enable` — roster names from `ai/mcp-servers.json.tpl`, written to every enabled harness. Unknown names warn.
-- `override.<server>` — patches `command`, `args`, `env`, `url`, `headers`, `type`. A `command` without `args` drops the roster's args. Applied before 1Password injection and `$HOME` expansion.
+- `override.<server>` — patches `command`, `args`, `env`, `url`, `headers`, `type`. A `command` without `args` drops the roster's args. Applied before 1Password injection and `$HOME` expansion. A linked env's `agent-files/env/<name>/mcp.json` is merged onto the roster before this (see [dot-agent.md](dot-agent.md)); do not put work-only hosts or tokens in the profile.
 
 ```yaml
 mcp:

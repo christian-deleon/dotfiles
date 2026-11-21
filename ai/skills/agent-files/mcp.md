@@ -172,6 +172,8 @@ Servers not enabled are not written. Author the template in the roster shape —
 
 Machine-class launch differences (work WSL vs personal) go in the profile's `mcp.override`, not in `grok/.grok/overlays/` — overlay MCP tables are ignored with a warning.
 
+Work-only hosts, tenant URLs, and credential commands do not go in the roster or the profile. Put them in `agent-files/env/<name>/mcp.json` (same launch fields: `command`, `args`, `env`, `url`, `headers`, `type`). `dot mcp-regen` deep-merges that file onto the roster when that env is linked into a harness. `env` and `headers` merge key by key; a server the roster does not define is ignored. Keep the secret itself in `~/.localrc` and reference it with a `*_COMMAND`, not a pasted token.
+
 ## Common patterns
 
 ### npm-based server with secret
