@@ -540,9 +540,61 @@ install_ai_claude() {
 #
 # Roster: ai/mcp-servers.json.tpl (command/args/env/url JSON, op:// refs).
 # The active profile's `mcp.enable` picks the servers (else the roster's
-# `default: true` ones) and `mcp.override` patches launch fields. Each enabled
-# harness gets exactly that set — hand toggles are reset on the next regen.
+# `default: true` ones) and `mcp.override` patches launch fields. A linked
+# `dot agent` env may add agent-files/env/<name>/mcp.json; that file is merged
+# onto the roster first (env and headers maps merge key by key) so work-only
+# hosts and credential commands stay out of this repo. Each enabled harness
+# gets exactly that set — hand toggles are reset on the next regen.
 # Each writer records the names it wrote in ~/.cache/dotfiles/<h>-mcp-servers.
+
+# Name of the dot-agent env linked into a harness instructions file.
+# install.sh does not source scripts/dot/agent.sh, so this repeats the
+# agent_env_current_name check instead of calling it.
+mcp_linked_env() {
+    local h target resolved rel env_dir="$DOTFILES_DIR/agent-files/env"
+    [[ -d "$env_dir" ]] || return 1
+    for h in "${AI_HARNESSES[@]}"; do
+        target="$(ai_harness_instructions "$h")" || continue
+        [[ -L "$target" ]] || continue
+        resolved="$(readlink -f "$target" 2>/dev/null)" || continue
+        [[ "$resolved" == "$env_dir/"* ]] || continue
+        rel="${resolved#"$env_dir"/}"
+        printf '%s\n' "${rel%%/*}"
+        return 0
+    done
+    return 1
+}
+
+# Deep-merge an env mcp.json onto the roster. The overlay wins per field;
+# env and headers maps merge key by key. Only launch fields are copied.
+# Servers the roster does not define are dropped with a warning.
+# $1 roster, $2 overlay, $3 dest.
+mcp_merge_env_overlay() {
+    local roster="$1" overlay="$2" dest="$3" unknown
+    if ! jq -e 'type == "object"' "$overlay" >/dev/null 2>&1; then
+        _warn "Env MCP overlay is not a JSON object: $overlay"
+        return 1
+    fi
+    unknown="$(jq -r --slurpfile o "$overlay" '
+        . as $roster
+        | [ ($o[0] | keys[]) | select(. as $n | $roster | has($n) | not) ] | join(", ")
+    ' "$roster")" || return 1
+    [[ -n "$unknown" ]] && _warn "Env MCP overlay names not in the roster (ignored): $unknown"
+    jq --slurpfile o "$overlay" '
+        def pick:
+            with_entries(select(.key | IN("command", "args", "env", "url", "headers", "type")));
+        def merge_server($over):
+            ($over | pick) as $over
+            | . as $base
+            | ($base + ($over | del(.env, .headers)))
+            | .env = (($base.env // {}) + ($over.env // {}))
+            | .headers = (($base.headers // {}) + ($over.headers // {}))
+            | if ((.env // {}) | length) == 0 then del(.env) else . end
+            | if ((.headers // {}) | length) == 0 then del(.headers) else . end;
+        reduce ($o[0] | to_entries[]) as $e (.;
+            if has($e.key) then .[$e.key] |= merge_server($e.value) else . end)
+    ' "$roster" > "$dest"
+}
 
 # JSON array of enabled roster names. $1 roster file, $2 profile mcp JSON.
 # Fails on a malformed mcp: block so callers stop before writing anything.
@@ -765,8 +817,12 @@ generate_mcp_configs() {
         return 0
     fi
 
-    local profile_mcp enabled_json current_hash
+    local profile_mcp enabled_json current_hash env_name="" env_mcp=""
     profile_mcp="$(profile_mcp_json)" || profile_mcp='{}'
+    env_name="$(mcp_linked_env)" || true
+    if [[ -n "$env_name" && -f "$DOTFILES_DIR/agent-files/env/$env_name/mcp.json" ]]; then
+        env_mcp="$DOTFILES_DIR/agent-files/env/$env_name/mcp.json"
+    fi
     mcp_warn_unknown "$mcp_src" "$profile_mcp"
     if ! enabled_json="$(mcp_enabled_servers "$mcp_src" "$profile_mcp")"; then
         _warn "Profile mcp: block is malformed — leaving MCP configs unchanged"
@@ -774,6 +830,7 @@ generate_mcp_configs() {
     fi
     current_hash="$({
         sha256sum < "$mcp_src"
+        if [[ -n "$env_mcp" ]]; then sha256sum < "$env_mcp"; else printf 'no-env-mcp\n'; fi
         jq -cS . <<<"$profile_mcp"
         printf '%s\n' "${harnesses[@]}"
     } | sha256sum | awk '{print $1}')"
@@ -793,6 +850,18 @@ generate_mcp_configs() {
     work="$(mktemp -d)"
     # shellcheck disable=SC2064 # expand now: $work is local
     trap "rm -rf -- '$work'" RETURN
+
+    # The linked env's mcp.json (private submodule) merges onto the roster
+    # before the profile picks servers, so its hosts and credential commands
+    # are what get written. A missing file leaves the roster unchanged.
+    local roster="$mcp_src"
+    if [[ -n "$env_mcp" ]]; then
+        if ! mcp_merge_env_overlay "$mcp_src" "$env_mcp" "$work/roster.json"; then
+            _warn "Could not merge $env_mcp — leaving MCP configs unchanged"
+            return 0
+        fi
+        roster="$work/roster.json"
+    fi
 
     # Overrides apply to the template, so their $HOME / op:// values resolve
     # too; filtering first means unused servers' secrets are never fetched.
@@ -814,7 +883,7 @@ generate_mcp_configs() {
               else . end
           )
         | walk(if type == "string" then gsub("\\$HOME"; $home) else . end)
-    ' "$mcp_src" > "$work/selected.json"; then
+    ' "$roster" > "$work/selected.json"; then
         _warn "Could not apply the profile's MCP overrides — leaving MCP configs unchanged"
         return 0
     fi

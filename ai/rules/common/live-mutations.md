@@ -1,7 +1,8 @@
 # Live system mutations require explicit authorization
 
 MCP servers for live systems (AWS, Flux, Kubernetes, Docker, Grafana, Gitea,
-and similar) may expose write-capable tools. **Availability is not permission.**
+Jira, Confluence, and similar) may expose write-capable tools. **Availability
+is not permission.**
 
 - **Read freely** — list, get, describe, logs, metrics, docs, status.
 - **Do not mutate** — create, update, delete, apply, reconcile, suspend, resume,
