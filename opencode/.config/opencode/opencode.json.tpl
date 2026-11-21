@@ -185,34 +185,6 @@
         }
       }
     },
-    "amazon-bedrock-gov": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "Amazon Bedrock (Gov)",
-      "env": ["WORK_BEDROCK_API_KEY", "GROK_BEDROCK_API_KEY"],
-      "options": {
-        "baseURL": "https://bedrock-runtime.us-gov-west-1.amazonaws.com/openai/v1"
-      },
-      "models": {
-        "work-grok-4.7": {
-          "id": "us-gov.xai.grok-4.7",
-          "name": "work-grok-4.7",
-          "variants": {
-            "low": {
-              "reasoningEffort": "low"
-            },
-            "medium": {
-              "reasoningEffort": "medium"
-            },
-            "high": {
-              "reasoningEffort": "high"
-            },
-            "xhigh": {
-              "reasoningEffort": "xhigh"
-            }
-          }
-        }
-      }
-    },
     "genai-mil": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "GenAI.mil",
@@ -235,6 +207,56 @@
         },
         "gemini-3.8-flash": {
           "name": "Gemini 3.8 Flash"
+        }
+      }
+    }
+  },
+  "providers": {
+    "amazon-bedrock-gov": {
+      "name": "Amazon Bedrock (Gov)",
+      "env": ["WORK_BEDROCK_API_KEY", "GROK_BEDROCK_API_KEY"],
+      "package": "@opencode/ai/providers/openai-compatible/responses",
+      "settings": {
+        "baseURL": "https://bedrock-runtime.us-gov-west-1.amazonaws.com/openai/v1"
+      },
+      "models": {
+        "work-grok-4.7": {
+          "modelID": "us-gov.xai.grok-4.7",
+          "name": "work-grok-4.7",
+          "variants": [
+            {
+              "id": "low",
+              "settings": {
+                "reasoningEffort": "low",
+                "reasoningSummary": "auto",
+                "include": ["reasoning.encrypted_content"]
+              }
+            },
+            {
+              "id": "medium",
+              "settings": {
+                "reasoningEffort": "medium",
+                "reasoningSummary": "auto",
+                "include": ["reasoning.encrypted_content"]
+              }
+            },
+            {
+              "id": "high",
+              "settings": {
+                "reasoningEffort": "high",
+                "reasoningSummary": "auto",
+                "include": ["reasoning.encrypted_content"]
+              }
+            },
+            {
+              "id": "xhigh",
+              "settings": {
+                "reasoningEffort": "xhigh",
+                "reasoningSummary": "auto",
+                "include": ["reasoning.encrypted_content"]
+              }
+            }
+          ]
         }
       }
     }

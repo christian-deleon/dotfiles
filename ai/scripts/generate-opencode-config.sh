@@ -117,7 +117,7 @@ awk 'FNR == 1 { n++ } { print n "\t" $0 }' ${agents[@]+"${agents[@]}"} </dev/nul
             if .model and ((.model | split("/")[0]) as $p
                 | ($tpl.provider // {} | has($p) | not) and $p == "amazon-bedrock")
             then del(.model, .variant) else . end)) as $overlay
-    | $tpl * $overlay * ($personal | del(.agent, .command, .instructions, .plugins, .provider))
+    | $tpl * $overlay * ($personal | del(.agent, .command, .instructions, .plugins, .provider, .providers))
 ' >"$tmp"
 
 if [[ -f "$OC_CFG" ]] && cmp -s -- "$tmp" "$OC_CFG"; then
