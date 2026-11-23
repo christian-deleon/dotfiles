@@ -59,7 +59,7 @@ Usage: wto <command> [args]
   open [-p text | -f file] [--switch] [<name>]
                                open a worktree's window, continuing its conversation;
                                no name: the only worktree, or a picker
-  open --all [--switch]        open every worktree
+  open --all [--switch]        open every worktree; skip one whose folder is gone
   layout [--k9s] [-t tool] [-p text | -f file | prompt...]
                                lay out the calling pane: agent, editor, shell
 
@@ -1651,6 +1651,12 @@ caller_window_free() {
 # which ends this process.
 ensure_window() {
     local wt_path=$1 pf=$2 here=${3:-0} branch label session tool x y pane wid
+    # A missing folder must not become a window: tmux ignores -c for a path
+    # that is not there and starts the pane in $HOME.
+    if [[ ! -d $wt_path ]]; then
+        [[ -n $pf ]] && rm -f -- "$pf"
+        die "${wt_path##*/} is gone ($wt_path); git worktree prune drops it"
+    fi
     branch=$(git -C "$wt_path" symbolic-ref -q --short HEAD 2>/dev/null) || branch=""
     label=${branch:-${wt_path##*/}}
     session=$(session_for "$wt_path")
@@ -1914,6 +1920,10 @@ cmd_open() {
 open_all() {
     local roster=$1 switch=$2 path first="" first_path=""
     while IFS= read -r path; do
+        if [[ ! -d $path ]]; then
+            printf '  skip    %s (folder is gone; git worktree prune drops it)\n' "${path##*/}"
+            continue
+        fi
         ensure_window "$path" ""
         if [[ -z $first ]]; then
             first=$WTO_WINDOW
