@@ -1,7 +1,15 @@
 {
     "$help": "https://aka.ms/terminal-documentation",
     "$schema": "https://aka.ms/terminal-profiles-schema",
-    "actions": [],
+    "actions": [
+        {
+            "command": {
+                "action": "sendInput",
+                "input": "\n"
+            },
+            "id": "User.SendNewline"
+        }
+    ],
     "copyFormatting": "none",
     "copyOnSelect": false,
     "defaultProfile": "__WSL_GUID__",
@@ -26,6 +34,10 @@
         {
             "id": "Terminal.DuplicatePaneAuto",
             "keys": "alt+shift+d"
+        },
+        {
+            "id": "User.SendNewline",
+            "keys": "shift+enter"
         }
     ],
     "newTabMenu": [
