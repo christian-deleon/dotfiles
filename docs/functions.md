@@ -544,9 +544,15 @@ Open a window for every worktree in the project, continuing each conversation th
 
 ---
 
-### `wtx [-y] [branch|folder...]` \*
+### `wtx [-y] [--park|--discard|--merged] [branch|folder...]` \*
 
-Close sessions. In a session folder inside tmux, with no arguments, it runs `wto close --here`. Otherwise it passes its arguments to `wto close`: names close those worktrees, and none opens the fzf picker. See [`wto close`](#wto-command).
+Close sessions. In a session folder inside tmux, with no names, it runs `wto close --here` (with any flags). Otherwise it passes its arguments to `wto close`: names close those worktrees, and none opens the fzf picker. See [`wto close`](#wto-command).
+
+```bash
+wtx                 # close this session: its work is merged, in another branch, or pushed
+wtx --park          # push this branch to origin, then close; wtc <branch> brings it back
+wtx --discard       # close and drop commits that exist nowhere else (asks first)
+```
 
 ---
 
@@ -562,8 +568,8 @@ An executable in `bin/` (linked to `~/.local/bin/wto` by the installer and `dot 
 | `wto open [-p text \| -f file] [--switch] [<name>]` | What `wta` runs. |
 | `wto open --all [--switch]` | Open a window for every worktree, continuing each conversation; skips ones that have a window, and a worktree whose folder is gone (tmux would start that window in the home directory). `git worktree prune` drops a gone folder. Used to restore a project after a reboot. |
 | `wto layout [--k9s] [-t tool] [-p text \| -f file \| prompt...]` | What [`tav`](#tav--t--tool-ai-cmd--f--prompt-file-path-prompt) and `tavk` run: lay out the calling pane. Refuses a pane an agent runs in. |
-| `wto close [-y] [<name>...]` | Close finished sessions: kills their tmux windows, removes the worktree with git, deletes the branch (printing the old tip), and hands its claims on. With no name, an fzf picker (Tab marks several; refused worktrees are dimmed with the reason). Each target gets a report first (`ok` or the reasons), then one confirmation for a picked or multiple set (`-y` skips it). Refuses unless the work is merged into the local or `origin` default branch (a squash merge on the forge counts); also refuses uncommitted changes (untracked files count; the first ones are named), an operation in progress, a locked worktree, the orchestrator's, and a detached folder with commits on no branch. Run from another window. |
-| `wto close --here` | Close the session this shell is in. The checks run in the foreground and refuse with their reasons; then focus moves to another window and a detached tmux job removes the worktree and branch and then the window, writes its result to `close-<folder>.log` in the project's state dir (`wto dir`) and shows it as a tmux message. The window is killed last, once the removal succeeded; if it was the session's only window, a shell window in the project folder opens first, so the tmux session stays alive. A failed removal leaves the window open. |
+| `wto close [-y] [--merged\|--park\|--discard] [<name>...]` | Close finished sessions: kills their tmux windows, removes the worktree with git, deletes the branch (printing the old tip), and hands its claims on. With no name, an fzf picker (Tab marks several; refused worktrees are dimmed with the reason). Each target gets a report first (`ok` with where the work lives, or the reasons), then one confirmation for a picked or multiple set (`-y` skips it). Closes only when the commits also live somewhere else: the local or `origin` default branch, another local branch, or any branch on `origin` (including the branch's own pushed copy); a squash merge into the default branch, another local branch, or its `origin` copy counts. `--merged` accepts only the default branch (what the orchestrator uses). `--park` pushes the branch to `origin` with an upstream first (never the default branch; a failed push closes nothing). `--discard` closes even when the commits exist nowhere else, after listing them, and always asks, even with `-y`. Every mode refuses uncommitted changes (untracked files count; the first ones are named), an operation in progress, a locked worktree, and the orchestrator's; without `--discard` it also refuses a detached folder with commits on no branch. Run from another window. |
+| `wto close --here [--merged\|--park\|--discard]` | Close the session this shell is in. The checks, the `--park` push and the `--discard` confirmation run in the foreground and refuse with their reasons; then focus moves to another window and a detached tmux job removes the worktree and branch and then the window, writes its result to `close-<folder>.log` in the project's state dir (`wto dir`) and shows it as a tmux message. The window is killed last, once the removal succeeded; if it was the session's only window, a shell window in the project folder opens first, so the tmux session stays alive. A failed removal leaves the window open. |
 | `wto here` | Print the project's live orchestrator marker; exit 1 if none. |
 | `wto here --orchestrator` | Record the calling pane as the orchestrator; exits 3 if another live pane holds it. |
 | `wto here --clear [--force]` | Remove the marker. |

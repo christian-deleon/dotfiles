@@ -41,9 +41,14 @@ function wtaa() {
 
 # Close the session you are in, or pick sessions to close
 function wtx() {
-    # Usage: wtx [-y] [branch|folder...]. In a session folder with no args, closes it.
-    if (($# == 0)) && [[ -n ${TMUX-} ]] && git rev-parse --show-toplevel &>/dev/null; then
-        command wto close --here
+    # Usage: wtx [-y] [--merged|--park|--discard] [branch|folder...].
+    # In a session folder with no names, closes it.
+    local arg
+    for arg in "$@"; do
+        [[ $arg == -* ]] || { command wto close "$@"; return; }
+    done
+    if [[ -n ${TMUX-} ]] && git rev-parse --show-toplevel &>/dev/null; then
+        command wto close --here "$@"
     else
         command wto close "$@"
     fi

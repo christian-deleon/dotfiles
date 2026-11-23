@@ -43,11 +43,17 @@ Usage: wto <command> [args]
   claim status [--json]        holders and the queue
   claim bump <name>            move that session's waiting requests to the front
   claim gc                     drop claims of removed worktrees, then hand over
-  close [-y] [<name>...]       close finished sessions: kill the window, remove the
+  close [-y] [--merged|--park|--discard] [<name>...]
+                               close finished sessions: kill the window, remove the
                                worktree, delete the branch. No name: an fzf picker
                                (Tab marks several); a report and one confirmation
-                               come first
-  close --here                 close the session this shell is in; the checks run now,
+                               come first. Allowed when the commits also live on
+                               another branch or on origin; --merged allows only the
+                               default branch, --park pushes the branch to origin
+                               first, --discard drops commits found nowhere else
+                               (always asks, even with -y)
+  close --here [--merged|--park|--discard]
+                               close the session this shell is in; the checks run now,
                                the removal runs from a detached job (result in the
                                project's state dir, close-<folder>.log)
 
@@ -1964,11 +1970,58 @@ cmd_layout() {
 
 # ── close ─────────────────────────────────────────────────────────────────────
 
-# Why the worktree in roster entry $1 cannot be closed, one reason per line;
-# no output means it can. Reads only.
+# Where commit $1 already lives outside branch $2 (empty when detached), with
+# $3 the default branch: printed as a short ref name. The default branch wins,
+# then any other branch or remote branch holding it; squash merges count
+# against local branches and their origin copies. With $4 = merged, only the
+# default branch counts. Fails when the commit lives nowhere else.
+work_home() {
+    local head=$1 branch=$2 default=$3 only_default=${4:-} ref r
+    for ref in "refs/heads/$default" "refs/remotes/origin/$default"; do
+        if integrated_reason "$head" "$ref" >/dev/null; then
+            printf '%s\n' "${ref#refs/*/}"
+            return 0
+        fi
+    done
+    [[ $only_default != merged ]] || return 1
+    while IFS= read -r ref; do
+        [[ $ref == "refs/heads/$branch" || $ref == refs/remotes/*/HEAD ]] && continue
+        printf '%s\n' "${ref#refs/*/}"
+        return 0
+    done < <(git for-each-ref --contains "$head" --format='%(refname)' refs/heads refs/remotes)
+    while IFS= read -r ref; do
+        [[ $ref == "refs/heads/$branch" || $ref == "refs/heads/$default" ]] && continue
+        for r in "$ref" "refs/remotes/origin/${ref#refs/heads/}"; do
+            if integrated_reason "$head" "$r" >/dev/null; then
+                printf '%s\n' "${r#refs/*/}"
+                return 0
+            fi
+        done
+    done < <(git for-each-ref --format='%(refname)' refs/heads)
+    return 1
+}
+
+# Commits reachable from $1 and from no branch or remote branch except $2,
+# the ones closing would delete. Extra args go to git log (or rev-list --count
+# when $3 is --count).
+lost_commits() {
+    local head=$1 branch=$2
+    shift 2
+    local -a skip=()
+    [[ -n $branch ]] && skip=("--exclude=$branch")
+    if [[ ${1-} == --count ]]; then
+        git rev-list --count "$head" --not ${skip[@]+"${skip[@]}"} --branches --remotes
+    else
+        git log --format='%h %s' "$@" "$head" --not ${skip[@]+"${skip[@]}"} --branches --remotes
+    fi
+}
+
+# Why the worktree in roster entry $1 cannot be closed in mode $2 (empty,
+# merged, park or discard), one reason per line; no output means it can.
+# Reads only.
 close_blockers() {
-    local entry=$1 path branch default head status line n shown=0 files="" target
-    local tag wid integrated=0 marker count
+    local entry=$1 mode=${2:-} path branch default head status line n shown=0 files=""
+    local tag wid marker count
     path=$(jq -r .path <<<"$entry")
     branch=$(jq -r '.branch // ""' <<<"$entry")
     if [[ ! -d $path ]]; then
@@ -2010,18 +2063,87 @@ close_blockers() {
         return 0
     fi
     head=$(git -C "$path" rev-parse HEAD)
-    for target in "refs/heads/$default" "refs/remotes/origin/$default"; do
-        if integrated_reason "$head" "$target" >/dev/null; then
-            integrated=1
-            break
-        fi
-    done
-    if ((!integrated)); then
-        count=$(git rev-list --count "$head" --not "refs/heads/$default" 2>/dev/null) || count="?"
-        printf 'not merged into %s or origin/%s (%s commit(s) ahead)\n' "$default" "$default" "$count"
-    elif [[ -z $branch && -n $(git rev-list -n 1 "$head" --not --branches --remotes) ]]; then
-        printf 'commits on no branch; name one (git switch -c <branch>) first\n'
-    fi
+    case $mode in
+        discard) ;;
+        park)
+            if [[ -z $branch ]]; then
+                printf 'no branch to push; name one (git switch -c <branch>) first\n'
+            elif [[ $branch == "$default" ]]; then
+                printf '%s is the default branch; --park never pushes it\n' "$default"
+            elif ! git remote get-url origin >/dev/null 2>&1; then
+                printf 'no origin remote to push to\n'
+            fi
+            ;;
+        *)
+            if ! work_home "$head" "$branch" "$default" "$mode" >/dev/null; then
+                if [[ $mode == merged ]]; then
+                    count=$(git rev-list --count "$head" --not "refs/heads/$default" 2>/dev/null) || count="?"
+                    printf 'not merged into %s or origin/%s (%s commit(s) ahead)\n' "$default" "$default" "$count"
+                else
+                    count=$(lost_commits "$head" "$branch" --count 2>/dev/null) || count="?"
+                    printf '%s commit(s) exist only here, not in %s, another branch, or origin; --park pushes them, --discard drops them\n' "$count" "$default"
+                fi
+            elif [[ -z $branch && -n $(git rev-list -n 1 "$head" --not --branches --remotes) ]]; then
+                printf 'commits on no branch; name one (git switch -c <branch>) first\n'
+            fi
+            ;;
+    esac
+}
+
+# The note after "ok" for roster entry $1 in mode $2: where the work lives,
+# that it is pushed first, or how many commits are dropped.
+close_note() {
+    local entry=$1 mode=${2:-} path branch default head home count
+    path=$(jq -r .path <<<"$entry")
+    branch=$(jq -r '.branch // ""' <<<"$entry")
+    default=$(default_branch) || return 0
+    head=$(git -C "$path" rev-parse HEAD)
+    case $mode in
+        park) printf ' (pushes to origin/%s first)' "$branch" ;;
+        discard)
+            count=$(lost_commits "$head" "$branch" --count)
+            if ((count > 0)); then
+                printf ' (discards %s commit(s))' "$count"
+            elif home=$(work_home "$head" "$branch" "$default"); then
+                printf ' (nothing to discard; in %s)' "$home"
+            fi
+            ;;
+        *) home=$(work_home "$head" "$branch" "$default" "$mode") && printf ' (in %s)' "$home" ;;
+    esac
+    [[ $(jq -r '.session.state // ""' <<<"$entry") == working ]] && printf ' (its session is working)'
+    return 0
+}
+
+# Print the commits closing roster entry $1 would delete, indented, ten at most.
+print_lost() {
+    local entry=$1 path branch head line n=0
+    path=$(jq -r .path <<<"$entry")
+    branch=$(jq -r '.branch // ""' <<<"$entry")
+    head=$(git -C "$path" rev-parse HEAD)
+    while IFS= read -r line; do
+        n=$((n + 1))
+        ((n <= 10)) && printf '    %s\n' "$line"
+    done < <(lost_commits "$head" "$branch")
+    ((n > 10)) && printf '    ... and %s more\n' "$((n - 10))"
+    return 0
+}
+
+# Push the branch of roster entry $1 to origin, setting its upstream.
+park_push() {
+    local entry=$1 path branch
+    path=$(jq -r .path <<<"$entry")
+    branch=$(jq -r .branch <<<"$entry")
+    git -C "$path" push --quiet --set-upstream origin "refs/heads/$branch:refs/heads/$branch" \
+        || { warn "close: pushing $branch to origin failed; nothing closed"; return 1; }
+    printf 'pushed %s to origin\n' "$branch"
+}
+
+# Ask before discarding; always, even with -y. $1 = commit count, $2 = worktrees.
+confirm_discard() {
+    local ans
+    [[ -t 0 ]] || die "close: --discard needs a terminal to confirm"
+    read -r -p "Discard $1 commit(s) for good and close $2 worktree(s)? [y/N] " ans
+    [[ $ans == [yY]* ]]
 }
 
 # Close the worktree in roster entry $1: its windows, the worktree, the branch,
@@ -2073,7 +2195,7 @@ close_apply() {
 # fzf over every worktree: Tab marks several, refused ones are dimmed with
 # their reason. Prints the chosen paths.
 close_pick() {
-    local roster=$1 self row entry path branch name state reason dim off
+    local roster=$1 mode=$2 self row entry path branch name state reason dim off
     local rows=""
     if [[ ! -t 0 || ! -t 2 ]] || ! command -v fzf >/dev/null 2>&1; then
         die "close: name the branch or folder (a picker needs a terminal and fzf)"
@@ -2085,7 +2207,7 @@ close_pick() {
         branch=$(jq -r '.branch // "(no branch)"' <<<"$entry")
         name=${path##*/}
         state=$(jq -r '.session.state // "no session"' <<<"$entry")
-        reason=$(close_blockers "$entry")
+        reason=$(close_blockers "$entry" "$mode")
         if [[ $path == "$self" ]]; then
             reason="you are in it; wtx closes it"
         fi
@@ -2108,16 +2230,29 @@ close_pick() {
 # in a detached tmux job, which kills this window last. With no other window, a
 # shell window in the project folder opens first so the session stays alive.
 close_here() {
-    local roster=$1 path entry blockers own_window dest wid last root log self
+    local roster=$1 mode=$2 path entry blockers own_window dest wid last root log self count
+    local later=""
     [[ -n ${TMUX:-} && -n ${TMUX_PANE:-} ]] || die "close --here: run it inside tmux"
     path=$(self_wt)
     entry=$(resolve_entry "$roster" "$path" close)
-    blockers=$(close_blockers "$entry")
+    blockers=$(close_blockers "$entry" "$mode")
     if [[ -n $blockers ]]; then
         printf 'wto: cannot close %s:\n' "${path##*/}" >&2
         printf '  %s\n' "${blockers//$'\n'/$'\n'  }" >&2
         exit 1
     fi
+    case $mode in
+        park) park_push "$entry" || exit 1 ;;
+        discard)
+            count=$(lost_commits "$(git -C "$path" rev-parse HEAD)" "$(jq -r '.branch // ""' <<<"$entry")" --count)
+            if ((count > 0)); then
+                print_lost "$entry"
+                confirm_discard "$count" 1 || { printf 'nothing closed\n'; return 0; }
+            fi
+            later=--discard
+            ;;
+        merged) later=--merged ;;
+    esac
     own_window=$(tmux display-message -p -t "$TMUX_PANE" '#{window_id}') || die "close --here: cannot read this window"
     dest="" last=""
     while IFS=' ' read -r wid last; do
@@ -2135,16 +2270,16 @@ close_here() {
     tmux select-window -t "$dest"
     log=$(state_dir)/close-${path##*/}.log
     self=$(realpath -- "${BASH_SOURCE[0]}")
-    tmux run-shell -b "$(printf 'cd %q && WTO_CLOSE_WINDOW=%q %q close --detached %q %q' "$root" "$own_window" "$self" "$path" "$log")"
+    tmux run-shell -b "$(printf 'cd %q && WTO_CLOSE_WINDOW=%q %q close %s --detached %q %q' "$root" "$own_window" "$self" "$later" "$path" "$log")"
     printf 'closing %s in a moment; result in %s\n' "${path##*/}" "$log"
 }
 
 # The detached half of --here: runs from the project root after the window
 # is no longer the one in front.
 close_detached() {
-    local roster=$1 path=$2 log=$3 entry blockers out msg
+    local roster=$1 path=$2 log=$3 mode=$4 entry blockers out msg
     entry=$(resolve_entry "$roster" "$path" close) || exit 1
-    blockers=$(close_blockers "$entry")
+    blockers=$(close_blockers "$entry" "$mode")
     if [[ -n $blockers ]]; then
         out="cannot close ${path##*/}: ${blockers//$'\n'/; }"
         printf '%s\n' "$out" >"$log"
@@ -2165,12 +2300,17 @@ close_detached() {
 
 cmd_close() {
     local yes=0 here=0 detached="" log="" roster entry path picked=0 failed=0 ans
+    local mode="" lost=0 count
     local -a names=() targets=() ok=()
-    local blockers label notes
+    local blockers label
     while (($#)); do
         case $1 in
             -y | --yes) yes=1 ;;
             --here) here=1 ;;
+            --merged | --park | --discard)
+                [[ -z $mode || $mode == "${1#--}" ]] || die "close: use one of --merged, --park and --discard"
+                mode=${1#--}
+                ;;
             --detached)
                 (($# >= 3)) || die "close: --detached needs a path and a log file"
                 detached=$2 log=$3
@@ -2184,20 +2324,20 @@ cmd_close() {
     done
     if [[ -n $detached ]]; then
         sleep 2
-        close_detached "$(roster_json)" "$detached" "$log"
+        close_detached "$(roster_json)" "$detached" "$log" "$mode"
         return
     fi
     roster=$(roster_json)
     if ((here)); then
         ((${#names[@]} == 0)) || die "close: --here takes no name"
-        close_here "$roster"
+        close_here "$roster" "$mode"
         return
     fi
     if ((${#names[@]} == 0)); then
         picked=1
         while IFS= read -r path; do
             [[ -n $path ]] && targets+=("$path")
-        done < <(close_pick "$roster")
+        done < <(close_pick "$roster" "$mode")
         ((${#targets[@]} > 0)) || return 0
     else
         for path in "${names[@]}"; do
@@ -2208,27 +2348,34 @@ cmd_close() {
     for path in "${targets[@]}"; do
         entry=$(jq -c --arg p "$path" '[.[] | select(.path == $p)][0]' <<<"$roster")
         label=$(jq -r --arg d "${path##*/}" '.branch // $d' <<<"$entry")
-        blockers=$(close_blockers "$entry")
-        notes=""
-        [[ $(jq -r '.session.state // ""' <<<"$entry") == working ]] && notes=" (its session is working)"
+        blockers=$(close_blockers "$entry" "$mode")
         if [[ -n $blockers ]]; then
             printf '%s: refused\n' "$label" >&2
             printf '  %s\n' "${blockers//$'\n'/$'\n'  }" >&2
         else
-            printf '%s: ok%s\n' "$label" "$notes"
+            printf '%s: ok%s\n' "$label" "$(close_note "$entry" "$mode")"
+            if [[ $mode == discard ]]; then
+                print_lost "$entry"
+                count=$(lost_commits "$(git -C "$path" rev-parse HEAD)" "$(jq -r '.branch // ""' <<<"$entry")" --count)
+                lost=$((lost + count))
+            fi
             ok+=("$entry")
         fi
     done
     if ((${#ok[@]} == 0)); then
         exit 1
     fi
-    if ((picked || ${#targets[@]} > 1)) && ((!yes)); then
+    if ((lost > 0)); then
+        confirm_discard "$lost" "${#ok[@]}" || { printf 'nothing closed\n'; return 0; }
+    elif ((picked || ${#targets[@]} > 1)) && ((!yes)); then
         [[ -t 0 ]] || die "close: several worktrees need -y when there is no terminal"
         read -r -p "Close ${#ok[@]} worktree(s)? [y/N] " ans
         [[ $ans == [yY]* ]] || { printf 'nothing closed\n'; return 0; }
     fi
     for entry in "${ok[@]}"; do
-        if ! (close_apply "$entry"); then
+        if [[ $mode == park ]] && ! park_push "$entry"; then
+            failed=1
+        elif ! (close_apply "$entry"); then
             failed=1
         fi
     done
