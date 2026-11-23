@@ -540,7 +540,7 @@ wta brisk-otter -p "rebase onto main and rerun the tests"   # by folder, with a 
 
 ### `wtaa`
 
-Open a window for every worktree in the project, continuing each conversation the same way `wta` does, and switch to the first. Worktrees that already have a window are left alone. Use it to restore a project after a reboot. `wtaa` is a wrapper over `wto open --all --switch`.
+Open a window for every worktree in the project, continuing each conversation the same way `wta` does, and switch to the first. Worktrees that already have a window are left alone. A worktree whose folder is gone is skipped too: tmux would otherwise open that window in the home directory. `git worktree prune` drops it. Use `wtaa` to restore a project after a reboot. `wtaa` is a wrapper over `wto open --all --switch`.
 
 ---
 
@@ -560,7 +560,7 @@ An executable in `bin/` (linked to `~/.local/bin/wto` by the installer and `dot 
 | `wto default [--refresh]` | Print the default branch. `--refresh` fetches `origin` first and fast-forwards the local default branch to it (left alone, with a warning, when a folder has it checked out). |
 | `wto new …` | What `wtc` runs; stays put unless `--switch`. |
 | `wto open [-p text \| -f file] [--switch] [<name>]` | What `wta` runs. |
-| `wto open --all [--switch]` | Open a window for every worktree, continuing each conversation; skips ones that have a window. Used to restore a project after a reboot. |
+| `wto open --all [--switch]` | Open a window for every worktree, continuing each conversation; skips ones that have a window, and a worktree whose folder is gone (tmux would start that window in the home directory). `git worktree prune` drops a gone folder. Used to restore a project after a reboot. |
 | `wto layout [--k9s] [-t tool] [-p text \| -f file \| prompt...]` | What [`tav`](#tav--t--tool-ai-cmd--f--prompt-file-path-prompt) and `tavk` run: lay out the calling pane. Refuses a pane an agent runs in. |
 | `wto close [-y] [<name>...]` | Close finished sessions: kills their tmux windows, removes the worktree with git, deletes the branch (printing the old tip), and hands its claims on. With no name, an fzf picker (Tab marks several; refused worktrees are dimmed with the reason). Each target gets a report first (`ok` or the reasons), then one confirmation for a picked or multiple set (`-y` skips it). Refuses unless the work is merged into the local or `origin` default branch (a squash merge on the forge counts); also refuses uncommitted changes (untracked files count; the first ones are named), an operation in progress, a locked worktree, the orchestrator's, and a detached folder with commits on no branch. Run from another window. |
 | `wto close --here` | Close the session this shell is in. The checks run in the foreground and refuse with their reasons; then focus moves to another window and a detached tmux job removes the worktree and branch and then the window, writes its result to `close-<folder>.log` in the project's state dir (`wto dir`) and shows it as a tmux message. The window is killed last, once the removal succeeded; if it was the session's only window, a shell window in the project folder opens first, so the tmux session stays alive. A failed removal leaves the window open. |
