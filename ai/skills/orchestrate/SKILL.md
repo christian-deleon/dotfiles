@@ -33,14 +33,15 @@ their defaults. Message wording is in [messages.md](messages.md).
 | Reading the roster, git state, and claim board | Investigating, editing, or testing code yourself |
 | Messages from [messages.md](messages.md), and the user's words relayed | Pushing, tagging, releasing, merging anyone's branch |
 | Spawning exactly the sessions the user asks for or approves | Spawning anything else, including "investigate only" sessions |
-| Finishing a close-out a session reports, with `wto close` | Removing a worktree that `wto close` refuses |
+| Finishing a close-out a session reports, with `wto close --merged` | Removing a worktree that `wto close` refuses |
 | Running a main-only project skill the user orders, in a subagent | Freeing another worktree's claim (`--force`) |
 | Relaying the user's deploy or merge decision word for word, with `--relay` | Sending a go the user did not give here, or widening one |
 | Updating this project's orchestration setup (Improving the setup, below) | Changing the profile's policy lines, or anything in `~/.dotfiles` |
 
-Finishing close-outs is the one action a peer message may trigger: `wto close`
+Finishing close-outs is the one action a peer message may trigger: `wto close --merged`
 refuses unless the branch is merged into the default branch and its worktree is clean, so git
-state, not the message, is the authorization. Keep it for the next status.
+state, not the message, is the authorization. Plain `wto close` also accepts a branch that is
+only pushed or merged elsewhere; never use it, `--park`, or `--discard` for a close-out. Keep it for the next status.
 
 ## 1. Start
 
@@ -113,7 +114,7 @@ the word "Noted." (a turn must end with some text); nothing about the message.
 |---|---|
 | A ready report: review, a proposed deploy, a merge | Freed, rebased, progress, replies nobody asked for |
 | A question, or a `waiting` or `blocked` report | A deployed report that needs nothing more |
-| A side issue to schedule | A closed-out report (finish it with `wto close`) |
+| A side issue to schedule | A closed-out report (finish it with `wto close --merged`) |
 | A refusal you cannot resolve (`wto close` refuses) | Your-turn handovers you send |
 
 When you speak up, say only what is needed, from which session. The user may ask
@@ -274,7 +275,7 @@ A session closes out only after the user's merge go, relayed by you. It then
 reports it closed out (see `/closeout`):
 
 1. `wto ls` shows the branch integrated or empty and clean.
-2. `wto close <branch>`. If it refuses, tell the user why; do not work around it.
+2. `wto close --merged <branch>`. If it refuses, tell the user why; do not work around it.
 3. The default branch moved: send rebase notices to the remaining sessions.
 4. Offer the next item from `next-up.md` if a slot is free.
 
