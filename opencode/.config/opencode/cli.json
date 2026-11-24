@@ -15,6 +15,9 @@
   "tabs": {
     "mode": "off"
   },
+  "prompt": {
+    "paste": "full"
+  },
   "animations": true,
   "keybinds": {
     "session.background": "<leader>z"
