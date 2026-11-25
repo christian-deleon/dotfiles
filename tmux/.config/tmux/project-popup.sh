@@ -6,6 +6,21 @@
 # Sessions remember their project in @project_dir, so picking it again switches there
 # even when a name clash gave it a longer name.
 set -u
+
+# Run by tmux once the client is on the new session: wto sizes the windows from
+# that client, so the layout matches wtaa. wto files them under TMUX_PANE's session
+# when that pane sits at the project root, which keeps them here after a name clash.
+# The starting shell only anchored wto; drop it once a worktree window exists.
+if [[ ${1-} == --restore ]]; then
+    name=$2 dir=$3 pane=$4
+    (cd "$dir" && TMUX_PANE=$pane wto open --all >/dev/null 2>&1) || true
+    if (($(tmux display-message -p -t "=$name:" '#{session_windows}') > 1)); then
+        tmux kill-window -t "$pane"
+        tmux select-window -t "=$name:^"
+    fi
+    exit 0
+fi
+
 for root in "$HOME/projects" "$HOME/Projects" ""; do
     [[ -d $root ]] && break
 done
@@ -22,11 +37,12 @@ rel=$(
 ) || exit 0
 dir=$root/$rel
 
+# Extra arguments are tmux commands to chain after the switch or attach.
 go() {
     if [[ -n ${TMUX-} ]]; then
-        tmux switch-client -t "=$1"
+        tmux switch-client -t "=$1" "${@:2}"
     else
-        exec tmux attach-session -t "=$1"
+        exec tmux attach-session -t "=$1" "${@:2}"
     fi
 }
 
@@ -54,18 +70,11 @@ tmux new-session -d -s "$name" -c "$dir"
 tmux set-option -t "=$name:" @project_dir "$dir"
 # A new session for a worktree project (bare repo at the root) gets a window per
 # worktree, as wtaa does after a reboot. Normal clones are skipped: wto would open
-# an agent on the checkout itself. wto files the windows under TMUX_PANE's session
-# when that pane sits at the project root, which keeps them here after a name clash.
+# an agent on the checkout itself.
 if [[ $(git --git-dir="$dir/.git" rev-parse --is-bare-repository 2>/dev/null) == true ]] &&
     command -v wto >/dev/null; then
     pane=$(tmux display-message -p -t "=$name:" '#{pane_id}')
-    sock=$(tmux display-message -p -t "=$name:" '#{socket_path}')
-    (cd "$dir" && TMUX=${TMUX:-$sock,0,0} TMUX_PANE=$pane wto open --all >/dev/null 2>&1) || true
-    # The starting shell only anchored wto to this session; drop it once there is
-    # a worktree window to land on.
-    if (($(tmux display-message -p -t "=$name:" '#{session_windows}') > 1)); then
-        tmux kill-window -t "$pane"
-        tmux select-window -t "=$name:^"
-    fi
+    go "$name" ';' run-shell -b "$(printf '%q ' "$0" --restore "$name" "$dir" "$pane")"
+    exit
 fi
 go "$name"
