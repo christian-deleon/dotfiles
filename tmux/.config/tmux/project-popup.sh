@@ -61,5 +61,11 @@ if [[ $(git --git-dir="$dir/.git" rev-parse --is-bare-repository 2>/dev/null) ==
     pane=$(tmux display-message -p -t "=$name:" '#{pane_id}')
     sock=$(tmux display-message -p -t "=$name:" '#{socket_path}')
     (cd "$dir" && TMUX=${TMUX:-$sock,0,0} TMUX_PANE=$pane wto open --all >/dev/null 2>&1) || true
+    # The starting shell only anchored wto to this session; drop it once there is
+    # a worktree window to land on.
+    if (($(tmux display-message -p -t "=$name:" '#{session_windows}') > 1)); then
+        tmux kill-window -t "$pane"
+        tmux select-window -t "=$name:^"
+    fi
 fi
 go "$name"
