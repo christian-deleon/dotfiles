@@ -60,6 +60,7 @@ for f in bin/wto ai/hooks/*.sh; do bash -n "$f"; done
 sh -n tmux/.config/tmux/window-label.sh
 bash -n tmux/.config/tmux/wtc-popup.sh
 bash -n tmux/.config/tmux/project-popup.sh
+bash -n tmux/.config/tmux/session-popup.sh
 bash scripts/check-descriptions.sh   # function/alias descriptions ≤60 chars, single line
 
 # Install / manage
@@ -80,7 +81,7 @@ When you change behavior, also update: `README.md` (high-level), `docs/functions
 
 Before committing:
 
-- [ ] `bash -n <script>`, `for f in install.sh dot.sh scripts/*.sh scripts/lib/*.sh scripts/dot/*.sh scripts/handlers/*.sh scripts/tools/*.sh bin/wto ai/hooks/*.sh; do bash -n "$f"; done`, `sh -n tmux/.config/tmux/window-label.sh`, `bash -n tmux/.config/tmux/wtc-popup.sh`, `bash -n tmux/.config/tmux/project-popup.sh`, `for f in functions.d/*.sh; do bash -n "$f"; done`, and `for f in completions.d/*.sh; do bash -n "$f"; done`
+- [ ] `bash -n <script>`, `for f in install.sh dot.sh scripts/*.sh scripts/lib/*.sh scripts/dot/*.sh scripts/handlers/*.sh scripts/tools/*.sh bin/wto ai/hooks/*.sh; do bash -n "$f"; done`, `sh -n tmux/.config/tmux/window-label.sh`, `bash -n tmux/.config/tmux/wtc-popup.sh`, `bash -n tmux/.config/tmux/project-popup.sh`, `bash -n tmux/.config/tmux/session-popup.sh`, `for f in functions.d/*.sh; do bash -n "$f"; done`, and `for f in completions.d/*.sh; do bash -n "$f"; done`
 - [ ] `bash scripts/check-descriptions.sh`
 - [ ] `source .functions && <function-name>` works; aliases work in new shell
 - [ ] New aliases/functions evaluated for `HISTIGNORE` in `.commonrc` — add high-frequency, low-recall-value ones (navigation, list/status, fire-and-forget toggles, picker/AI launchers). A **bare** pattern (`name`) only filters the no-arg form and keeps `name <args>` recallable; use `name *` (or escaped `\&\&` for compounds) only when the args themselves are noise. Don't add mutating commands you'd want for audit/repeat.
