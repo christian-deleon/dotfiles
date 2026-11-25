@@ -9,7 +9,7 @@ go, then press X. Full details on the shell commands are in
 
 | Keys | Does |
 |------|------|
-| prefix, C | Pick a project under `~/projects` and open its session (a worktree project gets a window per worktree) |
+| prefix, C | Pick a project under `~/projects`, or `~/.dotfiles`, and open its session (a worktree project gets a window per worktree) |
 | prefix, s | Fuzzy-pick another session and switch to it, most recently used first |
 | prefix, P / prefix, N | Previous / next session |
 | Alt+Up / Alt+Down | Previous / next session, no prefix |

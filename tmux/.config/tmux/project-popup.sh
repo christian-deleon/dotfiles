@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Pick a project under ~/projects (or ~/Projects) and open a tmux session named after it.
+# Pick a project under ~/projects (or ~/Projects), or ~/.dotfiles, and open a tmux
+# session named after it.
 # Runs as the prefix+C popup, or from a plain terminal via `tp`, where it starts or
 # attaches to the server instead of switching the client.
 # A project root is a directory whose .git is a directory; worktrees have a .git file.
@@ -24,18 +25,31 @@ fi
 for root in "$HOME/projects" "$HOME/Projects" ""; do
     [[ -d $root ]] && break
 done
-if [[ -z $root ]]; then
+# ~/.dotfiles is a plain clone outside the projects folder; it is listed by its
+# path but sorted as "dotfiles".
+extra=()
+[[ -d $HOME/.dotfiles/.git ]] && extra=("~/.dotfiles")
+if [[ -z $root && ${#extra[@]} -eq 0 ]]; then
     msg="No ~/projects or ~/Projects folder"
     if [[ -n ${TMUX-} ]]; then tmux display-message "$msg"; else echo "$msg" >&2; fi
     exit 1
 fi
-rel=$(
-    find "$root" -maxdepth 6 -name .git -type d \
-        -not -path '*/archived/*' -not -path '*/legacy*' -not -path '*/worktrees/*' 2>/dev/null |
-        sed "s|/\.git\$||;s|^$root/||" | sort |
+pick=$(
+    {
+        for e in ${extra[@]+"${extra[@]}"}; do
+            printf '%s\t%s\n' "${e#"~/."}" "$e"
+        done
+        [[ -n $root ]] && find "$root" -maxdepth 6 -name .git -type d \
+            -not -path '*/archived/*' -not -path '*/legacy*' -not -path '*/worktrees/*' 2>/dev/null |
+            sed "s|/\.git\$||;s|^$root/||" | awk '{ print $0 "\t" $0 }'
+    } | sort -f -t $'\t' -k1,1 | cut -f2 |
         fzf --prompt='Project> ' --height=100% --reverse
 ) || exit 0
-dir=$root/$rel
+if [[ $pick == "~/"* ]]; then
+    dir=$HOME/${pick#"~/"}
+else
+    dir=$root/$pick
+fi
 
 # Extra arguments are tmux commands to chain after the switch or attach.
 go() {
@@ -53,7 +67,19 @@ if [[ -n $existing ]]; then
     exit
 fi
 
-base=$(basename "$dir" | tr '.:' '__')
+# Same name as wto gives it: no leading dot, and tmux turns "." and ":" into "_".
+base=$(basename "$dir")
+base=${base#.}
+base=${base//[.:]/_}
+# A session of that name with a pane in this folder was opened for this project by
+# wto, which does not set @project_dir. Claim it instead of opening a second one.
+while IFS= read -r path; do
+    if [[ $path == "$dir" || $path == "$dir"/* ]]; then
+        tmux set-option -t "=$base:" @project_dir "$dir"
+        go "$base"
+        exit
+    fi
+done < <(tmux list-panes -s -t "=$base" -F '#{pane_current_path}' 2>/dev/null)
 name=$base
 if tmux has-session -t "=$name" 2>/dev/null; then
     name=$(basename "$(dirname "$dir")" | tr '.:' '__')-$base
