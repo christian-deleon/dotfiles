@@ -1461,9 +1461,16 @@ window_tool() {
 # Worktrees of a project share a parent dir, so the session takes that dir's
 # name, unless this client already sits in the project under another session
 # name (opened with `tn`), whose session then gets the new windows.
+# The project root is the folder holding the repository's .git: a bare
+# project's root, or a plain clone itself. tmux turns "." and ":" in session
+# names into "_", so ~/.dotfiles gets "dotfiles", not "_dotfiles".
 session_for() {
-    local root cur_session cur_path
-    root=$(dirname "$1")
+    local root common cur_session cur_path name
+    if common=$(git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null); then
+        root=$(realpath -- "$(dirname "$common")")
+    else
+        root=$(dirname "$1")
+    fi
     if [[ -n ${TMUX:-} && -n ${TMUX_PANE:-} ]]; then
         cur_session=$(tmux display-message -t "$TMUX_PANE" -p '#{session_name}' 2>/dev/null) || cur_session=""
         cur_path=$(tmux display-message -t "$TMUX_PANE" -p '#{pane_current_path}' 2>/dev/null) || cur_path=""
@@ -1472,7 +1479,9 @@ session_for() {
             return
         fi
     fi
-    basename "$root"
+    name=$(basename "$root")
+    name=${name#.}
+    printf '%s\n' "${name//[.:]/_}"
 }
 
 # Window id (@N) of a worktree's window: one with a pane tagged for it, else a
