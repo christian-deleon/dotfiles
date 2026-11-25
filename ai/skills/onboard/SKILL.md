@@ -118,7 +118,9 @@ The profile block:
 `New work:` is how a session in a detached `wtc` folder starts a new effort once
 it is clear (the `detached-session-folders` rule): `issue and branch` files the
 issue, then creates the branch; `branch` creates just a local branch; `on
-request` only offers. Both of the first two act without asking.
+request` only offers. Both of the first two act without asking. An explicit
+commit, push, or merge-request ask (`/publish`, or the same ask in words) is the agreement
+to create the branch even when the line is `on request` or there is no profile.
 `Publish work: auto` lets sessions push their work branch and open its merge
 request without asking (the `auto-commit` rule); `ask` keeps both behind the
 user's go.

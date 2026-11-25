@@ -87,8 +87,12 @@ When asked to commit changes, follow these steps **in order**:
 On a detached HEAD in a linked worktree with no rebase or bisect running, name
 the branch before anything else, following the `detached-session-folders` rule:
 read `New work:` and `Branch naming` from `wto profile`, and file the issue
-first when that line says `issue and branch`. Do not invent a branch name or
-skip the issue.
+first when that line says `issue and branch`. When the user asked to commit,
+push, or open a merge request, that ask is the agreement — create the branch
+now and do not stop to confirm the name, even with no profile. If the session
+referenced a Jira key, put it in the branch name after the type. Do not invent
+a key. If the profile's `Branch naming` already gives the pattern, follow it.
+Do not skip the issue when `New work:` says `issue and branch`.
 
 Run these commands in parallel to understand what needs to be committed:
 

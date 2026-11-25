@@ -23,12 +23,19 @@ The line is the user's standing go for that project. It does not skip the
 `issue` skill's own rules (duplicates, `Issue drafts:`).
 
 An explicit request for an issue or a branch is always honored at once,
-whatever the line says.
+whatever the line says. So is an explicit request to commit, push, or open a
+merge request — `/publish`, or the same ask in words. That ask
+is the agreement to create the branch. Name it and create it, then continue.
+Do not offer the name and wait, even when the line is `on request`, there is
+no line, or there is no profile.
 
 ## Creating the branch
 
 - Name it by the profile's `Branch naming`, with the issue number right after
   the type when there is one (`fix/142-retry-backoff`).
+- If the session referenced a Jira issue key, put that key in the same place
+  (`feat/NGC-9795-container-release-manifest`). Use the key this work is for,
+  not every key that came up. Do not invent one.
 - `git switch -c <name>` in place, then carry on with the session. The branch
   stays local: push or set an upstream only as `auto-commit.md` allows.
 - Never rename a branch that is already pushed.
