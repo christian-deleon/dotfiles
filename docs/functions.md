@@ -490,6 +490,16 @@ ts    # picker — pick an action with ENTER / Ctrl-X / Ctrl-R
 
 ---
 
+### `tp` \*
+
+Pick a project under `~/Projects` with fzf and land in a tmux session named after it, in that project's folder. Use it instead of `tmux` in a fresh terminal: it starts the server if none is running, attaches to the project's session if one is already open, and switches the client when run inside tmux. Same picker as `prefix` + `C`.
+
+```bash
+tp    # pick a project, then you're in its session
+```
+
+---
+
 ### `tw` \*
 
 Switch to any tmux window across **all** sessions with fzf and a live preview of the highlighted window's active pane. Useful after `wto open --all` restores 10+ windows and you want to jump straight to one without first picking a session.

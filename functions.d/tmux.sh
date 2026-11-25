@@ -139,6 +139,18 @@ function ts() {
     esac
 }
 
+# Pick a project and open or attach to its tmux session
+function tp() {
+    local cmd
+    for cmd in tmux fzf; do
+        if ! command -v "$cmd" &>/dev/null; then
+            echo "Error: $cmd is not installed"
+            return 1
+        fi
+    done
+    "$HOME/.config/tmux/project-popup.sh"
+}
+
 # Switch tmux window across all sessions with fzf
 function tw() {
     if ! command -v tmux &>/dev/null; then
