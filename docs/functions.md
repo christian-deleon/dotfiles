@@ -492,7 +492,7 @@ ts    # picker — pick an action with ENTER / Ctrl-X / Ctrl-R
 
 ### `tp` \*
 
-Pick a project under `~/projects` (or `~/Projects` when that's the one that exists) with fzf and land in a tmux session named after it, in that project's folder. Use it instead of `tmux` in a fresh terminal: it starts the server if none is running, attaches to the project's session if one is already open, and switches the client when run inside tmux. Same picker as `prefix` + `C`.
+Pick a project under `~/projects` (or `~/Projects` when that's the one that exists) with fzf and land in a tmux session named after it, in that project's folder. Use it instead of `tmux` in a fresh terminal: it starts the server if none is running, attaches to the project's session if one is already open, and switches the client when run inside tmux. Same picker as `prefix` + `C`. When it creates the session for a worktree project (bare repo at the root), it also opens a window for each worktree, like [`wtaa`](#wtaa), so after a reboot one pick brings the whole project back.
 
 ```bash
 tp    # pick a project, then you're in its session

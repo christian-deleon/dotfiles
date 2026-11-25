@@ -52,4 +52,14 @@ name=$candidate
 
 tmux new-session -d -s "$name" -c "$dir"
 tmux set-option -t "=$name:" @project_dir "$dir"
+# A new session for a worktree project (bare repo at the root) gets a window per
+# worktree, as wtaa does after a reboot. Normal clones are skipped: wto would open
+# an agent on the checkout itself. wto files the windows under TMUX_PANE's session
+# when that pane sits at the project root, which keeps them here after a name clash.
+if [[ $(git --git-dir="$dir/.git" rev-parse --is-bare-repository 2>/dev/null) == true ]] &&
+    command -v wto >/dev/null; then
+    pane=$(tmux display-message -p -t "=$name:" '#{pane_id}')
+    sock=$(tmux display-message -p -t "=$name:" '#{socket_path}')
+    (cd "$dir" && TMUX=${TMUX:-$sock,0,0} TMUX_PANE=$pane wto open --all >/dev/null 2>&1) || true
+fi
 go "$name"
