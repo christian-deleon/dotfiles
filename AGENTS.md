@@ -107,6 +107,7 @@ Before committing:
 - [docs/tombstones.md](docs/tombstones.md) — desired-state absences for retired tools. **Load when retiring an item or changing update cleanup.**
 - [docs/ai.md](docs/ai.md) — how to add agents, commands, skills, rules
 - [docs/functions.md](docs/functions.md), [docs/aliases.md](docs/aliases.md) — full reference for shell functions and aliases
+- [docs/tmux.md](docs/tmux.md) — the user's tmux cheat sheet. **Update it in the same change as any key binding, mouse or status bar change in `tmux/.config/tmux/`.**
 
 ## Important reminders
 
