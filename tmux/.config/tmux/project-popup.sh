@@ -1,12 +1,19 @@
 #!/usr/bin/env bash
-# Pick a project under ~/Projects and open a tmux session named after it.
+# Pick a project under ~/projects (or ~/Projects) and open a tmux session named after it.
 # Runs as the prefix+C popup, or from a plain terminal via `tp`, where it starts or
 # attaches to the server instead of switching the client.
 # A project root is a directory whose .git is a directory; worktrees have a .git file.
 # Sessions remember their project in @project_dir, so picking it again switches there
 # even when a name clash gave it a longer name.
 set -u
-root=$HOME/Projects
+for root in "$HOME/projects" "$HOME/Projects" ""; do
+    [[ -d $root ]] && break
+done
+if [[ -z $root ]]; then
+    msg="No ~/projects or ~/Projects folder"
+    if [[ -n ${TMUX-} ]]; then tmux display-message "$msg"; else echo "$msg" >&2; fi
+    exit 1
+fi
 rel=$(
     find "$root" -maxdepth 6 -name .git -type d \
         -not -path '*/archived/*' -not -path '*/legacy*' -not -path '*/worktrees/*' 2>/dev/null |
