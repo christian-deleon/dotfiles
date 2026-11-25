@@ -2283,6 +2283,18 @@ close_here() {
     printf 'closing %s in a moment; result in %s\n' "${path##*/}" "$log"
 }
 
+# close_here only opened a spare window when its own was the last one, but
+# closes started from the other windows can remove those first, and an empty
+# session detaches its client. Check again at the kill, in one tmux command so
+# two closes finishing together cannot both pass the check.
+kill_keeping_session() {
+    local wid=$1 sid
+    sid=$(tmux display-message -p -t "$wid" '#{session_id}' 2>/dev/null) || return 0
+    tmux if-shell -F -t "$wid" '#{==:#{session_windows},1}' \
+        "new-window -d -t '$sid:' -c $(printf '%q' "$(project_root)")" \; \
+        kill-window -t "$wid" 2>/dev/null || true
+}
+
 # The detached half of --here: runs from the project root after the window
 # is no longer the one in front.
 close_detached() {
@@ -2299,7 +2311,7 @@ close_detached() {
         msg=${out##*$'\n'}
         printf '%s\n' "$out" >"$log"
         tmux display-message "wto: $msg" 2>/dev/null || true
-        [[ -z ${WTO_CLOSE_WINDOW-} ]] || tmux kill-window -t "$WTO_CLOSE_WINDOW" 2>/dev/null || true
+        [[ -z ${WTO_CLOSE_WINDOW-} ]] || kill_keeping_session "$WTO_CLOSE_WINDOW"
     else
         printf '%s\n' "$out" >"$log"
         tmux display-message "wto: close of ${path##*/} failed; see $log" 2>/dev/null || true
