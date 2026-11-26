@@ -157,7 +157,7 @@ function histdedup() {
     echo "history de-duplicated (file ${file_before// /}→${file_after// /} lines, session ${mem_before// /}→${mem_after// /})"
 }
 
-# Full OS package update (omarchy/brew/yay|pacman/apt)
+# Full OS package update (omarchy/brew/yay|pacman/apt/dnf)
 function pkgup() {
     if [[ "$OSTYPE" == darwin* ]]; then
         if ! command -v brew &>/dev/null; then
@@ -193,8 +193,10 @@ function pkgup() {
             && sudo apt-get upgrade -y \
             && sudo apt-get autoremove -y \
             && sudo apt-get autoclean
+    elif command -v dnf &>/dev/null; then
+        sudo dnf upgrade -y && sudo dnf autoremove -y
     else
-        echo "pkgup: no supported package manager (brew/yay|pacman/apt)" >&2
+        echo "pkgup: no supported package manager (brew/yay|pacman/apt/dnf)" >&2
         return 1
     fi
 }
